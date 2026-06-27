@@ -31,11 +31,11 @@ settings = get_settings()
 
 
 class SafeJSONResponse(JSONResponse):
-    """JSON response that handles NaN/Infinity values."""
+    """JSON response that handles NaN/Infinity and numpy types."""
 
     def render(self, content) -> bytes:
         cleaned = self._clean(content)
-        return json.dumps(cleaned, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+        return json.dumps(cleaned, ensure_ascii=False, separators=(",", ":"), default=str).encode("utf-8")
 
     @classmethod
     def _clean(cls, obj):
@@ -47,6 +47,20 @@ class SafeJSONResponse(JSONResponse):
             return {k: cls._clean(v) for k, v in obj.items()}
         elif isinstance(obj, (list, tuple)):
             return [cls._clean(item) for item in obj]
+        # Handle numpy types
+        try:
+            import numpy as np
+            if isinstance(obj, (np.integer,)):
+                return int(obj)
+            if isinstance(obj, (np.floating,)):
+                v = float(obj)
+                return 0.0 if (math.isnan(v) or math.isinf(v)) else v
+            if isinstance(obj, (np.bool_,)):
+                return bool(obj)
+            if isinstance(obj, np.ndarray):
+                return [cls._clean(x) for x in obj.tolist()]
+        except (ImportError, TypeError):
+            pass
         return obj
 
 

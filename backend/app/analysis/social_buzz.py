@@ -321,8 +321,8 @@ async def _analyze_volume_attention(symbol: str) -> dict:
     return {
         "attention_score": attention_score,
         "volume_ratio": round(float(vol_ratio), 2),
-        "volume_surge": volume_surge,
-        "vol_increasing": vol_increasing,
+        "volume_surge": bool(volume_surge),
+        "vol_increasing": bool(vol_increasing),
         "avg_volume_20d": int(vol_20ma),
         "avg_volume_5d": int(vol_recent),
     }
