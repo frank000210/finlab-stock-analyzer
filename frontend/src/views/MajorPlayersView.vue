@@ -145,9 +145,11 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
+import { useStockStore } from '../stores/stock.js'
 
 const route = useRoute()
-const symbol = ref(route.params.symbol || '2330')
+const stockStore = useStockStore()
+const symbol = ref(route.params.symbol || stockStore.symbol)
 const days = ref(90)
 const loading = ref(false)
 const error = ref('')

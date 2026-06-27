@@ -25,6 +25,7 @@ from .api import (
     lead_lag_router,
     major_players_router,
     social_buzz_router,
+    public_data_router,
 )
 
 settings = get_settings()
@@ -98,6 +99,7 @@ app.include_router(seasonal_router)
 app.include_router(lead_lag_router)
 app.include_router(major_players_router)
 app.include_router(social_buzz_router)
+app.include_router(public_data_router)
 
 
 @app.get("/api/health")

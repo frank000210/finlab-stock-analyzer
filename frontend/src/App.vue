@@ -18,7 +18,7 @@
           <li
             v-for="item in searchResults"
             :key="item.symbol"
-            @mousedown="selectStock(item.symbol)"
+            @mousedown="selectStock(item.symbol, item.name_zh)"
           >
             <span class="search-symbol">{{ item.symbol }}</span>
             <span class="search-name">{{ item.name_zh }}</span>
@@ -27,16 +27,16 @@
       </div>
       <div class="nav-links primary-nav">
         <router-link to="/decision" class="nav-cta">🎯 決策面板</router-link>
-        <router-link to="/stocks/2330">分析</router-link>
-        <router-link to="/stocks/2330/seasonal">季節性</router-link>
-        <router-link to="/stocks/2330/lead-lag">領先落後</router-link>
-        <router-link to="/stocks/2330/major-players">主力</router-link>
-        <router-link to="/stocks/2330/social-buzz">熱度</router-link>
+        <router-link :to="`/stocks/${stockStore.symbol}`">分析</router-link>
+        <router-link :to="`/stocks/${stockStore.symbol}/seasonal`">季節性</router-link>
+        <router-link :to="`/stocks/${stockStore.symbol}/lead-lag`">領先落後</router-link>
+        <router-link :to="`/stocks/${stockStore.symbol}/major-players`">主力</router-link>
+        <router-link :to="`/stocks/${stockStore.symbol}/social-buzz`">熱度</router-link>
       </div>
       <div class="nav-links secondary-nav">
-        <router-link to="/stocks/2330/backtest">回測</router-link>
-        <router-link to="/ai-signals">AI 信號</router-link>
-        <router-link to="/risk-monitor">風控</router-link>
+        <router-link to="/overview">總覽</router-link>
+        <router-link :to="`/stocks/${stockStore.symbol}/public-data`">公開資訊</router-link>
+        <router-link :to="`/stocks/${stockStore.symbol}/backtest`">回測</router-link>
         <router-link to="/settings">設定</router-link>
       </div>
     </nav>
@@ -49,9 +49,11 @@
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { useStockStore } from './stores/stock.js'
 
 const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:8000' : ''
 const router = useRouter()
+const stockStore = useStockStore()
 const searchQuery = ref('')
 const searchResults = ref([])
 let searchTimeout = null
@@ -73,17 +75,19 @@ function onSearch() {
   }, 250)
 }
 
-function selectStock(symbol) {
+function selectStock(symbol, name_zh) {
   searchResults.value = []
   searchQuery.value = ''
+  stockStore.setStock(symbol, name_zh || '')
   router.push(`/stocks/${symbol}`)
 }
 
 function goToStock() {
   if (searchResults.value.length > 0) {
-    selectStock(searchResults.value[0].symbol)
+    const item = searchResults.value[0]
+    selectStock(item.symbol, item.name_zh)
   } else if (searchQuery.value.match(/^\d{4}$/)) {
-    selectStock(searchQuery.value)
+    selectStock(searchQuery.value, '')
   }
 }
 </script>

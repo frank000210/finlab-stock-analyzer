@@ -121,6 +121,15 @@ class FinMindClient:
             {"data_id": symbol, "start_date": start, "end_date": end},
         )
 
+    async def get_dividend_history(
+        self, symbol: str, start: str, end: str
+    ) -> pd.DataFrame:
+        """Fetch dividend history."""
+        return await self._fetch(
+            "TaiwanStockDividend",
+            {"data_id": symbol, "start_date": start, "end_date": end},
+        )
+
     async def get_shareholding(
         self, symbol: str, start: str, end: str
     ) -> pd.DataFrame:

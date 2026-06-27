@@ -136,8 +136,10 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { useStockStore } from '../stores/stock.js'
 
 const router = useRouter()
+const stockStore = useStockStore()
 const searchQuery = ref('')
 const recentStockItems = ref([])
 
@@ -194,11 +196,12 @@ function search() {
   if (!symbol) {
     return
   }
-
+  stockStore.setStock(symbol, stockNames[symbol] || '')
   router.push(`/stocks/${encodeURIComponent(symbol)}`)
 }
 
 function goToStock(symbol) {
+  stockStore.setStock(symbol, stockNames[symbol] || '')
   router.push(`/stocks/${symbol}`)
 }
 

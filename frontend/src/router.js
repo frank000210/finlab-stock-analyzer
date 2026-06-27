@@ -7,6 +7,11 @@ const routes = [
     component: () => import('./views/HomeView.vue'),
   },
   {
+    path: '/overview',
+    name: 'overview',
+    component: () => import('./views/OverviewView.vue'),
+  },
+  {
     path: '/decision',
     name: 'decision',
     component: () => import('./views/DecisionView.vue'),
@@ -40,6 +45,11 @@ const routes = [
     path: '/stocks/:symbol/social-buzz',
     name: 'social-buzz',
     component: () => import('./views/SocialBuzzView.vue'),
+  },
+  {
+    path: '/stocks/:symbol/public-data',
+    name: 'public-data',
+    component: () => import('./views/PublicDataView.vue'),
   },
   {
     path: '/settings',
