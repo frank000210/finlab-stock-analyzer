@@ -1,8 +1,11 @@
 """FinLab Stock Analyzer - FastAPI Application."""
 
+import math
+import json
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import JSONResponse
 from pathlib import Path
 
 from .config.settings import get_settings
@@ -17,11 +20,33 @@ from .api import (
 
 settings = get_settings()
 
+
+class SafeJSONResponse(JSONResponse):
+    """JSON response that handles NaN/Infinity values."""
+
+    def render(self, content) -> bytes:
+        cleaned = self._clean(content)
+        return json.dumps(cleaned, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+
+    @classmethod
+    def _clean(cls, obj):
+        if isinstance(obj, float):
+            if math.isnan(obj) or math.isinf(obj):
+                return 0.0
+            return obj
+        elif isinstance(obj, dict):
+            return {k: cls._clean(v) for k, v in obj.items()}
+        elif isinstance(obj, (list, tuple)):
+            return [cls._clean(item) for item in obj]
+        return obj
+
+
 app = FastAPI(
     title=settings.app_name,
     version=settings.app_version,
     docs_url="/api/docs",
     redoc_url="/api/redoc",
+    default_response_class=SafeJSONResponse,
 )
 
 # CORS

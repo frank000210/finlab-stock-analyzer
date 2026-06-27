@@ -37,7 +37,7 @@ def compute_metrics(
     # Profit factor
     gross_profit = sum(t["return"] for t in trades if t["return"] > 0)
     gross_loss = abs(sum(t["return"] for t in trades if t["return"] < 0))
-    profit_factor = gross_profit / gross_loss if gross_loss > 0 else float("inf")
+    profit_factor = gross_profit / gross_loss if gross_loss > 0 else 99.99
 
     # Average holding days
     avg_holding = np.mean([t["holding_days"] for t in trades]) if trades else 0

@@ -71,7 +71,7 @@ async def get_stock_price(
     symbol: str,
     start: date = Query(default=None),
     end: date = Query(default=None),
-    period: str = Query(default="1d", regex="^(1d|1w|1mo)$"),
+    period: str = Query(default="1d", pattern="^(1d|1w|1mo)$"),
 ):
     """Get historical OHLCV data."""
     if not end:
