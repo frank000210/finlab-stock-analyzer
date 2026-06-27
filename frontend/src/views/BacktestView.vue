@@ -98,7 +98,11 @@
         <!-- Equity Curve Chart -->
         <div class="card" style="margin-bottom: 16px;">
           <h4>權益曲線</h4>
-          <div ref="equityChart" class="chart-container"></div>
+          <div class="chart-wrapper">
+            <span class="y-axis-label">新台幣(元)</span>
+            <div ref="equityChart" class="chart-container"></div>
+          </div>
+          <div class="x-axis-label">日期</div>
         </div>
 
         <!-- Trade History -->
@@ -245,6 +249,31 @@ function renderEquityCurve() {
 .empty-state { text-align: center; padding: var(--space-12); }
 .empty-state p { color: var(--text-secondary); margin-top: var(--space-2); }
 .chart-container { width: 100%; margin-top: var(--space-3); border-radius: var(--radius); overflow: hidden; }
+.chart-wrapper {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+}
+.chart-wrapper .chart-container { flex: 1; }
+.y-axis-label {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+  padding: 0 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+}
+.x-axis-label {
+  text-align: center;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  margin-top: 4px;
+  letter-spacing: 0.04em;
+}
 .data-table { overflow-x: auto; margin-top: var(--space-3); }
 .data-table table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
 .data-table th, .data-table td { padding: 8px 12px; text-align: right; border-bottom: 1px solid var(--border-color); }

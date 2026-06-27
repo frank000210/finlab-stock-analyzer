@@ -43,8 +43,12 @@
             <p>近端 API 回傳的收盤價折線圖</p>
           </div>
         </div>
-        <div v-if="priceSeries.length" ref="chartEl" class="chart-area"></div>
-        <div v-else class="empty-state">目前沒有價格資料</div>
+        <div v-if="priceSeries.length" class="chart-wrapper">
+          <span class="y-axis-label">新台幣(元)</span>
+          <div ref="chartEl" class="chart-area"></div>
+        </div>
+        <div class="x-axis-label" v-if="priceSeries.length">日期</div>
+        <div v-if="!priceSeries.length" class="empty-state">目前沒有價格資料</div>
       </article>
 
       <article class="card side-card">
@@ -337,6 +341,37 @@ function statusClass(status) {
   overflow: hidden;
   background: #0d1117;
   border: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.chart-wrapper {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+}
+
+.chart-wrapper .chart-area {
+  flex: 1;
+}
+
+.y-axis-label {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+  padding: 0 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+}
+
+.x-axis-label {
+  text-align: center;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  margin-top: 4px;
+  letter-spacing: 0.04em;
 }
 
 .signal-list {

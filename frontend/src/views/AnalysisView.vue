@@ -64,7 +64,11 @@
                 <i class="legend-dot ma60"></i>MA60
               </span>
             </div>
-            <div ref="priceChartEl" class="chart-area price-chart"></div>
+            <div class="chart-wrapper">
+              <span class="y-axis-label">新台幣(元)</span>
+              <div ref="priceChartEl" class="chart-area price-chart"></div>
+            </div>
+            <div class="x-axis-label">日期</div>
           </div>
 
           <div class="chart-block">
@@ -72,7 +76,10 @@
               <span>RSI (14)</span>
               <span class="muted-text">30 / 70 區間</span>
             </div>
-            <div ref="rsiChartEl" class="chart-area indicator-chart"></div>
+            <div class="chart-wrapper">
+              <span class="y-axis-label">RSI 值</span>
+              <div ref="rsiChartEl" class="chart-area indicator-chart"></div>
+            </div>
           </div>
 
           <div class="chart-block">
@@ -80,7 +87,11 @@
               <span>MACD</span>
               <span class="muted-text">DIF / Signal / Histogram</span>
             </div>
-            <div ref="macdChartEl" class="chart-area indicator-chart"></div>
+            <div class="chart-wrapper">
+              <span class="y-axis-label">MACD 值</span>
+              <div ref="macdChartEl" class="chart-area indicator-chart"></div>
+            </div>
+            <div class="x-axis-label">日期</div>
           </div>
         </div>
       </article>
@@ -1399,6 +1410,37 @@ function valueTone(value) {
   font-size: 0.82rem;
   color: var(--text-secondary);
   margin-bottom: 10px;
+}
+
+.chart-wrapper {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+}
+
+.y-axis-label {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+  padding: 0 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+}
+
+.chart-wrapper .chart-area {
+  flex: 1;
+}
+
+.x-axis-label {
+  text-align: center;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  margin-top: 4px;
+  letter-spacing: 0.04em;
 }
 
 .legend-group {
