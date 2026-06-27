@@ -16,9 +16,24 @@ async def get_lead_lag_analysis(
 ):
     """Analyze lead/lag relationship between stock and benchmark."""
     try:
+        cache_key = f"lead_lag:{symbol}:{benchmark}:{days}"
+        try:
+            from ..db.cache import get_cache, set_cache
+            cached = await get_cache(cache_key)
+            if cached:
+                return {"success": True, "data": cached}
+        except Exception:
+            pass
+
         result = await analyze_lead_lag(symbol, benchmark, days, max_lag)
         if "error" in result:
             return {"success": False, "error": result["error"], "data": None}
+
+        try:
+            await set_cache(cache_key, result, "lead_lag")
+        except Exception:
+            pass
+
         return {"success": True, "data": result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

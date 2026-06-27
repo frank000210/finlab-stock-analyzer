@@ -17,6 +17,10 @@ class Settings(BaseSettings):
     # Database
     database_url: str = "sqlite+aiosqlite:///./finlab.db"
 
+    # MongoDB
+    mongodb_uri: str = "mongodb://localhost:27017"
+    mongodb_db_name: str = "finlab"
+
     # CORS
     cors_origins: str = "http://localhost:5173,http://localhost:3000"
 

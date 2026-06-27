@@ -9,11 +9,26 @@ router = APIRouter(prefix="/api/v1/stocks", tags=["social-buzz"])
 async def get_social_buzz(symbol: str):
     """Analyze social media and news buzz for a stock."""
     try:
+        cache_key = f"social_buzz:{symbol}"
+        try:
+            from ..db.cache import get_cache, set_cache
+            cached = await get_cache(cache_key)
+            if cached:
+                return {"success": True, "data": cached}
+        except Exception:
+            pass
+
         from ..analysis.social_buzz import analyze_social_buzz
         from ..ai_agent.signal_generator import STOCK_NAMES
 
         stock_name = STOCK_NAMES.get(symbol, "")
         result = await analyze_social_buzz(symbol, stock_name)
+
+        try:
+            await set_cache(cache_key, result, "social_buzz")
+        except Exception:
+            pass
+
         return {"success": True, "data": result}
     except Exception as e:
         import traceback

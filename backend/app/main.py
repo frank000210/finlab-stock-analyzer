@@ -26,6 +26,7 @@ from .api import (
     major_players_router,
     social_buzz_router,
     public_data_router,
+    cache_router,
 )
 
 settings = get_settings()
@@ -83,6 +84,27 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+# MongoDB lifecycle
+@app.on_event("startup")
+async def startup_db():
+    try:
+        from .db.cache import ensure_indexes
+        await ensure_indexes()
+    except Exception as e:
+        import logging
+        logging.warning(f"MongoDB init skipped: {e}")
+
+
+@app.on_event("shutdown")
+async def shutdown_db():
+    try:
+        from .db.mongodb import close_mongodb
+        await close_mongodb()
+    except Exception:
+        pass
+
+
 # API Routes
 app.include_router(stock_router)
 app.include_router(analysis_router)
@@ -100,6 +122,7 @@ app.include_router(lead_lag_router)
 app.include_router(major_players_router)
 app.include_router(social_buzz_router)
 app.include_router(public_data_router)
+app.include_router(cache_router)
 
 
 @app.get("/api/health")

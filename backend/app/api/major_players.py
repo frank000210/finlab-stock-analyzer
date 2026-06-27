@@ -14,9 +14,24 @@ async def get_major_players_analysis(
 ):
     """Analyze major player (主力) accumulation/distribution patterns."""
     try:
+        cache_key = f"major_players:{symbol}:{days}"
+        try:
+            from ..db.cache import get_cache, set_cache
+            cached = await get_cache(cache_key)
+            if cached:
+                return {"success": True, "data": cached}
+        except Exception:
+            pass
+
         result = await analyze_major_players(symbol, days)
         if "error" in result:
             return {"success": False, "error": result["error"], "data": None}
+
+        try:
+            await set_cache(cache_key, result, "major_players")
+        except Exception:
+            pass
+
         return {"success": True, "data": result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
