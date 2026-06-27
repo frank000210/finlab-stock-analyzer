@@ -100,20 +100,6 @@ app.include_router(major_players_router)
 app.include_router(social_buzz_router)
 
 
-@app.get("/api/debug/social-buzz/{symbol}")
-async def debug_social_buzz(symbol: str):
-    """Debug endpoint for social buzz."""
-    import traceback
-    try:
-        from .analysis.social_buzz import analyze_social_buzz
-        from .ai_agent.signal_generator import STOCK_NAMES
-        stock_name = STOCK_NAMES.get(symbol, "")
-        result = await analyze_social_buzz(symbol, stock_name)
-        return {"ok": True, "keys": list(result.keys()), "buzz_score": result.get("buzz_score")}
-    except Exception as e:
-        return {"ok": False, "error": str(e), "tb": traceback.format_exc()}
-
-
 @app.get("/api/health")
 async def health_check():
     return {"status": "ok", "version": settings.app_version}
