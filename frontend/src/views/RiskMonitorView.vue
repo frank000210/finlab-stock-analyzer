@@ -86,8 +86,8 @@ const equitySeries = ref([])
 const chartEl = ref(null)
 let chart = null
 
-const mddValue = computed(() => toUnitValue(riskStatus.value?.mdd ?? riskStatus.value?.max_drawdown ?? riskStatus.value?.drawdown))
-const circuitStatus = computed(() => String(riskStatus.value?.circuit_breaker_status || riskStatus.value?.circuitBreakerStatus || riskStatus.value?.status || 'UNKNOWN').toUpperCase())
+const mddValue = computed(() => toUnitValue(riskStatus.value?.mdd_percent ?? riskStatus.value?.mdd ?? riskStatus.value?.max_drawdown ?? riskStatus.value?.drawdown))
+const circuitStatus = computed(() => String((riskStatus.value?.circuit_breaker ?? riskStatus.value?.circuit_breaker_status) || riskStatus.value?.circuitBreakerStatus || riskStatus.value?.status || 'UNKNOWN').toUpperCase())
 const dailyTrades = computed(() => Number(riskStatus.value?.daily_trades ?? riskStatus.value?.dailyTrades ?? riskStatus.value?.trades_today ?? 0))
 const dailyTradeLimit = computed(() => Number(riskStatus.value?.daily_trade_limit ?? riskStatus.value?.dailyTradeLimit ?? 15))
 const tradePercent = computed(() => Math.min(100, Math.round((dailyTrades.value / Math.max(1, dailyTradeLimit.value)) * 100)))

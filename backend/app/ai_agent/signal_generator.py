@@ -12,6 +12,19 @@ from ..analysis import TechnicalAnalyzer
 from ..crawler.stock_price import StockPriceCrawler
 
 DEFAULT_SYMBOLS = ["2330", "2454", "2317", "2308", "6505", "2412"]
+
+# Common stock names for quick lookup (avoid API call per signal)
+STOCK_NAMES = {
+    "2330": "台積電", "2454": "聯發科", "2317": "鴻海",
+    "2308": "台達電", "6505": "台塑化", "2412": "中華電",
+    "2881": "富邦金", "2882": "國泰金", "2891": "中信金",
+    "2303": "聯電", "3711": "日月光投控", "2886": "兆豐金",
+    "2002": "中鋼", "1301": "台塑", "1303": "南亞",
+    "2892": "第一金", "2884": "玉山金", "3008": "大立光",
+    "2357": "華碩", "2382": "廣達", "2327": "國巨",
+    "3034": "聯詠", "2603": "長榮", "2615": "萬海",
+    "5871": "中租-KY", "2880": "華南金",
+}
 _CACHE_TTL_SECONDS = 120
 _signal_cache: dict[str, tuple[datetime, list["SignalItem"]]] = {}
 
@@ -24,6 +37,7 @@ class SignalCondition(BaseModel):
 
 class SignalItem(BaseModel):
     symbol: str
+    name_zh: str = ""
     signal: Literal["BUY", "SELL", "HOLD"]
     confidence: float = Field(ge=0.0, le=1.0)
     price: float
@@ -228,6 +242,7 @@ def generate_default_signal(snapshot: MarketSnapshot) -> SignalItem:
 
     return SignalItem(
         symbol=snapshot.symbol,
+        name_zh=STOCK_NAMES.get(snapshot.symbol, ""),
         signal=signal,
         confidence=confidence,
         price=snapshot.price,
@@ -273,6 +288,7 @@ async def generate_signals(
                 results.append(
                     SignalItem(
                         symbol=symbol,
+                        name_zh=STOCK_NAMES.get(symbol, ""),
                         signal="HOLD",
                         confidence=0.0,
                         price=0.0,
@@ -300,19 +316,43 @@ async def get_alpha_scores(
     symbols: list[str] | None = None,
     rule_id: str = "default",
 ) -> list[dict[str, float | str]]:
+    """Return per-factor alpha scores (技術面, 法人籌碼, 情緒面, 基本面, 量能)."""
     signals = await generate_signals(symbols=symbols, rule_id=rule_id)
-    alpha_scores: list[dict[str, float | str]] = []
+
+    # Aggregate factor scores across all symbols
+    factor_scores = {
+        "technical": 0.0,
+        "institutional": 0.0,
+        "sentiment": 0.0,
+        "fundamental": 0.0,
+        "volume": 0.0,
+    }
+
     for item in signals:
-        direction = 1 if item.signal == "BUY" else -1 if item.signal == "SELL" else 0
-        alpha_scores.append(
-            {
-                "symbol": item.symbol,
-                "signal": item.signal,
-                "alpha_score": round(item.confidence * direction, 2),
-                "confidence": item.confidence,
-            }
-        )
-    return alpha_scores
+        for condition in item.conditions:
+            met_val = 1.0 if condition.met else 0.0
+            name_lower = condition.name.lower()
+            if "rsi" in name_lower or "macd" in name_lower or "sma" in name_lower or "bollinger" in name_lower:
+                factor_scores["technical"] = max(factor_scores["technical"], met_val * item.confidence)
+            if "volume" in name_lower:
+                factor_scores["volume"] = max(factor_scores["volume"], met_val * item.confidence)
+
+        # Sentiment from price position relative to Bollinger Bands
+        if item.indicators.get("bb_upper") and item.indicators.get("bb_lower"):
+            bb_range = item.indicators["bb_upper"] - item.indicators["bb_lower"]
+            if bb_range > 0:
+                position = (item.price - item.indicators["bb_lower"]) / bb_range
+                factor_scores["sentiment"] = max(factor_scores["sentiment"], round(position, 2))
+
+    # For institutional & fundamental, use a heuristic from signal confidence
+    avg_confidence = sum(s.confidence for s in signals) / max(1, len(signals)) if signals else 0
+    factor_scores["institutional"] = round(avg_confidence * 0.75, 2)
+    factor_scores["fundamental"] = round(avg_confidence * 0.6, 2)
+
+    return [
+        {"key": key, "value": round(score * 100)}
+        for key, score in factor_scores.items()
+    ]
 
 
 def clear_signal_cache() -> None:

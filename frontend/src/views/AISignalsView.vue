@@ -45,7 +45,7 @@
           <div v-for="signal in filteredSignals" :key="signal.id" class="signal-card">
             <div class="signal-head">
               <div>
-                <h3>{{ signal.symbol }}</h3>
+                <h3>{{ signal.symbol }} <span v-if="signal.name_zh" class="stock-name">{{ signal.name_zh }}</span></h3>
                 <p>{{ signal.reasoning }}</p>
               </div>
               <span class="badge" :class="badgeClass(signal.type)">{{ signal.type }}</span>
@@ -162,6 +162,7 @@ function normalizeSignals(payload) {
   return extractList(payload, ['items', 'signals']).map((item, index) => ({
     id: item.id || item.task_id || `${item.symbol || item.stock_symbol || 'signal'}-${index}`,
     symbol: item.symbol || item.stock_symbol || item.ticker || 'N/A',
+    name_zh: item.name_zh || item.stock_name || '',
     type: String(item.type || item.signal || item.action || 'HOLD').toUpperCase(),
     confidence: normalizePercent(item.confidence),
     reasoning: item.reasoning || item.reason || '無推論內容',
@@ -309,6 +310,13 @@ function badgeClass(type) {
   border-radius: 12px;
   border: 1px solid rgba(148, 163, 184, 0.16);
   background: rgba(15, 23, 42, 0.45);
+}
+
+.stock-name {
+  font-size: 0.85rem;
+  font-weight: 400;
+  color: var(--text-secondary);
+  margin-left: 6px;
 }
 
 .confidence-row {
