@@ -5,6 +5,7 @@ Collections:
 - settings: User settings and preferences
 """
 
+import json
 from datetime import datetime, timedelta
 from typing import Any, Optional
 from .mongodb import get_mongodb
@@ -24,10 +25,27 @@ CACHE_TTL = {
 }
 
 
+def _serialize(data: Any) -> str:
+    """Serialize data to JSON string, handling numpy/pandas types."""
+    import numpy as np
+
+    def default_handler(obj):
+        if isinstance(obj, (np.integer,)):
+            return int(obj)
+        if isinstance(obj, (np.floating,)):
+            return float(obj)
+        if isinstance(obj, (np.bool_,)):
+            return bool(obj)
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        return str(obj)
+
+    return json.dumps(data, default=default_handler, ensure_ascii=False)
+
+
 async def ensure_indexes():
     """Create TTL index on cache collection (call once at startup)."""
     db = await get_mongodb()
-    # TTL index: documents expire based on 'expires_at' field
     await db.cache.create_index("expires_at", expireAfterSeconds=0)
     await db.cache.create_index([("key", 1)], unique=True)
     await db.settings.create_index([("key", 1)], unique=True)
@@ -38,7 +56,10 @@ async def get_cache(key: str) -> Optional[Any]:
     db = await get_mongodb()
     doc = await db.cache.find_one({"key": key, "expires_at": {"$gt": datetime.utcnow()}})
     if doc:
-        return doc.get("data")
+        raw = doc.get("data")
+        if isinstance(raw, str):
+            return json.loads(raw)
+        return raw
     return None
 
 
@@ -48,11 +69,13 @@ async def set_cache(key: str, data: Any, category: str = "analysis") -> None:
     ttl_minutes = CACHE_TTL.get(category, 60)
     expires_at = datetime.utcnow() + timedelta(minutes=ttl_minutes)
 
+    serialized = _serialize(data)
+
     await db.cache.update_one(
         {"key": key},
         {"$set": {
             "key": key,
-            "data": data,
+            "data": serialized,
             "category": category,
             "expires_at": expires_at,
             "updated_at": datetime.utcnow(),
