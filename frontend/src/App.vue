@@ -1,43 +1,41 @@
 <template>
   <div id="app-root">
     <nav class="top-nav">
-      <router-link to="/" class="logo">📈 FinLab</router-link>
+      <router-link to="/" class="logo">
+        <span class="logo-icon">◆</span> FinLab
+      </router-link>
       <div class="search-bar">
+        <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
         <input
           v-model="searchQuery"
           @input="onSearch"
           @keyup.enter="goToStock"
-          placeholder="搜尋股票 (例: 2330 台積電)"
+          @blur="() => setTimeout(() => searchResults = [], 200)"
+          placeholder="搜尋股票代號或名稱..."
           class="search-input"
         />
         <ul v-if="searchResults.length" class="search-dropdown">
           <li
             v-for="item in searchResults"
             :key="item.symbol"
-            @click="selectStock(item.symbol)"
+            @mousedown="selectStock(item.symbol)"
           >
-            {{ item.symbol }} - {{ item.name_zh }}
+            <span class="search-symbol">{{ item.symbol }}</span>
+            <span class="search-name">{{ item.name_zh }}</span>
           </li>
         </ul>
       </div>
-      <div class="nav-links">
-        <router-link to="/">🏠 首頁</router-link>
-        <router-link to="/decision" class="nav-highlight">🎯 決策面板</router-link>
-        <router-link to="/stocks/2330">📊 分析</router-link>
-        <router-link to="/stocks/2330/backtest">🧪 回測</router-link>
-        <router-link to="/settings">⚙️ 設定</router-link>
+      <div class="nav-links primary-nav">
+        <router-link to="/decision" class="nav-cta">🎯 決策面板</router-link>
+        <router-link to="/stocks/2330">分析</router-link>
+        <router-link to="/stocks/2330/backtest">回測</router-link>
+        <router-link to="/ai-signals">AI 信號</router-link>
+        <router-link to="/risk-monitor">風控</router-link>
       </div>
-      <div class="nav-divider"></div>
-      <div class="ai-nav">
-        <span class="nav-section-title">AI 交易系統</span>
-        <div class="nav-links">
-          <router-link to="/trade-dashboard">交易儀表板</router-link>
-          <router-link to="/ai-signals">AI 信號</router-link>
-          <router-link to="/risk-monitor">風控監控</router-link>
-          <router-link to="/data-agent">資料爬蟲</router-link>
-          <router-link to="/trade-approval">交易核准</router-link>
-          <router-link to="/signal-rules">信號規則</router-link>
-        </div>
+      <div class="nav-links secondary-nav">
+        <router-link to="/trade-dashboard">儀表板</router-link>
+        <router-link to="/data-agent">資料</router-link>
+        <router-link to="/settings">設定</router-link>
       </div>
     </nav>
     <main class="main-content">
@@ -49,8 +47,8 @@
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import axios from 'axios'
 
+const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:8000' : ''
 const router = useRouter()
 const searchQuery = ref('')
 const searchResults = ref([])
@@ -64,12 +62,13 @@ function onSearch() {
   }
   searchTimeout = setTimeout(async () => {
     try {
-      const resp = await axios.get(`/api/v1/stocks/search?q=${searchQuery.value}`)
-      searchResults.value = resp.data.data.items || []
+      const resp = await fetch(`${API_BASE}/api/v1/stocks/search?q=${searchQuery.value}`)
+      const data = await resp.json()
+      searchResults.value = data?.data?.items || []
     } catch {
       searchResults.value = []
     }
-  }, 300)
+  }, 250)
 }
 
 function selectStock(symbol) {
@@ -88,68 +87,103 @@ function goToStock() {
 </script>
 
 <style scoped>
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.logo-icon {
+  color: var(--accent-blue);
+  font-size: 1.1rem;
+}
+
+.search-bar {
+  position: relative;
+}
+
+.search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.search-input {
+  padding-left: 36px !important;
+}
+
+.search-dropdown li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.search-symbol {
+  font-weight: 700;
+  color: var(--accent-blue);
+  font-size: 0.85rem;
+  min-width: 48px;
+}
+
+.search-name {
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+}
+
 .nav-links {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 4px;
   flex-wrap: wrap;
 }
 
-.nav-links a.router-link-active {
-  color: var(--text-primary);
-}
-
-.nav-highlight {
-  background: linear-gradient(135deg, #2563eb, #7c3aed);
-  padding: 4px 10px;
-  border-radius: 6px;
+.nav-cta {
+  background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+  padding: 5px 12px !important;
+  border-radius: var(--radius-sm) !important;
   color: #fff !important;
-  font-weight: 600;
+  font-weight: 700 !important;
+  font-size: 0.8rem !important;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+  transition: box-shadow var(--transition-fast) !important;
 }
 
-.nav-divider {
-  width: 1px;
-  min-height: 28px;
-  background: var(--border-color);
+.nav-cta:hover {
+  box-shadow: 0 4px 16px rgba(59, 130, 246, 0.5) !important;
+  background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple)) !important;
 }
 
-.ai-nav {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
+.secondary-nav {
+  margin-left: auto;
 }
 
-.nav-section-title {
-  font-size: 0.78rem;
-  color: var(--text-secondary);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+.secondary-nav a {
+  font-size: 0.78rem !important;
+  opacity: 0.7;
 }
 
-@media (max-width: 1200px) {
-  .top-nav {
-    height: auto;
-    min-height: 64px;
-    flex-wrap: wrap;
-  }
+.secondary-nav a:hover {
+  opacity: 1;
+}
 
-  .nav-divider {
-    display: none;
-  }
+@media (max-width: 1024px) {
+  .secondary-nav { display: none; }
 }
 
 @media (max-width: 768px) {
-  .ai-nav {
-    width: 100%;
-    align-items: flex-start;
-    flex-direction: column;
+  .primary-nav {
+    order: 10;
+    flex-basis: 100%;
+    justify-content: center;
+    padding-top: 8px;
   }
-
   .search-bar {
-    order: 3;
-    width: 100%;
-    max-width: none;
+    order: 5;
+    flex-basis: 100%;
+    max-width: 100% !important;
   }
 }
 </style>

@@ -24,7 +24,7 @@ class FundamentalCrawler:
             entry = {
                 "month": f"{row.get('revenue_year', '')}-{int(row.get('revenue_month', 0)):02d}",
                 "revenue": row.get("revenue", 0),
-                "yoy": row.get("revenue_yoy", 0),
+                "yoy": row.get("revenue_growth_rate", 0),
             }
             result.append(entry)
         return result

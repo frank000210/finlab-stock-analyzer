@@ -1,97 +1,828 @@
 <template>
-  <div class="home">
-    <section class="hero">
-      <h1>台股個股深度分析平台</h1>
-      <p>輸入股票代碼或名稱，開始技術面、基本面、籌碼面完整分析</p>
-      <div class="hero-search">
-        <input
-          v-model="query"
-          @keyup.enter="search"
-          placeholder="搜尋股票代碼或名稱 (例: 2330)"
-          class="hero-input"
-        />
-        <button @click="search" class="btn btn-primary">開始分析</button>
+  <div class="home-page">
+    <section class="hero-section">
+      <div class="hero-orb hero-orb-blue"></div>
+      <div class="hero-orb hero-orb-purple"></div>
+
+      <div class="hero-copy">
+        <p class="hero-badge">專為台股投資研究打造的智慧工作台</p>
+        <h1>AI 驅動的台股分析平台</h1>
+        <p class="hero-subtitle">
+          技術面、基本面、籌碼面三維度智慧分析，助你做出明智投資決策
+        </p>
+      </div>
+
+      <form class="hero-search" @submit.prevent="search">
+        <div class="search-field">
+          <span class="search-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none">
+              <path d="M21 21L16.65 16.65M18 10.5C18 14.6421 14.6421 18 10.5 18C6.35786 18 3 14.6421 3 10.5C3 6.35786 6.35786 3 10.5 3C14.6421 3 18 6.35786 18 10.5Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </span>
+          <input
+            v-model="searchQuery"
+            type="text"
+            class="hero-input"
+            placeholder="輸入股票代碼或名稱，例如 2330 或 台積電"
+            aria-label="搜尋台股"
+          />
+        </div>
+        <button type="submit" class="search-submit">立即分析</button>
+      </form>
+
+      <div class="hero-actions">
+        <RouterLink to="/decision" class="hero-action hero-action-primary">🎯 今日決策</RouterLink>
+        <RouterLink to="/stocks/2330" class="hero-action hero-action-secondary">📊 台積電分析</RouterLink>
+      </div>
+
+      <div class="hero-pillars" aria-label="核心分析維度">
+        <span>技術面</span>
+        <span>基本面</span>
+        <span>籌碼面</span>
       </div>
     </section>
 
-    <section class="grid-2" style="margin-top: 32px;">
-      <div class="card">
-        <h3>🕐 最近瀏覽</h3>
-        <ul class="recent-list">
-          <li v-for="s in recentStocks" :key="s" @click="$router.push(`/stocks/${s}`)">
-            {{ s }}
-          </li>
-          <li v-if="!recentStocks.length" class="empty">尚無瀏覽紀錄</li>
-        </ul>
-      </div>
-      <div class="card">
-        <h3>⚡ 快速操作</h3>
-        <div style="display: flex; gap: 12px; margin-top: 12px; flex-wrap: wrap;">
-          <button class="btn btn-primary" @click="$router.push('/stocks/2330')">分析台積電</button>
-          <button class="btn btn-primary" @click="$router.push('/stocks/2330/backtest')">回測範例</button>
+    <section class="section-block">
+      <div class="section-heading">
+        <div>
+          <h2>用一個首頁，快速進入完整研究流程</h2>
+          <p>從搜尋、判讀到策略驗證，為台股投資決策提供機構級分析視角。</p>
         </div>
+      </div>
+
+      <div class="feature-grid">
+        <article
+          v-for="feature in featureCards"
+          :key="feature.title"
+          class="feature-card"
+        >
+          <div class="feature-icon">{{ feature.icon }}</div>
+          <h3>{{ feature.title }}</h3>
+          <p>{{ feature.description }}</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section-block quick-start-panel">
+      <div class="section-heading section-heading-split">
+        <div>
+          <h2>快速開始</h2>
+          <p>從熱門台股代碼切入，立即查看技術、基本與籌碼訊號。</p>
+        </div>
+        <RouterLink to="/decision" class="text-link">前往今日決策</RouterLink>
+      </div>
+
+      <div class="chip-list">
+        <button
+          v-for="symbol in quickStartSymbols"
+          :key="symbol"
+          type="button"
+          class="symbol-chip"
+          @click="goToStock(symbol)"
+        >
+          <span class="chip-symbol">{{ symbol }}</span>
+          <span class="chip-name">{{ stockNames[symbol] || '立即分析' }}</span>
+        </button>
+      </div>
+    </section>
+
+    <section class="section-block recent-panel">
+      <div class="section-heading section-heading-split">
+        <div>
+          <h2>最近瀏覽的股票</h2>
+          <p>延續你上一輪的研究進度，快速回到剛剛關注的標的。</p>
+        </div>
+        <button
+          v-if="recentStocks.length"
+          type="button"
+          class="text-link text-button"
+          @click="refreshRecentStocks"
+        >
+          重新整理
+        </button>
+      </div>
+
+      <div v-if="recentStocks.length" class="recent-grid">
+        <RouterLink
+          v-for="stock in recentStocks"
+          :key="stock.symbol"
+          :to="`/stocks/${stock.symbol}`"
+          class="recent-card"
+        >
+          <div class="recent-topline">
+            <div>
+              <p class="recent-symbol">{{ stock.symbol }}</p>
+              <p class="recent-name">{{ stock.name }}</p>
+            </div>
+            <span class="recent-badge">最近瀏覽</span>
+          </div>
+
+          <div class="recent-price-row">
+            <span class="recent-price">{{ stock.priceText }}</span>
+            <span :class="['recent-change', `trend-${stock.trend}`]">{{ stock.changeText }}</span>
+          </div>
+
+          <p class="recent-note">{{ stock.note }}</p>
+        </RouterLink>
+      </div>
+
+      <div v-else class="recent-empty">
+        <p>尚無最近瀏覽紀錄，從上方搜尋列或快速開始代碼展開第一輪研究。</p>
       </div>
     </section>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
-const query = ref('')
-const recentStocks = ref(JSON.parse(localStorage.getItem('recentStocks') || '[]'))
+const searchQuery = ref('')
+const recentStockItems = ref([])
+
+const stockNames = {
+  '1101': '台泥',
+  '2303': '聯電',
+  '2317': '鴻海',
+  '2330': '台積電',
+  '2454': '聯發科',
+  '2603': '長榮',
+  '2882': '國泰金',
+  '2891': '中信金'
+}
+
+const quickStartSymbols = ['2330', '2317', '2454', '2303', '2882', '2603']
+
+const featureCards = [
+  {
+    icon: '🎯',
+    title: 'AI 決策信號',
+    description: '多維度加權評分，即時生成買賣建議'
+  },
+  {
+    icon: '📈',
+    title: '技術指標分析',
+    description: 'K線、MA、RSI、MACD 完整技術圖表'
+  },
+  {
+    icon: '🧪',
+    title: '策略回測',
+    description: '四大策略歷史驗證，績效一目了然'
+  },
+  {
+    icon: '🛡️',
+    title: '風控監控',
+    description: 'MDD 追蹤、斷路器保護'
+  },
+  {
+    icon: '📰',
+    title: '新聞可信度',
+    description: 'AI 五層新聞分析，辨別市場噪音'
+  },
+  {
+    icon: '⚡',
+    title: '即時數據',
+    description: '台股價格、法人進出、月營收追蹤'
+  }
+]
+
+const recentStocks = computed(() => recentStockItems.value)
 
 function search() {
-  const q = query.value.trim()
-  if (q) {
-    router.push(`/stocks/${q}`)
+  const symbol = searchQuery.value.trim()
+  if (!symbol) {
+    return
+  }
+
+  router.push(`/stocks/${encodeURIComponent(symbol)}`)
+}
+
+function goToStock(symbol) {
+  router.push(`/stocks/${symbol}`)
+}
+
+function refreshRecentStocks() {
+  loadRecentStocks()
+}
+
+function loadRecentStocks() {
+  try {
+    const raw = localStorage.getItem('recentStocks')
+    const parsed = JSON.parse(raw || '[]')
+    recentStockItems.value = Array.isArray(parsed)
+      ? parsed
+          .map(normalizeRecentStock)
+          .filter(Boolean)
+          .slice(0, 6)
+      : []
+  } catch {
+    recentStockItems.value = []
   }
 }
+
+function normalizeRecentStock(item) {
+  const symbol = String(item?.symbol || item?.code || item || '').trim()
+  if (!symbol) {
+    return null
+  }
+
+  const numericPrice = toNumber(item?.price ?? item?.close ?? item?.lastPrice)
+  const numericChange = toNumber(item?.change ?? item?.delta)
+  const numericChangePct = toNumber(item?.changePct ?? item?.pct ?? item?.percent)
+  const hasPrice = numericPrice !== null
+  const hasChange = numericChange !== null
+  const hasChangePct = numericChangePct !== null
+  const trendValue = hasChange ? numericChange : hasChangePct ? numericChangePct : 0
+
+  return {
+    symbol,
+    name: item?.name || item?.name_zh || stockNames[symbol] || '台股個股',
+    priceText: hasPrice ? formatPrice(numericPrice) : '等待同步報價',
+    changeText: hasChange || hasChangePct ? formatChange(numericChange, numericChangePct) : '最近檢視',
+    trend: trendValue > 0 ? 'up' : trendValue < 0 ? 'down' : 'flat',
+    note: item?.note || item?.updatedAt || '重新開啟三維度分析總覽'
+  }
+}
+
+function toNumber(value) {
+  const number = Number(value)
+  return Number.isFinite(number) ? number : null
+}
+
+function formatPrice(value) {
+  const decimals = value >= 100 ? 1 : 2
+  return `NT$ ${value.toFixed(decimals)}`
+}
+
+function formatChange(change, changePct) {
+  const parts = []
+
+  if (change !== null) {
+    const signedChange = change > 0 ? `+${change.toFixed(2)}` : change.toFixed(2)
+    parts.push(signedChange)
+  }
+
+  if (changePct !== null) {
+    const signedPct = changePct > 0 ? `+${changePct.toFixed(2)}%` : `${changePct.toFixed(2)}%`
+    parts.push(`(${signedPct})`)
+  }
+
+  return parts.join(' ')
+}
+
+function handleStorageChange(event) {
+  if (!event || event.key === 'recentStocks') {
+    loadRecentStocks()
+  }
+}
+
+onMounted(() => {
+  loadRecentStocks()
+  window.addEventListener('storage', handleStorageChange)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('storage', handleStorageChange)
+})
 </script>
 
 <style scoped>
-.hero {
-  text-align: center;
-  padding: 48px 0;
-}
-.hero h1 {
-  font-size: 2rem;
-  margin-bottom: 8px;
-}
-.hero p {
-  color: var(--text-secondary);
-  margin-bottom: 24px;
-}
-.hero-search {
+.home-page {
   display: flex;
-  gap: 12px;
-  max-width: 500px;
-  margin: 0 auto;
+  flex-direction: column;
+  gap: clamp(32px, 6vw, 72px);
+  padding-bottom: clamp(24px, 4vw, 48px);
 }
-.hero-input {
-  flex: 1;
-  padding: 12px 16px;
-  border-radius: var(--radius);
+
+.hero-section,
+.section-block {
+  position: relative;
+  overflow: hidden;
   border: 1px solid var(--border-color);
-  background: var(--bg-secondary);
+  border-radius: var(--radius-xl);
+  background: var(--bg-card);
+  box-shadow: var(--shadow-lg);
+}
+
+.hero-section {
+  padding: clamp(40px, 7vw, 88px);
+  background:
+    radial-gradient(circle at 18% 20%, rgba(59, 130, 246, 0.22), transparent 34%),
+    radial-gradient(circle at 85% 15%, rgba(139, 92, 246, 0.2), transparent 30%),
+    linear-gradient(135deg, var(--bg-primary) 0%, #111a34 46%, #1b1b3a 100%);
+}
+
+.hero-copy {
+  position: relative;
+  z-index: 1;
+  max-width: 760px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.hero-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 18px;
+  border-radius: 999px;
+  margin-bottom: 20px;
+  color: var(--text-primary);
+  background: rgba(59, 130, 246, 0.14);
+  border: 1px solid rgba(59, 130, 246, 0.24);
+}
+
+.hero-section h1 {
+  margin: 0;
+  font-size: clamp(2.8rem, 7vw, 5.5rem);
+  letter-spacing: -0.035em;
+  line-height: 0.96;
+  text-wrap: balance;
+}
+
+.hero-subtitle {
+  max-width: 34rem;
+  margin: 20px auto 0;
+  font-size: clamp(1rem, 2vw, 1.2rem);
+  color: var(--text-secondary);
+  text-wrap: pretty;
+}
+
+.hero-search {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  justify-content: center;
+  max-width: 860px;
+  margin: 36px auto 0;
+}
+
+.search-field {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex: 1;
+  min-height: 72px;
+  padding: 0 22px;
+  border-radius: calc(var(--radius-xl) - 2px);
+  background: rgba(11, 17, 33, 0.78);
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  box-shadow: 0 20px 60px rgba(11, 17, 33, 0.35);
+}
+
+.search-icon {
+  display: inline-flex;
+  color: var(--text-secondary);
+}
+
+.search-icon svg {
+  width: 24px;
+  height: 24px;
+}
+
+.hero-input {
+  width: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 1.08rem;
+}
+
+.hero-input::placeholder {
+  color: var(--text-secondary);
+}
+
+.search-submit,
+.hero-action,
+.symbol-chip,
+.text-button {
+  transition:
+    transform var(--transition-base),
+    border-color var(--transition-base),
+    box-shadow var(--transition-base),
+    background var(--transition-base),
+    color var(--transition-base);
+}
+
+.search-submit {
+  min-height: 72px;
+  padding: 0 28px;
+  border: 1px solid transparent;
+  border-radius: calc(var(--radius-xl) - 2px);
+  background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
   color: var(--text-primary);
   font-size: 1rem;
-}
-.recent-list {
-  list-style: none;
-  margin-top: 12px;
-}
-.recent-list li {
-  padding: 8px 0;
+  font-weight: 700;
   cursor: pointer;
-  border-bottom: 1px solid var(--border-color);
+  box-shadow: 0 18px 36px rgba(59, 130, 246, 0.28);
 }
-.recent-list li:hover {
-  color: var(--accent-blue);
+
+.hero-actions {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 14px;
+  margin-top: 24px;
 }
-.empty {
+
+.hero-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 52px;
+  padding: 0 22px;
+  border-radius: var(--radius-lg);
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.hero-action-primary {
+  color: var(--text-primary);
+  background: var(--bg-elevated);
+  border: 1px solid rgba(59, 130, 246, 0.28);
+}
+
+.hero-action-secondary {
+  color: var(--text-primary);
+  background: rgba(139, 92, 246, 0.12);
+  border: 1px solid rgba(139, 92, 246, 0.3);
+}
+
+.hero-pillars {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 30px;
+}
+
+.hero-pillars span {
+  padding: 10px 16px;
+  border-radius: 999px;
   color: var(--text-secondary);
+  background: rgba(148, 163, 184, 0.08);
+  border: 1px solid rgba(148, 163, 184, 0.14);
+}
+
+.hero-orb {
+  position: absolute;
+  border-radius: 999px;
+  filter: blur(10px);
+  opacity: 0.85;
+  pointer-events: none;
+}
+
+.hero-orb-blue {
+  top: -80px;
+  left: -40px;
+  width: 220px;
+  height: 220px;
+  background: rgba(59, 130, 246, 0.18);
+  animation: floatBlue 16s ease-in-out infinite;
+}
+
+.hero-orb-purple {
+  right: -20px;
+  bottom: -90px;
+  width: 260px;
+  height: 260px;
+  background: rgba(139, 92, 246, 0.16);
+  animation: floatPurple 18s ease-in-out infinite;
+}
+
+.section-block {
+  padding: clamp(32px, 5vw, 48px);
+}
+
+.section-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+.section-heading h2 {
+  margin: 0;
+  font-size: clamp(1.8rem, 3vw, 2.4rem);
+  text-wrap: balance;
+}
+
+.section-heading p {
+  max-width: 44rem;
+  margin-top: 10px;
+}
+
+.section-heading-split {
+  align-items: center;
+}
+
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.feature-card {
+  position: relative;
+  min-height: 190px;
+  padding: 28px;
+  border-radius: var(--radius-lg);
+  background:
+    linear-gradient(180deg, rgba(31, 45, 71, 0.92), rgba(26, 37, 64, 0.96));
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
+}
+
+.feature-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  margin-bottom: 18px;
+  border-radius: 16px;
+  background: rgba(59, 130, 246, 0.12);
+  font-size: 1.4rem;
+}
+
+.feature-card h3 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.feature-card p {
+  margin-top: 10px;
+}
+
+.quick-start-panel {
+  background:
+    linear-gradient(180deg, rgba(26, 37, 64, 0.92), rgba(20, 29, 47, 0.98));
+}
+
+.text-link,
+.text-button {
+  color: var(--accent-cyan);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.text-button {
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.symbol-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 58px;
+  padding: 0 18px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.chip-symbol {
+  font-weight: 800;
+}
+
+.chip-name {
+  color: var(--text-secondary);
+  font-size: 0.92rem;
+}
+
+.recent-panel {
+  background:
+    radial-gradient(circle at 100% 0%, rgba(6, 182, 212, 0.08), transparent 28%),
+    linear-gradient(180deg, rgba(26, 37, 64, 0.96), rgba(11, 17, 33, 0.98));
+}
+
+.recent-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 20px;
+}
+
+.recent-card {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 24px;
+  border-radius: var(--radius-lg);
+  text-decoration: none;
+  background: rgba(20, 29, 47, 0.9);
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  box-shadow: var(--shadow-md);
+}
+
+.recent-topline {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.recent-symbol {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.recent-name {
+  margin-top: 2px;
+  color: var(--text-secondary);
+}
+
+.recent-badge {
+  align-self: flex-start;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(59, 130, 246, 0.12);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.recent-price-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.recent-price {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.recent-change {
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.recent-note {
+  color: var(--text-secondary);
+}
+
+.recent-empty {
+  padding: 32px;
+  border-radius: var(--radius-lg);
+  background: rgba(20, 29, 47, 0.88);
+  border: 1px dashed rgba(148, 163, 184, 0.2);
+}
+
+.trend-up {
+  color: var(--color-up);
+}
+
+.trend-down {
+  color: var(--color-down);
+}
+
+.trend-flat {
+  color: var(--text-secondary);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .feature-card:hover,
+  .recent-card:hover,
+  .symbol-chip:hover,
+  .hero-action:hover,
+  .search-submit:hover,
+  .text-button:hover {
+    transform: translateY(-3px);
+  }
+
+  .feature-card:hover,
+  .recent-card:hover {
+    border-color: rgba(139, 92, 246, 0.34);
+    box-shadow:
+      0 18px 48px rgba(11, 17, 33, 0.32),
+      0 0 0 1px rgba(139, 92, 246, 0.16),
+      0 0 24px rgba(59, 130, 246, 0.16);
+  }
+
+  .symbol-chip:hover,
+  .hero-action:hover,
+  .text-button:hover {
+    border-color: rgba(59, 130, 246, 0.3);
+    box-shadow: 0 14px 30px rgba(11, 17, 33, 0.24);
+  }
+
+  .search-submit:hover {
+    box-shadow: 0 24px 44px rgba(59, 130, 246, 0.34);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-orb,
+  .feature-card,
+  .recent-card,
+  .symbol-chip,
+  .hero-action,
+  .search-submit,
+  .text-button {
+    animation: none;
+    transition: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .hero-search {
+    flex-direction: column;
+  }
+
+  .search-field,
+  .search-submit {
+    width: 100%;
+  }
+
+  .feature-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .hero-section,
+  .section-block {
+    border-radius: var(--radius-lg);
+  }
+
+  .hero-section {
+    padding: 32px 24px;
+  }
+
+  .hero-section h1 {
+    font-size: clamp(2.4rem, 14vw, 4rem);
+  }
+
+  .hero-search {
+    margin-top: 28px;
+  }
+
+  .search-field,
+  .search-submit {
+    min-height: 64px;
+  }
+
+  .section-heading,
+  .recent-topline,
+  .recent-price-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .feature-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .chip-list {
+    gap: 12px;
+  }
+
+  .symbol-chip {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
+
+@keyframes floatBlue {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(18px, 14px, 0) scale(1.05);
+  }
+}
+
+@keyframes floatPurple {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(-18px, -14px, 0) scale(1.07);
+  }
 }
 </style>
