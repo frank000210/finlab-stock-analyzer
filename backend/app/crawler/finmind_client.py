@@ -1,9 +1,44 @@
 """FinMind API Client - Primary data source for Taiwan stock market."""
 
+import hashlib
+import time
+
 import httpx
 import pandas as pd
 from typing import Optional
 from ..config.settings import get_settings
+
+
+# Module-level cache: { cache_key: (timestamp, dataframe) }
+_cache: dict[str, tuple[float, pd.DataFrame]] = {}
+_CACHE_TTL = 300  # 5 minutes
+
+
+def _make_cache_key(dataset: str, params: dict) -> str:
+    """Create a deterministic cache key from dataset + params."""
+    key_str = dataset + "|" + "|".join(f"{k}={v}" for k, v in sorted(params.items()) if k != "token")
+    return hashlib.md5(key_str.encode()).hexdigest()
+
+
+def _get_cached(key: str) -> pd.DataFrame | None:
+    """Return cached DataFrame if still valid, else None."""
+    entry = _cache.get(key)
+    if entry is None:
+        return None
+    ts, df = entry
+    if time.time() - ts > _CACHE_TTL:
+        del _cache[key]
+        return None
+    return df
+
+
+def _set_cached(key: str, df: pd.DataFrame) -> None:
+    """Store DataFrame in cache."""
+    _cache[key] = (time.time(), df)
+    # Evict old entries if cache grows too large (>200 entries)
+    if len(_cache) > 200:
+        oldest_key = min(_cache, key=lambda k: _cache[k][0])
+        del _cache[oldest_key]
 
 
 class FinMindClient:
@@ -15,7 +50,12 @@ class FinMindClient:
         self.token = token or get_settings().finmind_token
 
     async def _fetch(self, dataset: str, params: dict) -> pd.DataFrame:
-        """Generic async fetch from FinMind API."""
+        """Generic async fetch from FinMind API with caching."""
+        cache_key = _make_cache_key(dataset, params)
+        cached = _get_cached(cache_key)
+        if cached is not None:
+            return cached.copy()
+
         payload = {
             "dataset": dataset,
             "token": self.token,
@@ -29,7 +69,9 @@ class FinMindClient:
         if data.get("status") != 200:
             raise ValueError(f"FinMind API error: {data.get('msg', 'Unknown')}")
 
-        return pd.DataFrame(data.get("data", []))
+        df = pd.DataFrame(data.get("data", []))
+        _set_cached(cache_key, df)
+        return df
 
     async def get_stock_price(
         self, symbol: str, start: str, end: str
