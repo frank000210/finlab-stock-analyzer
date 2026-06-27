@@ -221,18 +221,41 @@ function renderEquityCurve() {
 .backtest-page {
   display: grid;
   grid-template-columns: 320px 1fr;
-  gap: 24px;
+  gap: var(--space-6);
 }
 .config-panel { position: sticky; top: 80px; align-self: start; }
-.form-group { margin-top: 12px; }
-.form-group label { display: block; font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 4px; }
-.form-input { width: 100%; padding: 8px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); }
-.params-section { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border-color); }
-.empty-state { text-align: center; padding: 48px; }
-.empty-state p { color: var(--text-secondary); margin-top: 8px; }
-.chart-container { width: 100%; margin-top: 12px; border-radius: var(--radius); overflow: hidden; }
-.data-table { overflow-x: auto; margin-top: 12px; }
+.form-group { margin-top: var(--space-3); }
+.form-group label { display: block; font-size: 0.8rem; color: var(--text-secondary); margin-bottom: var(--space-1); font-weight: 500; }
+.form-input {
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-color);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+.form-input:focus {
+  outline: none;
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+.params-section { margin-top: var(--space-4); padding-top: var(--space-3); border-top: 1px solid var(--border-color); }
+.empty-state { text-align: center; padding: var(--space-12); }
+.empty-state p { color: var(--text-secondary); margin-top: var(--space-2); }
+.chart-container { width: 100%; margin-top: var(--space-3); border-radius: var(--radius); overflow: hidden; }
+.data-table { overflow-x: auto; margin-top: var(--space-3); }
 .data-table table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-.data-table th, .data-table td { padding: 6px 10px; text-align: right; border-bottom: 1px solid var(--border-color); }
-.data-table th { color: var(--text-secondary); }
+.data-table th, .data-table td { padding: 8px 12px; text-align: right; border-bottom: 1px solid var(--border-color); }
+.data-table th { color: var(--text-muted); font-size: 0.72rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
+
+@media (max-width: 768px) {
+  .backtest-page {
+    grid-template-columns: 1fr;
+  }
+  .config-panel {
+    position: static;
+  }
+}
 </style>
