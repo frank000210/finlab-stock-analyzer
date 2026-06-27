@@ -104,7 +104,7 @@ app.include_router(public_data_router)
 
 @app.get("/api/health")
 async def health_check():
-    return {"status": "ok", "version": settings.app_version}
+    return {"status": "ok", "version": settings.app_version, "routes": len(app.routes)}
 
 
 # Serve frontend static files in production (must be AFTER API routes)
