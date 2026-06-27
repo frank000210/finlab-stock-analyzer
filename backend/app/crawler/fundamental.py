@@ -14,17 +14,37 @@ class FundamentalCrawler:
     async def get_monthly_revenue(
         self, symbol: str, start: str, end: str
     ) -> list[dict]:
-        """Get monthly revenue with YoY growth."""
+        """Get monthly revenue with YoY growth (calculated from raw data)."""
         df = await self.finmind.get_monthly_revenue(symbol, start, end)
         if df.empty:
             return []
 
+        # Build a lookup: (year, month) -> revenue for YoY calculation
+        revenue_map = {}
+        for _, row in df.iterrows():
+            year = int(row.get("revenue_year", 0))
+            month = int(row.get("revenue_month", 0))
+            rev = row.get("revenue", 0)
+            if year and month:
+                revenue_map[(year, month)] = rev
+
         result = []
         for _, row in df.iterrows():
+            year = int(row.get("revenue_year", 0))
+            month = int(row.get("revenue_month", 0))
+            rev = row.get("revenue", 0)
+
+            # Calculate YoY: compare with same month last year
+            last_year_rev = revenue_map.get((year - 1, month), 0)
+            if last_year_rev and last_year_rev > 0:
+                yoy = round((rev - last_year_rev) / last_year_rev * 100, 2)
+            else:
+                yoy = None
+
             entry = {
-                "month": f"{row.get('revenue_year', '')}-{int(row.get('revenue_month', 0)):02d}",
-                "revenue": row.get("revenue", 0),
-                "yoy": row.get("revenue_growth_rate", 0),
+                "month": f"{year}-{month:02d}",
+                "revenue": rev,
+                "yoy": yoy,
             }
             result.append(entry)
         return result
