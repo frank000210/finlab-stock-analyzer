@@ -156,7 +156,32 @@ async def analyze_lead_lag(
 
 
 def _fetch_taiex(start: str, end: str) -> Optional[pd.DataFrame]:
-    """Fetch TAIEX (^TWII) from Yahoo Finance."""
+    """Fetch TAIEX index data. Tries FinMind first, then yfinance as fallback."""
+    # Method 1: FinMind TaiwanStockTotalReturn (TAIEX proxy via 0050 ETF)
+    try:
+        import httpx, os
+        token = os.getenv("FINMIND_TOKEN", "")
+        url = "https://api.finmindtrade.com/api/v4/data"
+        # Use 0050 (元大台灣50) as TAIEX proxy - highly correlated
+        params = {
+            "dataset": "TaiwanStockPrice",
+            "data_id": "0050",
+            "start_date": start,
+            "end_date": end,
+            "token": token,
+        }
+        resp = httpx.get(url, params=params, timeout=30)
+        data = resp.json()
+        if data.get("status") == 200 and data.get("data"):
+            df = pd.DataFrame(data["data"])
+            df = df.rename(columns={"Trading_Volume": "volume", "close": "close",
+                                     "open": "open", "max": "high", "min": "low"})
+            df["date"] = pd.to_datetime(df["date"])
+            return df[["date", "open", "high", "low", "close", "volume"]]
+    except Exception:
+        pass
+
+    # Method 2: yfinance ^TWII
     try:
         df = yf.download("^TWII", start=start, end=end, progress=False)
         if df.empty:
