@@ -16,6 +16,11 @@ from .api import (
     ml_router,
     notifications_router,
     settings_router,
+    ai_agent_router,
+    risk_router,
+    trade_router,
+    signal_rules_router,
+    news_checker_router,
 )
 
 settings = get_settings()
@@ -66,6 +71,11 @@ app.include_router(backtest_router)
 app.include_router(ml_router)
 app.include_router(notifications_router)
 app.include_router(settings_router)
+app.include_router(ai_agent_router)
+app.include_router(risk_router)
+app.include_router(trade_router)
+app.include_router(signal_rules_router)
+app.include_router(news_checker_router)
 
 
 @app.get("/api/health")
