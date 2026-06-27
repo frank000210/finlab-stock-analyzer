@@ -22,6 +22,7 @@
       </div>
       <div class="nav-links">
         <router-link to="/">🏠 首頁</router-link>
+        <router-link to="/decision" class="nav-highlight">🎯 決策面板</router-link>
         <router-link to="/stocks/2330">📊 分析</router-link>
         <router-link to="/stocks/2330/backtest">🧪 回測</router-link>
         <router-link to="/settings">⚙️ 設定</router-link>
@@ -96,6 +97,14 @@ function goToStock() {
 
 .nav-links a.router-link-active {
   color: var(--text-primary);
+}
+
+.nav-highlight {
+  background: linear-gradient(135deg, #2563eb, #7c3aed);
+  padding: 4px 10px;
+  border-radius: 6px;
+  color: #fff !important;
+  font-weight: 600;
 }
 
 .nav-divider {

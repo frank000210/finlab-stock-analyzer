@@ -7,6 +7,11 @@ const routes = [
     component: () => import('./views/HomeView.vue'),
   },
   {
+    path: '/decision',
+    name: 'decision',
+    component: () => import('./views/DecisionView.vue'),
+  },
+  {
     path: '/stocks/:symbol',
     name: 'analysis',
     component: () => import('./views/AnalysisView.vue'),
