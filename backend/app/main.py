@@ -86,4 +86,14 @@ async def health_check():
 # Serve frontend static files in production (must be AFTER API routes)
 frontend_dist = Path(__file__).parent.parent.parent / "frontend" / "dist"
 if frontend_dist.exists():
-    app.mount("/", StaticFiles(directory=str(frontend_dist), html=True), name="frontend")
+    from fastapi.responses import FileResponse
+
+    # SPA catch-all: serve index.html for any non-API, non-static route
+    @app.get("/{full_path:path}")
+    async def serve_spa(full_path: str):
+        # If the path is a real file in dist, serve it
+        file_path = frontend_dist / full_path
+        if file_path.is_file():
+            return FileResponse(str(file_path))
+        # Otherwise return index.html for Vue Router
+        return FileResponse(str(frontend_dist / "index.html"))
