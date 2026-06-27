@@ -10,19 +10,20 @@ RUN npm run build
 FROM python:3.11-slim
 WORKDIR /app
 
-# Install TA-Lib dependencies
+# Install TA-Lib C library and build tools
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc g++ make wget && \
     wget -q http://prdownloads.sourceforge.net/ta-lib/ta-lib-0.4.0-src.tar.gz && \
     tar -xzf ta-lib-0.4.0-src.tar.gz && \
     cd ta-lib && ./configure --prefix=/usr && make && make install && \
-    cd .. && rm -rf ta-lib ta-lib-0.4.0-src.tar.gz && \
+    cd .. && rm -rf ta-lib ta-lib-0.4.0-src.tar.gz
+
+# Install Python dependencies (while gcc is still available for TA-Lib wheel)
+COPY backend/requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt && \
+    pip install --no-cache-dir TA-Lib==0.4.28 || true && \
     apt-get remove -y gcc g++ make wget && apt-get autoremove -y && \
     rm -rf /var/lib/apt/lists/*
-
-# Install Python dependencies
-COPY backend/requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy backend code
 COPY backend/ ./backend/
