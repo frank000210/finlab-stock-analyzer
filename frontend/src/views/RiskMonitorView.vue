@@ -398,4 +398,14 @@ function statusClass(status) {
     align-items: flex-start;
   }
 }
+
+@media (max-width: 420px) {
+  .risk-page {
+    gap: var(--space-3);
+  }
+  .rule-card,
+  .card {
+    padding: var(--space-3);
+  }
+}
 </style>

@@ -409,4 +409,18 @@ function badgeClass(type) {
     align-items: flex-start;
   }
 }
+
+@media (max-width: 420px) {
+  .signals-page {
+    gap: var(--space-3);
+  }
+  .signal-card,
+  .alpha-card,
+  .card {
+    padding: var(--space-3);
+  }
+  .confidence-bar-track {
+    height: 6px;
+  }
+}
 </style>

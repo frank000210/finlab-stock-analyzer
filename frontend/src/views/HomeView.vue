@@ -806,6 +806,34 @@ onBeforeUnmount(() => {
   }
 }
 
+@media (max-width: 420px) {
+  .hero-section {
+    padding: 24px 16px;
+  }
+
+  .hero-section h1 {
+    font-size: clamp(1.8rem, 12vw, 2.8rem);
+  }
+
+  .search-field,
+  .search-submit {
+    min-height: 52px;
+    font-size: 0.9rem;
+  }
+
+  .search-submit {
+    padding: 0 20px;
+  }
+
+  .section-block {
+    padding: 16px;
+  }
+
+  .recent-item {
+    padding: 10px 0;
+  }
+}
+
 @keyframes floatBlue {
   0%,
   100% {

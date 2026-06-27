@@ -186,4 +186,43 @@ function goToStock() {
     max-width: 100% !important;
   }
 }
+
+@media (max-width: 420px) {
+  .primary-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 200;
+    background: var(--bg-secondary);
+    border-top: 1px solid var(--border-color);
+    padding: 6px 8px env(safe-area-inset-bottom, 6px);
+    justify-content: space-around;
+    flex-basis: auto;
+    order: unset;
+    gap: 0;
+    flex-wrap: nowrap;
+  }
+  .primary-nav a,
+  .primary-nav .nav-cta {
+    font-size: 0.68rem !important;
+    padding: 6px 4px !important;
+    border-radius: 6px !important;
+    text-align: center;
+    flex: 1;
+    min-width: 0;
+    box-shadow: none !important;
+    background: transparent !important;
+    color: var(--text-muted) !important;
+  }
+  .primary-nav a.router-link-active,
+  .primary-nav .nav-cta.router-link-active {
+    color: var(--accent-blue) !important;
+    background: rgba(59, 130, 246, 0.1) !important;
+  }
+  /* Make room for bottom nav */
+  #app-root .main-content {
+    padding-bottom: 64px;
+  }
+}
 </style>

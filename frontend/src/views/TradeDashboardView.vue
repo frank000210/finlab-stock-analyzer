@@ -484,4 +484,15 @@ function statusClass(status) {
     margin-left: 0;
   }
 }
+
+@media (max-width: 420px) {
+  .trade-dashboard {
+    gap: var(--space-3);
+  }
+  .kpi-card,
+  .signal-card,
+  .card {
+    padding: var(--space-3);
+  }
+}
 </style>

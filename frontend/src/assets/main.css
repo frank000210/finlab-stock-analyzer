@@ -482,6 +482,29 @@ tr:hover td {
   .card { padding: var(--space-4); }
 }
 
+/* Mobile phone (6.8" ~ 390px viewport) */
+@media (max-width: 420px) {
+  body { font-size: 13px; }
+  .top-nav {
+    padding: var(--space-2) var(--space-3);
+    gap: var(--space-2);
+  }
+  .main-content { padding: var(--space-2); }
+  .card { padding: var(--space-3); border-radius: var(--radius); }
+  h1 { font-size: 1.25rem; }
+  h2 { font-size: 1.05rem; }
+  h3 { font-size: 0.95rem; }
+  .metric-card { padding: var(--space-3); }
+  .metric-card .value { font-size: 1.3rem; }
+  .metric-card .label { font-size: 0.65rem; }
+  .btn { padding: 7px 14px; font-size: 0.8rem; }
+  table { font-size: 0.75rem; }
+  th, td { padding: 7px 8px; }
+  .badge { font-size: 0.65rem; padding: 2px 8px; }
+  .tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .tab { white-space: nowrap; padding: 8px 12px; font-size: 0.8rem; }
+}
+
 /* ===== ANIMATIONS ===== */
 @media (prefers-reduced-motion: no-preference) {
   .card { transition: transform var(--transition-base), box-shadow var(--transition-base); }

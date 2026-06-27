@@ -1718,4 +1718,58 @@ function valueTone(value) {
     width: 100%;
   }
 }
+
+@media (max-width: 420px) {
+  .hero-card {
+    padding: 12px;
+  }
+
+  .symbol-row h1 {
+    font-size: 1.4rem;
+  }
+
+  .current-price {
+    font-size: 1.6rem;
+  }
+
+  .factor-item {
+    min-width: 0;
+  }
+
+  .range-button {
+    min-width: 0;
+    padding: 4px 8px;
+    font-size: 0.7rem;
+  }
+
+  .legend-group {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .legend-dot {
+    min-width: 0;
+  }
+
+  .chart-area.price-chart {
+    min-height: 240px;
+  }
+
+  .chart-area.indicator-chart {
+    min-height: 100px;
+  }
+
+  .y-axis-label {
+    font-size: 0.58rem;
+    padding: 0 2px;
+  }
+
+  .decision-card {
+    max-width: 100%;
+  }
+
+  .top-grid {
+    gap: var(--space-3);
+  }
+}
 </style>

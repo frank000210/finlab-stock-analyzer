@@ -287,4 +287,14 @@ function renderEquityCurve() {
     position: static;
   }
 }
+
+@media (max-width: 420px) {
+  .backtest-page {
+    gap: var(--space-3);
+  }
+  .config-panel,
+  .results-panel .card {
+    padding: var(--space-3);
+  }
+}
 </style>

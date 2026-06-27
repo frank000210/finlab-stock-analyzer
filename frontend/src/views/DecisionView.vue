@@ -1708,4 +1708,48 @@ function toDateParam(value) {
     font-size: 1.8rem;
   }
 }
+
+@media (max-width: 420px) {
+  .decision-dashboard {
+    gap: var(--space-3);
+  }
+
+  .page-header,
+  .market-pulse,
+  .watchlist-panel,
+  .filters-bar,
+  .feedback-card,
+  .signal-card {
+    padding: var(--space-3);
+  }
+
+  .watchlist-container {
+    min-width: 0;
+  }
+
+  .market-pulse {
+    min-width: 0;
+  }
+
+  .signals-list {
+    min-width: 0;
+  }
+
+  .filter-pill {
+    flex: 1 1 100%;
+    font-size: 0.72rem;
+  }
+
+  .price-value {
+    font-size: 1.4rem;
+  }
+
+  .header-title {
+    font-size: 1.2rem;
+  }
+
+  .sparkline-container {
+    height: 52px;
+  }
+}
 </style>

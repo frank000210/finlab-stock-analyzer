@@ -100,4 +100,9 @@ async function save() {
 .input-row .form-input { flex: 1; }
 .checkbox-label { display: block; padding: 8px 0; cursor: pointer; }
 .checkbox-label input { margin-right: 8px; }
+
+@media (max-width: 420px) {
+  .settings-page { max-width: 100%; padding: 0; }
+  .input-row { flex-direction: column; }
+}
 </style>
