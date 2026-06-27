@@ -68,12 +68,12 @@ app.include_router(notifications_router)
 app.include_router(settings_router)
 
 
-# Serve frontend static files in production
-frontend_dist = Path(__file__).parent.parent.parent / "frontend" / "dist"
-if frontend_dist.exists():
-    app.mount("/", StaticFiles(directory=str(frontend_dist), html=True), name="frontend")
-
-
 @app.get("/api/health")
 async def health_check():
     return {"status": "ok", "version": settings.app_version}
+
+
+# Serve frontend static files in production (must be AFTER API routes)
+frontend_dist = Path(__file__).parent.parent.parent / "frontend" / "dist"
+if frontend_dist.exists():
+    app.mount("/", StaticFiles(directory=str(frontend_dist), html=True), name="frontend")
