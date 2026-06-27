@@ -10,9 +10,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Deploy to Zeabur
-        uses: zeabur/action@main
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          project_id: 6a3f6ff522d1fdaf7eb04d04
-          service_id: 6a3f700322d1fdaf7eb04d06
-          token: ${{ secrets.ZEABUR_TOKEN }}
+          node-version: '20'
+
+      - name: Deploy to Zeabur
+        run: npx zeabur deploy --project-id 6a3f6ff522d1fdaf7eb04d04 --service-id 6a3f700322d1fdaf7eb04d06 -i=false
+        env:
+          ZEABUR_TOKEN: ${{ secrets.ZEABUR_TOKEN }}
