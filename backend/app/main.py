@@ -21,6 +21,10 @@ from .api import (
     trade_router,
     signal_rules_router,
     news_checker_router,
+    seasonal_router,
+    lead_lag_router,
+    major_players_router,
+    social_buzz_router,
 )
 
 settings = get_settings()
@@ -76,6 +80,10 @@ app.include_router(risk_router)
 app.include_router(trade_router)
 app.include_router(signal_rules_router)
 app.include_router(news_checker_router)
+app.include_router(seasonal_router)
+app.include_router(lead_lag_router)
+app.include_router(major_players_router)
+app.include_router(social_buzz_router)
 
 
 @app.get("/api/health")

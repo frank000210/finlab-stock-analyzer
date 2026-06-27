@@ -28,13 +28,15 @@
       <div class="nav-links primary-nav">
         <router-link to="/decision" class="nav-cta">🎯 決策面板</router-link>
         <router-link to="/stocks/2330">分析</router-link>
+        <router-link to="/stocks/2330/seasonal">季節性</router-link>
+        <router-link to="/stocks/2330/lead-lag">領先落後</router-link>
+        <router-link to="/stocks/2330/major-players">主力</router-link>
+        <router-link to="/stocks/2330/social-buzz">熱度</router-link>
+      </div>
+      <div class="nav-links secondary-nav">
         <router-link to="/stocks/2330/backtest">回測</router-link>
         <router-link to="/ai-signals">AI 信號</router-link>
         <router-link to="/risk-monitor">風控</router-link>
-      </div>
-      <div class="nav-links secondary-nav">
-        <router-link to="/trade-dashboard">儀表板</router-link>
-        <router-link to="/data-agent">資料</router-link>
         <router-link to="/settings">設定</router-link>
       </div>
     </nav>

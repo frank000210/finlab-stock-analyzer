@@ -22,6 +22,26 @@ const routes = [
     component: () => import('./views/BacktestView.vue'),
   },
   {
+    path: '/stocks/:symbol/seasonal',
+    name: 'seasonal',
+    component: () => import('./views/SeasonalView.vue'),
+  },
+  {
+    path: '/stocks/:symbol/lead-lag',
+    name: 'lead-lag',
+    component: () => import('./views/LeadLagView.vue'),
+  },
+  {
+    path: '/stocks/:symbol/major-players',
+    name: 'major-players',
+    component: () => import('./views/MajorPlayersView.vue'),
+  },
+  {
+    path: '/stocks/:symbol/social-buzz',
+    name: 'social-buzz',
+    component: () => import('./views/SocialBuzzView.vue'),
+  },
+  {
     path: '/settings',
     name: 'settings',
     component: () => import('./views/SettingsView.vue'),
