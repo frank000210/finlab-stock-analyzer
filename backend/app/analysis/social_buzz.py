@@ -64,10 +64,21 @@ async def analyze_social_buzz(symbol: str, stock_name: str = "") -> dict:
     if stock_name:
         search_terms.append(stock_name)
 
-    # Gather data from multiple sources
-    ptt_result = await _scrape_ptt(search_terms)
-    news_result = await _scrape_news(search_terms)
-    volume_result = await _analyze_volume_attention(symbol)
+    # Gather data from multiple sources (each wrapped to avoid cascading failures)
+    try:
+        ptt_result = await _scrape_ptt(search_terms)
+    except Exception:
+        ptt_result = {"post_count": 0, "posts": [], "sentiment": "neutral", "bullish_count": 0, "bearish_count": 0, "trend": "stable", "source": "PTT 股板"}
+
+    try:
+        news_result = await _scrape_news(search_terms)
+    except Exception:
+        news_result = {"article_count": 0, "articles": [], "trend": "stable", "source": "Google News"}
+
+    try:
+        volume_result = await _analyze_volume_attention(symbol)
+    except Exception:
+        volume_result = {"attention_score": 50, "volume_surge": False, "volume_ratio": 1.0, "vol_increasing": False, "avg_volume_20d": 0, "avg_volume_5d": 0}
 
     # Compute composite buzz score (0-100)
     ptt_score = min(100, ptt_result["post_count"] * 5)  # 20 posts = 100

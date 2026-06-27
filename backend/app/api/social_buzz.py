@@ -1,6 +1,7 @@
 """Social Buzz (社群熱度) API endpoint."""
 
-from fastapi import APIRouter, Query, HTTPException
+from fastapi import APIRouter, HTTPException
+import traceback
 
 from ..analysis.social_buzz import analyze_social_buzz
 from ..ai_agent.signal_generator import STOCK_NAMES
@@ -16,4 +17,5 @@ async def get_social_buzz(symbol: str):
         result = await analyze_social_buzz(symbol, stock_name)
         return {"success": True, "data": result}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        # Return error detail for debugging
+        return {"success": False, "error": str(e), "trace": traceback.format_exc()[-500:]}
