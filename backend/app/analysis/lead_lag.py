@@ -58,8 +58,9 @@ async def analyze_lead_lag(
 
     # Fetch benchmark
     if benchmark == "TAIEX":
-        bench_df = _fetch_taiex(str(start), str(end))
-        bench_name = "加權指數"
+        # Use 0050 ETF as TAIEX proxy (correlation > 0.98)
+        bench_df = await crawler.get_price("0050", str(start), str(end), "1d")
+        bench_name = "加權指數(0050)"
     else:
         bench_df = await crawler.get_price(benchmark, str(start), str(end), "1d")
         leader_info = next(
@@ -157,12 +158,11 @@ async def analyze_lead_lag(
 
 def _fetch_taiex(start: str, end: str) -> Optional[pd.DataFrame]:
     """Fetch TAIEX index data. Tries FinMind first, then yfinance as fallback."""
-    # Method 1: FinMind TaiwanStockTotalReturn (TAIEX proxy via 0050 ETF)
+    # Method 1: FinMind 0050 ETF as TAIEX proxy
     try:
         import httpx, os
         token = os.getenv("FINMIND_TOKEN", "")
         url = "https://api.finmindtrade.com/api/v4/data"
-        # Use 0050 (元大台灣50) as TAIEX proxy - highly correlated
         params = {
             "dataset": "TaiwanStockPrice",
             "data_id": "0050",
@@ -172,14 +172,16 @@ def _fetch_taiex(start: str, end: str) -> Optional[pd.DataFrame]:
         }
         resp = httpx.get(url, params=params, timeout=30)
         data = resp.json()
-        if data.get("status") == 200 and data.get("data"):
+        if data.get("status") == 200 and data.get("data") and len(data["data"]) > 0:
             df = pd.DataFrame(data["data"])
-            df = df.rename(columns={"Trading_Volume": "volume", "close": "close",
-                                     "open": "open", "max": "high", "min": "low"})
+            # FinMind columns: date, stock_id, Trading_Volume, Trading_money, open, max, min, close, spread, Trading_turnover
+            df = df.rename(columns={"max": "high", "min": "low", "Trading_Volume": "volume"})
             df["date"] = pd.to_datetime(df["date"])
-            return df[["date", "open", "high", "low", "close", "volume"]]
-    except Exception:
-        pass
+            if "close" in df.columns and "date" in df.columns:
+                return df[["date", "open", "high", "low", "close", "volume"]]
+    except Exception as e:
+        import logging
+        logging.warning(f"FinMind TAIEX fetch failed: {e}")
 
     # Method 2: yfinance ^TWII
     try:
@@ -188,7 +190,6 @@ def _fetch_taiex(start: str, end: str) -> Optional[pd.DataFrame]:
             return None
         df = df.reset_index()
         df.columns = [c.lower() if isinstance(c, str) else c[0].lower() for c in df.columns]
-        df = df.rename(columns={"date": "date"})
         return df[["date", "open", "high", "low", "close", "volume"]]
     except Exception:
         return None
