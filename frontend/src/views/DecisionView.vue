@@ -236,6 +236,17 @@
           <span class="mc-verdict" :class="card.majorCost.cost_tone">{{ card.majorCost.cost_verdict }}</span>
         </div>
 
+        <div
+          v-if="card.chipHealth"
+          class="chiphealth-strip"
+          :class="'tone-' + card.chipHealth.tone"
+        >
+          <span class="ch-label">籌碼健診</span>
+          <span class="ch-score">{{ card.chipHealth.score }}</span>
+          <span class="ch-track"><i :style="{ width: card.chipHealth.score + '%' }"></i></span>
+          <span class="ch-tag">{{ chipToneLabel(card.chipHealth.tone) }}</span>
+        </div>
+
         <div class="sparkline-panel">
           <div class="sparkline-head">
             <span>近 20 日走勢</span>
@@ -300,6 +311,7 @@ const rawSignals = ref([])
 const profiles = ref({})
 const histories = ref({})
 const costs = ref({})
+const healths = ref({})
 
 const sparklineContainers = new Map()
 const sparklineInstances = new Map()
@@ -366,6 +378,7 @@ const enrichedCards = computed(() => {
         change,
         changePercent,
         majorCost: costs.value[item.symbol] || null,
+        chipHealth: healths.value[item.symbol] || null,
         volumeRatioLabel: item.volumeRatio == null ? '—' : `${formatNumber(item.volumeRatio, 2)}x`,
       }
     })
@@ -493,10 +506,11 @@ async function loadDashboard(force = false) {
 }
 
 async function hydrateSymbol(symbol) {
-  const [profileResult, historyResult, costResult] = await Promise.allSettled([
+  const [profileResult, historyResult, costResult, healthResult] = await Promise.allSettled([
     fetchProfile(symbol),
     fetchHistory(symbol),
     fetchMajorCost(symbol),
+    fetchChipScore(symbol),
   ])
 
   if (profileResult.status === 'fulfilled' && profileResult.value) {
@@ -519,6 +533,13 @@ async function hydrateSymbol(symbol) {
       [symbol]: costResult.value,
     }
   }
+
+  if (healthResult.status === 'fulfilled' && healthResult.value) {
+    healths.value = {
+      ...healths.value,
+      [symbol]: healthResult.value,
+    }
+  }
 }
 
 async function fetchMajorCost(symbol) {
@@ -531,6 +552,24 @@ async function fetchMajorCost(symbol) {
   } catch {
     return null
   }
+}
+
+async function fetchChipScore(symbol) {
+  if (healths.value[symbol]) return healths.value[symbol]
+  try {
+    const payload = await apiGet(`/api/v1/stocks/${symbol}/chip-score`)
+    // apiGet unwraps `.data`; validate shape before使用
+    if (payload && typeof payload === 'object' && 'score' in payload) return payload
+    return null
+  } catch {
+    return null
+  }
+}
+
+function chipToneLabel(tone) {
+  if (tone === 'up') return '偏多'
+  if (tone === 'down') return '偏空'
+  return '中性'
 }
 
 async function fetchProfile(symbol) {
@@ -1607,6 +1646,54 @@ function toDateParam(value) {
 }
 .mc-verdict.up { background: rgba(34,197,94,0.12); color: var(--accent-green, #22c55e); border-color: rgba(34,197,94,0.3); }
 .mc-verdict.down { background: rgba(239,68,68,0.12); color: var(--accent-red, #ef4444); border-color: rgba(239,68,68,0.3); }
+
+.chiphealth-strip {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+  padding: 8px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  background: rgba(11, 17, 33, 0.46);
+}
+.ch-label { font-size: 0.72rem; color: var(--text-muted, #8a99ad); letter-spacing: 0.02em; }
+.ch-score {
+  font-size: 1.02rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent-blue, #3b82f6);
+}
+.ch-track {
+  flex: 1;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.16);
+  overflow: hidden;
+}
+.ch-track > i {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent-blue, #3b82f6);
+}
+.ch-tag {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(59, 130, 246, 0.12);
+  color: var(--accent-blue, #3b82f6);
+  border: 1px solid rgba(59, 130, 246, 0.28);
+}
+.chiphealth-strip.tone-up .ch-score,
+.chiphealth-strip.tone-up .ch-tag { color: var(--accent-green, #22c55e); }
+.chiphealth-strip.tone-up .ch-track > i { background: var(--accent-green, #22c55e); }
+.chiphealth-strip.tone-up .ch-tag { background: rgba(34,197,94,0.12); border-color: rgba(34,197,94,0.3); }
+.chiphealth-strip.tone-down .ch-score,
+.chiphealth-strip.tone-down .ch-tag { color: var(--accent-red, #ef4444); }
+.chiphealth-strip.tone-down .ch-track > i { background: var(--accent-red, #ef4444); }
+.chiphealth-strip.tone-down .ch-tag { background: rgba(239,68,68,0.12); border-color: rgba(239,68,68,0.3); }
 
 .sparkline-panel,
 .conditions-panel {

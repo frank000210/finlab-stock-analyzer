@@ -42,7 +42,7 @@
       </div>
     </section>
 
-    <section class="section-block">
+    <section class="section-block" v-reveal>
       <div class="section-heading">
         <div>
           <h2>用一個首頁，快速進入完整研究流程</h2>
@@ -52,18 +52,23 @@
 
       <div class="feature-grid">
         <article
-          v-for="feature in featureCards"
+          v-for="(feature, index) in featureCards"
           :key="feature.title"
+          v-reveal="{ delay: index * 70 }"
           class="feature-card"
+          :class="{ 'is-featured': feature.featured }"
         >
           <div class="feature-icon">{{ feature.icon }}</div>
           <h3>{{ feature.title }}</h3>
           <p>{{ feature.description }}</p>
+          <ul v-if="feature.points" class="feature-points">
+            <li v-for="point in feature.points" :key="point">{{ point }}</li>
+          </ul>
         </article>
       </div>
     </section>
 
-    <section class="section-block quick-start-panel">
+    <section class="section-block quick-start-panel" v-reveal>
       <div class="section-heading section-heading-split">
         <div>
           <h2>快速開始</h2>
@@ -86,7 +91,7 @@
       </div>
     </section>
 
-    <section class="section-block recent-panel">
+    <section class="section-block recent-panel" v-reveal>
       <div class="section-heading section-heading-split">
         <div>
           <h2>最近瀏覽的股票</h2>
@@ -160,7 +165,9 @@ const featureCards = [
   {
     icon: '🎯',
     title: 'AI 決策信號',
-    description: '多維度加權評分，即時生成買賣建議'
+    description: '整合技術、基本、籌碼三大維度加權評分，即時生成 BUY / HOLD / SELL 建議與信心度。',
+    featured: true,
+    points: ['三維加權綜合評分', '即時買賣建議與信心度', '逐檔主力成本 × 籌碼健診徽章']
   },
   {
     icon: '📈',
@@ -561,11 +568,14 @@ onBeforeUnmount(() => {
 .feature-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-auto-rows: 1fr;
   gap: 20px;
 }
 
 .feature-card {
   position: relative;
+  display: flex;
+  flex-direction: column;
   min-height: 190px;
   padding: 28px;
   border-radius: var(--radius-lg);
@@ -573,6 +583,60 @@ onBeforeUnmount(() => {
     linear-gradient(180deg, rgba(31, 45, 71, 0.92), rgba(26, 37, 64, 0.96));
   border: 1px solid rgba(148, 163, 184, 0.12);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
+}
+
+/* Bento：主特色卡放大為 2×2，建立層次而非等大方格 */
+.feature-card.is-featured {
+  grid-column: span 2;
+  grid-row: span 2;
+  padding: 36px;
+  background:
+    radial-gradient(120% 120% at 0% 0%, rgba(59, 130, 246, 0.22), transparent 55%),
+    linear-gradient(165deg, rgba(31, 45, 71, 0.96), rgba(20, 29, 47, 0.98));
+  border-color: rgba(59, 130, 246, 0.32);
+}
+
+.feature-card.is-featured .feature-icon {
+  width: 64px;
+  height: 64px;
+  font-size: 1.8rem;
+  margin-bottom: 22px;
+}
+
+.feature-card.is-featured h3 {
+  font-size: 1.7rem;
+}
+
+.feature-card.is-featured p {
+  max-width: 46ch;
+  color: var(--text-secondary);
+}
+
+.feature-points {
+  list-style: none;
+  margin: auto 0 0;
+  padding: 18px 0 0;
+  display: grid;
+  gap: 10px;
+}
+
+.feature-points li {
+  position: relative;
+  padding-left: 26px;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+}
+
+.feature-points li::before {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 0.5em;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--accent-cyan, #3b82f6);
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.16);
 }
 
 .feature-icon {
@@ -793,6 +857,11 @@ onBeforeUnmount(() => {
   .feature-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .feature-card.is-featured {
+    grid-column: span 2;
+    grid-row: span 1;
+  }
 }
 
 @media (max-width: 640px) {
@@ -827,6 +896,16 @@ onBeforeUnmount(() => {
 
   .feature-grid {
     grid-template-columns: 1fr;
+  }
+
+  .feature-card.is-featured {
+    grid-column: span 1;
+    grid-row: span 1;
+    padding: 28px;
+  }
+
+  .feature-card.is-featured h3 {
+    font-size: 1.4rem;
   }
 
   .chip-list {

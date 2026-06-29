@@ -525,6 +525,24 @@ tr:hover td {
   }
 }
 
+/* ===== SCROLL REVEAL (v-reveal directive) ===== */
+/* 內容預設可見；reveal-init 僅在 JS 確認可動畫時由指令加上（見 directives/reveal.js）。
+   transition 同時涵蓋 transform/opacity，並支援 --reveal-delay 做交錯。 */
+@media (prefers-reduced-motion: no-preference) {
+  .reveal-init {
+    opacity: 0;
+    transform: translateY(18px);
+    will-change: opacity, transform;
+  }
+  .reveal-in {
+    opacity: 1;
+    transform: none;
+    transition:
+      opacity 0.62s cubic-bezier(0.22, 1, 0.36, 1) var(--reveal-delay, 0ms),
+      transform 0.62s cubic-bezier(0.22, 1, 0.36, 1) var(--reveal-delay, 0ms);
+  }
+}
+
 /* ===== NUMERIC DATA ===== */
 .num,
 .current-price,
