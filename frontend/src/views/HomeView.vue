@@ -192,12 +192,36 @@ const featureCards = [
 const recentStocks = computed(() => recentStockItems.value)
 
 function search() {
-  const symbol = searchQuery.value.trim()
-  if (!symbol) {
+  const query = searchQuery.value.trim()
+  if (!query) {
     return
   }
-  stockStore.setStock(symbol, stockNames[symbol] || '')
-  router.push(`/stocks/${encodeURIComponent(symbol)}`)
+
+  // If input is numeric (stock code), navigate directly
+  if (/^\d{4,6}$/.test(query)) {
+    stockStore.setStock(query, stockNames[query] || '')
+    router.push(`/stocks/${query}`)
+    return
+  }
+
+  // If input is text (stock name), resolve via API
+  fetch(`/api/v1/stocks/search?q=${encodeURIComponent(query)}`)
+    .then(r => r.json())
+    .then(res => {
+      const items = res?.data?.items || res?.items || []
+      const match = items.find(i => i.name_zh === query || i.name === query) || items[0]
+      if (match && match.symbol) {
+        stockStore.setStock(match.symbol, match.name_zh || match.name || query)
+        router.push(`/stocks/${match.symbol}`)
+      } else {
+        stockStore.setStock(query, '')
+        router.push(`/stocks/${encodeURIComponent(query)}`)
+      }
+    })
+    .catch(() => {
+      stockStore.setStock(query, '')
+      router.push(`/stocks/${encodeURIComponent(query)}`)
+    })
 }
 
 function goToStock(symbol) {
@@ -225,11 +249,17 @@ function loadRecentStocks() {
 }
 
 function normalizeRecentStock(item) {
-  const symbol = String(item?.symbol || item?.code || item || '').trim()
-  if (!symbol) {
+  // Handle both old format (string) and new format (object)
+  const rawSymbol = typeof item === 'string'
+    ? item
+    : String(item?.symbol || item?.code || '').trim()
+
+  // Skip non-numeric symbols (Chinese names stored by old code)
+  if (!rawSymbol || !/^\d{4,6}$/.test(rawSymbol)) {
     return null
   }
 
+  const symbol = rawSymbol
   const numericPrice = toNumber(item?.price ?? item?.close ?? item?.lastPrice)
   const numericChange = toNumber(item?.change ?? item?.delta)
   const numericChangePct = toNumber(item?.changePct ?? item?.pct ?? item?.percent)
@@ -240,7 +270,7 @@ function normalizeRecentStock(item) {
 
   return {
     symbol,
-    name: item?.name || item?.name_zh || stockNames[symbol] || '台股個股',
+    name: (typeof item === 'object' ? item?.name || item?.name_zh : '') || stockNames[symbol] || '台股個股',
     priceText: hasPrice ? formatPrice(numericPrice) : '等待同步報價',
     changeText: hasChange || hasChangePct ? formatChange(numericChange, numericChangePct) : '最近檢視',
     trend: trendValue > 0 ? 'up' : trendValue < 0 ? 'down' : 'flat',

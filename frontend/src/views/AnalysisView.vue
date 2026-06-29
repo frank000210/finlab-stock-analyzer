@@ -256,12 +256,13 @@
 
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { createChart } from 'lightweight-charts'
 
 const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:8000' : ''
 
 const route = useRoute()
+const router = useRouter()
 
 const ranges = [
   { label: '1M', days: 30 },
@@ -543,15 +544,32 @@ async function loadAnalysis() {
   loading.value = true
   errorMessage.value = ''
   const token = ++requestToken
+
+  // If symbol is non-numeric (Chinese name), resolve to code first
+  let sym = symbol.value
+  if (sym && !/^\d{4,6}$/.test(sym)) {
+    try {
+      const searchRes = await apiGet(`/api/v1/stocks/search?q=${encodeURIComponent(sym)}`)
+      const items = searchRes?.items || searchRes?.data?.items || []
+      const match = items[0]
+      if (match && match.symbol) {
+        sym = match.symbol
+        // Redirect to correct URL
+        router.replace(`/stocks/${sym}`)
+        return
+      }
+    } catch {}
+  }
+
   const { start, end } = buildDateRange(selectedRange.value)
 
   const [infoRes, priceRes, technicalRes, fundamentalRes, chipRes, signalRes] = await Promise.allSettled([
-    apiGet(`/api/v1/stocks/${symbol.value}/info`),
-    apiGet(`/api/v1/stocks/${symbol.value}/price?start=${start}&end=${end}`),
-    apiGet(`/api/v1/analysis/${symbol.value}/technical?indicators=ma,macd,rsi,volume&start=${start}&end=${end}`),
-    apiGet(`/api/v1/analysis/${symbol.value}/fundamental`),
-    apiGet(`/api/v1/analysis/${symbol.value}/chip`),
-    apiGet(`/api/v1/agent/signals?symbols=${symbol.value}&type=ALL`),
+    apiGet(`/api/v1/stocks/${sym}/info`),
+    apiGet(`/api/v1/stocks/${sym}/price?start=${start}&end=${end}`),
+    apiGet(`/api/v1/analysis/${sym}/technical?indicators=ma,macd,rsi,volume&start=${start}&end=${end}`),
+    apiGet(`/api/v1/analysis/${sym}/fundamental`),
+    apiGet(`/api/v1/analysis/${sym}/chip`),
+    apiGet(`/api/v1/agent/signals?symbols=${sym}&type=ALL`),
   ])
 
   if (token !== requestToken) return
@@ -1076,9 +1094,19 @@ function sentimentDescription() {
 
 function saveRecent() {
   const current = symbol.value
-  if (!current) return
+  // Only save numeric stock codes to prevent saving Chinese names in recent list
+  if (!current || !/^\d{4,6}$/.test(current)) return
+  const name = stockInfo.value?.name_zh || ''
   const history = JSON.parse(localStorage.getItem('recentStocks') || '[]')
-  const next = [current, ...history.filter(item => item !== current)].slice(0, 10)
+  // Normalize to objects
+  const normalized = history.map(item =>
+    typeof item === 'string' ? { symbol: item, name: '' } : item
+  )
+  // Remove duplicates and prepend current
+  const next = [
+    { symbol: current, name },
+    ...normalized.filter(item => item.symbol !== current)
+  ].slice(0, 10)
   localStorage.setItem('recentStocks', JSON.stringify(next))
 }
 
