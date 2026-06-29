@@ -183,6 +183,65 @@
         </div>
       </section>
 
+      <!-- ===== 股價疊加籌碼趨勢 ===== -->
+      <section v-if="hasTrend" class="card">
+        <div class="card-head">
+          <h2>股價 × 主力籌碼趨勢</h2>
+          <span class="verdict-tag sm tag-flat">近 30 日</span>
+        </div>
+        <div ref="trendChartEl" class="trend-chart"></div>
+        <div class="trend-legend">
+          <span class="tl-item"><i class="tl-line tl-price"></i>收盤價</span>
+          <span class="tl-item"><i class="tl-line tl-cum"></i>法人累積淨買超（右軸）</span>
+          <span v-if="cost && cost.cost !== null" class="tl-item"><i class="tl-line tl-cost"></i>主力估計成本 {{ cost.cost }}</span>
+        </div>
+        <p class="cost-desc">紅綠線為三大法人逐日累積淨買賣超（籌碼流向），與股價同步上揚代表主力買盤推升；虛線為主力估計成本，可觀察現價相對主力成本的位置。</p>
+      </section>
+
+      <!-- ===== 短線投機籌碼（當沖 / 隔日沖） ===== -->
+      <section v-if="dayTrade" class="card">
+        <div class="card-head">
+          <h2>短線投機籌碼（當沖 / 隔日沖）</h2>
+          <span class="verdict-tag sm" :class="dtTagClass">{{ dayTrade.verdict }}</span>
+        </div>
+        <div class="dt-grid">
+          <div class="dt-hero">
+            <span class="dt-val num" :class="dtTagClass">{{ dayTrade.ratio_5d !== null ? dayTrade.ratio_5d + '%' : '—' }}</span>
+            <span class="dt-cap">近 5 日平均當沖比</span>
+          </div>
+          <div class="dt-bars" aria-hidden="true">
+            <span
+              v-for="(d, i) in dayTrade.daily"
+              :key="i"
+              class="dt-bar"
+              :class="d.ratio >= 35 ? 'dtb-hot' : d.ratio >= 20 ? 'dtb-warm' : 'dtb-calm'"
+              :style="{ height: Math.max(6, Math.min(100, (d.ratio || 0) * 2)) + '%' }"
+              :title="d.date + '：' + (d.ratio ?? '—') + '%'"
+            ></span>
+          </div>
+        </div>
+        <div class="sig-stats">
+          <div class="sig-stat">
+            <span class="ss-key">最新當沖比</span>
+            <span class="ss-val num">{{ dayTrade.ratio_latest !== null ? dayTrade.ratio_latest + '%' : '—' }}</span>
+          </div>
+          <div class="sig-stat">
+            <span class="ss-key">較前波變化</span>
+            <span class="ss-val num" :class="changeTone(dayTrade.trend_delta)">
+              {{ dayTrade.trend_delta !== null ? (dayTrade.trend_delta > 0 ? '+' : '') + dayTrade.trend_delta + 'pt' : '—' }}
+            </span>
+          </div>
+          <div class="sig-stat">
+            <span class="ss-key">當沖客近 5 日淨額</span>
+            <span class="ss-val num" :class="changeTone(dayTrade.net_5d)">
+              {{ (dayTrade.net_5d / 1e8).toFixed(2) }} 億
+            </span>
+          </div>
+        </div>
+        <p class="sig-desc">{{ dayTrade.description }}</p>
+        <p class="sig-foot">{{ dayTrade.net_label }}</p>
+      </section>
+
       <!-- ===== 持股結構 ===== -->
       <section v-if="dist" class="card">
         <div class="card-head">
@@ -385,8 +444,9 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, nextTick, onBeforeUnmount } from 'vue'
 import { useRoute } from 'vue-router'
+import { createChart } from 'lightweight-charts'
 import { useStockStore } from '../stores/stock.js'
 
 const route = useRoute()
@@ -404,6 +464,93 @@ const marginSummary = computed(() => major.value?.margin_analysis?.summary || nu
 const cost = computed(() => data.value?.major_cost || null)
 const syncBuy = computed(() => data.value?.sync_buy || null)
 const marginRatio = computed(() => data.value?.margin_ratio || null)
+const dayTrade = computed(() => data.value?.day_trade || null)
+const dtTagClass = computed(() => toneClass(dayTrade.value?.tone))
+
+// 股價 × 法人累積淨買超 趨勢資料 (複用 volume_price.indicators + institutional_flow)
+const trendChartEl = ref(null)
+let trendChart = null
+let trendRO = null
+
+const trendData = computed(() => {
+  const mp = major.value
+  if (!mp) return null
+  const vp = mp.volume_price?.indicators || []
+  const inst = mp.institutional_flow || {}
+  if (vp.length < 5) return null
+  const fmap = Object.fromEntries((inst.foreign || []).map(d => [d.date, d.net]))
+  const tmap = Object.fromEntries((inst.trust || []).map(d => [d.date, d.net]))
+  const dmap = Object.fromEntries((inst.dealer || []).map(d => [d.date, d.net]))
+  let cum = 0
+  const price = []
+  const cumNet = []
+  for (const d of vp) {
+    price.push({ time: d.date, value: d.close })
+    cum += (fmap[d.date] || 0) + (tmap[d.date] || 0) + (dmap[d.date] || 0)
+    cumNet.push({ time: d.date, value: Math.round(cum / 1000) }) // 千股
+  }
+  return { price, cumNet }
+})
+const hasTrend = computed(() => !!trendData.value)
+
+function destroyTrendChart() {
+  if (trendRO) { try { trendRO.disconnect() } catch {} trendRO = null }
+  if (trendChart) { try { trendChart.remove() } catch {} trendChart = null }
+}
+
+function renderTrendChart() {
+  destroyTrendChart()
+  const el = trendChartEl.value
+  const td = trendData.value
+  if (!el || !td) return
+  const width = el.clientWidth || 800
+  trendChart = createChart(el, {
+    width,
+    height: 280,
+    layout: { background: { color: 'transparent' }, textColor: '#94a3b8' },
+    grid: {
+      vertLines: { color: 'rgba(51, 65, 85, 0.25)' },
+      horzLines: { color: 'rgba(51, 65, 85, 0.25)' },
+    },
+    rightPriceScale: { borderColor: '#334155' },
+    leftPriceScale: { borderColor: '#334155', visible: true },
+    timeScale: { borderColor: '#334155' },
+    crosshair: { vertLine: { color: '#475569' }, horzLine: { color: '#475569' } },
+  })
+  // 收盤價（左軸）
+  const priceSeries = trendChart.addLineSeries({
+    color: '#38bdf8', lineWidth: 2, priceScaleId: 'left',
+    priceFormat: { type: 'price', precision: 2, minMove: 0.01 },
+  })
+  priceSeries.setData(td.price)
+  // 法人累積淨買超（右軸）
+  const lastCum = td.cumNet.length ? td.cumNet[td.cumNet.length - 1].value : 0
+  const cumSeries = trendChart.addLineSeries({
+    color: lastCum >= 0 ? '#22c55e' : '#ef4444', lineWidth: 2, priceScaleId: 'right',
+    priceFormat: { type: 'volume' },
+  })
+  cumSeries.setData(td.cumNet)
+  // 主力估計成本（虛線）
+  const c = cost.value
+  if (c && c.cost !== null && c.cost !== undefined) {
+    priceSeries.createPriceLine({
+      price: c.cost, color: '#f59e0b', lineWidth: 1, lineStyle: 2,
+      axisLabelVisible: true, title: '主力成本',
+    })
+  }
+  trendChart.timeScale().fitContent()
+  trendRO = new ResizeObserver(() => {
+    if (trendChart && el.clientWidth) trendChart.applyOptions({ width: el.clientWidth })
+  })
+  trendRO.observe(el)
+}
+
+watch(trendData, async () => {
+  await nextTick()
+  if (hasTrend.value) renderTrendChart()
+  else destroyTrendChart()
+})
+onBeforeUnmount(destroyTrendChart)
 
 const toneClass = (t) => (t === 'up' ? 'tag-up' : t === 'down' ? 'tag-down' : 'tag-flat')
 const syncTagClass = computed(() => toneClass(syncBuy.value?.tone))
@@ -675,6 +822,30 @@ onMounted(fetchData)
 .mt-tick-init { left: 47.5%; }
 @media (prefers-reduced-motion: reduce) { .mt-marker { transition: none; } }
 
+/* ---- 股價 × 籌碼趨勢圖 ---- */
+.trend-chart { width: 100%; height: 280px; }
+.trend-legend { display: flex; flex-wrap: wrap; gap: 16px; margin: 12px 0 4px; }
+.tl-item { display: inline-flex; align-items: center; gap: 7px; font-size: 0.76rem; color: var(--text-secondary); }
+.tl-line { width: 18px; height: 3px; border-radius: 2px; }
+.tl-price { background: #38bdf8; }
+.tl-cum { background: #22c55e; }
+.tl-cost { background: #f59e0b; border-top: 1px dashed #f59e0b; height: 0; }
+
+/* ---- 短線投機籌碼（當沖/隔日沖） ---- */
+.dt-grid { display: grid; grid-template-columns: 160px 1fr; gap: 16px; align-items: stretch; margin-bottom: 14px; }
+.dt-hero { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 14px; background: var(--bg-tertiary); border-radius: var(--radius-sm); }
+.dt-val { font-size: 2rem; font-weight: 800; line-height: 1; }
+.dt-val.tag-up { color: var(--accent-green); background: none; border: none; padding: 0; }
+.dt-val.tag-down { color: var(--accent-red); background: none; border: none; padding: 0; }
+.dt-val.tag-flat { color: var(--accent-blue); background: none; border: none; padding: 0; }
+.dt-cap { font-size: 0.74rem; color: var(--text-muted); }
+.dt-bars { display: flex; align-items: flex-end; gap: 3px; padding: 10px; background: var(--bg-tertiary); border-radius: var(--radius-sm); min-height: 90px; }
+.dt-bar { flex: 1; border-radius: 2px 2px 0 0; background: var(--accent-blue); transition: height 0.4s ease; }
+.dtb-calm { background: rgba(59,130,246,0.55); }
+.dtb-warm { background: rgba(234,179,8,0.7); }
+.dtb-hot { background: rgba(239,68,68,0.8); }
+@media (prefers-reduced-motion: reduce) { .dt-bar { transition: none; } }
+
 /* ---- verdict ---- */
 .verdict-grid { display: grid; grid-template-columns: 1.8fr 1fr; gap: var(--space-4); }
 .verdict-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
@@ -771,6 +942,7 @@ onMounted(fetchData)
 @media (max-width: 860px) {
   .verdict-grid { grid-template-columns: 1fr; }
   .signal-grid { grid-template-columns: 1fr; }
+  .dt-grid { grid-template-columns: 1fr; }
   .struct-cards, .flow-cards { grid-template-columns: repeat(2, 1fr); }
   .retail-cards { grid-template-columns: 1fr; }
   .cost-grid { grid-template-columns: repeat(2, 1fr); }

@@ -222,6 +222,20 @@
 
         <p class="reasoning-text">{{ card.reasoning }}</p>
 
+        <div v-if="card.majorCost" class="majorcost-strip" :class="card.majorCost.cost_tone">
+          <div class="mc-item">
+            <span class="mc-key">主力成本</span>
+            <span class="mc-num">{{ card.majorCost.cost != null ? formatPrice(card.majorCost.cost) : '—' }}</span>
+          </div>
+          <div class="mc-item">
+            <span class="mc-key">乖離</span>
+            <span class="mc-num" :class="deltaClass(card.majorCost.deviation)">
+              {{ card.majorCost.deviation != null ? formatSigned(card.majorCost.deviation) + '%' : '—' }}
+            </span>
+          </div>
+          <span class="mc-verdict" :class="card.majorCost.cost_tone">{{ card.majorCost.cost_verdict }}</span>
+        </div>
+
         <div class="sparkline-panel">
           <div class="sparkline-head">
             <span>近 20 日走勢</span>
@@ -285,6 +299,7 @@ const watchlist = ref(loadWatchlist())
 const rawSignals = ref([])
 const profiles = ref({})
 const histories = ref({})
+const costs = ref({})
 
 const sparklineContainers = new Map()
 const sparklineInstances = new Map()
@@ -350,6 +365,7 @@ const enrichedCards = computed(() => {
         history,
         change,
         changePercent,
+        majorCost: costs.value[item.symbol] || null,
         volumeRatioLabel: item.volumeRatio == null ? '—' : `${formatNumber(item.volumeRatio, 2)}x`,
       }
     })
@@ -477,9 +493,10 @@ async function loadDashboard(force = false) {
 }
 
 async function hydrateSymbol(symbol) {
-  const [profileResult, historyResult] = await Promise.allSettled([
+  const [profileResult, historyResult, costResult] = await Promise.allSettled([
     fetchProfile(symbol),
     fetchHistory(symbol),
+    fetchMajorCost(symbol),
   ])
 
   if (profileResult.status === 'fulfilled' && profileResult.value) {
@@ -494,6 +511,25 @@ async function hydrateSymbol(symbol) {
       ...histories.value,
       [symbol]: historyResult.value,
     }
+  }
+
+  if (costResult.status === 'fulfilled' && costResult.value) {
+    costs.value = {
+      ...costs.value,
+      [symbol]: costResult.value,
+    }
+  }
+}
+
+async function fetchMajorCost(symbol) {
+  if (costs.value[symbol]) return costs.value[symbol]
+  try {
+    const payload = await apiGet(`/api/v1/stocks/${symbol}/major-cost`)
+    // apiGet unwraps `.data`; when data is null it falls back to the wrapper, so validate shape
+    if (payload && typeof payload === 'object' && 'cost' in payload) return payload
+    return null
+  } catch {
+    return null
   }
 }
 
@@ -1543,6 +1579,34 @@ function toDateParam(value) {
   margin-top: var(--space-4);
   min-height: 48px;
 }
+
+.majorcost-strip {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: var(--space-4);
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  background: rgba(11, 17, 33, 0.46);
+}
+.mc-item { display: flex; flex-direction: column; gap: 2px; }
+.mc-key { font-size: 0.68rem; color: var(--text-muted, #8a99ad); letter-spacing: 0.02em; }
+.mc-num { font-size: 0.98rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.mc-num.up, .mc-num.is-up { color: var(--accent-green, #22c55e); }
+.mc-num.down, .mc-num.is-down { color: var(--accent-red, #ef4444); }
+.mc-verdict {
+  margin-left: auto;
+  font-size: 0.74rem;
+  font-weight: 700;
+  padding: 4px 11px;
+  border-radius: 999px;
+  background: rgba(59, 130, 246, 0.12);
+  color: var(--accent-blue, #3b82f6);
+  border: 1px solid rgba(59, 130, 246, 0.28);
+}
+.mc-verdict.up { background: rgba(34,197,94,0.12); color: var(--accent-green, #22c55e); border-color: rgba(34,197,94,0.3); }
+.mc-verdict.down { background: rgba(239,68,68,0.12); color: var(--accent-red, #ef4444); border-color: rgba(239,68,68,0.3); }
 
 .sparkline-panel,
 .conditions-panel {
