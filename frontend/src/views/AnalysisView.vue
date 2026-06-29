@@ -221,6 +221,17 @@
             <p class="section-kicker">Chip Flow</p>
             <h2>籌碼面重點</h2>
           </div>
+          <router-link
+            v-if="chipHealth"
+            :to="`/stocks/${symbol}/chip`"
+            class="chip-health-badge"
+            :class="'tone-' + chipHealth.tone"
+            :title="chipHealth.verdict"
+          >
+            <span class="chb-label">籌碼健診</span>
+            <span class="chb-score">{{ chipHealth.score }}</span>
+            <span class="chb-arrow">→</span>
+          </router-link>
         </div>
 
         <div class="detail-grid">
@@ -301,6 +312,7 @@ let requestToken = 0
 let candleSeries = null
 let majorCostLine = null
 const majorCost = ref(null)
+const chipHealth = ref(null)
 
 const symbol = computed(() => String(route.params.symbol || '').toUpperCase())
 const stockName = computed(() => stockInfo.value?.name_zh || '')
@@ -553,6 +565,7 @@ async function loadAnalysis() {
   loading.value = true
   errorMessage.value = ''
   majorCost.value = null
+  chipHealth.value = null
   const token = ++requestToken
 
   // If symbol is non-numeric (Chinese name), resolve to code first
@@ -599,6 +612,17 @@ async function loadAnalysis() {
   renderCharts()
   loading.value = false
   loadMajorCost(sym, token)
+  loadChipScore(sym, token)
+}
+
+async function loadChipScore(sym, token) {
+  try {
+    const payload = await apiGet(`/api/v1/stocks/${sym}/chip-score`)
+    if (token !== requestToken) return
+    chipHealth.value = (payload && typeof payload === 'object' && 'score' in payload) ? payload : null
+  } catch {
+    /* 籌碼健診為加值資訊，失敗時靜默忽略 */
+  }
 }
 
 async function loadMajorCost(sym, token) {
@@ -1432,6 +1456,25 @@ function valueTone(value) {
 .section-head.compact {
   margin-bottom: 14px;
 }
+
+.chip-health-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  text-decoration: none;
+  font-weight: 700;
+  border: 1px solid transparent;
+  transition: transform 0.18s cubic-bezier(0.22,1,0.36,1), background 0.18s ease;
+}
+.chip-health-badge:hover { transform: translateY(-1px); }
+.chip-health-badge .chb-label { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.02em; }
+.chip-health-badge .chb-score { font-size: 1.05rem; font-variant-numeric: tabular-nums; }
+.chip-health-badge .chb-arrow { font-size: 0.85rem; opacity: 0.7; }
+.chip-health-badge.tone-up { background: rgba(22,163,74,0.12); border-color: rgba(22,163,74,0.3); color: #16a34a; }
+.chip-health-badge.tone-down { background: rgba(220,38,38,0.12); border-color: rgba(220,38,38,0.3); color: #dc2626; }
+.chip-health-badge.tone-flat { background: rgba(234,179,8,0.12); border-color: rgba(234,179,8,0.3); color: #b45309; }
 
 .chart-card,
 .decision-card,

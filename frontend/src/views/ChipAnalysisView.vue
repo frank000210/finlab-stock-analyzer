@@ -620,6 +620,11 @@ const retailHint = computed(() => {
 })
 
 const chipHealth = computed(() => {
+  // 後端已計算則優先採用（單一真實來源），否則前端就地計算作為後備
+  const backend = data.value?.chip_health
+  if (backend && backend.factors && backend.factors.length) {
+    return { scorePct: backend.score, tone: backend.tone, verdict: backend.verdict, factors: backend.factors }
+  }
   const d = dist.value, mp = major.value, sb = syncBuy.value
   const c = cost.value, mr = marginRatio.value, dt = dayTrade.value
   const factors = []
