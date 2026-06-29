@@ -6,6 +6,7 @@ from fastapi import APIRouter, HTTPException, Query
 
 from ..analysis.chip_distribution import analyze_chip_distribution
 from ..analysis.chip_cost import compute_major_cost
+from ..analysis.chip_signals import compute_sync_buy, compute_margin_ratio
 from ..analysis.major_players import analyze_major_players
 
 router = APIRouter(prefix="/api/v1/stocks", tags=["chip"])
@@ -18,7 +19,7 @@ async def get_chip_analysis(
 ):
     """綜合籌碼分析：主力法人動向 + 大戶/散戶持股結構 + 大戶進出記錄."""
     try:
-        cache_key = f"chip_analysis:v2:{symbol}:{days}"
+        cache_key = f"chip_analysis:v3:{symbol}:{days}"
         try:
             from ..db.cache import get_cache, set_cache
             cached = await get_cache(cache_key)
@@ -48,6 +49,9 @@ async def get_chip_analysis(
 
         # 主力成本線 / 籌碼集中度 (複用法人量價資料)
         result["major_cost"] = compute_major_cost(result["major_players"])
+        # 外資+投信同步買訊號 / 融資維持率估算 (複用法人與融資資料)
+        result["sync_buy"] = compute_sync_buy(result["major_players"])
+        result["margin_ratio"] = compute_margin_ratio(result["major_players"])
 
         # Only cache when at least one section succeeded
         if (result["distribution"] or result["major_players"]):

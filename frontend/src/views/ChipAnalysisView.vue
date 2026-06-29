@@ -108,6 +108,81 @@
         <p class="cost-desc">{{ cost.conc_description }}</p>
       </section>
 
+      <!-- ===== 主力同步買 / 融資維持率 ===== -->
+      <section v-if="syncBuy || marginRatio" class="signal-grid">
+        <!-- 外資 + 投信同步買 -->
+        <div v-if="syncBuy" class="card sig-card">
+          <div class="card-head">
+            <h2>外資 ＋ 投信同步</h2>
+            <span class="verdict-tag sm" :class="syncTagClass">{{ syncBuy.verdict }}</span>
+          </div>
+          <div class="sig-stats">
+            <div class="sig-stat">
+              <span class="ss-key">近 {{ syncBuy.window }} 日同步買</span>
+              <span class="ss-val num">{{ syncBuy.sync_buy_days }} 日</span>
+            </div>
+            <div class="sig-stat">
+              <span class="ss-key">連續同步買</span>
+              <span class="ss-val num" :class="syncBuy.sync_streak >= 3 ? 'tone-up' : ''">{{ syncBuy.sync_streak }} 日</span>
+            </div>
+            <div class="sig-stat">
+              <span class="ss-key">近 5 日合計</span>
+              <span class="ss-val num" :class="changeTone(syncBuy.combined_5d)">
+                {{ syncBuy.combined_5d > 0 ? '+' : '' }}{{ formatInt(syncBuy.combined_5d) }}
+              </span>
+            </div>
+          </div>
+          <div class="sync-strip" aria-hidden="true">
+            <span
+              v-for="(d, i) in syncBuy.daily"
+              :key="i"
+              class="sync-cell"
+              :class="'sc-' + d.sync"
+              :title="d.date"
+            ></span>
+          </div>
+          <p class="sig-desc">{{ syncBuy.description }}</p>
+        </div>
+
+        <!-- 融資維持率 -->
+        <div v-if="marginRatio" class="card sig-card">
+          <div class="card-head">
+            <h2>融資維持率估算</h2>
+            <span class="verdict-tag sm" :class="marginTagClass">{{ marginRatio.risk }}</span>
+          </div>
+          <div class="maint-hero">
+            <span class="mh-val num" :class="marginRatio.tone">{{ marginRatio.maintenance_ratio }}%</span>
+            <span class="mh-cap">估計整戶維持率</span>
+          </div>
+          <div class="maint-track" aria-hidden="true">
+            <div class="mt-zone mt-danger"></div>
+            <div class="mt-zone mt-warn"></div>
+            <div class="mt-zone mt-safe"></div>
+            <div class="mt-marker" :style="{ left: maintPos + '%' }"></div>
+            <span class="mt-tick mt-tick-call">130%</span>
+            <span class="mt-tick mt-tick-init">167%</span>
+          </div>
+          <div class="sig-stats">
+            <div class="sig-stat">
+              <span class="ss-key">融資估計成本</span>
+              <span class="ss-val num">{{ marginRatio.est_cost }}</span>
+            </div>
+            <div class="sig-stat">
+              <span class="ss-key">推估斷頭價</span>
+              <span class="ss-val num tone-down">{{ marginRatio.margin_call_price }}</span>
+            </div>
+            <div class="sig-stat">
+              <span class="ss-key">距斷頭緩衝</span>
+              <span class="ss-val num" :class="marginRatio.buffer_pct < 10 ? 'tone-down' : 'tone-up'">
+                {{ marginRatio.buffer_pct }}%
+              </span>
+            </div>
+          </div>
+          <p class="sig-desc">{{ marginRatio.description }}</p>
+          <p class="sig-foot">{{ marginRatio.balance_trend }} · {{ marginRatio.cost_basis }}</p>
+        </div>
+      </section>
+
       <!-- ===== 持股結構 ===== -->
       <section v-if="dist" class="card">
         <div class="card-head">
@@ -327,6 +402,18 @@ const distError = computed(() => data.value?.distribution_error || '')
 
 const marginSummary = computed(() => major.value?.margin_analysis?.summary || null)
 const cost = computed(() => data.value?.major_cost || null)
+const syncBuy = computed(() => data.value?.sync_buy || null)
+const marginRatio = computed(() => data.value?.margin_ratio || null)
+
+const toneClass = (t) => (t === 'up' ? 'tag-up' : t === 'down' ? 'tag-down' : 'tag-flat')
+const syncTagClass = computed(() => toneClass(syncBuy.value?.tone))
+const marginTagClass = computed(() => toneClass(marginRatio.value?.tone))
+// 維持率刻度條：130% 斷頭線在左、167% 初始在中、220%+ 在右
+const maintPos = computed(() => {
+  const r = marginRatio.value?.maintenance_ratio
+  if (r === null || r === undefined) return 0
+  return Math.max(2, Math.min(98, ((r - 110) / (230 - 110)) * 100))
+})
 
 const costTagClass = computed(() => {
   const t = cost.value?.cost_tone
@@ -552,6 +639,42 @@ onMounted(fetchData)
 @media (prefers-reduced-motion: reduce) { .ct-price { transition: none; } }
 .cost-desc { font-size: 0.84rem; line-height: 1.6; color: var(--text-secondary); margin-top: 6px; }
 
+/* ---- 進階訊號：同步買 / 維持率 ---- */
+.signal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); }
+.sig-card { display: flex; flex-direction: column; }
+.sig-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 4px 0 14px; }
+.sig-stat { display: flex; flex-direction: column; gap: 4px; padding: 12px; background: var(--bg-tertiary); border-radius: var(--radius-sm); }
+.ss-key { font-size: 0.72rem; color: var(--text-muted); }
+.ss-val { font-size: 1.18rem; font-weight: 800; }
+.ss-val.up, .ss-val.tone-up { color: var(--accent-green); }
+.ss-val.down, .ss-val.tone-down { color: var(--accent-red); }
+.sig-desc { font-size: 0.84rem; line-height: 1.6; color: var(--text-secondary); margin-top: auto; }
+.sig-foot { font-size: 0.72rem; color: var(--text-muted); margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border-color); }
+
+/* 同步買熱力條 */
+.sync-strip { display: flex; gap: 4px; margin-bottom: 14px; }
+.sync-cell { flex: 1; height: 18px; border-radius: 3px; background: var(--bg-tertiary); }
+.sync-cell.sc-buy { background: var(--accent-green); }
+.sync-cell.sc-sell { background: var(--accent-red); }
+
+/* 維持率 */
+.maint-hero { display: flex; flex-direction: column; align-items: center; gap: 2px; margin-bottom: 14px; }
+.mh-val { font-size: 2.4rem; font-weight: 800; line-height: 1; }
+.mh-val.up { color: var(--accent-green); }
+.mh-val.down { color: var(--accent-red); }
+.mh-val.flat { color: var(--accent-blue); }
+.mh-cap { font-size: 0.74rem; color: var(--text-muted); }
+.maint-track { position: relative; height: 12px; border-radius: 6px; overflow: hidden; margin: 6px 0 26px; display: flex; }
+.mt-zone { height: 100%; }
+.mt-danger { width: 17%; background: rgba(239,68,68,0.55); }
+.mt-warn { width: 31%; background: rgba(234,179,8,0.5); }
+.mt-safe { flex: 1; background: rgba(34,197,94,0.45); }
+.mt-marker { position: absolute; top: -3px; width: 4px; height: 18px; border-radius: 2px; background: var(--text-primary); transform: translateX(-50%); box-shadow: 0 0 0 2px var(--bg-secondary); transition: left 0.5s ease; }
+.mt-tick { position: absolute; top: 15px; font-size: 0.62rem; color: var(--text-muted); transform: translateX(-50%); font-variant-numeric: tabular-nums; }
+.mt-tick-call { left: 17%; }
+.mt-tick-init { left: 47.5%; }
+@media (prefers-reduced-motion: reduce) { .mt-marker { transition: none; } }
+
 /* ---- verdict ---- */
 .verdict-grid { display: grid; grid-template-columns: 1.8fr 1fr; gap: var(--space-4); }
 .verdict-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
@@ -647,6 +770,7 @@ onMounted(fetchData)
 
 @media (max-width: 860px) {
   .verdict-grid { grid-template-columns: 1fr; }
+  .signal-grid { grid-template-columns: 1fr; }
   .struct-cards, .flow-cards { grid-template-columns: repeat(2, 1fr); }
   .retail-cards { grid-template-columns: 1fr; }
   .cost-grid { grid-template-columns: repeat(2, 1fr); }
