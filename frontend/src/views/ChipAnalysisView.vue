@@ -26,16 +26,7 @@
     <div v-if="error" class="card error-card">{{ error }}</div>
 
     <div v-if="data" class="results">
-      <!-- ===== 綜合研判 ===== -->
-      <section v-if="synthesis" class="card synth-card" :class="'synth-' + synthesis.tone">
-        <span class="synth-icon">{{ synthesis.icon }}</span>
-        <div class="synth-body">
-          <span class="synth-title">綜合研判</span>
-          <p class="synth-text">{{ synthesis.text }}</p>
-        </div>
-      </section>
-
-      <!-- ===== 籌碼健診評分 ===== -->
+      <!-- ===== 籌碼健診（綜合研判 hero） ===== -->
       <section v-if="chipHealth" class="card health-card">
         <div class="health-head">
           <div class="health-score" :class="'tone-' + chipHealth.tone">
@@ -43,7 +34,7 @@
             <span class="health-unit">/ 100</span>
           </div>
           <div class="health-meta">
-            <span class="health-title">籌碼健診評分</span>
+            <span class="health-title">籌碼健診 · 綜合研判</span>
             <p class="health-verdict">{{ chipHealth.verdict }}</p>
             <div class="health-gauge">
               <div class="health-gauge-fill" :class="'tone-' + chipHealth.tone"
@@ -52,6 +43,7 @@
             </div>
           </div>
         </div>
+        <p v-if="synthesis" class="health-narrative">{{ synthesis.text }}</p>
         <div class="health-factors">
           <div v-for="f in chipHealth.factors" :key="f.label" class="health-factor">
             <div class="hf-top">
@@ -826,17 +818,7 @@ onMounted(fetchData)
 
 .results { display: flex; flex-direction: column; gap: var(--space-5); }
 
-/* ---- synthesis banner ---- */
-.synth-card { display: flex; gap: 14px; align-items: flex-start; border-width: 1px; }
-.synth-up { border-color: rgba(34,197,94,0.4); background: rgba(34,197,94,0.05); }
-.synth-down { border-color: rgba(239,68,68,0.4); background: rgba(239,68,68,0.05); }
-.synth-flat { border-color: rgba(234,179,8,0.4); background: rgba(234,179,8,0.05); }
-.synth-icon { font-size: 1.4rem; line-height: 1.3; }
-.synth-body { display: flex; flex-direction: column; gap: 4px; }
-.synth-title { font-size: 0.74rem; font-weight: 700; letter-spacing: 0.04em; color: var(--text-muted); }
-.synth-text { font-size: 0.92rem; line-height: 1.6; color: var(--text-primary); }
-
-/* ---- 籌碼健診 ---- */
+/* ---- 籌碼健診（綜合研判 hero） ---- */
 .health-card { display: flex; flex-direction: column; gap: 16px; }
 .health-head { display: flex; gap: 18px; align-items: center; }
 .health-score { display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -849,6 +831,8 @@ onMounted(fetchData)
 .health-meta { flex: 1; display: flex; flex-direction: column; gap: 8px; }
 .health-title { font-size: 0.74rem; font-weight: 700; letter-spacing: 0.04em; color: var(--text-muted); }
 .health-verdict { font-size: 0.92rem; line-height: 1.55; color: var(--text-primary); }
+.health-narrative { font-size: 0.86rem; line-height: 1.7; color: var(--text-secondary); padding: 12px 14px;
+  background: var(--bg-tertiary); border-radius: var(--radius-sm); }
 .health-gauge { position: relative; height: 8px; border-radius: 4px; background: var(--bg-tertiary); overflow: hidden; }
 .health-gauge-fill { position: absolute; left: 0; top: 0; height: 100%; border-radius: 4px; transition: width 0.5s cubic-bezier(0.22,1,0.36,1); }
 .health-gauge-fill.tone-up { background: linear-gradient(90deg, rgba(34,197,94,0.5), var(--accent-green)); }
