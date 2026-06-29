@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap');
 
 :root {
   /* Color System - Dark Mode */
@@ -9,7 +9,7 @@
   --bg-hover: rgba(37, 99, 235, 0.06);
   --text-primary: #f1f5f9;
   --text-secondary: #cbd5e1;
-  --text-muted: #64748b;
+  --text-muted: #8a99ad;
   --accent-blue: #3b82f6;
   --accent-purple: #8b5cf6;
   --accent-cyan: #06b6d4;
@@ -238,6 +238,8 @@ p { line-height: 1.65; color: var(--text-secondary); }
   font-weight: 800;
   line-height: 1.1;
   margin-bottom: var(--space-1);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
 }
 
 .metric-card .label {
@@ -330,6 +332,7 @@ table {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
 }
 
 thead {
@@ -507,7 +510,36 @@ tr:hover td {
 
 /* ===== ANIMATIONS ===== */
 @media (prefers-reduced-motion: no-preference) {
-  .card { transition: transform var(--transition-base), box-shadow var(--transition-base); }
-  .card:hover { transform: translateY(-1px); }
+  /* Only interactive/clickable cards lift — data cards stay put to avoid
+     the uniform-hover noise on dense dashboards. */
+  a > .card,
+  .card.is-interactive,
+  button .card {
+    transition: transform var(--transition-base), box-shadow var(--transition-base), border-color var(--transition-base);
+  }
+  a > .card:hover,
+  .card.is-interactive:hover,
+  button .card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(59, 130, 246, 0.35);
+  }
+}
+
+/* ===== NUMERIC DATA ===== */
+.num,
+.current-price,
+.price-change,
+.signal-score,
+.stat-value {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+/* Hero figures use a distinctive monospaced face — financial-terminal voice */
+.current-price,
+.signal-score,
+.metric-card .value {
+  font-family: var(--font-mono);
+  letter-spacing: -0.02em;
 }
 
