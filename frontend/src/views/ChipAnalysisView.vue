@@ -35,7 +35,41 @@
         </div>
       </section>
 
-      <!-- ===== 籌碼總評 ===== -->
+      <!-- ===== 籌碼健診評分 ===== -->
+      <section v-if="chipHealth" class="card health-card">
+        <div class="health-head">
+          <div class="health-score" :class="'tone-' + chipHealth.tone">
+            <span class="health-num">{{ chipHealth.scorePct }}</span>
+            <span class="health-unit">/ 100</span>
+          </div>
+          <div class="health-meta">
+            <span class="health-title">籌碼健診評分</span>
+            <p class="health-verdict">{{ chipHealth.verdict }}</p>
+            <div class="health-gauge">
+              <div class="health-gauge-fill" :class="'tone-' + chipHealth.tone"
+                   :style="{ width: chipHealth.scorePct + '%' }"></div>
+              <span class="health-gauge-mid"></span>
+            </div>
+          </div>
+        </div>
+        <div class="health-factors">
+          <div v-for="f in chipHealth.factors" :key="f.label" class="health-factor">
+            <div class="hf-top">
+              <span class="hf-label">{{ f.label }}</span>
+              <span class="hf-note" :class="f.score > 8 ? 'tone-up' : f.score < -8 ? 'tone-down' : 'tone-flat'">{{ f.note }}</span>
+            </div>
+            <div class="hf-bar">
+              <span class="hf-bar-zero"></span>
+              <span class="hf-bar-fill" :class="f.score >= 0 ? 'pos' : 'neg'"
+                    :style="f.score >= 0
+                      ? { left: '50%', width: (f.score / 2) + '%' }
+                      : { right: '50%', width: (Math.abs(f.score) / 2) + '%' }"></span>
+            </div>
+          </div>
+        </div>
+        <p class="health-foot">綜合 集保結構、法人動向、同步買、主力成本、融資維持率、短線投機 等面向加權評分（50 為中性）。</p>
+      </section>
+
       <section v-if="dist" class="verdict-grid">
         <div class="card verdict-card">
           <div class="verdict-head">
@@ -585,6 +619,51 @@ const retailHint = computed(() => {
   return '融資餘額持平，散戶情緒中性。'
 })
 
+const chipHealth = computed(() => {
+  const d = dist.value, mp = major.value, sb = syncBuy.value
+  const c = cost.value, mr = marginRatio.value, dt = dayTrade.value
+  const factors = []
+  const push = (label, score, note) => factors.push({ label, score: Math.max(-100, Math.min(100, Math.round(score))), note })
+
+  if (d) push('集保結構', d.score, d.verdict)
+  if (mp) push('法人動向', mp.score, mp.verdict)
+  if (sb) {
+    const s = sb.verdict.includes('同步買') ? 60 : sb.verdict.includes('偏多') ? 40
+      : sb.verdict.includes('偏空') ? -50 : 0
+    push('外資投信同步', s, sb.verdict)
+  }
+  if (c && c.deviation != null) {
+    const s = c.deviation > 5 ? 40 : c.deviation < -5 ? -40 : 0
+    push('主力成本', s, c.cost_verdict)
+  }
+  if (mr && mr.maintenance_ratio != null) {
+    const s = mr.risk.includes('斷頭') ? -55 : mr.risk.includes('偏低') ? -25
+      : mr.risk.includes('獲利') ? 15 : 0
+    push('融資維持率', s, mr.risk)
+  }
+  if (dt && dt.ratio_5d != null) {
+    const s = dt.verdict.includes('極熱') ? -40 : dt.verdict.includes('偏熱') ? -20
+      : dt.verdict.includes('穩定') ? 20 : 0
+    push('短線投機', s, dt.verdict)
+  }
+  if (!factors.length) return null
+
+  const weights = { 集保結構: 1.2, 法人動向: 1.5, 外資投信同步: 1.0, 主力成本: 1.0, 融資維持率: 0.8, 短線投機: 0.8 }
+  let wsum = 0, total = 0
+  for (const f of factors) { const w = weights[f.label] || 1; total += f.score * w; wsum += w }
+  const avg = wsum ? total / wsum : 0
+  const scorePct = Math.round(Math.max(0, Math.min(100, 50 + avg / 2)))
+
+  let tone, verdict
+  if (scorePct >= 65) { tone = 'up'; verdict = '籌碼面整體偏多，主力與結構面同步支撐。' }
+  else if (scorePct >= 55) { tone = 'up'; verdict = '籌碼面略偏多，多方訊號占優但力道有限。' }
+  else if (scorePct >= 45) { tone = 'flat'; verdict = '籌碼面多空拉鋸，方向未明，宜搭配技術面確認。' }
+  else if (scorePct >= 35) { tone = 'down'; verdict = '籌碼面略偏空，主力調節或結構鬆動跡象浮現。' }
+  else { tone = 'down'; verdict = '籌碼面整體偏空，多項指標同步示警，宜保守。' }
+
+  return { scorePct, tone, verdict, factors }
+})
+
 const synthesis = computed(() => {
   const d = dist.value
   const mp = major.value
@@ -751,6 +830,46 @@ onMounted(fetchData)
 .synth-body { display: flex; flex-direction: column; gap: 4px; }
 .synth-title { font-size: 0.74rem; font-weight: 700; letter-spacing: 0.04em; color: var(--text-muted); }
 .synth-text { font-size: 0.92rem; line-height: 1.6; color: var(--text-primary); }
+
+/* ---- 籌碼健診 ---- */
+.health-card { display: flex; flex-direction: column; gap: 16px; }
+.health-head { display: flex; gap: 18px; align-items: center; }
+.health-score { display: flex; flex-direction: column; align-items: center; justify-content: center;
+  min-width: 96px; padding: 12px 8px; border-radius: var(--radius-sm); background: var(--bg-tertiary); }
+.health-num { font-size: 2.4rem; font-weight: 800; line-height: 1; }
+.health-unit { font-size: 0.7rem; color: var(--text-muted); margin-top: 2px; }
+.health-score.tone-up .health-num { color: var(--accent-green); }
+.health-score.tone-down .health-num { color: var(--accent-red); }
+.health-score.tone-flat .health-num { color: #eab308; }
+.health-meta { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+.health-title { font-size: 0.74rem; font-weight: 700; letter-spacing: 0.04em; color: var(--text-muted); }
+.health-verdict { font-size: 0.92rem; line-height: 1.55; color: var(--text-primary); }
+.health-gauge { position: relative; height: 8px; border-radius: 4px; background: var(--bg-tertiary); overflow: hidden; }
+.health-gauge-fill { position: absolute; left: 0; top: 0; height: 100%; border-radius: 4px; transition: width 0.5s cubic-bezier(0.22,1,0.36,1); }
+.health-gauge-fill.tone-up { background: linear-gradient(90deg, rgba(34,197,94,0.5), var(--accent-green)); }
+.health-gauge-fill.tone-down { background: linear-gradient(90deg, rgba(239,68,68,0.5), var(--accent-red)); }
+.health-gauge-fill.tone-flat { background: linear-gradient(90deg, rgba(234,179,8,0.5), #eab308); }
+.health-gauge-mid { position: absolute; left: 50%; top: -2px; width: 1px; height: 12px; background: var(--text-muted); opacity: 0.5; }
+.health-factors { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px 20px; }
+.health-factor { display: flex; flex-direction: column; gap: 5px; }
+.hf-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.hf-label { font-size: 0.8rem; font-weight: 600; color: var(--text-primary); }
+.hf-note { font-size: 0.72rem; color: var(--text-muted); text-align: right; }
+.hf-note.tone-up { color: var(--accent-green); }
+.hf-note.tone-down { color: var(--accent-red); }
+.hf-bar { position: relative; height: 6px; border-radius: 3px; background: var(--bg-tertiary); }
+.hf-bar-zero { position: absolute; left: 50%; top: -1px; width: 1px; height: 8px; background: var(--border-color); }
+.hf-bar-fill { position: absolute; top: 0; height: 100%; border-radius: 3px; transition: width 0.4s ease; }
+.hf-bar-fill.pos { background: var(--accent-green); }
+.hf-bar-fill.neg { background: var(--accent-red); }
+.health-foot { font-size: 0.72rem; line-height: 1.55; color: var(--text-muted); }
+@media (max-width: 640px) {
+  .health-factors { grid-template-columns: 1fr; }
+  .health-head { gap: 12px; }
+  .health-score { min-width: 80px; }
+  .health-num { font-size: 2rem; }
+}
+
 
 /* ---- caveat ---- */
 .caveat { margin-top: 14px; padding: 12px 14px; background: rgba(234,179,8,0.07); border: 1px solid rgba(234,179,8,0.25); border-radius: var(--radius-sm); font-size: 0.8rem; line-height: 1.6; color: var(--text-secondary); }
