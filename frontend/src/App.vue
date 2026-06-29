@@ -120,25 +120,23 @@ function goToStock() {
 }
 
 function triggerGoogleSignIn() {
-  if (window.google?.accounts?.id) {
-    window.google.accounts.id.prompt()
-  } else {
-    const script = document.createElement('script')
-    script.src = 'https://accounts.google.com/gsi/client'
-    script.onload = () => {
-      const clientId = window.__GOOGLE_CLIENT_ID__ || ''
-      if (!clientId) return
-      window.google.accounts.id.initialize({
-        client_id: clientId,
-        callback: async (response) => {
-          const result = await authStore.loginWithGoogle(response.credential)
-          if (!result.success) console.warn('Login failed:', result.error)
-        },
-      })
-      window.google.accounts.id.prompt()
-    }
-    document.head.appendChild(script)
+  // Redirect-based OAuth flow (works in all browsers incl. embedded; no popup)
+  const clientId = window.__GOOGLE_CLIENT_ID__ || ''
+  if (!clientId) {
+    router.push('/admin')
+    return
   }
+  const nonce = Math.random().toString(36).slice(2) + Date.now().toString(36)
+  sessionStorage.setItem('gsi_nonce', nonce)
+  const params = new URLSearchParams({
+    client_id: clientId,
+    redirect_uri: window.location.origin + '/admin',
+    response_type: 'id_token',
+    scope: 'openid email profile',
+    nonce,
+    prompt: 'select_account',
+  })
+  window.location.href = 'https://accounts.google.com/o/oauth2/v2/auth?' + params.toString()
 }
 </script>
 
