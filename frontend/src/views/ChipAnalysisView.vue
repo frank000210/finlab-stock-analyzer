@@ -69,6 +69,45 @@
         </div>
       </section>
 
+      <!-- ===== 主力成本區 ===== -->
+      <section v-if="cost" class="card">
+        <div class="card-head">
+          <h2>主力成本區</h2>
+          <span class="verdict-tag sm" :class="costTagClass">{{ cost.cost_verdict }}</span>
+        </div>
+        <div class="cost-grid">
+          <div class="cost-metric">
+            <span class="cm-key">主力估計成本</span>
+            <span class="cm-val num">{{ cost.cost !== null ? cost.cost : '—' }}</span>
+          </div>
+          <div class="cost-metric">
+            <span class="cm-key">目前股價</span>
+            <span class="cm-val num">{{ cost.last_close }}</span>
+          </div>
+          <div class="cost-metric">
+            <span class="cm-key">乖離率</span>
+            <span class="cm-val num" :class="changeTone(cost.deviation)">
+              {{ cost.deviation !== null ? (cost.deviation > 0 ? '+' : '') + cost.deviation + '%' : '—' }}
+            </span>
+          </div>
+          <div class="cost-metric">
+            <span class="cm-key">籌碼集中度</span>
+            <span class="cm-val num" :class="changeTone(cost.concentration)">
+              {{ cost.concentration > 0 ? '+' : '' }}{{ cost.concentration }}%
+            </span>
+          </div>
+        </div>
+        <div v-if="cost.cost !== null" class="cost-track" aria-hidden="true">
+          <div class="ct-line"></div>
+          <div class="ct-cost"><span>主力成本</span></div>
+          <div class="ct-price" :style="{ left: pricePos + '%' }" :class="cost.cost_tone">
+            <span>現價</span>
+          </div>
+        </div>
+        <p class="cost-desc">{{ cost.cost_description }}</p>
+        <p class="cost-desc">{{ cost.conc_description }}</p>
+      </section>
+
       <!-- ===== 持股結構 ===== -->
       <section v-if="dist" class="card">
         <div class="card-head">
@@ -287,6 +326,18 @@ const major = computed(() => data.value?.major_players || null)
 const distError = computed(() => data.value?.distribution_error || '')
 
 const marginSummary = computed(() => major.value?.margin_analysis?.summary || null)
+const cost = computed(() => data.value?.major_cost || null)
+
+const costTagClass = computed(() => {
+  const t = cost.value?.cost_tone
+  return t === 'up' ? 'tag-up' : t === 'down' ? 'tag-down' : 'tag-flat'
+})
+const pricePos = computed(() => {
+  // position of current price on a ±15% cost track (cost = 50%)
+  const d = cost.value?.deviation
+  if (d === null || d === undefined) return 50
+  return Math.max(4, Math.min(96, 50 + (d / 15) * 50))
+})
 
 const retailHint = computed(() => {
   const m = marginSummary.value
@@ -483,6 +534,24 @@ onMounted(fetchData)
 
 .chip-footer { font-size: 0.72rem; line-height: 1.6; color: var(--text-muted); padding: 4px 2px; border-top: 1px solid var(--border-color); padding-top: 14px; }
 
+/* ---- 主力成本區 ---- */
+.cost-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+.cost-metric { display: flex; flex-direction: column; gap: 5px; padding: 14px; background: var(--bg-tertiary); border-radius: var(--radius-sm); }
+.cm-key { font-size: 0.76rem; color: var(--text-muted); }
+.cm-val { font-size: 1.5rem; font-weight: 800; }
+.cm-val.up { color: var(--accent-green); }
+.cm-val.down { color: var(--accent-red); }
+.cost-track { position: relative; height: 46px; margin: 10px 0 18px; }
+.ct-line { position: absolute; top: 30px; left: 0; right: 0; height: 3px; background: var(--bg-tertiary); border-radius: 2px; }
+.ct-line::before { content: ''; position: absolute; left: 50%; top: -3px; width: 2px; height: 9px; background: var(--text-muted); transform: translateX(-50%); }
+.ct-cost { position: absolute; left: 50%; top: 30px; transform: translate(-50%, -100%); font-size: 0.68rem; color: var(--text-muted); white-space: nowrap; }
+.ct-price { position: absolute; top: 30px; transform: translate(-50%, -50%); width: 14px; height: 14px; border-radius: 50%; background: var(--accent-blue); box-shadow: 0 0 0 3px var(--bg-secondary); transition: left 0.5s ease; }
+.ct-price.up { background: var(--accent-green); }
+.ct-price.down { background: var(--accent-red); }
+.ct-price span { position: absolute; top: 16px; left: 50%; transform: translateX(-50%); font-size: 0.68rem; color: var(--text-secondary); white-space: nowrap; }
+@media (prefers-reduced-motion: reduce) { .ct-price { transition: none; } }
+.cost-desc { font-size: 0.84rem; line-height: 1.6; color: var(--text-secondary); margin-top: 6px; }
+
 /* ---- verdict ---- */
 .verdict-grid { display: grid; grid-template-columns: 1.8fr 1fr; gap: var(--space-4); }
 .verdict-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
@@ -580,6 +649,7 @@ onMounted(fetchData)
   .verdict-grid { grid-template-columns: 1fr; }
   .struct-cards, .flow-cards { grid-template-columns: repeat(2, 1fr); }
   .retail-cards { grid-template-columns: 1fr; }
+  .cost-grid { grid-template-columns: repeat(2, 1fr); }
 }
 @media (max-width: 520px) {
   .page-header { flex-direction: column; align-items: stretch; }

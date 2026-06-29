@@ -5,6 +5,7 @@ import asyncio
 from fastapi import APIRouter, HTTPException, Query
 
 from ..analysis.chip_distribution import analyze_chip_distribution
+from ..analysis.chip_cost import compute_major_cost
 from ..analysis.major_players import analyze_major_players
 
 router = APIRouter(prefix="/api/v1/stocks", tags=["chip"])
@@ -44,6 +45,9 @@ async def get_chip_analysis(
             "major_players": major if isinstance(major, dict) and "error" not in major else None,
             "major_players_error": major.get("error") if isinstance(major, dict) and "error" in major else None,
         }
+
+        # 主力成本線 / 籌碼集中度 (複用法人量價資料)
+        result["major_cost"] = compute_major_cost(result["major_players"])
 
         # Only cache when at least one section succeeded
         if (result["distribution"] or result["major_players"]):
