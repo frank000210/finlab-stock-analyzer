@@ -261,6 +261,11 @@
       <div v-if="distError && !dist" class="card warn-card">
         集保股權分散資料暫時無法取得：{{ distError }}
       </div>
+
+      <footer class="chip-footer">
+        資料來源：集保結算所 (TDCC) 股權分散表（每週更新）、FinMind 三大法人與融資融券。
+        本頁分析僅供研究參考，不構成投資建議，投資人應自行評估風險。
+      </footer>
     </div>
   </div>
 </template>
@@ -475,6 +480,8 @@ onMounted(fetchData)
 .rc-sub.up { color: var(--accent-red); }
 .rc-sub.down { color: var(--accent-green); }
 .retail-hint { margin-top: 14px; font-size: 0.8rem; line-height: 1.6; color: var(--text-secondary); }
+
+.chip-footer { font-size: 0.72rem; line-height: 1.6; color: var(--text-muted); padding: 4px 2px; border-top: 1px solid var(--border-color); padding-top: 14px; }
 
 /* ---- verdict ---- */
 .verdict-grid { display: grid; grid-template-columns: 1.8fr 1fr; gap: var(--space-4); }
