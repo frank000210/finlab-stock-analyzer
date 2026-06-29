@@ -12,6 +12,7 @@ from .news_checker import router as news_checker_router
 from .seasonal import router as seasonal_router
 from .lead_lag import router as lead_lag_router
 from .major_players import router as major_players_router
+from .chip import router as chip_router
 from .social_buzz import router as social_buzz_router
 from .public_data import router as public_data_router
 from .cache import router as cache_router
@@ -34,6 +35,7 @@ __all__ = [
     "seasonal_router",
     "lead_lag_router",
     "major_players_router",
+    "chip_router",
     "social_buzz_router",
     "public_data_router",
     "cache_router",

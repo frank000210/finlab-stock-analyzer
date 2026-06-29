@@ -31,6 +31,7 @@
         <router-link :to="`/stocks/${stockStore.symbol}/seasonal`">季節性</router-link>
         <router-link :to="`/stocks/${stockStore.symbol}/lead-lag`">領先落後</router-link>
         <router-link :to="`/stocks/${stockStore.symbol}/major-players`">主力</router-link>
+        <router-link :to="`/stocks/${stockStore.symbol}/chip`">籌碼</router-link>
         <router-link :to="`/stocks/${stockStore.symbol}/social-buzz`">熱度</router-link>
       </div>
       <div class="nav-links secondary-nav">

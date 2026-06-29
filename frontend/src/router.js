@@ -42,6 +42,11 @@ const routes = [
     component: () => import('./views/MajorPlayersView.vue'),
   },
   {
+    path: '/stocks/:symbol/chip',
+    name: 'chip',
+    component: () => import('./views/ChipAnalysisView.vue'),
+  },
+  {
     path: '/stocks/:symbol/social-buzz',
     name: 'social-buzz',
     component: () => import('./views/SocialBuzzView.vue'),

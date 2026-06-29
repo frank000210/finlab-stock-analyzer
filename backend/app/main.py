@@ -19,6 +19,7 @@ from .api import (
     cache_router,
     lead_lag_router,
     major_players_router,
+    chip_router,
     ml_router,
     news_checker_router,
     notifications_router,
@@ -127,6 +128,7 @@ app.include_router(news_checker_router)
 app.include_router(seasonal_router)
 app.include_router(lead_lag_router)
 app.include_router(major_players_router)
+app.include_router(chip_router)
 app.include_router(social_buzz_router)
 app.include_router(public_data_router)
 app.include_router(cache_router)
