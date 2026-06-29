@@ -18,7 +18,7 @@ async def get_chip_analysis(
 ):
     """綜合籌碼分析：主力法人動向 + 大戶/散戶持股結構 + 大戶進出記錄."""
     try:
-        cache_key = f"chip_analysis:{symbol}:{days}"
+        cache_key = f"chip_analysis:v2:{symbol}:{days}"
         try:
             from ..db.cache import get_cache, set_cache
             cached = await get_cache(cache_key)

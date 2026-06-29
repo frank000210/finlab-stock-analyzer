@@ -41,6 +41,10 @@ logger = logging.getLogger(__name__)
 
 TDCC_URL = "https://opendata.tdcc.com.tw/getOD.ashx?id=1-5"
 
+# In-process cache of the full TDCC table (same weekly file for every symbol).
+# Avoids re-downloading ~2.3MB per request and survives transient DNS blips.
+_TDCC_CACHE: dict = {"day": None, "rows": None}
+
 LEVEL_LABELS = {
     "1": "1-999 股 (零股)",
     "2": "1-5 張",
@@ -66,19 +70,45 @@ MEGA_LEVEL = "15"                          # 千張大戶 > 1000 張
 
 
 async def _fetch_tdcc() -> list[dict]:
-    """Fetch the full TDCC distribution CSV (latest week, all stocks)."""
-    # TDCC's TLS chain trips strict OpenSSL on some hosts; this is public open
-    # data with no auth, so verifying the cert adds no security value here.
-    async with httpx.AsyncClient(timeout=90, verify=False) as client:
-        resp = await client.get(TDCC_URL)
-        resp.raise_for_status()
-        text = resp.content.decode("utf-8-sig", errors="replace")
-    reader = csv.reader(io.StringIO(text))
-    rows = list(reader)
-    if not rows:
-        return []
-    header = rows[0]
-    return [dict(zip(header, r)) for r in rows[1:] if len(r) >= 6]
+    """Fetch the full TDCC distribution CSV (latest week, all stocks).
+
+    Cached in-process per day and retried to absorb transient DNS/network
+    failures seen on the host.
+    """
+    import asyncio
+
+    today = datetime.utcnow().strftime("%Y%m%d")
+    if _TDCC_CACHE["day"] == today and _TDCC_CACHE["rows"]:
+        return _TDCC_CACHE["rows"]
+
+    last_err = None
+    for attempt in range(3):
+        try:
+            # TDCC's TLS chain trips strict OpenSSL on some hosts; this is public
+            # open data with no auth, so verifying the cert adds no value here.
+            async with httpx.AsyncClient(timeout=90, verify=False) as client:
+                resp = await client.get(TDCC_URL)
+                resp.raise_for_status()
+                text = resp.content.decode("utf-8-sig", errors="replace")
+            reader = csv.reader(io.StringIO(text))
+            rows = list(reader)
+            if not rows:
+                return []
+            header = rows[0]
+            parsed = [dict(zip(header, r)) for r in rows[1:] if len(r) >= 6]
+            _TDCC_CACHE["day"] = today
+            _TDCC_CACHE["rows"] = parsed
+            return parsed
+        except Exception as e:  # noqa: BLE001
+            last_err = e
+            logger.warning("TDCC fetch attempt %d failed: %s", attempt + 1, e)
+            await asyncio.sleep(1.5 * (attempt + 1))
+
+    # Fall back to a stale in-process copy if we have one, else raise.
+    if _TDCC_CACHE["rows"]:
+        logger.warning("TDCC fetch failed; serving stale in-process cache")
+        return _TDCC_CACHE["rows"]
+    raise last_err if last_err else RuntimeError("TDCC fetch failed")
 
 
 def _parse_symbol_rows(all_rows: list[dict], symbol: str) -> dict | None:
