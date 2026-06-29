@@ -15,6 +15,9 @@ from .major_players import router as major_players_router
 from .social_buzz import router as social_buzz_router
 from .public_data import router as public_data_router
 from .cache import router as cache_router
+from .analytics import router as analytics_router
+from .auth import router as auth_router
+from .admin import router as admin_router
 
 __all__ = [
     "stock_router",
@@ -34,4 +37,7 @@ __all__ = [
     "social_buzz_router",
     "public_data_router",
     "cache_router",
+    "analytics_router",
+    "auth_router",
+    "admin_router",
 ]

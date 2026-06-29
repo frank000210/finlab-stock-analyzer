@@ -8,21 +8,31 @@ Collections:
 import json
 from datetime import datetime, timedelta
 from typing import Any, Optional
-from .mongodb import get_mongodb
+
+try:
+    from .mongodb import get_mongodb
+except Exception:
+    get_mongodb = None
 
 
 # Default TTL for different data types (in minutes)
 CACHE_TTL = {
-    "stock_price": 30,        # 股價 30 分鐘
-    "analysis": 60,           # 分析結果 1 小時
-    "seasonal": 1440,         # 季節性分析 1 天
-    "lead_lag": 720,          # 領先落後 12 小時
-    "major_players": 60,      # 主力動向 1 小時
-    "social_buzz": 30,        # 社群熱度 30 分鐘
-    "public_data": 360,       # 公開資料 6 小時
-    "financial": 1440,        # 財報 1 天
-    "backtest": 1440,         # 回測 1 天
+    "stock_price": 30,
+    "analysis": 60,
+    "seasonal": 1440,
+    "lead_lag": 720,
+    "major_players": 60,
+    "social_buzz": 30,
+    "public_data": 360,
+    "financial": 1440,
+    "backtest": 1440,
 }
+
+
+async def _get_db():
+    if get_mongodb is None:
+        raise RuntimeError("MongoDB is unavailable.")
+    return await get_mongodb()
 
 
 def _serialize(data: Any) -> str:
@@ -44,8 +54,8 @@ def _serialize(data: Any) -> str:
 
 
 async def ensure_indexes():
-    """Create TTL index on cache collection (call once at startup)."""
-    db = await get_mongodb()
+    """Create indexes for cache and settings collections."""
+    db = await _get_db()
     await db.cache.create_index("expires_at", expireAfterSeconds=0)
     await db.cache.create_index([("key", 1)], unique=True)
     await db.settings.create_index([("key", 1)], unique=True)
@@ -53,7 +63,7 @@ async def ensure_indexes():
 
 async def get_cache(key: str) -> Optional[Any]:
     """Get cached data by key. Returns None if not found or expired."""
-    db = await get_mongodb()
+    db = await _get_db()
     doc = await db.cache.find_one({"key": key, "expires_at": {"$gt": datetime.utcnow()}})
     if doc:
         raw = doc.get("data")
@@ -65,28 +75,28 @@ async def get_cache(key: str) -> Optional[Any]:
 
 async def set_cache(key: str, data: Any, category: str = "analysis") -> None:
     """Set cache with TTL based on category."""
-    db = await get_mongodb()
+    db = await _get_db()
     ttl_minutes = CACHE_TTL.get(category, 60)
     expires_at = datetime.utcnow() + timedelta(minutes=ttl_minutes)
-
     serialized = _serialize(data)
-
     await db.cache.update_one(
         {"key": key},
-        {"$set": {
-            "key": key,
-            "data": serialized,
-            "category": category,
-            "expires_at": expires_at,
-            "updated_at": datetime.utcnow(),
-        }},
+        {
+            "$set": {
+                "key": key,
+                "data": serialized,
+                "category": category,
+                "expires_at": expires_at,
+                "updated_at": datetime.utcnow(),
+            }
+        },
         upsert=True,
     )
 
 
 async def invalidate_cache(pattern: str = None, category: str = None) -> int:
     """Invalidate cache entries. Use pattern for key prefix, or category."""
-    db = await get_mongodb()
+    db = await _get_db()
     query = {}
     if pattern:
         query["key"] = {"$regex": f"^{pattern}"}
@@ -96,11 +106,9 @@ async def invalidate_cache(pattern: str = None, category: str = None) -> int:
     return result.deleted_count
 
 
-# --- Settings ---
-
 async def get_setting(key: str, default: Any = None) -> Any:
     """Get a setting value."""
-    db = await get_mongodb()
+    db = await _get_db()
     doc = await db.settings.find_one({"key": key})
     if doc:
         return doc.get("value", default)
@@ -109,7 +117,7 @@ async def get_setting(key: str, default: Any = None) -> Any:
 
 async def set_setting(key: str, value: Any) -> None:
     """Set a setting value."""
-    db = await get_mongodb()
+    db = await _get_db()
     await db.settings.update_one(
         {"key": key},
         {"$set": {"key": key, "value": value, "updated_at": datetime.utcnow()}},
@@ -119,7 +127,7 @@ async def set_setting(key: str, value: Any) -> None:
 
 async def get_all_settings() -> dict:
     """Get all settings as a dictionary."""
-    db = await get_mongodb()
+    db = await _get_db()
     cursor = db.settings.find({})
     settings = {}
     async for doc in cursor:

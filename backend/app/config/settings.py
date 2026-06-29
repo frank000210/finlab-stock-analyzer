@@ -1,5 +1,6 @@
-from pydantic_settings import BaseSettings
 from functools import lru_cache
+
+from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
@@ -13,6 +14,12 @@ class Settings(BaseSettings):
 
     # LINE Notify
     line_notify_token: str = ""
+
+    # Admin / OAuth
+    google_client_id: str = ""
+    admin_secret: str = "finlab-admin-secret-2026"
+    telegram_bot_token: str = ""
+    telegram_chat_id: str = ""
 
     # Database
     database_url: str = "sqlite+aiosqlite:///./finlab.db"

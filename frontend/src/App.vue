@@ -38,25 +38,53 @@
         <router-link :to="`/stocks/${stockStore.symbol}/public-data`">公開資訊</router-link>
         <router-link :to="`/stocks/${stockStore.symbol}/backtest`">回測</router-link>
         <router-link to="/settings">設定</router-link>
+        <router-link to="/admin" class="nav-admin">⚙️ 後台</router-link>
+      </div>
+      <!-- User Auth -->
+      <div class="nav-auth">
+        <template v-if="authStore.isLoggedIn">
+          <img v-if="authStore.avatar" :src="authStore.avatar" class="nav-avatar" :title="authStore.email" />
+        </template>
+        <button v-else class="nav-signin-btn" @click="triggerGoogleSignIn">Google 登入</button>
       </div>
     </nav>
     <main class="main-content">
       <router-view />
     </main>
+    <!-- Global page counter - tracks via route -->
+    <div class="global-counter-wrap">
+      <PageCounter :page="currentRouteName" :symbol="stockStore.symbol" />
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, onMounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { useStockStore } from './stores/stock.js'
+import { useAuthStore } from './stores/auth.js'
+import PageCounter from './components/PageCounter.vue'
 
 const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:8000' : ''
 const router = useRouter()
+const route = useRoute()
 const stockStore = useStockStore()
+const authStore = useAuthStore()
 const searchQuery = ref('')
 const searchResults = ref([])
 let searchTimeout = null
+
+const currentRouteName = computed(() => route.name || route.path || 'home')
+
+// Load Google Client ID from backend
+onMounted(async () => {
+  try {
+    const r = await fetch('/api/v1/settings')
+    const data = await r.json()
+    const clientId = data?.data?.google_client_id || ''
+    if (clientId) window.__GOOGLE_CLIENT_ID__ = clientId
+  } catch {}
+})
 
 function onSearch() {
   clearTimeout(searchTimeout)
@@ -88,6 +116,28 @@ function goToStock() {
     selectStock(item.symbol, item.name_zh)
   } else if (searchQuery.value.match(/^\d{4}$/)) {
     selectStock(searchQuery.value, '')
+  }
+}
+
+function triggerGoogleSignIn() {
+  if (window.google?.accounts?.id) {
+    window.google.accounts.id.prompt()
+  } else {
+    const script = document.createElement('script')
+    script.src = 'https://accounts.google.com/gsi/client'
+    script.onload = () => {
+      const clientId = window.__GOOGLE_CLIENT_ID__ || ''
+      if (!clientId) return
+      window.google.accounts.id.initialize({
+        client_id: clientId,
+        callback: async (response) => {
+          const result = await authStore.loginWithGoogle(response.credential)
+          if (!result.success) console.warn('Login failed:', result.error)
+        },
+      })
+      window.google.accounts.id.prompt()
+    }
+    document.head.appendChild(script)
   }
 }
 </script>
@@ -173,6 +223,49 @@ function goToStock() {
 
 .secondary-nav a:hover {
   opacity: 1;
+}
+
+.nav-admin {
+  font-size: 0.78rem !important;
+  opacity: 0.7;
+}
+.nav-admin:hover { opacity: 1; }
+
+.nav-auth {
+  display: flex;
+  align-items: center;
+  margin-left: 8px;
+}
+
+.nav-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid rgba(99,102,241,0.5);
+}
+
+.nav-signin-btn {
+  background: rgba(99,102,241,0.15);
+  color: #a5b4fc;
+  border: 1px solid rgba(99,102,241,0.3);
+  border-radius: 20px;
+  padding: 4px 12px;
+  cursor: pointer;
+  font-size: 12px;
+  white-space: nowrap;
+  transition: background 0.2s;
+}
+.nav-signin-btn:hover { background: rgba(99,102,241,0.3); }
+
+.global-counter-wrap {
+  position: fixed;
+  bottom: 80px;
+  right: 16px;
+  z-index: 100;
+}
+
+@media (max-width: 768px) {
+  .nav-auth { display: none; }
 }
 
 @media (max-width: 1024px) {

@@ -86,6 +86,11 @@ const routes = [
     name: 'SignalRules',
     component: () => import('./views/SignalRulesView.vue'),
   },
+  {
+    path: '/admin',
+    name: 'admin',
+    component: () => import('./views/AdminView.vue'),
+  },
 ]
 
 const router = createRouter({
