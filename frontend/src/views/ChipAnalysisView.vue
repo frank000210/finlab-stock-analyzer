@@ -26,6 +26,15 @@
     <div v-if="error" class="card error-card">{{ error }}</div>
 
     <div v-if="data" class="results">
+      <!-- ===== 綜合研判 ===== -->
+      <section v-if="synthesis" class="card synth-card" :class="'synth-' + synthesis.tone">
+        <span class="synth-icon">{{ synthesis.icon }}</span>
+        <div class="synth-body">
+          <span class="synth-title">綜合研判</span>
+          <p class="synth-text">{{ synthesis.text }}</p>
+        </div>
+      </section>
+
       <!-- ===== 籌碼總評 ===== -->
       <section v-if="dist" class="verdict-grid">
         <div class="card verdict-card">
@@ -112,6 +121,42 @@
             <span class="sc-sub num">{{ formatInt(dist.structure.mega.people) }} 人</span>
           </div>
         </div>
+        <p v-if="dist.structure.mega.percent >= 60" class="caveat">
+          ⚠️ 此股千張大戶比例極高，多含政府基金、ETF 與外資保管專戶等被動持股，
+          並非全為主動操作籌碼。請以「<strong>千張大戶週變化</strong>」作為進出訊號，勿單看絕對水位判多空。
+        </p>
+      </section>
+
+      <!-- ===== 散戶籌碼 ===== -->
+      <section v-if="dist || marginSummary" class="card">
+        <div class="card-head">
+          <h2>散戶籌碼</h2>
+          <span class="muted-note">集保持股 + 融資融券（散戶代理指標）</span>
+        </div>
+        <div class="retail-cards">
+          <div v-if="dist" class="retail-card">
+            <span class="rc-key">散戶持股比例</span>
+            <span class="rc-val num">{{ dist.structure.retail.percent }}%</span>
+            <span class="rc-sub num">{{ formatInt(dist.structure.retail.people) }} 人（&lt;10 張）</span>
+          </div>
+          <div v-if="marginSummary" class="retail-card">
+            <span class="rc-key">融資餘額</span>
+            <span class="rc-val num">{{ formatInt(marginSummary.margin_balance_latest) }} 張</span>
+            <span class="rc-sub num" :class="changeTone(marginSummary.margin_change_5d)">
+              5 日 {{ marginSummary.margin_change_5d > 0 ? '+' : '' }}{{ formatInt(marginSummary.margin_change_5d) }} 張
+            </span>
+          </div>
+          <div v-if="marginSummary" class="retail-card">
+            <span class="rc-key">融券餘額</span>
+            <span class="rc-val num">{{ formatInt(marginSummary.short_balance_latest) }} 張</span>
+            <span class="rc-sub num" :class="changeTone(marginSummary.short_change_5d)">
+              5 日 {{ marginSummary.short_change_5d > 0 ? '+' : '' }}{{ formatInt(marginSummary.short_change_5d) }} 張
+            </span>
+          </div>
+        </div>
+        <p class="retail-hint">
+          {{ retailHint }}
+        </p>
       </section>
 
       <!-- ===== 大戶進出記錄 ===== -->
@@ -236,6 +281,51 @@ const dist = computed(() => data.value?.distribution || null)
 const major = computed(() => data.value?.major_players || null)
 const distError = computed(() => data.value?.distribution_error || '')
 
+const marginSummary = computed(() => major.value?.margin_analysis?.summary || null)
+
+const retailHint = computed(() => {
+  const m = marginSummary.value
+  if (!m) return '散戶持股比例越低、籌碼越穩定；融資餘額快速增加常為散戶追高訊號。'
+  if (m.margin_change_5d > 0) {
+    return '近 5 日融資餘額增加，散戶買盤轉強——股價同步走高時需留意追高風險。'
+  }
+  if (m.margin_change_5d < 0) {
+    return '近 5 日融資餘額減少，散戶部位收斂——若股價同步上漲為健康的籌碼換手。'
+  }
+  return '融資餘額持平，散戶情緒中性。'
+})
+
+const synthesis = computed(() => {
+  const d = dist.value
+  const mp = major.value
+  if (!d && !mp) return null
+  const chipUp = d ? d.score >= 10 : null
+  const chipDown = d ? d.score <= -10 : null
+  const mpUp = mp ? mp.score >= 10 : null
+  const mpDown = mp ? mp.score <= -10 : null
+
+  const megaTrend = d?.movements?.length ? d.movements[d.movements.length - 1].mega_pct_change : null
+  const trendTxt = megaTrend === null ? ''
+    : megaTrend > 0 ? `千張大戶近一週增加 ${megaTrend.toFixed(2)}%，`
+    : megaTrend < 0 ? `千張大戶近一週減少 ${Math.abs(megaTrend).toFixed(2)}%，` : ''
+
+  const chipPart = d ? `集保結構${d.verdict}（大戶 ${d.structure.whale.percent}%、散戶 ${d.structure.retail.percent}%）` : ''
+  const mpPart = mp ? `近期法人${mp.verdict}` : ''
+
+  let tone = 'flat', icon = '⚖️', verdict = ''
+  if (chipUp && mpUp) { tone = 'up'; icon = '🟢'; verdict = '籌碼面與法人動向同步偏多，買方訊號一致。' }
+  else if (chipDown && mpDown) { tone = 'down'; icon = '🔴'; verdict = '籌碼面與法人動向同步偏空，賣壓明顯，宜保守。' }
+  else if ((chipUp && mpDown) || (chipDown && mpUp)) {
+    tone = 'flat'; icon = '⚠️'
+    verdict = '長線集保結構與短線法人買賣方向分歧——集保反映中長期持股、法人反映短線進出，建議以股價趨勢與千張大戶週變化作最後確認。'
+  } else {
+    verdict = '籌碼訊號中性，方向未明，建議搭配技術面與基本面綜合判斷。'
+  }
+
+  const text = [trendTxt + chipPart, mpPart].filter(Boolean).join('；') + '。' + verdict
+  return { tone, icon, text }
+})
+
 const generalPct = computed(() => {
   if (!dist.value) return 0
   const s = dist.value.structure
@@ -304,7 +394,9 @@ async function fetchData() {
     const json = await res.json()
     if (json.success) {
       data.value = json.data
-      stockStore.setSymbol(symbol.value)
+      if (symbol.value && symbol.value !== stockStore.symbol) {
+        stockStore.setStock(symbol.value, stockStore.name)
+      }
       if (!json.data.distribution && !json.data.major_players) {
         error.value = json.data.distribution_error || '查無此股票的籌碼資料'
       }
@@ -359,6 +451,30 @@ onMounted(fetchData)
 .warn-card { color: var(--text-muted); border-color: rgba(234,179,8,0.4); }
 
 .results { display: flex; flex-direction: column; gap: var(--space-5); }
+
+/* ---- synthesis banner ---- */
+.synth-card { display: flex; gap: 14px; align-items: flex-start; border-width: 1px; }
+.synth-up { border-color: rgba(34,197,94,0.4); background: rgba(34,197,94,0.05); }
+.synth-down { border-color: rgba(239,68,68,0.4); background: rgba(239,68,68,0.05); }
+.synth-flat { border-color: rgba(234,179,8,0.4); background: rgba(234,179,8,0.05); }
+.synth-icon { font-size: 1.4rem; line-height: 1.3; }
+.synth-body { display: flex; flex-direction: column; gap: 4px; }
+.synth-title { font-size: 0.74rem; font-weight: 700; letter-spacing: 0.04em; color: var(--text-muted); }
+.synth-text { font-size: 0.92rem; line-height: 1.6; color: var(--text-primary); }
+
+/* ---- caveat ---- */
+.caveat { margin-top: 14px; padding: 12px 14px; background: rgba(234,179,8,0.07); border: 1px solid rgba(234,179,8,0.25); border-radius: var(--radius-sm); font-size: 0.8rem; line-height: 1.6; color: var(--text-secondary); }
+.caveat strong { color: var(--text-primary); }
+
+/* ---- retail chips ---- */
+.retail-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.retail-card { display: flex; flex-direction: column; gap: 5px; padding: 14px; background: var(--bg-tertiary); border-radius: var(--radius-sm); }
+.rc-key { font-size: 0.76rem; color: var(--text-muted); }
+.rc-val { font-size: 1.4rem; font-weight: 800; }
+.rc-sub { font-size: 0.72rem; color: var(--text-muted); }
+.rc-sub.up { color: var(--accent-red); }
+.rc-sub.down { color: var(--accent-green); }
+.retail-hint { margin-top: 14px; font-size: 0.8rem; line-height: 1.6; color: var(--text-secondary); }
 
 /* ---- verdict ---- */
 .verdict-grid { display: grid; grid-template-columns: 1.8fr 1fr; gap: var(--space-4); }
@@ -456,6 +572,7 @@ onMounted(fetchData)
 @media (max-width: 860px) {
   .verdict-grid { grid-template-columns: 1fr; }
   .struct-cards, .flow-cards { grid-template-columns: repeat(2, 1fr); }
+  .retail-cards { grid-template-columns: 1fr; }
 }
 @media (max-width: 520px) {
   .page-header { flex-direction: column; align-items: stretch; }
