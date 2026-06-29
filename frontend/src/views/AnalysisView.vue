@@ -62,6 +62,12 @@
                 <i class="legend-dot ma5"></i>MA5
                 <i class="legend-dot ma20"></i>MA20
                 <i class="legend-dot ma60"></i>MA60
+                <template v-if="majorCost && majorCost.cost != null">
+                  <i class="legend-dot cost-line"></i>主力成本 {{ majorCost.cost }}
+                  <span class="legend-dev" :class="majorCost.deviation > 0 ? 'up' : majorCost.deviation < 0 ? 'down' : ''">
+                    乖離 {{ majorCost.deviation > 0 ? '+' : '' }}{{ majorCost.deviation }}%
+                  </span>
+                </template>
               </span>
             </div>
             <div class="chart-wrapper">
@@ -292,6 +298,9 @@ let rsiChart = null
 let macdChart = null
 let syncGuard = false
 let requestToken = 0
+let candleSeries = null
+let majorCostLine = null
+const majorCost = ref(null)
 
 const symbol = computed(() => String(route.params.symbol || '').toUpperCase())
 const stockName = computed(() => stockInfo.value?.name_zh || '')
@@ -543,6 +552,7 @@ onBeforeUnmount(() => {
 async function loadAnalysis() {
   loading.value = true
   errorMessage.value = ''
+  majorCost.value = null
   const token = ++requestToken
 
   // If symbol is non-numeric (Chinese name), resolve to code first
@@ -588,6 +598,36 @@ async function loadAnalysis() {
   await nextTick()
   renderCharts()
   loading.value = false
+  loadMajorCost(sym, token)
+}
+
+async function loadMajorCost(sym, token) {
+  try {
+    const payload = await apiGet(`/api/v1/stocks/${sym}/major-cost`)
+    if (token !== requestToken) return
+    majorCost.value = (payload && typeof payload === 'object' && 'cost' in payload) ? payload : null
+    applyMajorCostLine()
+  } catch {
+    /* 主力成本為加值資訊，失敗時靜默忽略 */
+  }
+}
+
+function applyMajorCostLine() {
+  if (!candleSeries) return
+  if (majorCostLine) {
+    try { candleSeries.removePriceLine(majorCostLine) } catch {}
+    majorCostLine = null
+  }
+  const c = majorCost.value
+  if (!c || c.cost == null) return
+  majorCostLine = candleSeries.createPriceLine({
+    price: c.cost,
+    color: '#f59e0b',
+    lineWidth: 1,
+    lineStyle: 2,
+    axisLabelVisible: true,
+    title: '主力成本',
+  })
 }
 
 async function apiGet(path) {
@@ -825,14 +865,17 @@ function renderCharts() {
     close: item.close,
   }))
 
-  const candleSeries = priceChart.addCandlestickSeries({
+  const candleSeriesLocal = priceChart.addCandlestickSeries({
     upColor: '#16a34a',
     downColor: '#dc2626',
     borderVisible: false,
     wickUpColor: '#16a34a',
     wickDownColor: '#dc2626',
   })
-  candleSeries.setData(candles)
+  candleSeriesLocal.setData(candles)
+  candleSeries = candleSeriesLocal
+  majorCostLine = null
+  applyMajorCostLine()
 
   const volumeSeries = priceChart.addHistogramSeries({
     priceFormat: { type: 'volume' },
@@ -927,6 +970,8 @@ function destroyCharts() {
   if (priceChart) {
     priceChart.remove()
     priceChart = null
+    candleSeries = null
+    majorCostLine = null
   }
   if (rsiChart) {
     rsiChart.remove()
@@ -1488,6 +1533,10 @@ function valueTone(value) {
 .legend-dot.ma5 { background: #38bdf8; }
 .legend-dot.ma20 { background: #f59e0b; }
 .legend-dot.ma60 { background: #a855f7; }
+.legend-dot.cost-line { width: 16px; height: 0; border-radius: 0; border-top: 2px dashed #f59e0b; }
+.legend-dev { font-variant-numeric: tabular-nums; font-weight: 700; }
+.legend-dev.up { color: #16a34a; }
+.legend-dev.down { color: #dc2626; }
 
 .chart-area {
   width: 100%;
