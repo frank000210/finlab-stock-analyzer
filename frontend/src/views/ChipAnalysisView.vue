@@ -689,7 +689,31 @@ const synthesis = computed(() => {
   }
 
   const text = [trendTxt + chipPart, mpPart].filter(Boolean).join('；') + '。' + verdict
-  return { tone, icon, text }
+
+  // 補上其餘面向的關鍵風險／加分，使敘述與綜合評分一致
+  const risks = []
+  const cc = cost.value
+  if (cc && cc.deviation != null && cc.deviation < -5) risks.push('主力成本套牢')
+  const mrr = marginRatio.value
+  if (mrr && mrr.risk) {
+    if (mrr.risk.includes('斷頭')) risks.push('融資瀕臨斷頭')
+    else if (mrr.risk.includes('偏低')) risks.push('融資維持率偏低')
+  }
+  const dtt = dayTrade.value
+  if (dtt && dtt.verdict) {
+    if (dtt.verdict.includes('極熱')) risks.push('短線投機極熱')
+    else if (dtt.verdict.includes('偏熱')) risks.push('短線投機偏熱')
+  }
+  const positives = []
+  if (cc && cc.deviation != null && cc.deviation > 5) positives.push('主力成本獲利')
+  const sbb = syncBuy.value
+  if (sbb && sbb.verdict && (sbb.verdict.includes('同步買') || sbb.verdict.includes('偏多'))) positives.push('外資投信同步偏多')
+
+  let caveat = ''
+  if (risks.length) caveat = ` 惟${risks.join('、')}等面向影響整體評分，宜留意風險。`
+  else if (positives.length) caveat = ` 另${positives.join('、')}，為籌碼結構加分。`
+
+  return { tone, icon, text: text + caveat }
 })
 
 const generalPct = computed(() => {
