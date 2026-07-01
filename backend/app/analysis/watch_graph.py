@@ -150,7 +150,7 @@ def _derive_node_metrics(symbols: list[str], fusion_edges: list[dict[str, Any]])
 
 
 async def ensure_graph_indexes(db=None) -> None:
-    mongo = db or await get_mongodb()
+    mongo = db if db is not None else await get_mongodb()
     await mongo.raw_prices.create_index([("symbol", 1), ("date", 1)], unique=True)
     await mongo.raw_institutional.create_index([("symbol", 1), ("date", 1)], unique=True)
     await mongo.raw_industry.create_index([("symbol", 1)], unique=True)
@@ -774,4 +774,3 @@ async def get_watchlist_alerts(
         upsert=True,
     )
     return {"watchlist_hash": watch_hash, "date": latest.get("date"), "items": alerts}
-
