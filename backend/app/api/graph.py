@@ -32,6 +32,14 @@ def _parse_symbols(symbols: str | None) -> list[str]:
     return [segment.strip().upper() for segment in symbols.split(",") if segment.strip()]
 
 
+def _raise_graph_error(exc: Exception) -> None:
+    message = str(exc or "")
+    lower = message.lower()
+    if "payment required" in lower or "token=" in lower or "finmind" in lower:
+        raise HTTPException(status_code=502, detail="Graph 資料源授權失敗，請檢查 FinMind 權限或稍後再試。")
+    raise HTTPException(status_code=500, detail="Graph 計算失敗，請稍後重試。")
+
+
 @router.post("/build")
 async def build_graph(payload: BuildGraphRequest):
     try:
@@ -54,7 +62,7 @@ async def build_graph(payload: BuildGraphRequest):
             },
         }
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
+        _raise_graph_error(exc)
 
 
 @router.get("/snapshot")
@@ -74,7 +82,7 @@ async def graph_snapshot(
         )
         return {"success": True, "data": snapshot}
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
+        _raise_graph_error(exc)
 
 
 @router.get("/timeline")
@@ -98,7 +106,7 @@ async def graph_timeline(
         )
         return {"success": True, "data": timeline}
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
+        _raise_graph_error(exc)
 
 
 @router.get("/alerts")
@@ -111,5 +119,4 @@ async def graph_alerts(
         alerts = await get_watchlist_alerts(parsed_symbols, edge_threshold=edge_threshold)
         return {"success": True, "data": alerts}
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
-
+        _raise_graph_error(exc)

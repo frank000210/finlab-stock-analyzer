@@ -178,9 +178,13 @@ async def ingest_watchlist_raw(
     inst_crawler = InstitutionalCrawler()
     finmind = FinMindClient()
 
-    info_df = await finmind.get_stock_info()
+    try:
+        info_df = await finmind.get_stock_info()
+    except Exception:
+        # FinMind token/plan 問題時降級：不阻斷整體圖計算，產業先驗邊可先略過。
+        info_df = None
     info_map: dict[str, dict[str, Any]] = {}
-    if not info_df.empty:
+    if info_df is not None and not info_df.empty:
         for _, row in info_df.iterrows():
             sid = str(row.get("stock_id", "")).strip().upper()
             if sid:
@@ -429,7 +433,8 @@ def _build_snapshot_payload(
         for dst in symbols[i + 1:]:
             src_ind = str(industry_map.get(src, {}).get("industry", "") or "")
             dst_ind = str(industry_map.get(dst, {}).get("industry", "") or "")
-            if not src_ind or src_ind != dst_ind:
+            # 無法取得產業資料時，不建立「未知產業」先驗邊，避免全圖被假邊填滿。
+            if not src_ind or src_ind == "未知產業" or src_ind != dst_ind:
                 continue
             for a, b in ((src, dst), (dst, src)):
                 edge = {
