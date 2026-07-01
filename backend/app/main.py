@@ -17,6 +17,7 @@ from .api import (
     auth_router,
     backtest_router,
     cache_router,
+    graph_router,
     lead_lag_router,
     major_players_router,
     chip_router,
@@ -135,6 +136,7 @@ app.include_router(cache_router)
 app.include_router(analytics_router)
 app.include_router(auth_router)
 app.include_router(admin_router)
+app.include_router(graph_router)
 
 
 @app.get("/api/health")

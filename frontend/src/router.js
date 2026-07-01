@@ -17,6 +17,11 @@ const routes = [
     component: () => import('./views/DecisionView.vue'),
   },
   {
+    path: '/graph',
+    name: 'graph',
+    component: () => import('./views/GraphView.vue'),
+  },
+  {
     path: '/stocks/:symbol',
     name: 'analysis',
     component: () => import('./views/AnalysisView.vue'),

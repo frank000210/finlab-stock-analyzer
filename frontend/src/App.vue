@@ -27,6 +27,7 @@
       </div>
       <div class="nav-links primary-nav">
         <router-link to="/decision" class="nav-cta">🎯 決策面板</router-link>
+        <router-link to="/graph">🕸️ 關聯圖</router-link>
         <router-link :to="`/stocks/${stockStore.symbol}`">分析</router-link>
         <router-link :to="`/stocks/${stockStore.symbol}/seasonal`">季節性</router-link>
         <router-link :to="`/stocks/${stockStore.symbol}/lead-lag`">領先落後</router-link>
