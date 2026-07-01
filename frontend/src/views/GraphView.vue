@@ -3,11 +3,12 @@
     <section class="section-block graph-hero" v-reveal>
       <div>
         <h1>觀察股關聯圖（Graph）</h1>
-        <p>用每日圖譜追蹤領先落後、資金流向與產業關聯，支援門檻調整與逐日播放。</p>
+        <p>用每日圖譜追蹤領先落後、資金流向與產業關聯，支援門檻調整與逐日播放。點選節點或連線可於右側檢視細節。</p>
       </div>
       <div class="hero-meta">
         <span class="badge">觀察池 {{ symbols.length }} 檔</span>
         <span class="badge">門檻 {{ threshold.toFixed(2) }}</span>
+        <span class="badge">邊 {{ activeEdges.length }} 條</span>
       </div>
     </section>
 
@@ -34,6 +35,27 @@
       <div class="control-actions">
         <button class="btn" @click="applySymbols">套用觀察池</button>
         <button class="btn btn-primary" :disabled="loading" @click="reloadTimeline">重算圖譜</button>
+      </div>
+
+      <div class="switch-row">
+        <div class="seg" role="tablist" aria-label="視覺化模式">
+          <button
+            v-for="mode in viewModes"
+            :key="mode.value"
+            class="seg-btn"
+            :class="{ active: viewMode === mode.value }"
+            @click="viewMode = mode.value"
+          >{{ mode.label }}</button>
+        </div>
+        <div class="seg" role="tablist" aria-label="關聯層">
+          <button
+            v-for="layer in layerOptions"
+            :key="layer.value"
+            class="seg-btn"
+            :class="{ active: activeLayer === layer.value }"
+            @click="activeLayer = layer.value"
+          >{{ layer.label }}</button>
+        </div>
       </div>
 
       <div class="slider-row">
@@ -69,56 +91,57 @@
 
     <section class="graph-layout section-block" v-reveal>
       <div class="graph-canvas-wrap">
-        <svg class="graph-canvas" viewBox="0 0 960 560" preserveAspectRatio="xMidYMid meet">
-          <g>
-            <line
-              v-for="edge in graphEdges"
-              :key="`${edge.src}-${edge.dst}`"
-              :x1="edge.x1"
-              :y1="edge.y1"
-              :x2="edge.x2"
-              :y2="edge.y2"
-              :stroke="edge.weight >= 0 ? '#4f8cff' : '#ef4444'"
-              :stroke-width="edge.strokeWidth"
-              :opacity="0.72"
-            />
-          </g>
-          <g>
-            <g
-              v-for="node in laidOutNodes"
-              :key="node.symbol"
-              class="node-group"
-              @click="selectedSymbol = node.symbol"
-            >
-              <circle
-                :cx="node.x"
-                :cy="node.y"
-                :r="node.radius"
-                :fill="nodeColor(node.industry)"
-                :stroke="selectedSymbol === node.symbol ? '#f8fafc' : 'rgba(255,255,255,.25)'"
-                :stroke-width="selectedSymbol === node.symbol ? 3 : 1.2"
-              />
-              <text :x="node.x" :y="node.y + 4" text-anchor="middle" class="node-symbol">{{ node.symbol }}</text>
-            </g>
-          </g>
-        </svg>
-        <div v-if="!laidOutNodes.length && !loading" class="canvas-empty">
+        <div ref="graphHost" class="graph-canvas"></div>
+        <div v-if="!hasGraphData && !loading" class="canvas-empty">
           目前區間查無可視化資料，已自動嘗試以單日快照回補。請調整日期區間或降低門檻。
+        </div>
+        <div class="legend">
+          <span class="lg-item"><i class="dot" style="background:#4f8cff"></i>正向關聯</span>
+          <span class="lg-item"><i class="dot" style="background:#ef4444"></i>負向關聯</span>
+          <span class="lg-hint">節點大小＝加權連結；顏色＝產業</span>
         </div>
       </div>
 
       <aside class="graph-side">
-        <h3>節點明細</h3>
-        <div v-if="selectedNode" class="detail-card">
-          <p class="symbol">{{ selectedNode.symbol }} · {{ selectedNode.name_zh }}</p>
-          <p class="muted">{{ selectedNode.industry }}</p>
-          <p>中心性：<strong>{{ percent(selectedNode.centrality) }}</strong></p>
-          <p>加權連結：<strong>{{ fixed(selectedNode.weighted_degree) }}</strong></p>
-          <p>風險傳導：<strong>{{ fixed(selectedNode.risk_transmission) }}</strong></p>
-          <p>20日動能：<strong>{{ percent(selectedNode.momentum_20) }}</strong></p>
-          <p>資金強度：<strong>{{ fixed(selectedNode.flow_strength) }}</strong></p>
-        </div>
-        <div v-else class="detail-card muted">點選左側節點查看明細</div>
+        <template v-if="selectedEdge">
+          <h3>連線明細（{{ layerLabel(selectedEdge.layer) }}）</h3>
+          <div class="detail-card">
+            <p class="symbol">{{ selectedEdge.src }} → {{ selectedEdge.dst }}</p>
+            <p class="muted">{{ nodeName(selectedEdge.src) }} → {{ nodeName(selectedEdge.dst) }}</p>
+            <div class="kv"><span>融合權重 weight</span><strong :class="signClass(selectedEdge.weight)">{{ fixed(selectedEdge.weight, 4) }}</strong></div>
+            <div class="kv"><span>絕對權重 |weight|</span><strong>{{ fixed(selectedEdge.abs_weight, 4) }}</strong></div>
+            <div class="kv"><span>領先天數 lag</span><strong>{{ selectedEdge.lag ?? 0 }} 日</strong></div>
+            <div class="kv"><span>方向 directed</span><strong>{{ selectedEdge.directed ? '有向 →' : '無向 ↔' }}</strong></div>
+            <div class="kv" v-if="selectedEdge.confidence != null"><span>信心 confidence</span><strong>{{ percent(selectedEdge.confidence) }}</strong></div>
+
+            <template v-if="selectedEdge.components">
+              <p class="sub-title">融合成分（α·領先 + β·資金 + γ·產業）</p>
+              <div class="comp-bar" v-for="comp in edgeComponents(selectedEdge)" :key="comp.key">
+                <span class="comp-label">{{ comp.label }}</span>
+                <span class="comp-track">
+                  <span class="comp-fill" :class="signClass(comp.value)" :style="{ width: comp.pct + '%' }"></span>
+                </span>
+                <span class="comp-val">{{ fixed(comp.value, 3) }}</span>
+              </div>
+            </template>
+          </div>
+        </template>
+
+        <template v-else>
+          <h3>節點明細</h3>
+          <div v-if="selectedNode" class="detail-card">
+            <p class="symbol">{{ selectedNode.symbol }} · {{ selectedNode.name_zh }}</p>
+            <p class="muted">{{ selectedNode.industry }}</p>
+            <div class="kv"><span>最新收盤</span><strong>{{ selectedNode.latest_close != null ? fixed(selectedNode.latest_close, 2) : '—' }}</strong></div>
+            <div class="kv"><span>中心性 centrality</span><strong>{{ percent(selectedNode.centrality) }}</strong></div>
+            <div class="kv"><span>PageRank</span><strong>{{ fixed(selectedNode.pagerank, 4) }}</strong></div>
+            <div class="kv"><span>加權連結 degree</span><strong>{{ fixed(selectedNode.weighted_degree) }}</strong></div>
+            <div class="kv"><span>風險傳導</span><strong>{{ fixed(selectedNode.risk_transmission) }}</strong></div>
+            <div class="kv"><span>20日動能</span><strong :class="signClass(selectedNode.momentum_20)">{{ percent(selectedNode.momentum_20) }}</strong></div>
+            <div class="kv"><span>資金強度 flow</span><strong :class="signClass(selectedNode.flow_strength)">{{ fixed(selectedNode.flow_strength) }}</strong></div>
+          </div>
+          <div v-else class="detail-card muted">點選節點或連線查看明細</div>
+        </template>
 
         <h3 class="alerts-title">告警</h3>
         <ul class="alerts-list">
@@ -134,10 +157,22 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import * as d3 from 'd3'
 
 const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:8000' : ''
 const WATCHLIST_STORAGE_KEY = 'finlab_watchlist'
+
+const viewModes = [
+  { value: 'force', label: '力導向圖' },
+  { value: 'bundle', label: '階層邊綁定' },
+]
+const layerOptions = [
+  { value: 'fusion', label: '融合' },
+  { value: 'lead', label: '領先落後' },
+  { value: 'chip', label: '資金流向' },
+  { value: 'industry', label: '產業' },
+]
 
 const loading = ref(false)
 const errorMessage = ref('')
@@ -150,90 +185,352 @@ const startDate = ref(offsetISO(30))
 const timelineItems = ref([])
 const currentIndex = ref(0)
 const selectedSymbol = ref('')
+const selectedEdgeKey = ref('')
 const alerts = ref([])
 const isPlaying = ref(false)
 const playIntervalMs = ref(700)
+const viewMode = ref('force')
+const activeLayer = ref('fusion')
+const graphHost = ref(null)
+
 let playTimer = null
 let reloadTimer = null
+let simulation = null
+let resizeObserver = null
 
 const timelineDates = computed(() => timelineItems.value.map(item => item.date))
 const activeDate = computed(() => timelineDates.value[currentIndex.value] || '')
 const currentSnapshot = computed(() => timelineItems.value[currentIndex.value] || null)
-
-const laidOutNodes = computed(() => {
-  const nodes = currentSnapshot.value?.nodes || []
-  const cx = 480
-  const cy = 280
-  const radius = Math.max(120, 240 - nodes.length * 2.5)
-  const maxDegree = Math.max(...nodes.map(node => Number(node.weighted_degree || 0)), 1)
-  return nodes.map((node, index) => {
-    const angle = (Math.PI * 2 * index) / Math.max(nodes.length, 1)
-    const degree = Number(node.weighted_degree || 0)
-    return {
-      ...node,
-      x: cx + Math.cos(angle) * radius,
-      y: cy + Math.sin(angle) * radius,
-      radius: 18 + (degree / maxDegree) * 14,
-    }
-  })
+const snapshotNodes = computed(() => currentSnapshot.value?.nodes || [])
+const activeEdges = computed(() => {
+  const layers = currentSnapshot.value?.layers || {}
+  const edges = Array.isArray(layers[activeLayer.value]) ? layers[activeLayer.value] : []
+  const present = new Set(snapshotNodes.value.map(n => n.symbol))
+  return edges.filter(e => present.has(e.src) && present.has(e.dst))
 })
+const hasGraphData = computed(() => snapshotNodes.value.length > 0)
 
-const nodeMap = computed(() => {
-  const map = {}
-  for (const node of laidOutNodes.value) map[node.symbol] = node
-  return map
-})
-
-const graphEdges = computed(() => {
-  const fusion = currentSnapshot.value?.layers?.fusion || []
-  return fusion
-    .map((edge) => {
-      const from = nodeMap.value[edge.src]
-      const to = nodeMap.value[edge.dst]
-      if (!from || !to) return null
-      return {
-        ...edge,
-        x1: from.x,
-        y1: from.y,
-        x2: to.x,
-        y2: to.y,
-        strokeWidth: 1 + Math.min(5, Math.abs(Number(edge.weight || 0)) * 7),
-      }
-    })
-    .filter(Boolean)
-})
-
-const selectedNode = computed(() => {
-  const symbol = selectedSymbol.value
-  if (!symbol) return null
-  return laidOutNodes.value.find(node => node.symbol === symbol) || null
-})
+const selectedNode = computed(() =>
+  snapshotNodes.value.find(node => node.symbol === selectedSymbol.value) || null
+)
+const selectedEdge = computed(() =>
+  activeEdges.value.find(e => edgeKey(e) === selectedEdgeKey.value) || null
+)
 
 watch(currentSnapshot, (snapshot) => {
   if (!snapshot?.nodes?.length) {
     selectedSymbol.value = ''
-    return
-  }
-  if (!snapshot.nodes.some(node => node.symbol === selectedSymbol.value)) {
+    selectedEdgeKey.value = ''
+  } else if (!snapshot.nodes.some(node => node.symbol === selectedSymbol.value)) {
     selectedSymbol.value = snapshot.nodes[0].symbol
+    selectedEdgeKey.value = ''
   }
+})
+
+watch([currentSnapshot, viewMode, activeLayer], () => {
+  nextTick(renderGraph)
 })
 
 watch(threshold, () => {
   clearTimeout(reloadTimer)
-  reloadTimer = setTimeout(() => {
-    reloadTimeline()
-  }, 350)
+  reloadTimer = setTimeout(reloadTimeline, 350)
 })
 
 onMounted(async () => {
   await reloadTimeline()
+  if (graphHost.value && 'ResizeObserver' in window) {
+    resizeObserver = new ResizeObserver(() => renderGraph())
+    resizeObserver.observe(graphHost.value)
+  }
 })
 
 onBeforeUnmount(() => {
   if (playTimer) clearInterval(playTimer)
   if (reloadTimer) clearTimeout(reloadTimer)
+  if (simulation) simulation.stop()
+  if (resizeObserver) resizeObserver.disconnect()
 })
+
+/* ------------------------- D3 rendering ------------------------- */
+
+function renderGraph() {
+  const host = graphHost.value
+  if (!host) return
+  d3.select(host).selectAll('*').remove()
+  if (simulation) { simulation.stop(); simulation = null }
+  if (!hasGraphData.value) return
+  if (viewMode.value === 'bundle') renderBundle(host)
+  else renderForce(host)
+}
+
+function baseSvg(host, width, height) {
+  const svg = d3.select(host).append('svg')
+    .attr('viewBox', `0 0 ${width} ${height}`)
+    .attr('preserveAspectRatio', 'xMidYMid meet')
+    .style('width', '100%')
+    .style('height', '100%')
+  const defs = svg.append('defs')
+  ;['pos', 'neg'].forEach((sign) => {
+    defs.append('marker')
+      .attr('id', `arrow-${sign}`)
+      .attr('viewBox', '0 -5 10 10')
+      .attr('refX', 20)
+      .attr('refY', 0)
+      .attr('markerWidth', 6)
+      .attr('markerHeight', 6)
+      .attr('orient', 'auto')
+      .append('path')
+      .attr('d', 'M0,-5L10,0L0,5')
+      .attr('fill', sign === 'pos' ? '#4f8cff' : '#ef4444')
+  })
+  return svg
+}
+
+function industryScale() {
+  const industries = Array.from(new Set(snapshotNodes.value.map(n => n.industry || '未知產業')))
+  return d3.scaleOrdinal(d3.schemeTableau10).domain(industries)
+}
+
+function renderForce(host) {
+  const width = host.clientWidth || 900
+  const height = 560
+  const color = industryScale()
+  const nodes = snapshotNodes.value.map(n => ({ ...n, id: n.symbol }))
+  const links = activeEdges.value.map(e => ({ ...e, source: e.src, target: e.dst }))
+
+  const maxDeg = d3.max(nodes, n => Number(n.weighted_degree) || 0) || 1
+  const rScale = d3.scaleSqrt().domain([0, maxDeg]).range([9, 26])
+  const maxW = d3.max(links, l => Number(l.abs_weight) || 0) || 1
+  const wScale = d3.scaleLinear().domain([0, maxW]).range([1, 6])
+
+  const svg = baseSvg(host, width, height)
+  const root = svg.append('g')
+  svg.call(d3.zoom().scaleExtent([0.3, 4]).on('zoom', (event) => {
+    root.attr('transform', event.transform)
+  }))
+  svg.on('click', () => clearSelection())
+
+  const linkSel = root.append('g')
+    .attr('fill', 'none')
+    .selectAll('line')
+    .data(links)
+    .join('line')
+    .attr('stroke', d => Number(d.weight) >= 0 ? '#4f8cff' : '#ef4444')
+    .attr('stroke-width', d => wScale(Number(d.abs_weight) || 0))
+    .attr('stroke-opacity', 0.6)
+    .attr('marker-end', d => d.directed ? `url(#arrow-${Number(d.weight) >= 0 ? 'pos' : 'neg'})` : null)
+    .style('cursor', 'pointer')
+    .on('click', (event, d) => { event.stopPropagation(); pickEdge(d) })
+
+  const nodeSel = root.append('g')
+    .selectAll('g')
+    .data(nodes)
+    .join('g')
+    .style('cursor', 'pointer')
+    .on('click', (event, d) => { event.stopPropagation(); pickNode(d) })
+    .call(d3.drag()
+      .on('start', (event, d) => {
+        if (!event.active) simulation.alphaTarget(0.3).restart()
+        d.fx = d.x; d.fy = d.y
+      })
+      .on('drag', (event, d) => { d.fx = event.x; d.fy = event.y })
+      .on('end', (event, d) => {
+        if (!event.active) simulation.alphaTarget(0)
+        d.fx = null; d.fy = null
+      }))
+
+  nodeSel.append('circle')
+    .attr('r', d => rScale(Number(d.weighted_degree) || 0))
+    .attr('fill', d => color(d.industry || '未知產業'))
+    .attr('stroke', 'rgba(255,255,255,.35)')
+    .attr('stroke-width', 1.4)
+
+  nodeSel.append('text')
+    .text(d => d.symbol)
+    .attr('text-anchor', 'middle')
+    .attr('dy', '.32em')
+    .attr('fill', '#f8fafc')
+    .attr('font-size', 11)
+    .attr('font-weight', 700)
+    .style('pointer-events', 'none')
+
+  simulation = d3.forceSimulation(nodes)
+    .force('link', d3.forceLink(links).id(d => d.id).distance(110).strength(d => Math.min(1, (Number(d.abs_weight) || 0.2) + 0.15)))
+    .force('charge', d3.forceManyBody().strength(-320))
+    .force('center', d3.forceCenter(width / 2, height / 2))
+    .force('collide', d3.forceCollide().radius(d => rScale(Number(d.weighted_degree) || 0) + 6))
+    .on('tick', () => {
+      linkSel
+        .attr('x1', d => d.source.x).attr('y1', d => d.source.y)
+        .attr('x2', d => d.target.x).attr('y2', d => d.target.y)
+      nodeSel.attr('transform', d => `translate(${d.x},${d.y})`)
+    })
+
+  if (prefersReducedMotion()) {
+    simulation.stop()
+    for (let i = 0; i < 250; i += 1) simulation.tick()
+    linkSel.attr('x1', d => d.source.x).attr('y1', d => d.source.y)
+      .attr('x2', d => d.target.x).attr('y2', d => d.target.y)
+    nodeSel.attr('transform', d => `translate(${d.x},${d.y})`)
+  }
+
+  registerHighlighters(nodeSel, linkSel, null)
+  applyHighlight()
+}
+
+function renderBundle(host) {
+  const width = host.clientWidth || 900
+  const height = 560
+  const radius = Math.min(width, height) / 2 - 90
+  const color = industryScale()
+
+  // hierarchy: root -> industry -> symbol
+  const groups = d3.group(snapshotNodes.value, n => n.industry || '未知產業')
+  const hierarchyData = {
+    name: 'root',
+    children: Array.from(groups, ([industry, items]) => ({
+      name: industry,
+      children: items.map(n => ({ name: n.symbol, node: n })),
+    })),
+  }
+  const rootNode = d3.hierarchy(hierarchyData)
+  d3.cluster().size([2 * Math.PI, radius])(rootNode)
+  const leaves = rootNode.leaves()
+  const leafById = new Map(leaves.map(l => [l.data.name, l]))
+
+  const svg = baseSvg(host, width, height)
+  const g = svg.append('g').attr('transform', `translate(${width / 2},${height / 2})`)
+  svg.on('click', () => clearSelection())
+
+  const line = d3.lineRadial().curve(d3.curveBundle.beta(0.85)).radius(d => d.y).angle(d => d.x)
+  const maxW = d3.max(activeEdges.value, e => Number(e.abs_weight) || 0) || 1
+  const wScale = d3.scaleLinear().domain([0, maxW]).range([1, 5])
+
+  const bundleLinks = activeEdges.value.map((e) => {
+    const s = leafById.get(e.src)
+    const t = leafById.get(e.dst)
+    if (!s || !t) return null
+    return { edge: e, path: s.path(t) }
+  }).filter(Boolean)
+
+  const linkSel = g.append('g')
+    .attr('fill', 'none')
+    .selectAll('path')
+    .data(bundleLinks)
+    .join('path')
+    .attr('d', d => line(d.path))
+    .attr('stroke', d => Number(d.edge.weight) >= 0 ? '#4f8cff' : '#ef4444')
+    .attr('stroke-width', d => wScale(Number(d.edge.abs_weight) || 0))
+    .attr('stroke-opacity', 0.55)
+    .style('cursor', 'pointer')
+    .on('click', (event, d) => { event.stopPropagation(); pickEdge(d.edge) })
+
+  const nodeSel = g.append('g')
+    .selectAll('g')
+    .data(leaves)
+    .join('g')
+    .attr('transform', d => `rotate(${d.x * 180 / Math.PI - 90}) translate(${d.y},0)`)
+    .style('cursor', 'pointer')
+    .on('click', (event, d) => { event.stopPropagation(); pickNode(d.data.node) })
+
+  nodeSel.append('circle')
+    .attr('r', 5)
+    .attr('fill', d => color(d.data.node.industry || '未知產業'))
+    .attr('stroke', 'rgba(255,255,255,.4)')
+
+  nodeSel.append('text')
+    .attr('dy', '.31em')
+    .attr('x', d => d.x < Math.PI ? 9 : -9)
+    .attr('text-anchor', d => d.x < Math.PI ? 'start' : 'end')
+    .attr('transform', d => d.x >= Math.PI ? 'rotate(180)' : null)
+    .attr('fill', '#e2e8f0')
+    .attr('font-size', 10)
+    .attr('font-weight', 600)
+    .text(d => `${d.data.node.symbol} ${d.data.node.name_zh || ''}`)
+
+  registerHighlighters(nodeSel, linkSel, leafById)
+  applyHighlight()
+}
+
+/* ------------------------- selection & highlight ------------------------- */
+
+let highlighters = { node: null, link: null, leafById: null, mode: 'force' }
+
+function registerHighlighters(nodeSel, linkSel, leafById) {
+  highlighters = { node: nodeSel, link: linkSel, leafById, mode: viewMode.value }
+}
+
+function applyHighlight() {
+  const { node, link, mode } = highlighters
+  if (!node || !link) return
+  const sym = selectedSymbol.value
+  const ek = selectedEdgeKey.value
+
+  if (mode === 'force') {
+    if (ek) {
+      link.attr('stroke-opacity', d => edgeKey(d) === ek ? 0.95 : 0.08)
+        .attr('stroke-width', d => (edgeKey(d) === ek ? 4 : 1))
+      node.attr('opacity', d => {
+        const e = selectedEdge.value
+        return e && (d.symbol === e.src || d.symbol === e.dst) ? 1 : 0.25
+      })
+    } else if (sym) {
+      const connected = new Set([sym])
+      link.each(d => { if (d.src === sym) connected.add(d.dst); if (d.dst === sym) connected.add(d.src) })
+      link.attr('stroke-opacity', d => (d.src === sym || d.dst === sym) ? 0.9 : 0.06)
+        .attr('stroke-width', d => (d.src === sym || d.dst === sym) ? Math.max(2, wForce(d)) : 1)
+      node.attr('opacity', d => connected.has(d.symbol) ? 1 : 0.28)
+      node.select('circle').attr('stroke', d => d.symbol === sym ? '#f8fafc' : 'rgba(255,255,255,.35)')
+        .attr('stroke-width', d => d.symbol === sym ? 3 : 1.4)
+    } else {
+      link.attr('stroke-opacity', 0.6)
+      node.attr('opacity', 1).select('circle').attr('stroke', 'rgba(255,255,255,.35)').attr('stroke-width', 1.4)
+    }
+  } else {
+    if (ek) {
+      link.attr('stroke-opacity', d => edgeKey(d.edge) === ek ? 0.95 : 0.05)
+        .attr('stroke-width', d => edgeKey(d.edge) === ek ? 4 : 1)
+      node.attr('opacity', d => {
+        const e = selectedEdge.value
+        return e && (d.data.name === e.src || d.data.name === e.dst) ? 1 : 0.3
+      })
+    } else if (sym) {
+      link.attr('stroke-opacity', d => (d.edge.src === sym || d.edge.dst === sym) ? 0.9 : 0.04)
+        .attr('stroke-width', d => (d.edge.src === sym || d.edge.dst === sym) ? 3 : 1)
+      const connected = new Set([sym])
+      activeEdges.value.forEach(e => { if (e.src === sym) connected.add(e.dst); if (e.dst === sym) connected.add(e.src) })
+      node.attr('opacity', d => connected.has(d.data.name) ? 1 : 0.3)
+    } else {
+      link.attr('stroke-opacity', 0.55)
+      node.attr('opacity', 1)
+    }
+  }
+}
+
+function wForce(d) {
+  const maxW = d3.max(activeEdges.value, e => Number(e.abs_weight) || 0) || 1
+  return d3.scaleLinear().domain([0, maxW]).range([1, 6])(Number(d.abs_weight) || 0)
+}
+
+function pickNode(node) {
+  selectedEdgeKey.value = ''
+  selectedSymbol.value = node.symbol
+  applyHighlight()
+}
+
+function pickEdge(edge) {
+  selectedSymbol.value = ''
+  selectedEdgeKey.value = edgeKey(edge)
+  applyHighlight()
+}
+
+function clearSelection() {
+  selectedEdgeKey.value = ''
+  selectedSymbol.value = ''
+  applyHighlight()
+}
+
+/* ------------------------- data loading ------------------------- */
 
 function loadWatchlist() {
   try {
@@ -313,7 +610,6 @@ async function reloadTimeline() {
       const retry = await apiGet(`/api/v1/graph/watchlist/timeline?${qs.toString()}`)
       items = Array.isArray(retry.items) ? retry.items : []
     }
-    // timeline 仍為空時，至少回補單日 snapshot，避免畫面全空白。
     if (!items.length) {
       const snapshotQs = new URLSearchParams({
         symbols: symbols.value.join(','),
@@ -341,6 +637,7 @@ async function reloadTimeline() {
     alerts.value = []
   } finally {
     loading.value = false
+    nextTick(renderGraph)
   }
 }
 
@@ -378,23 +675,51 @@ function togglePlay() {
   }, playIntervalMs.value)
 }
 
-function nodeColor(industry) {
-  const text = String(industry || '')
-  let hash = 0
-  for (let i = 0; i < text.length; i += 1) hash = ((hash << 5) - hash) + text.charCodeAt(i)
-  const palette = ['#3b82f6', '#8b5cf6', '#22c55e', '#f59e0b', '#06b6d4', '#ef4444', '#a855f7']
-  return palette[Math.abs(hash) % palette.length]
+/* ------------------------- helpers ------------------------- */
+
+function edgeKey(edge) {
+  return `${edge.layer || activeLayer.value}:${edge.src}->${edge.dst}`
 }
 
-function fixed(value) {
+function nodeName(symbol) {
+  return snapshotNodes.value.find(n => n.symbol === symbol)?.name_zh || symbol
+}
+
+function layerLabel(layer) {
+  return layerOptions.find(l => l.value === layer)?.label || layer || '融合'
+}
+
+function edgeComponents(edge) {
+  const comps = edge.components || {}
+  const entries = [
+    { key: 'lead', label: '領先落後', value: Number(comps.lead || 0) },
+    { key: 'chip', label: '資金流向', value: Number(comps.chip || 0) },
+    { key: 'industry', label: '產業關聯', value: Number(comps.industry || 0) },
+  ]
+  const max = Math.max(1, ...entries.map(e => Math.abs(e.value)))
+  return entries.map(e => ({ ...e, pct: Math.round((Math.abs(e.value) / max) * 100) }))
+}
+
+function signClass(value) {
+  const n = Number(value || 0)
+  if (n > 0) return 'pos'
+  if (n < 0) return 'neg'
+  return ''
+}
+
+function fixed(value, digits = 2) {
   const numeric = Number(value || 0)
-  return Number.isFinite(numeric) ? numeric.toFixed(2) : '0.00'
+  return Number.isFinite(numeric) ? numeric.toFixed(digits) : (0).toFixed(digits)
 }
 
 function percent(value) {
   const numeric = Number(value || 0)
   if (!Number.isFinite(numeric)) return '0.00%'
   return `${(numeric * 100).toFixed(2)}%`
+}
+
+function prefersReducedMotion() {
+  return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches
 }
 
 function todayISO() {
@@ -477,6 +802,39 @@ function offsetISO(days) {
   background: rgba(59, 130, 246, 0.2);
 }
 
+.switch-row {
+  margin-top: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.seg {
+  display: inline-flex;
+  padding: 4px;
+  gap: 4px;
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: rgba(11, 17, 33, 0.5);
+}
+
+.seg-btn {
+  min-height: 32px;
+  padding: 0 14px;
+  border-radius: 9px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-weight: 600;
+  transition: background 0.18s ease, color 0.18s ease;
+}
+
+.seg-btn.active {
+  background: rgba(59, 130, 246, 0.24);
+  color: var(--text-primary);
+}
+
 .slider-row {
   margin-top: 12px;
   display: grid;
@@ -522,19 +880,38 @@ function offsetISO(days) {
 
 .graph-canvas {
   width: 100%;
-  min-height: 560px;
+  height: 560px;
   display: block;
 }
 
-.node-group {
-  cursor: pointer;
+.legend {
+  position: absolute;
+  left: 14px;
+  top: 12px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  pointer-events: none;
 }
 
-.node-symbol {
-  fill: #f8fafc;
-  font-size: 12px;
-  font-weight: 700;
-  pointer-events: none;
+.lg-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.lg-item .dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.lg-hint {
+  opacity: 0.75;
 }
 
 .canvas-empty {
@@ -571,16 +948,81 @@ function offsetISO(days) {
   background: rgba(15, 23, 42, 0.6);
 }
 
-.detail-card p {
-  margin: 6px 0;
-}
-
 .detail-card .symbol {
   font-weight: 700;
+  margin: 0 0 2px;
+}
+
+.detail-card .muted {
+  margin: 0 0 8px;
+}
+
+.kv {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  padding: 5px 0;
+  border-top: 1px solid rgba(148, 163, 184, 0.1);
+  font-size: 0.88rem;
+}
+
+.kv span {
+  color: var(--text-muted);
+}
+
+.sub-title {
+  margin: 12px 0 8px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.comp-bar {
+  display: grid;
+  grid-template-columns: 68px 1fr 52px;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0;
+  font-size: 0.8rem;
+}
+
+.comp-label {
+  color: var(--text-muted);
+}
+
+.comp-track {
+  height: 8px;
+  border-radius: 6px;
+  background: rgba(148, 163, 184, 0.16);
+  overflow: hidden;
+}
+
+.comp-fill {
+  display: block;
+  height: 100%;
+  border-radius: 6px;
+  background: #4f8cff;
+}
+
+.comp-fill.neg {
+  background: #ef4444;
+}
+
+.comp-val {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.pos {
+  color: #4f8cff;
+}
+
+.neg {
+  color: #ef4444;
 }
 
 .alerts-title {
-  margin-top: 14px !important;
+  margin-top: 16px !important;
 }
 
 .alerts-list {
