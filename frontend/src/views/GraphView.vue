@@ -102,6 +102,9 @@
             </g>
           </g>
         </svg>
+        <div v-if="!laidOutNodes.length && !loading" class="canvas-empty">
+          目前區間查無可視化資料，已自動嘗試以單日快照回補。請調整日期區間或降低門檻。
+        </div>
       </div>
 
       <aside class="graph-side">
@@ -310,9 +313,28 @@ async function reloadTimeline() {
       const retry = await apiGet(`/api/v1/graph/watchlist/timeline?${qs.toString()}`)
       items = Array.isArray(retry.items) ? retry.items : []
     }
+    // timeline 仍為空時，至少回補單日 snapshot，避免畫面全空白。
+    if (!items.length) {
+      const snapshotQs = new URLSearchParams({
+        symbols: symbols.value.join(','),
+        date: endDate.value,
+        edge_threshold: String(threshold.value),
+        lookback_days: String(lookbackDays.value),
+      })
+      const snapshot = await apiGet(`/api/v1/graph/watchlist/snapshot?${snapshotQs.toString()}`)
+      if (snapshot && Array.isArray(snapshot.nodes) && snapshot.nodes.length) {
+        items = [snapshot]
+      }
+    }
     timelineItems.value = items
-    currentIndex.value = Math.max(0, items.length - 1)
-    await loadAlerts()
+    if (items.length) {
+      currentIndex.value = Math.max(0, items.length - 1)
+      await loadAlerts()
+    } else {
+      currentIndex.value = 0
+      alerts.value = []
+      errorMessage.value = '查無可顯示的圖資料，請調整日期區間或降低 Edge 門檻。'
+    }
   } catch (error) {
     errorMessage.value = error?.message || '關聯圖載入失敗'
     timelineItems.value = []
@@ -491,6 +513,7 @@ function offsetISO(days) {
 }
 
 .graph-canvas-wrap {
+  position: relative;
   border: 1px solid rgba(148, 163, 184, 0.14);
   border-radius: 14px;
   background: rgba(11, 17, 33, 0.52);
@@ -512,6 +535,22 @@ function offsetISO(days) {
   font-size: 12px;
   font-weight: 700;
   pointer-events: none;
+}
+
+.canvas-empty {
+  position: absolute;
+  inset: auto 14px 14px 14px;
+  min-height: 42px;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: rgba(15, 23, 42, 0.78);
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 10px 12px;
+  font-size: 0.85rem;
 }
 
 .graph-side {
@@ -593,4 +632,3 @@ function offsetISO(days) {
   }
 }
 </style>
-
