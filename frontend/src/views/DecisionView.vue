@@ -3,7 +3,6 @@
     <header class="page-header">
       <div class="header-main">
         <div class="header-copy">
-          <p class="page-kicker">Trading Decision Center</p>
           <h1>今日決策面板</h1>
           <p class="page-subtitle">
             以交易席位等級的資訊密度整合 AI 決策訊號、價格動能與觀察清單，快速鎖定今天最值得出手的機會。
@@ -28,7 +27,6 @@
       <article class="market-pulse card">
         <div class="panel-head">
           <div>
-            <p class="section-kicker">Market Pulse</p>
             <h2>市場脈動總覽</h2>
           </div>
           <div class="refresh-inline">
@@ -78,7 +76,6 @@
       <article class="watchlist-panel card">
         <div class="panel-head">
           <div>
-            <p class="section-kicker">Watchlist</p>
             <h2>追蹤清單</h2>
           </div>
           <span class="watchlist-total">{{ watchlist.length }} 檔</span>
@@ -1002,14 +999,6 @@ function toDateParam(value) {
   margin: 6px 0 10px;
   font-size: clamp(2rem, 3vw, 2.8rem);
   letter-spacing: -0.04em;
-}
-
-.page-kicker {
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: rgba(191, 219, 254, 0.85);
 }
 
 .page-subtitle {

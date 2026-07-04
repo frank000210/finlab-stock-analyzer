@@ -148,9 +148,9 @@ onMounted(fetchData)
 .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .input-symbol { width: 90px; padding: 8px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-primary); font-weight: 700; text-align: center; }
 .controls select { padding: 8px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-primary); }
-.error-card { color: var(--accent-red); border-left: 3px solid var(--accent-red); }
+.error-card { color: var(--color-down); background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.3); }
 
-.verdict-card { border-left: 4px solid var(--accent-blue); }
+.verdict-card { background: var(--bg-elevated); box-shadow: var(--shadow-md); }
 .verdict-header { display: flex; align-items: center; gap: 16px; margin-bottom: 12px; }
 .verdict-badge { padding: 4px 16px; border-radius: 20px; font-weight: 700; font-size: 1.1rem; }
 .dir-領先 { background: rgba(34, 197, 94, 0.15); color: var(--accent-green); }

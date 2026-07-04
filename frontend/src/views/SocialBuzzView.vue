@@ -171,7 +171,7 @@ onMounted(fetchData)
 .subtitle { color: var(--text-muted); font-size: 0.85rem; margin-top: 4px; }
 .controls { display: flex; gap: 8px; align-items: center; }
 .input-symbol { width: 90px; padding: 8px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-primary); font-weight: 700; text-align: center; }
-.error-card { color: var(--accent-red); border-left: 3px solid var(--accent-red); }
+.error-card { color: var(--color-down); background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.3); }
 
 .score-section { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); }
 .buzz-score-card { display: flex; align-items: center; gap: 20px; }

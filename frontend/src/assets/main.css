@@ -16,6 +16,10 @@
   --color-up: #10b981;
   --color-down: #ef4444;
   --color-warning: #f59e0b;
+  /* 相容別名:歷史樣式引用的舊名,統一指向語意 token(修正原本未定義而無聲失效) */
+  --accent-red: var(--color-down);
+  --accent-green: var(--color-up);
+  --bg-tertiary: var(--bg-elevated);
   --border-color: rgba(148, 163, 184, 0.12);
   --border-subtle: rgba(148, 163, 184, 0.06);
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);

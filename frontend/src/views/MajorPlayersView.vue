@@ -199,15 +199,15 @@ onMounted(fetchData)
 .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .input-symbol { width: 90px; padding: 8px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-primary); font-weight: 700; text-align: center; }
 .controls select { padding: 8px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-primary); }
-.error-card { color: var(--accent-red); border-left: 3px solid var(--accent-red); }
+.error-card { color: var(--color-down); background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.3); }
 
 .verdict-section { display: grid; grid-template-columns: 2fr 1fr; gap: var(--space-4); }
-.verdict-card { border-left: 4px solid var(--text-muted); }
-.verdict-拉抬 { border-left-color: var(--accent-green); }
-.verdict-偏多 { border-left-color: rgba(34, 197, 94, 0.5); }
-.verdict-出貨 { border-left-color: var(--accent-red); }
-.verdict-偏空 { border-left-color: rgba(239, 68, 68, 0.5); }
-.verdict-中性 { border-left-color: var(--accent-blue); }
+.verdict-card { background: var(--bg-elevated); box-shadow: var(--shadow-md); }
+.verdict-拉抬 { background: linear-gradient(135deg, rgba(34, 197, 94, 0.14), var(--bg-elevated) 55%); }
+.verdict-偏多 { background: linear-gradient(135deg, rgba(34, 197, 94, 0.07), var(--bg-elevated) 55%); }
+.verdict-出貨 { background: linear-gradient(135deg, rgba(239, 68, 68, 0.14), var(--bg-elevated) 55%); }
+.verdict-偏空 { background: linear-gradient(135deg, rgba(239, 68, 68, 0.07), var(--bg-elevated) 55%); }
+.verdict-中性 { background: linear-gradient(135deg, rgba(59, 130, 246, 0.10), var(--bg-elevated) 55%); }
 .verdict-top { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
 .verdict-label { font-size: 0.8rem; color: var(--text-muted); }
 .verdict-value { font-size: 1.5rem; font-weight: 800; }
@@ -225,9 +225,9 @@ onMounted(fetchData)
 
 .signals-list { display: flex; flex-direction: column; gap: 8px; }
 .signal-item { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: var(--bg-tertiary); border-radius: var(--radius-sm); }
-.signal-bullish { border-left: 3px solid var(--accent-green); }
-.signal-bearish { border-left: 3px solid var(--accent-red); }
-.signal-caution { border-left: 3px solid #eab308; }
+.signal-bullish { background: rgba(34, 197, 94, 0.12); }
+.signal-bearish { background: rgba(239, 68, 68, 0.12); }
+.signal-caution { background: rgba(234, 179, 8, 0.12); }
 .signal-icon { font-size: 1rem; }
 .signal-label { flex: 1; font-size: 0.85rem; }
 .signal-weight { font-size: 0.7rem; color: var(--text-muted); padding: 2px 8px; background: var(--bg-primary); border-radius: 10px; }

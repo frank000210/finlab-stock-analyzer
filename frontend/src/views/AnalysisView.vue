@@ -3,7 +3,6 @@
     <section class="hero-card card">
       <div class="hero-main">
         <div class="hero-copy">
-          <div class="eyebrow">台股 AI 分析中心</div>
           <div class="symbol-row">
             <h1>{{ symbol }}</h1>
             <span v-if="stockName" class="company-name">{{ stockName }}</span>
@@ -38,7 +37,6 @@
       <article class="card chart-card">
         <div class="section-head">
           <div>
-            <p class="section-kicker">Chart Desk</p>
             <h2>多因子技術圖表</h2>
           </div>
           <div class="range-selector">
@@ -105,7 +103,6 @@
       <article class="card decision-card">
         <div class="section-head compact">
           <div>
-            <p class="section-kicker">Decision Engine</p>
             <h2>AI 決策評分</h2>
           </div>
         </div>
@@ -144,7 +141,6 @@
       <article class="card summary-card">
         <div class="section-head compact">
           <div>
-            <p class="section-kicker">Signal Summary</p>
             <h2>買賣建議</h2>
           </div>
         </div>
@@ -176,7 +172,6 @@
       <article class="card detail-card">
         <div class="section-head compact">
           <div>
-            <p class="section-kicker">Fundamental Snapshot</p>
             <h2>基本面重點</h2>
           </div>
         </div>
@@ -218,7 +213,6 @@
       <article class="card detail-card">
         <div class="section-head compact">
           <div>
-            <p class="section-kicker">Chip Flow</p>
             <h2>籌碼面重點</h2>
           </div>
           <router-link
@@ -1295,14 +1289,6 @@ function valueTone(value) {
   grid-template-columns: minmax(0, 1fr) 280px;
   gap: 20px;
   align-items: center;
-}
-
-.eyebrow,
-.section-kicker {
-  color: #60a5fa;
-  font-size: 0.78rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
 }
 
 .symbol-row {

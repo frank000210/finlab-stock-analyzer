@@ -156,7 +156,7 @@ fetchData()
 .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .input-symbol { width: 90px; padding: 8px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-primary); font-weight: 700; text-align: center; }
 .controls select { padding: 8px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-primary); }
-.error-card { color: var(--accent-red); border-left: 3px solid var(--accent-red); }
+.error-card { color: var(--color-down); background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.3); }
 
 .patterns-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: var(--space-4); }
 .pattern-card { padding: var(--space-4); background: var(--bg-tertiary); border-radius: var(--radius); }
