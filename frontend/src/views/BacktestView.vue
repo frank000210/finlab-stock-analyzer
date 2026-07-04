@@ -132,7 +132,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, nextTick } from 'vue'
+import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import axios from 'axios'
 import { createChart } from 'lightweight-charts'
@@ -202,8 +202,21 @@ async function runBacktest() {
   running.value = false
 }
 
+let equityChartInstance = null
+
+function destroyEquityChart() {
+  if (equityChartInstance) {
+    equityChartInstance.remove()
+    equityChartInstance = null
+  }
+}
+
+onBeforeUnmount(destroyEquityChart)
+
 function renderEquityCurve() {
   if (!equityChart.value || !result.value?.equity_curve) return
+
+  destroyEquityChart()
 
   const chart = createChart(equityChart.value, {
     width: equityChart.value.clientWidth,
@@ -218,6 +231,7 @@ function renderEquityCurve() {
     value: e.portfolio_value,
   })))
   chart.timeScale().fitContent()
+  equityChartInstance = chart
 }
 </script>
 
