@@ -466,15 +466,89 @@ function renderRRG() {
       return 1
     })
 
-  nodes.append('text')
-    .attr('dy', -11)
+  // Sector clusters (e.g. many "lagging" indices with near-identical
+  // RS-Ratio/RS-Momentum) used to render with every label pinned exactly
+  // 11px above its own point, so labels piled on top of each other and
+  // became unreadable. Run a tiny force simulation to nudge overlapping
+  // labels apart, with a thin leader line back to the actual point
+  // whenever a label had to move more than a few pixels.
+  const labelData = layoutLabels(data, x, y, margin, width, height)
+  const leaderGroup = svg.append('g').attr('stroke', 'rgba(148,163,184,.4)').attr('stroke-width', 1)
+  const labelGroup = svg.append('g').attr('class', 'point-labels')
+
+  labelData.forEach(l => {
+    if (Math.hypot(l.x - l.pointX, l.y - l.pointY) > 13) {
+      leaderGroup.append('line')
+        .attr('x1', l.pointX).attr('y1', l.pointY)
+        .attr('x2', l.x).attr('y2', l.y + 3)
+    }
+  })
+
+  labelGroup.selectAll('text')
+    .data(labelData)
+    .join('text')
+    .attr('x', d => d.x)
+    .attr('y', d => d.y)
     .attr('text-anchor', 'middle')
     .attr('fill', '#e2e8f0')
     .attr('font-size', 10)
-    .text(d => d.name.replace('類指數', ''))
+    .style('pointer-events', 'none')
+    .attr('opacity', d => {
+      const point = pointMap.get(d.id)
+      if (!point) return 1
+      if (selectedEdge.value) return (point.id === selectedEdge.value.src || point.id === selectedEdge.value.dst) ? 1 : 0.25
+      if (selectedId.value && selectedId.value !== point.id) return 0.4
+      return 1
+    })
+    .text(d => d.label)
 
   svg.append('text').attr('x', width - 90).attr('y', height - 8).attr('fill', '#94a3b8').attr('font-size', 11).text('RS-Ratio')
   svg.append('text').attr('x', 8).attr('y', 12).attr('fill', '#94a3b8').attr('font-size', 11).text('RS-Momentum')
+}
+
+// Rough CJK-friendly width estimate for a label at font-size 10 -- good
+// enough for collision radii, doesn't need to be pixel-perfect.
+function estimateLabelWidth(label) {
+  return label.length * 11 + 6
+}
+
+// Declutter overlapping point labels: start each label anchored just
+// above its point (same position the old fixed-offset text used), then
+// let a short-lived force simulation push apart any that collide while a
+// weak spring pulls them back toward their anchor so uncluttered labels
+// barely move at all.
+function layoutLabels(data, x, y, margin, width, height) {
+  const nodes = data.map(d => {
+    const pointX = x(d.rs_ratio)
+    const pointY = y(d.rs_momentum)
+    const label = d.name.replace('類指數', '')
+    return {
+      id: d.id,
+      label,
+      pointX,
+      pointY,
+      x: pointX,
+      y: pointY - 11,
+      width: estimateLabelWidth(label),
+    }
+  })
+
+  const sim = d3.forceSimulation(nodes)
+    .force('x', d3.forceX(n => n.pointX).strength(0.4))
+    .force('y', d3.forceY(n => n.pointY - 11).strength(0.5))
+    .force('collide', d3.forceCollide(n => n.width / 2 + 1.5).strength(1))
+    .stop()
+  for (let i = 0; i < 180; i += 1) sim.tick()
+
+  const minY = margin.top + 8
+  const maxY = height - margin.bottom - 4
+  const minX = margin.left
+  const maxX = width - margin.right
+  nodes.forEach(n => {
+    n.x = Math.min(maxX, Math.max(minX, n.x))
+    n.y = Math.min(maxY, Math.max(minY, n.y))
+  })
+  return nodes
 }
 
 function renderLeadGraph() {
