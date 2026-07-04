@@ -119,7 +119,7 @@ async def get_logs(
     logs = []
     async for doc in cursor:
         logs.append(_serialize_document(doc))
-    return logs
+    return {"success": True, "data": logs}
 
 
 @router.get("/logs/stats")
@@ -135,9 +135,12 @@ async def get_log_stats(_admin: dict = Depends(require_admin)):
     pageview_totals = [doc async for doc in db.pageviews.aggregate(pipeline)]
     total_pageviews = int(pageview_totals[0]["total"]) if pageview_totals else 0
     return {
-        "todays_visitors": len([ip for ip in today_visitors if ip]),
-        "total_pageviews": total_pageviews,
-        "unique_visitors": len([ip for ip in unique_visitors if ip]),
+        "success": True,
+        "data": {
+            "todays_visitors": len([ip for ip in today_visitors if ip]),
+            "total_pageviews": total_pageviews,
+            "unique_visitors": len([ip for ip in unique_visitors if ip]),
+        },
     }
 
 
@@ -145,7 +148,7 @@ async def get_log_stats(_admin: dict = Depends(require_admin)):
 async def get_settings_list(_admin: dict = Depends(require_admin)):
     await _ensure_setting_helpers_available()
     try:
-        return await get_all_settings()
+        return {"success": True, "data": await get_all_settings()}
     except HTTPException:
         raise
     except Exception as exc:
@@ -157,7 +160,7 @@ async def update_setting(key: str, payload: SettingValuePayload, _admin: dict = 
     await _ensure_setting_helpers_available()
     try:
         await set_setting(key, payload.value)
-        return {"ok": True, "key": key, "value": payload.value}
+        return {"success": True, "data": {"key": key, "value": payload.value}}
     except Exception as exc:
         raise HTTPException(status_code=503, detail=f"Unable to update setting: {exc}") from exc
 
@@ -171,7 +174,7 @@ async def create_setting(payload: SettingCreatePayload, _admin: dict = Depends(r
     await db.settings.insert_one(
         {"key": payload.key, "value": payload.value, "updated_at": datetime.utcnow()}
     )
-    return {"ok": True, "key": payload.key, "value": payload.value}
+    return {"success": True, "data": {"key": payload.key, "value": payload.value}}
 
 
 @router.delete("/settings/{key}")
@@ -180,12 +183,12 @@ async def delete_setting(key: str, _admin: dict = Depends(require_admin)):
     result = await db.settings.delete_one({"key": key})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail=f"Setting '{key}' was not found.")
-    return {"ok": True, "key": key}
+    return {"success": True, "data": {"key": key}}
 
 
 @router.get("/allowed-admins")
 async def get_allowed_admins(_admin: dict = Depends(require_admin)):
-    return {"emails": await _get_allowed_admins_value()}
+    return {"success": True, "data": await _get_allowed_admins_value()}
 
 
 @router.post("/allowed-admins")
@@ -198,7 +201,7 @@ async def add_allowed_admin(payload: AllowedAdminPayload, _admin: dict = Depends
     if email not in emails:
         emails.append(email)
         await set_setting("allowed_admin_emails", emails)
-    return {"emails": emails}
+    return {"success": True, "data": emails}
 
 
 @router.delete("/allowed-admins/{email}")
@@ -207,7 +210,7 @@ async def remove_allowed_admin(email: str, _admin: dict = Depends(require_admin)
     target_email = email.strip().lower()
     emails = [item for item in await _get_allowed_admins_value() if item != target_email]
     await set_setting("allowed_admin_emails", emails)
-    return {"emails": emails}
+    return {"success": True, "data": emails}
 
 
 @router.post("/notify/test")
@@ -240,4 +243,4 @@ async def send_test_notification(payload: TestNotificationPayload, _admin: dict 
 
     if not success:
         raise HTTPException(status_code=502, detail=f"Failed to send {payload.channel} notification.")
-    return {"ok": True, "channel": payload.channel}
+    return {"success": True, "data": {"ok": True, "channel": payload.channel}}
