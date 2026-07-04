@@ -7,7 +7,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 
 const props = defineProps({
   page: { type: String, required: true },
@@ -21,20 +21,39 @@ const formattedCount = computed(() => {
   return count.value.toString()
 })
 
-onMounted(async () => {
-  // Track this page view
+async function trackPage(page, symbol) {
+  if (!page) return
   try {
     await fetch('/api/v1/analytics/pageview', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ page: props.page, symbol: props.symbol }),
+      body: JSON.stringify({ page, symbol }),
     })
     // Get updated count
-    const res = await fetch(`/api/v1/analytics/pageviews/${encodeURIComponent(props.page)}`)
+    const res = await fetch(`/api/v1/analytics/pageviews/${encodeURIComponent(page)}`)
     const data = await res.json()
     count.value = data?.count || 0
   } catch {}
+}
+
+onMounted(() => {
+  trackPage(props.page, props.symbol)
 })
+
+// This component lives once in App.vue outside <router-view>, so it never
+// unmounts/remounts as the user navigates the SPA -- onMounted alone only
+// ever recorded the very first page of a session (every other page's
+// count stayed at 0 forever). Watching the page prop re-tracks on every
+// route change so each page actually gets its own counter.
+watch(
+  () => props.page,
+  (newPage, oldPage) => {
+    if (newPage && newPage !== oldPage) {
+      count.value = 0
+      trackPage(newPage, props.symbol)
+    }
+  }
+)
 </script>
 
 <style scoped>
