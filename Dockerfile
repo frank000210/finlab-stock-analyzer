@@ -20,8 +20,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Install Python dependencies (while gcc is still available for TA-Lib wheel)
 COPY backend/requirements.txt ./
+# TA-Lib's C wrapper is built against whatever numpy pip's *isolated* build
+# environment happens to grab (numpy 2.x today), not the numpy==1.26.4 we
+# just installed above -- and TA-Lib 0.4.28 is compiled against the numpy
+# 1.x C-API (PyArray_Descr layout changed in 2.0), so an isolated build
+# fails with "error: 'PyArray_Descr' {aka 'struct _PyArray_Descr'} has no
+# member named ...". --no-build-isolation makes it reuse the numpy already
+# installed in this environment instead of fetching a fresh, incompatible one.
 RUN pip install --no-cache-dir -r requirements.txt && \
-    pip install --no-cache-dir TA-Lib==0.4.28 && \
+    pip install --no-cache-dir --no-build-isolation TA-Lib==0.4.28 && \
     apt-get remove -y gcc g++ make wget && apt-get autoremove -y && \
     rm -rf /var/lib/apt/lists/*
 
