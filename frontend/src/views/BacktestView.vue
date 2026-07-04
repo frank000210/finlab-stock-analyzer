@@ -157,7 +157,7 @@ const form = ref({
 onMounted(async () => {
   try {
     const resp = await axios.get('/api/v1/backtest/strategies')
-    strategies.value = resp.data.data.strategies
+    strategies.value = resp.data?.data?.strategies || []
     onStrategyChange()
   } catch { /* ignore */ }
 })
@@ -186,12 +186,15 @@ async function runBacktest() {
       date_range: { start: form.value.start, end: form.value.end },
       capital: form.value.capital,
     })
+    if (!resp.data?.data || typeof resp.data.data !== 'object') {
+      throw new Error('回測回應格式異常')
+    }
     result.value = resp.data.data
 
     // Load trades
     if (result.value.backtest_id) {
       const tResp = await axios.get(`/api/v1/backtest/${result.value.backtest_id}/trades`)
-      trades.value = tResp.data.data.items || []
+      trades.value = tResp.data?.data?.items || []
     }
 
     await nextTick()

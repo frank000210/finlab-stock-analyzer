@@ -145,7 +145,8 @@ async function loadAlphaScores() {
 
 async function loadActiveRule() {
   try {
-    activeRule.value = await apiGet('/api/v1/agent/active-rule')
+    const payload = await apiGet('/api/v1/agent/active-rule')
+    activeRule.value = (payload && typeof payload === 'object') ? payload : {}
   } catch {
     activeRule.value = {}
   }
