@@ -10,6 +10,7 @@ import numpy as np
 
 from ..crawler import FinMindClient, InstitutionalCrawler, StockPriceCrawler
 from ..db.mongodb import get_mongodb
+from .correlation import best_lag_corr, safe_corr
 
 DEFAULT_ALPHA = 0.50
 DEFAULT_BETA = 0.30
@@ -69,27 +70,13 @@ def _edge_key(src: str, dst: str) -> str:
 
 
 def _corr(values_a: list[float], values_b: list[float]) -> float:
-    if len(values_a) < 20 or len(values_b) < 20 or len(values_a) != len(values_b):
-        return 0.0
-    arr_a = np.array(values_a, dtype=float)
-    arr_b = np.array(values_b, dtype=float)
-    if np.std(arr_a) == 0 or np.std(arr_b) == 0:
-        return 0.0
-    corr = float(np.corrcoef(arr_a, arr_b)[0, 1])
-    return corr if np.isfinite(corr) else 0.0
+    """委派給共用 correlation 模組(與 lead_lag 同一套演算法與防護)。"""
+    return safe_corr(values_a, values_b)
 
 
 def _best_lag_corr(values_a: list[float], values_b: list[float], max_lag: int = 5) -> tuple[int, float]:
-    best_lag = 0
-    best_corr = 0.0
-    for lag in range(1, max_lag + 1):
-        if len(values_a) <= lag or len(values_b) <= lag:
-            continue
-        corr = _corr(values_a[:-lag], values_b[lag:])
-        if abs(corr) > abs(best_corr):
-            best_corr = corr
-            best_lag = lag
-    return best_lag, best_corr
+    """委派給共用 correlation 模組(與 lead_lag 同一套演算法與防護)。"""
+    return best_lag_corr(values_a, values_b, max_lag=max_lag)
 
 
 def _pagerank(nodes: list[str], edges: list[dict[str, Any]], damping: float = 0.85, steps: int = 24) -> dict[str, float]:

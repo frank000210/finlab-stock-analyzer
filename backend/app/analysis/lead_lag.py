@@ -9,6 +9,7 @@ import pandas as pd
 import yfinance as yf
 from typing import Optional
 from ..crawler import StockPriceCrawler, FinMindClient
+from .correlation import cross_corr_at_lag, safe_corr
 
 
 # Major sector leaders for reference
@@ -91,26 +92,10 @@ async def analyze_lead_lag(
     stock_ret = stock_ret.loc[common_idx]
     bench_ret = bench_ret.loc[common_idx]
 
-    # Cross-correlation at different lags
+    # Cross-correlation at different lags(共用 correlation 模組,lag>0 = 股票領先)
     correlations = []
     for lag in range(-max_lag, max_lag + 1):
-        if lag > 0:
-            # Stock leads: shift stock forward (compare today's stock with future benchmark)
-            s = stock_ret.iloc[:-lag].values
-            b = bench_ret.iloc[lag:].values
-        elif lag < 0:
-            # Stock lags: shift benchmark forward
-            s = stock_ret.iloc[-lag:].values
-            b = bench_ret.iloc[:lag].values
-        else:
-            s = stock_ret.values
-            b = bench_ret.values
-
-        if len(s) < 20:
-            correlations.append({"lag": lag, "correlation": 0})
-            continue
-
-        corr = float(np.corrcoef(s, b)[0, 1])
+        corr = cross_corr_at_lag(stock_ret.values, bench_ret.values, lag)
         correlations.append({
             "lag": lag,
             "correlation": round(corr, 4),
@@ -199,7 +184,7 @@ def _compute_beta(stock_ret: pd.Series, bench_ret: pd.Series) -> dict:
     """Compute beta (sensitivity to benchmark)."""
     cov = np.cov(stock_ret.values, bench_ret.values)
     beta = float(cov[0, 1] / cov[1, 1]) if cov[1, 1] != 0 else 1.0
-    r_squared = float(np.corrcoef(stock_ret.values, bench_ret.values)[0, 1] ** 2)
+    r_squared = safe_corr(stock_ret.values, bench_ret.values) ** 2
     return {
         "value": round(beta, 3),
         "r_squared": round(r_squared, 3),
@@ -226,23 +211,12 @@ def _compute_rolling_lead_lag(
         b_window = bench_ret.iloc[i - window:i]
 
         best_lag = 0
-        best_corr = 0
+        best_corr = 0.0
 
         for lag in range(-max_lag, max_lag + 1):
-            if lag > 0:
-                s = s_window.iloc[:-lag].values if lag < len(s_window) else []
-                b = b_window.iloc[lag:].values if lag < len(b_window) else []
-            elif lag < 0:
-                s = s_window.iloc[-lag:].values if -lag < len(s_window) else []
-                b = b_window.iloc[:lag].values if lag != 0 else b_window.values
-            else:
-                s = s_window.values
-                b = b_window.values
-
-            if len(s) < 15 or len(b) < 15 or len(s) != len(b):
-                continue
-
-            corr = float(np.corrcoef(s, b)[0, 1])
+            corr = cross_corr_at_lag(
+                s_window.values, b_window.values, lag, min_samples=15
+            )
             if abs(corr) > abs(best_corr):
                 best_corr = corr
                 best_lag = lag
