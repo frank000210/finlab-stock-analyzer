@@ -58,9 +58,17 @@ async def update_settings(settings: AppSettings):
         return {"success": False, "error": f"儲存失敗: {str(e)}"}
 
 
+class TokenValidationRequest(BaseModel):
+    """Token 驗證請求。token 走 request body,避免出現在 URL/存取日誌。"""
+
+    token_type: str
+    token: str
+
+
 @router.post("/validate-token")
-async def validate_token(token_type: str, token: str):
-    """Validate a third-party token."""
+async def validate_token(payload: TokenValidationRequest):
+    """Validate a third-party token.(token 由 body 傳入,不走 query string)"""
+    token_type, token = payload.token_type, payload.token
     if token_type == "finmind":
         try:
             client = FinMindClient(token=token)

@@ -69,7 +69,7 @@ const saved = ref(false)
 
 async function validateToken(type) {
   try {
-    const resp = await axios.post(`/api/v1/settings/validate-token?token_type=${type}&token=${finmindToken.value}`)
+    const resp = await axios.post('/api/v1/settings/validate-token', { token_type: type, token: finmindToken.value })
     alert(resp.data.data.valid ? '✅ Token 有效' : '❌ Token 無效')
   } catch {
     alert('❌ 驗證失敗')
@@ -78,7 +78,7 @@ async function validateToken(type) {
 
 async function testLine() {
   try {
-    await axios.post(`/api/v1/notifications/line/test?token=${lineToken.value}`)
+    await axios.post('/api/v1/notifications/line/test', { token: lineToken.value })
     alert('✅ 通知已發送')
   } catch {
     alert('❌ 發送失敗，請檢查 Token')
