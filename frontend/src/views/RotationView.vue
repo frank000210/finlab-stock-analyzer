@@ -60,6 +60,26 @@
         <button class="btn btn-primary" :disabled="loading" @click="reloadTimeline">重算輪動</button>
       </div>
 
+      <div class="sector-picker" v-if="universe === 'twse' && sectorOptions.length">
+        <div class="sector-picker-head">
+          <span>顯示類股（{{ visibleSectorCount }}/{{ sectorOptions.length }}）</span>
+          <div class="sector-picker-actions">
+            <button type="button" class="link-btn" @click="selectAllSectors">全選</button>
+            <button type="button" class="link-btn" @click="clearAllSectors">全部隱藏</button>
+          </div>
+        </div>
+        <div class="sector-chip-grid">
+          <button
+            v-for="opt in sectorOptions"
+            :key="opt.id"
+            type="button"
+            class="sector-chip"
+            :class="{ active: !hiddenSectors.has(opt.id) }"
+            @click="toggleSector(opt.id)"
+          >{{ opt.name }}</button>
+        </div>
+      </div>
+
       <div class="slider-row" v-if="timelineDates.length">
         <label>
           日期播放：<strong>{{ activeDate || '—' }}</strong>
@@ -101,14 +121,38 @@
       <p v-else class="muted">目前無輪動排行資料</p>
     </section>
 
+    <div v-if="fullscreenTarget" class="fullscreen-backdrop" @click="exitFullscreen"></div>
+
     <section class="rotation-layout section-block" v-reveal>
       <div class="canvas-stack">
-        <div class="chart-card">
-          <h3>RRG 輪動時鐘</h3>
+        <div class="chart-card" :class="{ 'is-fullscreen': fullscreenTarget === 'rrg' }">
+          <div class="chart-card-head">
+            <h3>RRG 輪動時鐘</h3>
+            <div class="chart-card-actions">
+              <span class="muted small-hint" v-if="fullscreenTarget === 'rrg'">按 Esc 退出</span>
+              <button class="icon-btn" type="button" @click="toggleFullscreen('rrg')">
+                {{ fullscreenTarget === 'rrg' ? '⤡ 退出全螢幕' : '⤢ 全螢幕' }}
+              </button>
+            </div>
+          </div>
           <div ref="rrgHost" class="chart-host"></div>
+          <div class="quadrant-legend">
+            <span class="legend-item"><i class="dot leading"></i>領先</span>
+            <span class="legend-item"><i class="dot weakening"></i>轉弱</span>
+            <span class="legend-item"><i class="dot lagging"></i>落後</span>
+            <span class="legend-item"><i class="dot improving"></i>轉強</span>
+          </div>
         </div>
-        <div class="chart-card">
-          <h3>領先落後有向圖（類股接棒）</h3>
+        <div class="chart-card" :class="{ 'is-fullscreen': fullscreenTarget === 'lead' }">
+          <div class="chart-card-head">
+            <h3>領先落後有向圖（類股接棒）</h3>
+            <div class="chart-card-actions">
+              <span class="muted small-hint" v-if="fullscreenTarget === 'lead'">按 Esc 退出</span>
+              <button class="icon-btn" type="button" @click="toggleFullscreen('lead')">
+                {{ fullscreenTarget === 'lead' ? '⤡ 退出全螢幕' : '⤢ 全螢幕' }}
+              </button>
+            </div>
+          </div>
           <div ref="leadHost" class="chart-host lead-host"></div>
         </div>
       </div>
@@ -171,6 +215,16 @@ const playIntervalMs = ref(700)
 const rrgHost = ref(null)
 const leadHost = ref(null)
 
+const fullscreenTarget = ref(null) // null | 'rrg' | 'lead'
+
+// Official sector-index universe has 30+ sub-indices -- showing every one
+// at once makes both the RRG clock and the lead-lag graph unreadable.
+// knownSectors accumulates every {id,name} seen across loaded snapshots so
+// the picker list stays stable while scrubbing the playback timeline;
+// hiddenSectors holds the user's opt-outs (empty set = show everything).
+const knownSectors = ref(new Map())
+const hiddenSectors = ref(new Set())
+
 let playTimer = null
 let resizeObserver = null
 let leadSimulation = null
@@ -180,7 +234,28 @@ const activeDate = computed(() => timelineDates.value[currentIndex.value] || '')
 const points = computed(() => snapshot.value?.points || [])
 const trails = computed(() => snapshot.value?.trails || {})
 const leadEdges = computed(() => snapshot.value?.lead_edges || [])
-const rankingItems = computed(() => snapshot.value?.ranking || [])
+
+const sectorOptions = computed(() => (
+  Array.from(knownSectors.value.entries())
+    .map(([id, name]) => ({ id, name }))
+    .sort((a, b) => a.name.localeCompare(b.name, 'zh-Hant'))
+))
+const visibleSectorCount = computed(() => (
+  sectorOptions.value.filter(opt => !hiddenSectors.value.has(opt.id)).length
+))
+
+// Points/ranking actually rendered, after applying the sector picker
+// (only meaningful for the 'twse' universe; watchlist has no picker).
+const visiblePoints = computed(() => {
+  const all = points.value
+  if (universe.value !== 'twse' || hiddenSectors.value.size === 0) return all
+  return all.filter(p => !hiddenSectors.value.has(p.id))
+})
+const rankingItems = computed(() => {
+  const ranking = snapshot.value?.ranking || []
+  if (universe.value !== 'twse' || hiddenSectors.value.size === 0) return ranking
+  return ranking.filter(item => !hiddenSectors.value.has(item.id))
+})
 
 const selectedPoint = computed(() => points.value.find(p => p.id === selectedId.value) || null)
 const selectedEdge = computed(() => leadEdges.value.find(e => edgeKey(e) === selectedEdgeKey.value) || null)
@@ -190,6 +265,27 @@ watch([universe, freq], () => {
     lookbackDays.value = Math.max(lookbackDays.value, 720)
   }
 })
+
+watch(universe, () => {
+  // Switching universe invalidates the previous picker state (watchlist
+  // symbols and official sector indices don't share ids).
+  knownSectors.value.clear()
+  hiddenSectors.value.clear()
+})
+
+watch(points, pts => {
+  if (universe.value !== 'twse') return
+  pts.forEach(p => {
+    if (!knownSectors.value.has(p.id)) knownSectors.value.set(p.id, p.name)
+  })
+})
+
+watch(hiddenSectors, () => {
+  nextTick(() => {
+    renderRRG()
+    renderLeadGraph()
+  })
+}, { deep: true })
 
 watch(currentIndex, async () => {
   if (!timelineDates.value.length) return
@@ -213,13 +309,51 @@ onMounted(async () => {
     if (rrgHost.value) resizeObserver.observe(rrgHost.value)
     if (leadHost.value) resizeObserver.observe(leadHost.value)
   }
+  window.addEventListener('keydown', handleKeydown)
 })
 
 onBeforeUnmount(() => {
   if (playTimer) clearInterval(playTimer)
   if (leadSimulation) leadSimulation.stop()
   if (resizeObserver) resizeObserver.disconnect()
+  window.removeEventListener('keydown', handleKeydown)
 })
+
+function handleKeydown(event) {
+  if (event.key === 'Escape' && fullscreenTarget.value) {
+    exitFullscreen()
+  }
+}
+
+function toggleFullscreen(target) {
+  fullscreenTarget.value = fullscreenTarget.value === target ? null : target
+  nextTick(() => {
+    renderRRG()
+    renderLeadGraph()
+  })
+}
+
+function exitFullscreen() {
+  if (!fullscreenTarget.value) return
+  fullscreenTarget.value = null
+  nextTick(() => {
+    renderRRG()
+    renderLeadGraph()
+  })
+}
+
+function toggleSector(id) {
+  if (hiddenSectors.value.has(id)) hiddenSectors.value.delete(id)
+  else hiddenSectors.value.add(id)
+}
+
+function selectAllSectors() {
+  hiddenSectors.value.clear()
+}
+
+function clearAllSectors() {
+  sectorOptions.value.forEach(opt => hiddenSectors.value.add(opt.id))
+}
 
 function loadWatchlist() {
   try {
@@ -390,11 +524,11 @@ function renderRRG() {
   const host = rrgHost.value
   if (!host) return
   d3.select(host).selectAll('*').remove()
-  const data = points.value
+  const data = visiblePoints.value
   if (!data.length) return
 
   const width = host.clientWidth || 920
-  const height = 360
+  const height = host.clientHeight || 360
   const margin = { top: 20, right: 24, bottom: 30, left: 34 }
   const xMin = Math.min(95, d3.min(data, d => d.rs_ratio) - 2)
   const xMax = Math.max(105, d3.max(data, d => d.rs_ratio) + 2)
@@ -465,6 +599,10 @@ function renderRRG() {
       if (selectedId.value && selectedId.value !== d.id) return 0.35
       return 1
     })
+
+  nodes.append('title').text(d => (
+    `${d.name}\n象限：${quadrantLabel(d.quadrant)}\nRS-Ratio：${fixed(d.rs_ratio, 3)}\nRS-Momentum：${fixed(d.rs_momentum, 3)}`
+  ))
 
   // Sector clusters (e.g. many "lagging" indices with near-identical
   // RS-Ratio/RS-Momentum) used to render with every label pinned exactly
@@ -559,11 +697,11 @@ function renderLeadGraph() {
     leadSimulation.stop()
     leadSimulation = null
   }
-  if (!points.value.length) return
+  if (!visiblePoints.value.length) return
 
   const width = host.clientWidth || 920
-  const height = 300
-  const nodes = points.value.map(p => ({ ...p, id: p.id }))
+  const height = host.clientHeight || 300
+  const nodes = visiblePoints.value.map(p => ({ ...p, id: p.id }))
   const links = leadEdges.value.map(e => ({ ...e, source: e.src, target: e.dst }))
   const idSet = new Set(nodes.map(n => n.id))
   const validLinks = links.filter(l => idSet.has(l.source) && idSet.has(l.target))
@@ -577,21 +715,46 @@ function renderLeadGraph() {
       if (!selectedId.value && nodes.length) selectedId.value = nodes[0].id
     })
 
+  // Arrowheads used to be sized in "strokeWidth" units (the SVG marker
+  // default), so a thick high-|weight| edge (stroke-width up to 5) blew the
+  // arrowhead up to 5x its intended size. userSpaceOnUse decouples the
+  // marker from the line's stroke width, and updateArrowScale() then keeps
+  // its on-screen size roughly constant as the user zooms the graph.
+  const ARROW_BASE = 7
+  const ARROW_REFX = 17
   const defs = svg.append('defs')
-  defs.append('marker')
-    .attr('id', 'lead-arrow')
-    .attr('viewBox', '0 -5 10 10')
-    .attr('refX', 20)
-    .attr('refY', 0)
-    .attr('markerWidth', 6)
-    .attr('markerHeight', 6)
-    .attr('orient', 'auto')
-    .append('path')
-    .attr('d', 'M0,-5L10,0L0,5')
-    .attr('fill', '#60a5fa')
+  const arrowMarkers = [
+    { id: 'lead-arrow-pos', color: '#60a5fa' },
+    { id: 'lead-arrow-neg', color: '#f87171' },
+  ].map(spec => {
+    const marker = defs.append('marker')
+      .attr('id', spec.id)
+      .attr('viewBox', '0 -5 10 10')
+      .attr('refY', 0)
+      .attr('markerUnits', 'userSpaceOnUse')
+      .attr('orient', 'auto')
+    marker.append('path').attr('d', 'M0,-5L10,0L0,5').attr('fill', spec.color)
+    return marker
+  })
+
+  function updateArrowScale(k = 1) {
+    const zoomFactor = Math.max(0.5, Math.min(1.8, 1 / k))
+    const sizeFactor = Math.max(0.75, Math.min(1.25, width / 760))
+    const scale = zoomFactor * sizeFactor
+    arrowMarkers.forEach(marker => {
+      marker
+        .attr('markerWidth', ARROW_BASE * scale)
+        .attr('markerHeight', ARROW_BASE * scale)
+        .attr('refX', ARROW_REFX * scale)
+    })
+  }
+  updateArrowScale(1)
 
   const root = svg.append('g')
-  svg.call(d3.zoom().scaleExtent([0.4, 3]).on('zoom', event => root.attr('transform', event.transform)))
+  svg.call(d3.zoom().scaleExtent([0.4, 3]).on('zoom', event => {
+    root.attr('transform', event.transform)
+    updateArrowScale(event.transform.k)
+  }))
 
   const maxW = d3.max(validLinks, d => Number(d.abs_weight) || 0) || 1
   const wScale = d3.scaleLinear().domain([0, maxW]).range([1, 5])
@@ -604,7 +767,7 @@ function renderLeadGraph() {
     .attr('stroke', d => Number(d.weight) >= 0 ? '#60a5fa' : '#f87171')
     .attr('stroke-width', d => wScale(Number(d.abs_weight) || 0))
     .attr('stroke-opacity', d => selectedEdgeKey.value ? (edgeKey(d) === selectedEdgeKey.value ? 0.95 : 0.1) : 0.62)
-    .attr('marker-end', 'url(#lead-arrow)')
+    .attr('marker-end', d => Number(d.weight) >= 0 ? 'url(#lead-arrow-pos)' : 'url(#lead-arrow-neg)')
     .style('cursor', 'pointer')
     .on('click', (event, d) => {
       event.stopPropagation()
@@ -648,6 +811,8 @@ function renderLeadGraph() {
       if (selectedId.value && selectedId.value !== d.id) return 0.35
       return 1
     })
+
+  nodeSel.append('title').text(d => `${d.name}（${quadrantLabel(d.quadrant)}）`)
 
   nodeSel.append('text')
     .text(d => d.name.replace('類指數', ''))
@@ -877,9 +1042,68 @@ function offsetISO(days) {
   padding: 10px;
 }
 
-.chart-card h3 {
+.chart-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   margin: 4px 0 8px;
+}
+
+.chart-card-head h3 {
+  margin: 0;
   font-size: 1rem;
+}
+
+.chart-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.small-hint {
+  font-size: 0.72rem;
+}
+
+.icon-btn {
+  min-height: 30px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  background: rgba(148, 163, 184, 0.1);
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.icon-btn:hover {
+  background: rgba(148, 163, 184, 0.2);
+}
+
+.fullscreen-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(2, 6, 15, 0.72);
+  z-index: 90;
+}
+
+.chart-card.is-fullscreen {
+  position: fixed;
+  top: 24px;
+  left: 24px;
+  right: 24px;
+  bottom: 24px;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.chart-card.is-fullscreen .chart-host {
+  flex: 1;
+  height: auto;
+  min-height: 0;
 }
 
 .chart-host {
@@ -888,6 +1112,98 @@ function offsetISO(days) {
 
 .lead-host {
   height: 300px;
+}
+
+.quadrant-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 8px;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legend-item .dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  display: inline-block;
+}
+
+.dot.leading {
+  background: #22c55e;
+}
+.dot.weakening {
+  background: #f59e0b;
+}
+.dot.lagging {
+  background: #ef4444;
+}
+.dot.improving {
+  background: #3b82f6;
+}
+
+.sector-picker {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(148, 163, 184, 0.14);
+}
+
+.sector-picker-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.sector-picker-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.link-btn {
+  background: none;
+  border: none;
+  color: #60a5fa;
+  cursor: pointer;
+  font-size: 0.78rem;
+  padding: 0;
+}
+
+.link-btn:hover {
+  text-decoration: underline;
+}
+
+.sector-chip-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.sector-chip {
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: rgba(148, 163, 184, 0.08);
+  color: var(--text-muted);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 0.76rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.sector-chip.active {
+  border-color: rgba(59, 130, 246, 0.5);
+  background: rgba(59, 130, 246, 0.18);
+  color: var(--text-primary);
 }
 
 .rotation-side {
@@ -970,6 +1286,12 @@ function offsetISO(days) {
   }
   .chart-host {
     height: 320px;
+  }
+  .chart-card.is-fullscreen {
+    top: 10px;
+    left: 10px;
+    right: 10px;
+    bottom: 10px;
   }
 }
 </style>
