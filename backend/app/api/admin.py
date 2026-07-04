@@ -23,7 +23,6 @@ except Exception:
     get_mongodb = None
 
 router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
-DEFAULT_ALLOWED_ADMINS = ["frank210@gmail.com"]
 
 
 class SettingValuePayload(BaseModel):
@@ -54,8 +53,7 @@ async def _get_db():
 
 
 def _get_secret() -> str:
-    settings = get_settings()
-    return settings.admin_secret or "finlab-admin-secret-2026"
+    return get_settings().admin_secret
 
 
 def _normalize_token(token: Optional[str]) -> str:
@@ -95,16 +93,17 @@ async def _ensure_setting_helpers_available() -> None:
 
 
 async def _get_allowed_admins_value() -> list[str]:
+    default_admins = get_settings().default_allowed_admins
     if get_setting is None:
-        return DEFAULT_ALLOWED_ADMINS
+        return default_admins
     try:
-        admins = await get_setting("allowed_admin_emails", DEFAULT_ALLOWED_ADMINS)
+        admins = await get_setting("allowed_admin_emails", default_admins)
     except Exception:
-        return DEFAULT_ALLOWED_ADMINS
+        return default_admins
     if not isinstance(admins, list):
-        return DEFAULT_ALLOWED_ADMINS
+        return default_admins
     cleaned = [str(email).strip().lower() for email in admins if str(email).strip()]
-    return cleaned or DEFAULT_ALLOWED_ADMINS
+    return cleaned or default_admins
 
 
 @router.get("/logs")
