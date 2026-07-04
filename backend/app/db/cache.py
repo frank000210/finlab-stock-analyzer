@@ -22,6 +22,7 @@ CACHE_TTL = {
     "seasonal": 1440,
     "lead_lag": 720,
     "major_players": 60,
+    "chip": 60,
     "social_buzz": 30,
     "public_data": 360,
     "financial": 1440,

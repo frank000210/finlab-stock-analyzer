@@ -14,7 +14,7 @@ async def get_major_players_analysis(
 ):
     """Analyze major player (主力) accumulation/distribution patterns."""
     try:
-        cache_key = f"major_players:{symbol}:{days}"
+        cache_key = f"major_players:v1:{symbol}:{days}"
         try:
             from ..db.cache import get_cache, set_cache
             cached = await get_cache(cache_key)

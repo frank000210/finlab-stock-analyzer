@@ -16,7 +16,7 @@ async def get_lead_lag_analysis(
 ):
     """Analyze lead/lag relationship between stock and benchmark."""
     try:
-        cache_key = f"lead_lag:{symbol}:{benchmark}:{days}"
+        cache_key = f"lead_lag:v1:{symbol}:{benchmark}:{days}"
         try:
             from ..db.cache import get_cache, set_cache
             cached = await get_cache(cache_key)

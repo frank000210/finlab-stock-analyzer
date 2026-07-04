@@ -65,7 +65,7 @@ async def _build_chip_analysis(symbol: str, days: int) -> dict:
     if (result["distribution"] or result["major_players"]):
         try:
             from ..db.cache import set_cache
-            await set_cache(cache_key, result, "major_players")
+            await set_cache(cache_key, result, "chip")
         except Exception:
             pass
 
@@ -134,7 +134,7 @@ async def get_major_cost(
         }
         try:
             from ..db.cache import set_cache
-            await set_cache(cache_key, summary, "major_players")
+            await set_cache(cache_key, summary, "chip")
         except Exception:
             pass
 

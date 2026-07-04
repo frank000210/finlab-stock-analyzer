@@ -15,7 +15,7 @@ async def get_seasonal_analysis(
     """Get seasonal pattern analysis for a stock."""
     try:
         # Check cache
-        cache_key = f"seasonal:{symbol}:{years}"
+        cache_key = f"seasonal:v1:{symbol}:{years}"
         try:
             from ..db.cache import get_cache, set_cache
             cached = await get_cache(cache_key)

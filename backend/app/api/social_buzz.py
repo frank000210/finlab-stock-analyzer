@@ -9,7 +9,7 @@ router = APIRouter(prefix="/api/v1/stocks", tags=["social-buzz"])
 async def get_social_buzz(symbol: str):
     """Analyze social media and news buzz for a stock."""
     try:
-        cache_key = f"social_buzz:{symbol}"
+        cache_key = f"social_buzz:v1:{symbol}"
         try:
             from ..db.cache import get_cache, set_cache
             cached = await get_cache(cache_key)
