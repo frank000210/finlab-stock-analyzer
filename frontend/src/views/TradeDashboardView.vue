@@ -404,17 +404,17 @@ function statusClass(status) {
 
 .badge-buy,
 .progress-fill.badge-buy {
-  background: #10b981;
+  background: var(--color-up);
 }
 
 .badge-sell,
 .progress-fill.badge-sell {
-  background: #ef4444;
+  background: var(--color-down);
 }
 
 .badge-hold,
 .progress-fill.badge-hold {
-  background: #f59e0b;
+  background: var(--color-warning);
 }
 
 .confidence-row {
@@ -451,7 +451,7 @@ function statusClass(status) {
 }
 
 .warning-text {
-  color: #f59e0b;
+  color: var(--color-warning);
 }
 
 .error {

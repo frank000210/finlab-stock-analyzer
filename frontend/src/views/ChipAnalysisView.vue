@@ -961,7 +961,7 @@ onMounted(fetchData)
 .tl-line { width: 18px; height: 3px; border-radius: 2px; }
 .tl-price { background: #38bdf8; }
 .tl-cum { background: #22c55e; }
-.tl-cost { background: #f59e0b; border-top: 1px dashed #f59e0b; height: 0; }
+.tl-cost { background: var(--color-warning); border-top: 1px dashed var(--color-warning); height: 0; }
 
 /* ---- 短線投機籌碼（當沖/隔日沖） ---- */
 .dt-grid { display: grid; grid-template-columns: 160px 1fr; gap: 16px; align-items: stretch; margin-bottom: 14px; }
@@ -1023,9 +1023,9 @@ onMounted(fetchData)
 /* ---- structure bar ---- */
 .struct-bar { display: flex; height: 30px; border-radius: var(--radius-sm); overflow: hidden; background: var(--bg-tertiary); margin-bottom: 18px; }
 .struct-seg { height: 100%; transition: width 0.5s var(--ease-out, ease); min-width: 0; }
-.seg-retail { background: #f59e0b; }
+.seg-retail { background: var(--color-warning); }
 .seg-general { background: #64748b; }
-.seg-mid { background: #3b82f6; }
+.seg-mid { background: var(--accent-blue); }
 .seg-whale { background: #22c55e; }
 @media (prefers-reduced-motion: reduce) { .struct-seg { transition: none; } }
 
@@ -1034,8 +1034,8 @@ onMounted(fetchData)
 .struct-card.highlight { border-color: rgba(34,197,94,0.35); background: rgba(34,197,94,0.06); }
 .sc-key { display: flex; align-items: center; gap: 6px; font-size: 0.76rem; color: var(--text-muted); }
 .swatch { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
-.sw-retail { background: #f59e0b; }
-.sw-mid { background: #3b82f6; }
+.sw-retail { background: var(--color-warning); }
+.sw-mid { background: var(--accent-blue); }
 .sw-whale { background: #22c55e; }
 .sc-val { font-size: 1.5rem; font-weight: 800; }
 .sc-sub { font-size: 0.72rem; color: var(--text-muted); }
@@ -1055,9 +1055,9 @@ onMounted(fetchData)
 .level-label { color: var(--text-secondary); }
 .level-bar-track { height: 14px; background: var(--bg-tertiary); border-radius: 4px; overflow: hidden; }
 .level-bar { height: 100%; border-radius: 4px; transition: width 0.5s ease; }
-.lt-retail { background: #f59e0b; }
+.lt-retail { background: var(--color-warning); }
 .lt-general { background: #64748b; }
-.lt-mid { background: #3b82f6; }
+.lt-mid { background: var(--accent-blue); }
 .lt-whale { background: #22c55e; }
 .level-pct { text-align: right; font-weight: 700; }
 .level-people { text-align: right; color: var(--text-muted); }

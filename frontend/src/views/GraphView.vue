@@ -1005,7 +1005,7 @@ function offsetISO(days) {
 }
 
 .comp-fill.neg {
-  background: #ef4444;
+  background: var(--color-down);
 }
 
 .comp-val {
@@ -1018,7 +1018,7 @@ function offsetISO(days) {
 }
 
 .neg {
-  color: #ef4444;
+  color: var(--color-down);
 }
 
 .alerts-title {

@@ -298,15 +298,15 @@ function statusClass(status) {
 }
 
 .is-active {
-  background: #10b981;
+  background: var(--color-up);
 }
 
 .is-warning {
-  background: #f59e0b;
+  background: var(--color-warning);
 }
 
 .is-paused {
-  background: #ef4444;
+  background: var(--color-down);
 }
 
 .is-neutral {

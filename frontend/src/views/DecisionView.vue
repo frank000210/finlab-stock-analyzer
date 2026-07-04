@@ -1179,7 +1179,7 @@ function toDateParam(value) {
 
 .count-badge.buy strong { color: #34d399; }
 .count-badge.sell strong { color: #fb7185; }
-.count-badge.hold strong { color: #cbd5e1; }
+.count-badge.hold strong { color: var(--text-secondary); }
 .count-badge.neutral strong { color: #93c5fd; }
 
 .sentiment-meter-card {
@@ -1557,11 +1557,11 @@ function toDateParam(value) {
 }
 
 .signal-badge.buy {
-  background: linear-gradient(135deg, #0ea76f, #10b981, #34d399);
+  background: linear-gradient(135deg, #0ea76f, var(--color-up), #34d399);
 }
 
 .signal-badge.sell {
-  background: linear-gradient(135deg, #dc2626, #ef4444, #fb7185);
+  background: linear-gradient(135deg, #dc2626, var(--color-down), #fb7185);
 }
 
 .signal-badge.hold {

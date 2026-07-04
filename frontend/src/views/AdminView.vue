@@ -444,7 +444,7 @@ onMounted(async () => {
 .pv-row { display: flex; align-items: center; gap: 12px; }
 .pv-page { min-width: 140px; font-size: 0.85rem; color: var(--text-secondary, #aaa); }
 .pv-bar-wrap { flex: 1; height: 8px; background: rgba(255,255,255,0.06); border-radius: 4px; overflow: hidden; }
-.pv-bar { height: 100%; background: linear-gradient(90deg, #6366f1, #8b5cf6); border-radius: 4px; transition: width 0.5s ease; }
+.pv-bar { height: 100%; background: linear-gradient(90deg, #6366f1, var(--accent-purple)); border-radius: 4px; transition: width 0.5s ease; }
 .pv-count { min-width: 40px; text-align: right; font-weight: 600; font-size: 0.85rem; }
 
 .add-setting-form, .add-admin-form { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }

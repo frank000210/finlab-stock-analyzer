@@ -385,17 +385,17 @@ function signalClass(signal) {
 }
 
 .btn-success {
-  background: #10b981;
+  background: var(--color-up);
   color: white;
 }
 
 .btn-warning {
-  background: #f59e0b;
+  background: var(--color-warning);
   color: white;
 }
 
 .btn-danger {
-  background: #ef4444;
+  background: var(--color-down);
   color: white;
 }
 
@@ -421,16 +421,16 @@ function signalClass(signal) {
 
 .active-badge,
 .buy {
-  background: #10b981;
+  background: var(--color-up);
 }
 
 .default-badge,
 .hold {
-  background: #f59e0b;
+  background: var(--color-warning);
 }
 
 .sell {
-  background: #ef4444;
+  background: var(--color-down);
 }
 
 .test-result {

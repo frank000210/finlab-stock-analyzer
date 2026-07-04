@@ -181,7 +181,7 @@ onMounted(fetchData)
 .gauge-label { font-size: 0.7rem; color: var(--text-muted); }
 .buzz-info { flex: 1; }
 .buzz-level { display: inline-block; padding: 3px 12px; border-radius: 20px; font-weight: 700; font-size: 0.85rem; margin-bottom: 8px; }
-.level-極高 { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
+.level-極高 { background: rgba(239, 68, 68, 0.15); color: var(--color-down); }
 .level-高 { background: rgba(249, 115, 22, 0.15); color: #f97316; }
 .level-中等 { background: rgba(234, 179, 8, 0.15); color: #eab308; }
 .level-低 { background: rgba(34, 197, 94, 0.15); color: #22c55e; }
@@ -198,7 +198,7 @@ onMounted(fetchData)
 .vol-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: var(--bg-tertiary); border-radius: var(--radius-sm); }
 .vol-label { font-size: 0.78rem; color: var(--text-muted); }
 .vol-value { font-weight: 700; font-size: 0.9rem; }
-.vol-value.hot { color: #ef4444; }
+.vol-value.hot { color: var(--color-down); }
 
 .source-meta { display: flex; gap: 16px; margin-bottom: 12px; font-size: 0.82rem; color: var(--text-secondary); }
 .positive { color: var(--accent-green); }

@@ -353,15 +353,15 @@ function formatTime(value) {
 }
 
 .bullish {
-  background: #10b981;
+  background: var(--color-up);
 }
 
 .bearish {
-  background: #ef4444;
+  background: var(--color-down);
 }
 
 .neutral {
-  background: #f59e0b;
+  background: var(--color-warning);
 }
 
 @media (max-width: 980px) {

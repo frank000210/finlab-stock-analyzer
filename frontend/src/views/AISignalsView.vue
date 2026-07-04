@@ -366,19 +366,19 @@ function badgeClass(type) {
 
 .progress-fill.badge-buy,
 .badge-buy {
-  background: #10b981;
+  background: var(--color-up);
   color: #fff;
 }
 
 .progress-fill.badge-sell,
 .badge-sell {
-  background: #ef4444;
+  background: var(--color-down);
   color: #fff;
 }
 
 .progress-fill.badge-hold,
 .badge-hold {
-  background: #f59e0b;
+  background: var(--color-warning);
   color: #fff;
 }
 

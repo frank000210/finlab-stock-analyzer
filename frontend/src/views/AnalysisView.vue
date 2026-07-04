@@ -1352,7 +1352,7 @@ function valueTone(value) {
 .hero-summary {
   margin-top: 14px;
   max-width: 720px;
-  color: #cbd5e1;
+  color: var(--text-secondary);
   line-height: 1.7;
 }
 
@@ -1574,9 +1574,9 @@ function valueTone(value) {
 }
 
 .legend-dot.ma5 { background: #38bdf8; }
-.legend-dot.ma20 { background: #f59e0b; }
+.legend-dot.ma20 { background: var(--color-warning); }
 .legend-dot.ma60 { background: #a855f7; }
-.legend-dot.cost-line { width: 16px; height: 0; border-radius: 0; border-top: 2px dashed #f59e0b; }
+.legend-dot.cost-line { width: 16px; height: 0; border-radius: 0; border-top: 2px dashed var(--color-warning); }
 .legend-dev { font-variant-numeric: tabular-nums; font-weight: 700; }
 .legend-dev.up { color: #16a34a; }
 .legend-dev.down { color: #dc2626; }

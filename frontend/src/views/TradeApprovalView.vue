@@ -243,26 +243,26 @@ function statusClass(status) {
 
 .buy,
 .approved {
-  background: #10b981;
+  background: var(--color-up);
 }
 
 .sell,
 .rejected {
-  background: #ef4444;
+  background: var(--color-down);
 }
 
 .hold,
 .pending {
-  background: #f59e0b;
+  background: var(--color-warning);
 }
 
 .approve-btn {
-  background: #10b981;
+  background: var(--color-up);
   color: white;
 }
 
 .reject-btn {
-  background: #ef4444;
+  background: var(--color-down);
   color: white;
 }
 
