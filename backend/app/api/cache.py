@@ -11,6 +11,7 @@ async def cache_stats():
     try:
         from ..db.mongodb import get_mongodb
         from ..db.cache import CACHE_TTL
+        from ..db.memory_cache import sizes as memory_cache_sizes
         from datetime import datetime
 
         db = await get_mongodb()
@@ -32,6 +33,7 @@ async def cache_stats():
                 "expired_entries": total - active,
                 "categories": categories,
                 "ttl_config": CACHE_TTL,
+                "memory_caches": memory_cache_sizes(),
             },
         }
     except Exception as e:
@@ -46,8 +48,12 @@ async def clear_cache(
     """Clear cache entries."""
     try:
         from ..db.cache import invalidate_cache
+        from ..db.memory_cache import clear as clear_memory_cache
+
         pattern = f".*{symbol}.*" if symbol else None
         deleted = await invalidate_cache(pattern=pattern, category=category)
-        return {"success": True, "data": {"deleted": deleted}}
+        # in-memory 快取一併清除:有指定 category 時只清同名者,否則全清
+        memory_cleared = clear_memory_cache(category)
+        return {"success": True, "data": {"deleted": deleted, "memory_cleared": memory_cleared}}
     except Exception as e:
         return {"success": False, "error": str(e)}

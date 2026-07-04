@@ -22,6 +22,20 @@ _social_cache: dict[str, tuple[float, dict]] = {}
 _SOCIAL_CACHE_TTL = 600  # 10 minutes
 
 
+def _clear_cache() -> int:
+    count = len(_social_cache)
+    _social_cache.clear()
+    return count
+
+
+try:
+    from ..db.memory_cache import register as _register_memory_cache
+
+    _register_memory_cache("social_buzz", lambda: len(_social_cache), _clear_cache)
+except Exception:  # registry 不可用時不影響本模組運作
+    pass
+
+
 def _get_social_cached(key: str) -> Optional[dict]:
     entry = _social_cache.get(key)
     if entry is None:

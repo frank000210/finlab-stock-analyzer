@@ -19,6 +19,20 @@ from .finmind_client import FinMindClient
 _cache: dict[str, tuple[float, dict[str, Any]]] = {}
 _CACHE_TTL = 1800  # 30 minutes
 
+
+def _clear_cache() -> int:
+    count = len(_cache)
+    _cache.clear()
+    return count
+
+
+try:
+    from ..db.memory_cache import register as _register_memory_cache
+
+    _register_memory_cache("twse_public", lambda: len(_cache), _clear_cache)
+except Exception:  # registry 不可用時不影響本模組運作
+    pass
+
 _MOPS_URL = "https://mops.twse.com.tw/mops/web/ajax_t05st01"
 _MATERIAL_INFO_URL = "https://www.twse.com.tw/rwd/zh/announcement/materialInfo"
 _DEFAULT_HEADERS = {

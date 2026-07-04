@@ -14,6 +14,20 @@ _cache: dict[str, tuple[float, pd.DataFrame]] = {}
 _CACHE_TTL = 300  # 5 minutes
 
 
+def _clear_cache() -> int:
+    count = len(_cache)
+    _cache.clear()
+    return count
+
+
+try:
+    from ..db.memory_cache import register as _register_memory_cache
+
+    _register_memory_cache("finmind", lambda: len(_cache), _clear_cache)
+except Exception:  # registry 不可用時不影響本模組運作
+    pass
+
+
 def _make_cache_key(dataset: str, params: dict) -> str:
     """Create a deterministic cache key from dataset + params."""
     key_str = dataset + "|" + "|".join(f"{k}={v}" for k, v in sorted(params.items()) if k != "token")
