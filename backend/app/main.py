@@ -143,9 +143,27 @@ app.include_router(graph_router)
 app.include_router(rotation_router)
 
 
+BUILD_INFO_PATH = Path(__file__).parent / "build_info.json"
+
+
+def _load_build_info() -> dict:
+    # Baked into the image at Docker build time (see Dockerfile). Missing
+    # in local/dev runs that don't go through the Docker build -- that's
+    # fine, the frontend treats a null build_time as "dev environment".
+    try:
+        return json.loads(BUILD_INFO_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
 @app.get("/api/health")
 async def health_check():
-    return {"status": "ok", "version": settings.app_version, "routes": len(app.routes)}
+    return {
+        "status": "ok",
+        "version": settings.app_version,
+        "routes": len(app.routes),
+        "build_time": _load_build_info().get("build_time"),
+    }
 
 
 frontend_dist = Path(__file__).parent.parent.parent / "frontend" / "dist"
