@@ -32,7 +32,7 @@
       <!-- Stats Cards -->
       <div class="stats-grid">
         <div class="stat-card">
-          <div class="stat-value">{{ stats.today_visitors }}</div>
+          <div class="stat-value">{{ stats.todays_visitors }}</div>
           <div class="stat-label">今日訪客</div>
         </div>
         <div class="stat-card">
@@ -211,7 +211,7 @@ function authHeaders() {
 
 async function loadStats() {
   try {
-    const r = await fetch('/api/v1/admin/stats', { headers: authHeaders() })
+    const r = await fetch('/api/v1/admin/logs/stats', { headers: authHeaders() })
     const d = await r.json()
     stats.value = d.data || d
   } catch {}
