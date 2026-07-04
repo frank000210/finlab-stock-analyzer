@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from datetime import date
 from typing import Any
 
 import httpx
+
+logger = logging.getLogger(__name__)
 
 _MI_INDEX_URL = "https://www.twse.com.tw/rwd/zh/afterTrading/MI_INDEX"
 _HEADERS = {
@@ -118,7 +121,8 @@ class SectorIndexCrawler:
             async with semaphore:
                 try:
                     rows = await self.get_day(day)
-                except Exception:
+                except Exception as e:
+                    logger.warning("Sector index fetch failed for %s: %s", day.isoformat(), e)
                     rows = []
                 results[day.isoformat()] = rows
                 await asyncio.sleep(self.request_delay)

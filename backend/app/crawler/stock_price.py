@@ -1,9 +1,13 @@
 """Stock price crawler with FinMind primary and yfinance fallback."""
 
+import logging
+
 import pandas as pd
 import yfinance as yf
 from typing import Optional
 from .finmind_client import FinMindClient
+
+logger = logging.getLogger(__name__)
 
 
 class StockPriceCrawler:
@@ -24,8 +28,8 @@ class StockPriceCrawler:
                 elif period == "1mo":
                     df = self._resample(df, "ME")
                 return df
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("FinMind price fetch failed for %s (%s~%s): %s", symbol, start, end, e)
 
         # Fallback to yfinance
         return self._fetch_yfinance(symbol, start, end, period)
