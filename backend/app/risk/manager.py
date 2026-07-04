@@ -1,4 +1,18 @@
-"""In-memory risk management utilities."""
+"""In-memory risk management utilities.
+
+SIMULATED, NOT LIVE: this module does not observe any real brokerage
+account, position, or order fill. `portfolio_value` starts from a fixed
+NT$1,000,000 and the equity curve is a seeded pseudo-random walk
+(`Random(self._seed)`) rather than real P&L. `record_trade()` only
+increments an in-memory counter whenever `TradeApprovalService.
+approve_or_reject()` is called locally -- it does not confirm that any
+order was actually placed or filled anywhere, and everything resets on
+process restart. `mdd_percent` / `circuit_breaker` are derived entirely
+from that fake equity curve. Do not treat this module's output as a real
+risk-management signal (e.g. for halting real trading) until it is wired
+to an actual portfolio/broker data source; every API response it feeds
+carries an `is_simulated: true` flag for exactly this reason.
+"""
 
 from __future__ import annotations
 
@@ -19,6 +33,13 @@ class RiskStatus(BaseModel):
     daily_trades: int
     circuit_breaker: Literal["ACTIVE", "WARNING", "PAUSED"]
     portfolio_value: float
+    is_simulated: bool = Field(
+        default=True,
+        description=(
+            "Always true today: this status is derived from a simulated, "
+            "in-memory equity curve, not a real brokerage account."
+        ),
+    )
 
 
 class RiskManager:

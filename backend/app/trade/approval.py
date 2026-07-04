@@ -1,4 +1,16 @@
-"""Human-in-the-loop trade approval service."""
+"""Human-in-the-loop trade approval service.
+
+SIMULATED, NOT LIVE: there is no broker/exchange integration behind this
+service. Pending trades are proposals synthesized from
+`generate_signals()`, held only in this process's memory (`self._trades`
+is a plain dict), and are lost on every restart -- nothing is persisted
+to a database. `approve_or_reject()` only flips a local status field and
+calls `risk_manager.record_trade()` to bump the (also simulated) risk
+counter; approving a trade here does **not** place, confirm, or route any
+real order. Do not build automated execution on top of "APPROVED" status
+until this is wired to an actual broker API. Every `PendingTrade` carries
+an `is_simulated: true` field for exactly this reason.
+"""
 
 from __future__ import annotations
 
@@ -22,6 +34,14 @@ class PendingTrade(BaseModel):
     reasoning: str
     created_at: datetime
     status: Literal["PENDING", "APPROVED", "REJECTED"] = "PENDING"
+    is_simulated: bool = Field(
+        default=True,
+        description=(
+            "Always true today: approving this trade does not place a "
+            "real order. Pending trades live only in process memory and "
+            "are not persisted or connected to a broker."
+        ),
+    )
 
 
 class TradeApprovalAction(BaseModel):

@@ -21,7 +21,15 @@ async def get_risk_status():
 async def get_equity_curve(hours: int = Query(default=30, ge=1, le=720)):
     try:
         points = risk_manager.get_equity_curve(hours=hours)
-        return {"success": True, "data": {"items": [point.model_dump() for point in points]}}
+        return {
+            "success": True,
+            "data": {
+                "items": [point.model_dump() for point in points],
+                # See risk/manager.py module docstring: this curve is a
+                # simulated pseudo-random walk, not a real equity history.
+                "is_simulated": True,
+            },
+        }
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
 
