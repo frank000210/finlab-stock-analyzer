@@ -135,6 +135,11 @@
         <p>尚無最近瀏覽紀錄，從上方搜尋列或快速開始代碼展開第一輪研究。</p>
       </div>
     </section>
+
+    <footer class="version-footer" v-if="versionInfo">
+      <span>版本 v{{ versionInfo.version }}</span>
+      <span v-if="versionInfo.buildTimeText">· 更新於 {{ versionInfo.buildTimeText }}</span>
+    </footer>
   </div>
 </template>
 
@@ -147,6 +152,7 @@ const router = useRouter()
 const stockStore = useStockStore()
 const searchQuery = ref('')
 const recentStockItems = ref([])
+const versionInfo = ref(null)
 
 const stockNames = {
   '1101': '台泥',
@@ -317,8 +323,39 @@ function handleStorageChange(event) {
   }
 }
 
+function formatBuildTime(iso) {
+  try {
+    const date = new Date(iso)
+    if (Number.isNaN(date.getTime())) return null
+    return date.toLocaleString('zh-TW', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    })
+  } catch {
+    return null
+  }
+}
+
+async function loadVersionInfo() {
+  try {
+    const res = await fetch('/api/health')
+    const data = await res.json()
+    versionInfo.value = {
+      version: data?.version || '—',
+      buildTimeText: data?.build_time ? formatBuildTime(data.build_time) : null,
+    }
+  } catch {
+    versionInfo.value = null
+  }
+}
+
 onMounted(() => {
   loadRecentStocks()
+  loadVersionInfo()
   window.addEventListener('storage', handleStorageChange)
 })
 
@@ -944,6 +981,16 @@ onBeforeUnmount(() => {
   .recent-item {
     padding: 10px 0;
   }
+}
+
+.version-footer {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  opacity: 0.7;
 }
 
 @keyframes floatBlue {
