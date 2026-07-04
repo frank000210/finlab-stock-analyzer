@@ -21,7 +21,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Install Python dependencies (while gcc is still available for TA-Lib wheel)
 COPY backend/requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt && \
-    pip install --no-cache-dir TA-Lib==0.4.28 || true && \
+    pip install --no-cache-dir TA-Lib==0.4.28 && \
     apt-get remove -y gcc g++ make wget && apt-get autoremove -y && \
     rm -rf /var/lib/apt/lists/*
 

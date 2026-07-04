@@ -3,6 +3,7 @@
 import json
 import logging
 import math
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
@@ -73,26 +74,9 @@ class SafeJSONResponse(JSONResponse):
         return obj
 
 
-app = FastAPI(
-    title=settings.app_name,
-    version=settings.app_version,
-    docs_url="/api/docs",
-    redoc_url="/api/redoc",
-    default_response_class=SafeJSONResponse,
-)
-
-origins = [o.strip() for o in settings.cors_origins.split(",")]
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-
-@app.on_event("startup")
-async def startup_db():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """啟動時初始化 MongoDB 索引,關閉時釋放連線(取代已棄用的 on_event)。"""
     try:
         from .db.cache import ensure_indexes
         from .db.mongodb import get_mongodb
@@ -105,15 +89,33 @@ async def startup_db():
     except Exception as exc:
         logging.warning(f"MongoDB init skipped: {exc}")
 
+    yield
 
-@app.on_event("shutdown")
-async def shutdown_db():
     try:
         from .db.mongodb import close_mongodb
 
         await close_mongodb()
     except Exception:
         pass
+
+
+app = FastAPI(
+    title=settings.app_name,
+    version=settings.app_version,
+    docs_url="/api/docs",
+    redoc_url="/api/redoc",
+    default_response_class=SafeJSONResponse,
+    lifespan=lifespan,
+)
+
+origins = [o.strip() for o in settings.cors_origins.split(",")]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 app.include_router(stock_router)
