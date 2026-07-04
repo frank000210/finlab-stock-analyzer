@@ -5,7 +5,7 @@ import logging
 import math
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -152,6 +152,12 @@ if frontend_dist.exists():
 
     @app.get("/{full_path:path}")
     async def serve_spa(full_path: str):
+        # Never let the SPA fallback swallow API routes: an unmatched
+        # /api/* path means a real 404 (unknown endpoint / typo), not a
+        # client-side route. Without this, a bad API path silently returns
+        # index.html with HTTP 200, which masks backend/deploy failures.
+        if full_path.startswith("api/"):
+            raise HTTPException(status_code=404, detail=f"Not found: /{full_path}")
         file_path = frontend_dist / full_path
         if file_path.is_file():
             return FileResponse(str(file_path))
