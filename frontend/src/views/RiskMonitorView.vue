@@ -77,20 +77,39 @@
       <div class="x-axis-label" v-if="equitySeries.length">日期</div>
       <div v-if="!equitySeries.length" class="empty-state">目前沒有權益曲線資料</div>
     </section>
+
+    <section class="card chart-card">
+      <div class="section-header">
+        <div>
+          <h2>權益日變動分布</h2>
+          <p>直方圖 + 核密度估計，觀察報酬是否過度偏態或有厚尾風險</p>
+        </div>
+      </div>
+      <div ref="histEl" class="chart-host"></div>
+      <p class="chart-caption">
+        參考：D3 gallery - Histogram / Kernel density estimation；資料取自權益曲線期間變動率
+        <span v-if="riskDataIsMock">（目前為模擬帳戶資料，串接實盤交易後會自動改用真實報酬）</span>。
+      </p>
+    </section>
   </div>
 </template>
 
 <script setup>
 import PageFocusBanner from '../components/PageFocusBanner.vue'
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { createChart } from 'lightweight-charts'
+import * as d3 from 'd3'
 
 const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:8000' : ''
 const loading = ref(false)
 const resetting = ref(false)
 const riskStatus = ref({})
 const equitySeries = ref([])
+const returnSeries = ref([])
 const chartEl = ref(null)
+const histEl = ref(null)
+// 目前風控帳戶資料為模擬（見「標註 risk/trade 模擬資料」的既有調整），此分布圖同樣沿用該資料源。
+const riskDataIsMock = ref(true)
 let chart = null
 
 const mddValue = computed(() => toUnitValue(riskStatus.value?.mdd_percent ?? riskStatus.value?.mdd ?? riskStatus.value?.max_drawdown ?? riskStatus.value?.drawdown))
@@ -116,28 +135,109 @@ const gaugeStyle = computed(() => {
 
 onMounted(async () => {
   window.addEventListener('resize', renderChart)
+  window.addEventListener('resize', renderHistogram)
   await loadRiskData()
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('resize', renderChart)
+  window.removeEventListener('resize', renderHistogram)
   if (chart) chart.remove()
 })
 
 async function loadRiskData() {
   loading.value = true
-  const [statusResp, curveResp] = await Promise.allSettled([
+  const [statusResp, curveResp, longCurveResp] = await Promise.allSettled([
     apiGet('/api/v1/risk/status'),
     apiGet('/api/v1/risk/equity-curve?hours=30'),
+    apiGet('/api/v1/risk/equity-curve?hours=720'),
   ])
 
   if (statusResp.status === 'fulfilled') riskStatus.value = statusResp.value || {}
   if (curveResp.status === 'fulfilled') equitySeries.value = normalizeEquitySeries(curveResp.value)
+  if (longCurveResp.status === 'fulfilled') {
+    const longSeries = normalizeEquitySeries(longCurveResp.value, 5000)
+    returnSeries.value = computeReturns(longSeries)
+  }
 
   await nextTick()
   renderChart()
+  renderHistogram()
   loading.value = false
 }
+
+function computeReturns(series) {
+  const rets = []
+  for (let i = 1; i < series.length; i++) {
+    const prev = series[i - 1].value
+    const cur = series[i].value
+    if (prev > 0) rets.push(((cur - prev) / prev) * 100)
+  }
+  return rets
+}
+
+function renderHistogram() {
+  const host = histEl.value
+  if (!host) return
+  host.innerHTML = ''
+  const rets = returnSeries.value
+  if (rets.length < 8) {
+    host.innerHTML = '<p class="chart-empty">資料點不足，無法繪製分布圖。</p>'
+    return
+  }
+
+  const width = host.clientWidth || 720
+  const height = 300
+  const margin = { top: 16, right: 16, bottom: 30, left: 40 }
+  const innerW = Math.max(10, width - margin.left - margin.right)
+  const innerH = height - margin.top - margin.bottom
+
+  const x = d3.scaleLinear().domain(d3.extent(rets)).nice().range([0, innerW])
+  const bins = d3.bin().domain(x.domain()).thresholds(20)(rets)
+  const y = d3.scaleLinear().domain([0, d3.max(bins, (b) => b.length) || 1]).nice().range([innerH, 0])
+
+  const svg = d3.select(host).append('svg').attr('width', width).attr('height', height)
+  const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`)
+
+  g.append('g').attr('transform', `translate(0,${innerH})`).call(d3.axisBottom(x).ticks(6).tickFormat((v) => `${v}%`)).attr('class', 'axis')
+  g.append('g').call(d3.axisLeft(y).ticks(5)).attr('class', 'axis')
+
+  g.selectAll('rect.bin')
+    .data(bins)
+    .join('rect')
+    .attr('class', 'bin')
+    .attr('x', (d) => x(d.x0) + 1)
+    .attr('width', (d) => Math.max(0, x(d.x1) - x(d.x0) - 1))
+    .attr('y', (d) => y(d.length))
+    .attr('height', (d) => innerH - y(d.length))
+    .attr('fill', 'var(--accent-blue)')
+    .attr('fill-opacity', 0.55)
+
+  // KDE overlay, scaled to the same bin-count y-axis for visual comparison.
+  const bandwidth = 1.06 * d3.deviation(rets) * Math.pow(rets.length, -0.2) || 0.5
+  const kernel = (u) => Math.exp(-0.5 * u * u) / Math.sqrt(2 * Math.PI)
+  const xs = d3.range(x.domain()[0], x.domain()[1], (x.domain()[1] - x.domain()[0]) / 100)
+  const binWidth = bins[0] ? bins[0].x1 - bins[0].x0 : 1
+  const density = xs.map((xv) => {
+    const sum = rets.reduce((acc, v) => acc + kernel((xv - v) / bandwidth), 0)
+    return { x: xv, y: (sum / (rets.length * bandwidth)) * rets.length * binWidth }
+  })
+  const kdeLine = d3.line().x((d) => x(d.x)).y((d) => y(d.y)).curve(d3.curveBasis)
+  g.append('path')
+    .datum(density)
+    .attr('fill', 'none')
+    .attr('stroke', 'var(--accent-red)')
+    .attr('stroke-width', 2)
+    .attr('d', kdeLine)
+
+  g.append('line')
+    .attr('x1', x(0)).attr('x2', x(0))
+    .attr('y1', 0).attr('y2', innerH)
+    .attr('stroke', 'var(--border-color)')
+    .attr('stroke-dasharray', '3,3')
+}
+
+watch(returnSeries, () => nextTick(renderHistogram))
 
 async function resetCircuitBreaker() {
   if (!window.confirm('確定要重置熔斷機制嗎？')) return
@@ -165,7 +265,7 @@ async function apiRequest(path, options = {}) {
   return payload?.data ?? payload
 }
 
-function normalizeEquitySeries(payload) {
+function normalizeEquitySeries(payload, limit = 30) {
   const list = Array.isArray(payload)
     ? payload
     : Array.isArray(payload?.items)
@@ -174,7 +274,7 @@ function normalizeEquitySeries(payload) {
         ? payload.equity_curve
         : []
   return list
-    .slice(-30)
+    .slice(-limit)
     .map(item => ({
       time: normalizeDate(item.date || item.time || item.timestamp),
       value: Number(item.portfolio_value ?? item.value ?? item.equity ?? 0),
@@ -381,6 +481,13 @@ function statusClass(status) {
   margin-top: 4px;
   letter-spacing: 0.04em;
 }
+
+.chart-host { width: 100%; min-height: 300px; margin-top: 16px; }
+.chart-host :deep(.axis text) { fill: var(--text-muted); font-size: 0.7rem; }
+.chart-host :deep(.axis path),
+.chart-host :deep(.axis line) { stroke: var(--border-color); }
+.chart-caption { font-size: 0.72rem; color: var(--text-muted); margin-top: 6px; }
+.chart-empty { color: var(--text-muted); font-style: italic; font-size: 0.85rem; }
 
 .btn-secondary {
   background: rgba(148, 163, 184, 0.16);
