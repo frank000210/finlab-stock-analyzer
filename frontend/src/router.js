@@ -22,6 +22,11 @@ const routes = [
     component: () => import('./views/GraphView.vue'),
   },
   {
+    path: '/graph01',
+    name: 'graph01',
+    component: () => import('./views/Graph01View.vue'),
+  },
+  {
     path: '/rotation',
     name: 'rotation',
     component: () => import('./views/RotationView.vue'),
