@@ -22,6 +22,30 @@
   --bg-tertiary: var(--bg-elevated);
   --border-color: rgba(148, 163, 184, 0.12);
   --border-subtle: rgba(148, 163, 184, 0.06);
+
+  /* 淡色調 token(badge/底色統一用這組,取代散落在各檔案的 rgba 疊色) */
+  --up-soft: rgba(16, 185, 129, 0.12);
+  --down-soft: rgba(239, 68, 68, 0.12);
+  --warn-soft: rgba(245, 158, 11, 0.12);
+
+  /* 圖表專用色票:D3 / lightweight-charts 一律透過 useChartTheme() 讀這組值,
+     不要在圖表 JS 裡寫死 hex,換主題只需要改這裡。 */
+  --chart-up: #10b981;
+  --chart-up-strong: #34d399;
+  --chart-down: #ef4444;
+  --chart-down-strong: #f87171;
+  --chart-warn: #f59e0b;
+  --chart-blue: #3b82f6;
+  --chart-purple: #8b5cf6;
+  --chart-cyan: #06b6d4;
+  --chart-neutral: #94a3b8;
+  --chart-text: #f1f5f9;
+  --chart-text-soft: #cbd5e1;
+  --chart-muted: #5b6b84;
+  --chart-grid: rgba(148, 163, 184, 0.06);
+  --chart-border: rgba(148, 163, 184, 0.14);
+  --chart-up-soft: rgba(16, 185, 129, 0.12);
+  --chart-down-soft: rgba(239, 68, 68, 0.12);
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
   --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
@@ -439,6 +463,27 @@ tr:hover td {
   background: rgba(100, 116, 139, 0.12);
   color: var(--text-muted);
   border: 1px solid rgba(100, 116, 139, 0.3);
+}
+
+/* 估算/示意資料視覺標記:斜紋底,搭配文字用在非真實成交/部位的圖表或數值上 */
+.badge-estimated {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: var(--radius-sm);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: var(--color-warning);
+  background: repeating-linear-gradient(
+    135deg,
+    rgba(245, 158, 11, 0.16),
+    rgba(245, 158, 11, 0.16) 4px,
+    rgba(245, 158, 11, 0.04) 4px,
+    rgba(245, 158, 11, 0.04) 8px
+  );
+  border: 1px solid rgba(245, 158, 11, 0.35);
 }
 
 /* ===== FOCUS & ACCESSIBILITY ===== */
