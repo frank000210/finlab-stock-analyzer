@@ -12,48 +12,51 @@
       </button>
     </header>
 
-    <!-- Daily Sector Heatmap Treemap -->
-    <section class="card heatmap-section">
-      <h2>🔥 每日類股漲跌熱力圖</h2>
-      <div ref="heatmapEl" class="chart-host heatmap-host"></div>
-      <p class="chart-caption">
-        參考：D3 gallery - Treemap；方塊大小＝漲跌幅度、顏色＝漲跌方向。資料日期：{{ heatmapData?.date || '—' }}
-      </p>
-    </section>
+    <!-- Treemap + Radar side by side, matching the design's 1.2fr/0.8fr hero grid -->
+    <div class="overview-hero-grid">
+      <!-- Daily Sector Heatmap Treemap -->
+      <section class="card heatmap-section">
+        <h2>🔥 每日類股漲跌熱力圖</h2>
+        <div ref="heatmapEl" class="chart-host heatmap-host"></div>
+        <p class="chart-caption">
+          參考：D3 gallery - Treemap；方塊大小＝漲跌幅度、顏色＝漲跌方向。資料日期：{{ heatmapData?.date || '—' }}
+        </p>
+      </section>
 
-    <!-- Radar Chart -->
-    <section class="card radar-section">
-      <h2>🎯 綜合評分雷達圖</h2>
-      <div class="radar-container">
-        <svg viewBox="0 0 400 400" class="radar-svg">
-          <!-- Background rings -->
-          <polygon v-for="ring in [0.2, 0.4, 0.6, 0.8, 1.0]" :key="ring"
-            :points="ringPoints(ring)" fill="none" stroke="var(--border-color)" stroke-width="0.5"/>
-          <!-- Axis lines -->
-          <line v-for="(_, i) in dimensions" :key="'axis'+i"
-            x1="200" y1="200" :x2="axisEnd(i).x" :y2="axisEnd(i).y"
-            stroke="var(--border-color)" stroke-width="0.5"/>
-          <!-- Data polygon -->
-          <polygon :points="dataPoints" fill="rgba(59, 130, 246, 0.2)" stroke="var(--accent-blue)" stroke-width="2"/>
-          <!-- Data dots -->
-          <circle v-for="(d, i) in dimensions" :key="'dot'+i"
-            :cx="dataPoint(i).x" :cy="dataPoint(i).y" r="5"
-            fill="var(--accent-blue)" stroke="#fff" stroke-width="2"/>
-          <!-- Labels -->
-          <text v-for="(d, i) in dimensions" :key="'label'+i"
-            :x="labelPos(i).x" :y="labelPos(i).y"
-            text-anchor="middle" font-size="12" fill="var(--text-secondary)">
-            {{ d.label }}
-          </text>
-          <!-- Score labels -->
-          <text v-for="(d, i) in dimensions" :key="'score'+i"
-            :x="scorePos(i).x" :y="scorePos(i).y"
-            text-anchor="middle" font-size="11" font-weight="700" fill="var(--accent-blue)">
-            {{ d.score }}
-          </text>
-        </svg>
-      </div>
-    </section>
+      <!-- Radar Chart -->
+      <section class="card radar-section">
+        <h2>🎯 綜合評分雷達圖</h2>
+        <div class="radar-container">
+          <svg viewBox="0 0 400 400" class="radar-svg">
+            <!-- Background rings -->
+            <polygon v-for="ring in [0.2, 0.4, 0.6, 0.8, 1.0]" :key="ring"
+              :points="ringPoints(ring)" fill="none" stroke="var(--border-color)" stroke-width="0.5"/>
+            <!-- Axis lines -->
+            <line v-for="(_, i) in dimensions" :key="'axis'+i"
+              x1="200" y1="200" :x2="axisEnd(i).x" :y2="axisEnd(i).y"
+              stroke="var(--border-color)" stroke-width="0.5"/>
+            <!-- Data polygon -->
+            <polygon :points="dataPoints" fill="rgba(59, 130, 246, 0.2)" stroke="var(--accent-blue)" stroke-width="2"/>
+            <!-- Data dots -->
+            <circle v-for="(d, i) in dimensions" :key="'dot'+i"
+              :cx="dataPoint(i).x" :cy="dataPoint(i).y" r="5"
+              fill="var(--accent-blue)" stroke="#fff" stroke-width="2"/>
+            <!-- Labels -->
+            <text v-for="(d, i) in dimensions" :key="'label'+i"
+              :x="labelPos(i).x" :y="labelPos(i).y"
+              text-anchor="middle" font-size="12" fill="var(--text-secondary)">
+              {{ d.label }}
+            </text>
+            <!-- Score labels -->
+            <text v-for="(d, i) in dimensions" :key="'score'+i"
+              :x="scorePos(i).x" :y="scorePos(i).y"
+              text-anchor="middle" font-size="11" font-weight="700" fill="var(--accent-blue)">
+              {{ d.score }}
+            </text>
+          </svg>
+        </div>
+      </section>
+    </div>
 
     <!-- Summary Cards Grid -->
     <div class="summary-grid">
@@ -372,14 +375,25 @@ onBeforeUnmount(() => {
 .page-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--space-3); }
 .subtitle { color: var(--text-muted); font-size: 0.85rem; margin-top: 4px; }
 
-.heatmap-section { display: flex; flex-direction: column; }
+.overview-hero-grid {
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.heatmap-section { display: flex; flex-direction: column; margin-bottom: 0; }
 .chart-host { width: 100%; min-height: 280px; }
 .heatmap-host :deep(svg) { display: block; width: 100%; height: auto; }
 .chart-caption { font-size: 0.72rem; color: var(--text-muted); margin-top: 6px; }
 
-.radar-section { display: flex; flex-direction: column; align-items: center; }
+.radar-section { display: flex; flex-direction: column; align-items: center; margin-bottom: 0; }
 .radar-container { width: 100%; max-width: 420px; }
 .radar-svg { width: 100%; height: auto; }
+
+@media (max-width: 900px) {
+  .overview-hero-grid { grid-template-columns: 1fr; }
+}
 
 .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: var(--space-4); }
 .summary-card { cursor: pointer; transition: transform 0.15s, box-shadow 0.15s; }
