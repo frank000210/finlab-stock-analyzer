@@ -100,7 +100,8 @@
         <div class="legend">
           <span class="lg-item"><i class="dot" style="background:#4f8cff"></i>正向關聯</span>
           <span class="lg-item"><i class="dot" style="background:#ef4444"></i>負向關聯</span>
-          <span class="lg-hint">節點大小＝加權連結；顏色＝產業</span>
+          <span class="lg-hint" v-if="viewMode !== 'matrix'">節點大小＝加權連結；顏色＝產業</span>
+          <span class="lg-hint" v-else>參考：D3 gallery 矩陣式關聯視覺化；灰色＝低於目前門檻或無資料，滑鼠移到格子看數值</span>
         </div>
       </div>
 
@@ -169,6 +170,7 @@ const WATCHLIST_STORAGE_KEY = 'finlab_watchlist'
 const viewModes = [
   { value: 'force', label: '力導向圖' },
   { value: 'bundle', label: '階層邊綁定' },
+  { value: 'matrix', label: '相關矩陣熱力圖' },
 ]
 const layerOptions = [
   { value: 'fusion', label: '融合' },
@@ -263,7 +265,80 @@ function renderGraph() {
   if (simulation) { simulation.stop(); simulation = null }
   if (!hasGraphData.value) return
   if (viewMode.value === 'bundle') renderBundle(host)
+  else if (viewMode.value === 'matrix') renderMatrix(host)
   else renderForce(host)
+}
+
+function renderMatrix(host) {
+  // 參考：D3 gallery 矩陣式關聯視覺化；同一份 activeEdges 資料的另一種檢視模式，
+  // 網絡圖看結構、矩陣看每一對標的的關聯強度數值。
+  const nodes = snapshotNodes.value
+  const n = nodes.length
+  if (!n) return
+  const size = Math.min(host.clientWidth || 700, 720)
+  const margin = { top: 90, right: 20, bottom: 20, left: 90 }
+  const cell = Math.max(16, Math.floor((size - margin.left - margin.right) / n))
+  const inner = cell * n
+  const width = inner + margin.left + margin.right
+  const height = inner + margin.top + margin.bottom
+
+  const weightBySymbolPair = new Map()
+  activeEdges.value.forEach((e) => {
+    weightBySymbolPair.set(`${e.src}|${e.dst}`, Number(e.weight) || 0)
+  })
+
+  const maxAbs = d3.max(activeEdges.value, (e) => Math.abs(Number(e.weight) || 0)) || 1
+  const color = (w) => {
+    if (!w) return 'var(--bg-tertiary)'
+    const t = Math.min(1, Math.abs(w) / maxAbs)
+    return w >= 0
+      ? d3.interpolateRgb('rgba(79,140,255,0.15)', 'rgba(79,140,255,0.95)')(t)
+      : d3.interpolateRgb('rgba(239,68,68,0.15)', 'rgba(239,68,68,0.95)')(t)
+  }
+
+  const svg = d3.select(host).append('svg')
+    .attr('viewBox', `0 0 ${width} ${height}`)
+    .attr('preserveAspectRatio', 'xMidYMid meet')
+    .style('width', '100%')
+    .style('height', '100%')
+  const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`)
+
+  nodes.forEach((row, i) => {
+    nodes.forEach((col, j) => {
+      const w = row.symbol === col.symbol ? null : weightBySymbolPair.get(`${row.symbol}|${col.symbol}`)
+      g.append('rect')
+        .attr('x', j * cell)
+        .attr('y', i * cell)
+        .attr('width', cell - 1)
+        .attr('height', cell - 1)
+        .attr('fill', row.symbol === col.symbol ? 'var(--border-color)' : color(w))
+        .append('title')
+        .text(row.symbol === col.symbol ? row.symbol : `${row.symbol} → ${col.symbol}：${w != null ? w.toFixed(3) : '無資料（低於門檻）'}`)
+    })
+  })
+
+  // Row labels
+  g.selectAll('text.row-label')
+    .data(nodes)
+    .join('text')
+    .attr('class', 'row-label')
+    .attr('x', -6)
+    .attr('y', (d, i) => i * cell + cell / 2 + 4)
+    .attr('text-anchor', 'end')
+    .attr('font-size', Math.min(11, cell - 4))
+    .attr('fill', 'var(--text-muted)')
+    .text((d) => d.symbol)
+
+  // Column labels (rotated)
+  g.selectAll('text.col-label')
+    .data(nodes)
+    .join('text')
+    .attr('class', 'col-label')
+    .attr('transform', (d, j) => `translate(${j * cell + cell / 2},-6) rotate(-60)`)
+    .attr('text-anchor', 'start')
+    .attr('font-size', Math.min(11, cell - 4))
+    .attr('fill', 'var(--text-muted)')
+    .text((d) => d.symbol)
 }
 
 function baseSvg(host, width, height) {
