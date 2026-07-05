@@ -6,6 +6,9 @@
   --bg-secondary: #141d2f;
   --bg-card: #1a2540;
   --bg-elevated: #1f2d47;
+  /* 圖表「凹陷」底色:比卡片底色更深一階,讓圖表區域在卡片內視覺後退，
+     對齊設計稿的三層深度（頁面 < 卡片 < 圖表凹槽）。 */
+  --bg-well: #0d1424;
   --bg-hover: rgba(37, 99, 235, 0.06);
   --text-primary: #f1f5f9;
   --text-secondary: #cbd5e1;
@@ -258,6 +261,16 @@ p { line-height: 1.65; color: var(--text-secondary); }
   padding: var(--space-5);
   background: var(--bg-card);
   border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+}
+
+/* 圖表凹槽:大多數頁面畫 D3/lightweight-charts 圖表用的共用 class,
+   套用凹陷底色讓圖表區域跟外層卡片有層次區隔（設計稿的三層深度）。
+   刻意不加 padding -- 圖表 JS 多半用 host.clientWidth 量測寬度來設定 SVG,
+   加 padding 會讓量到的寬度跟實際可視內容框對不齊，導致圖表溢出圓角邊界。
+   個別頁面既有的 width/min-height 等 .chart-host 規則不受影響(不同屬性)。 */
+.chart-host {
+  background: var(--bg-well);
   border-radius: var(--radius);
 }
 
