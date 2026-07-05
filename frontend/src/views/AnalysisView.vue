@@ -141,6 +141,18 @@
       <p class="chart-caption">參考：D3 gallery - Calendar；每格為一個交易日，顏色深淺＝當日漲跌幅。</p>
     </section>
 
+    <section class="card volume-profile-section">
+      <div class="section-head compact">
+        <div>
+          <h2>成交量分佈圖 Volume Profile</h2>
+        </div>
+      </div>
+      <div ref="volumeProfileEl" class="chart-host volume-profile-host"></div>
+      <p class="chart-caption">
+        參考：D3 gallery - Contour/Hexbin（價位 × 量的概念延伸）；本站僅有日 OHLCV，非逐筆成交，故以「當日成交量平均分攤到當日高低價區間」近似估算，非真實逐筆分價量表，僅供參考主力可能的成本聚集區。
+      </p>
+    </section>
+
     <section class="metrics-grid">
       <article v-for="metric in keyMetrics" :key="metric.label" class="card metric-tile">
         <div class="metric-label">{{ metric.label }}</div>
@@ -285,6 +297,7 @@ import { createChart } from 'lightweight-charts'
 import * as d3 from 'd3'
 
 const calendarEl = ref(null)
+const volumeProfileEl = ref(null)
 
 const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:8000' : ''
 
@@ -621,6 +634,7 @@ async function loadAnalysis() {
   await nextTick()
   renderCharts()
   renderCalendar()
+  renderVolumeProfile()
   loading.value = false
   loadMajorCost(sym, token)
   loadChipScore(sym, token)
@@ -1022,6 +1036,7 @@ function handleResize() {
   if (!mergedSeries.value.length) return
   renderCharts()
   renderCalendar()
+  renderVolumeProfile()
 }
 
 function renderCalendar() {
@@ -1097,6 +1112,86 @@ function renderCalendar() {
         return pct == null ? `${label}：無交易` : `${label}：${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%`
       })
   })
+}
+
+function renderVolumeProfile() {
+  const host = volumeProfileEl.value
+  if (!host) return
+  host.innerHTML = ''
+  const rows = priceItems.value.filter((r) => r.high > 0 && r.low > 0 && r.high >= r.low && r.volume >= 0)
+  if (rows.length < 2) return
+
+  const lo = d3.min(rows, (d) => d.low)
+  const hi = d3.max(rows, (d) => d.high)
+  if (!(hi > lo)) return
+
+  const binCount = 24
+  const binSize = (hi - lo) / binCount
+  const bins = Array.from({ length: binCount }, (_, i) => ({
+    lo: lo + i * binSize,
+    hi: lo + (i + 1) * binSize,
+    volume: 0,
+  }))
+
+  // Approximation: no intraday tick data is available, so each day's volume is
+  // spread uniformly across that day's own [low, high] range and accumulated
+  // into the overall price-level bins it overlaps.
+  rows.forEach((row) => {
+    const span = row.high - row.low
+    if (span <= 0) {
+      const idx = Math.min(binCount - 1, Math.max(0, Math.floor((row.close - lo) / binSize)))
+      bins[idx].volume += row.volume
+      return
+    }
+    const startIdx = Math.max(0, Math.floor((row.low - lo) / binSize))
+    const endIdx = Math.min(binCount - 1, Math.floor((row.high - lo) / binSize))
+    for (let i = startIdx; i <= endIdx; i++) {
+      const overlapLo = Math.max(row.low, bins[i].lo)
+      const overlapHi = Math.min(row.high, bins[i].hi)
+      const overlap = Math.max(0, overlapHi - overlapLo)
+      bins[i].volume += row.volume * (overlap / span)
+    }
+  })
+
+  const width = Math.max(host.clientWidth || 700, 320)
+  const height = Math.max(320, binCount * 16)
+  const margin = { top: 8, right: 16, bottom: 24, left: 64 }
+  const innerW = width - margin.left - margin.right
+  const innerH = height - margin.top - margin.bottom
+
+  const maxVolume = d3.max(bins, (d) => d.volume) || 1
+  const yScale = d3.scaleBand()
+    .domain(bins.map((_, i) => i))
+    .range([innerH, 0])
+    .padding(0.15)
+  const xScale = d3.scaleLinear().domain([0, maxVolume]).range([0, innerW])
+
+  const svg = d3.select(host).append('svg').attr('width', width).attr('height', height)
+  const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`)
+
+  g.selectAll('rect')
+    .data(bins)
+    .join('rect')
+    .attr('x', 0)
+    .attr('y', (_, i) => yScale(i))
+    .attr('width', (d) => xScale(d.volume))
+    .attr('height', yScale.bandwidth())
+    .attr('fill', 'rgba(56,189,248,0.65)')
+    .append('title')
+    .text((d) => `${d.lo.toFixed(2)} ~ ${d.hi.toFixed(2)}：約 ${Math.round(d.volume).toLocaleString()} 股`)
+
+  const priceTickEvery = Math.max(1, Math.round(binCount / 8))
+  g.selectAll('text.price-tick')
+    .data(bins.filter((_, i) => i % priceTickEvery === 0))
+    .join('text')
+    .attr('class', 'price-tick')
+    .attr('x', -8)
+    .attr('y', (d) => yScale(bins.indexOf(d)) + yScale.bandwidth() / 2)
+    .attr('dy', '0.32em')
+    .attr('text-anchor', 'end')
+    .attr('font-size', 10)
+    .attr('fill', 'var(--text-muted)')
+    .text((d) => d.lo.toFixed(1))
 }
 
 function buildDateRange(rangeLabel) {
@@ -1587,6 +1682,8 @@ function valueTone(value) {
 
 .calendar-section { overflow-x: auto; }
 .calendar-host { min-height: 120px; }
+.volume-profile-section { overflow-x: auto; }
+.volume-profile-host { min-height: 320px; }
 .chart-caption { font-size: 0.72rem; color: var(--text-muted); margin-top: 6px; }
 
 .chart-stack {
