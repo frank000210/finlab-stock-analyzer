@@ -635,7 +635,7 @@ async def build_watchlist_graph(
 async def get_watchlist_snapshot(
     symbols: list[str],
     target_date: str | date | None = None,
-    edge_threshold: float = 0.35,
+    edge_threshold: float = 0.12,
     lookback_days: int = 60,
 ) -> dict[str, Any]:
     symbols = _normalize_symbols(symbols)
@@ -657,7 +657,7 @@ async def get_watchlist_timeline(
     symbols: list[str],
     start_date: str | date,
     end_date: str | date,
-    edge_threshold: float = 0.35,
+    edge_threshold: float = 0.12,
     lookback_days: int = 60,
 ) -> dict[str, Any]:
     symbols = _normalize_symbols(symbols)
@@ -704,7 +704,7 @@ async def get_watchlist_timeline(
 
 async def get_watchlist_alerts(
     symbols: list[str],
-    edge_threshold: float = 0.35,
+    edge_threshold: float = 0.12,
 ) -> dict[str, Any]:
     symbols = _normalize_symbols(symbols)
     watch_hash = _watchlist_hash(symbols)

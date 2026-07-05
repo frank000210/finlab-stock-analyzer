@@ -69,7 +69,7 @@ async def build_graph(payload: BuildGraphRequest):
 async def graph_snapshot(
     symbols: str = Query(..., description="逗號分隔股票代碼，例如 2330,2317,2454"),
     date_value: date | None = Query(default=None, alias="date", description="目標日期"),
-    edge_threshold: float = Query(default=0.35, ge=0.0, le=1.0, description="建邊門檻"),
+    edge_threshold: float = Query(default=0.12, ge=0.0, le=1.0, description="建邊門檻"),
     lookback_days: int = Query(default=60, ge=30, le=365),
 ):
     try:
@@ -90,7 +90,7 @@ async def graph_timeline(
     symbols: str = Query(..., description="逗號分隔股票代碼，例如 2330,2317,2454"),
     start: date | None = Query(default=None, description="起始日期"),
     end: date | None = Query(default=None, description="結束日期"),
-    edge_threshold: float = Query(default=0.35, ge=0.0, le=1.0, description="建邊門檻"),
+    edge_threshold: float = Query(default=0.12, ge=0.0, le=1.0, description="建邊門檻"),
     lookback_days: int = Query(default=60, ge=30, le=365),
 ):
     try:
@@ -112,7 +112,7 @@ async def graph_timeline(
 @router.get("/alerts")
 async def graph_alerts(
     symbols: str = Query(..., description="逗號分隔股票代碼，例如 2330,2317,2454"),
-    edge_threshold: float = Query(default=0.35, ge=0.0, le=1.0, description="建邊門檻"),
+    edge_threshold: float = Query(default=0.12, ge=0.0, le=1.0, description="建邊門檻"),
 ):
     try:
         parsed_symbols = _parse_symbols(symbols)

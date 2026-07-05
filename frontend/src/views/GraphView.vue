@@ -183,7 +183,11 @@ const loading = ref(false)
 const errorMessage = ref('')
 const symbols = ref(loadWatchlist())
 const symbolInput = ref(symbols.value.join(','))
-const threshold = ref(0.35)
+// 0.35 曾是預設值，但實測 fusion/lead/chip 權重多落在 0.06~0.32 之間
+// （尤其當 FinMind 產業資料缺失時，fusion 的 industry 分量恆為 0，
+// 使融合權重被結構性壓低），導致預設門檻下幾乎每次都是空圖（只有節點沒有邊）。
+// 改用貼近「邊建立門檻」(lead>=0.12) 的預設值，讓已算出的邊預設就看得到。
+const threshold = ref(0.12)
 const lookbackDays = ref(60)
 const endDate = ref(todayISO())
 const startDate = ref(offsetISO(30))
