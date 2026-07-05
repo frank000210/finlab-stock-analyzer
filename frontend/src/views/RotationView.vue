@@ -195,23 +195,25 @@
       </p>
     </section>
 
-    <section class="card chord-section" v-reveal>
-      <div class="chart-card-head">
-        <h3>類股資金流向（Chord Diagram）</h3>
-      </div>
-      <div ref="chordHost" class="chart-host chord-host"></div>
-      <p class="chart-caption">
-        參考：D3 gallery - Chord diagram；沿用領先/落後圖的方向性邊資料，弧段顏色＝來源類股，帶狀寬度＝領先強度（|相關係數|），可觀察資金／動能由哪些類股領先擴散到哪些類股。滑鼠移到弧段或帶狀上可聚焦、淡出其餘無關聯的部分。
-      </p>
-    </section>
-
     <section class="card sankey-section" v-reveal>
       <div class="chart-card-head">
         <h3>類股資金流向（Sankey）</h3>
+        <span class="badge-estimated">示意資料</span>
       </div>
       <div ref="sankeyHost" class="chart-host sankey-host"></div>
       <p class="chart-caption">
-        參考：D3 gallery - Sankey diagram；資料與上方 Chord diagram 相同（領先/落後方向性邊），改以線性流向呈現同一份資料，方便對照來源類股往哪些目標類股擴散的相對比重。
+        參考：D3 gallery - Sankey diagram；依領先/落後方向性邊推估的示意性資金流向（雙向邊已淨額化、迴圈已斷開），粗細＝估算流量，用於觀察資金可能擴散的路徑而非精確金額。
+      </p>
+    </section>
+
+    <section class="card chord-section" v-reveal>
+      <div class="chart-card-head">
+        <h3>類股關聯強度（Chord Diagram）</h3>
+        <span class="muted small-hint">滑鼠移到弧上可聚焦該類股的連結</span>
+      </div>
+      <div ref="chordHost" class="chart-host chord-host"></div>
+      <p class="chart-caption">
+        參考：D3 gallery - Chord diagram；沿用領先/落後圖的方向性邊資料，弧段顏色＝來源類股，帶狀寬度＝領先強度（|相關係數|），可觀察資金／動能由哪些類股領先擴散到哪些類股。
       </p>
     </section>
   </div>
@@ -596,7 +598,7 @@ function renderHorizon() {
     return
   }
 
-  const rowHeight = 26
+  const rowHeight = 32
   const width = host.clientWidth || 900
   const margin = { top: 4, right: 4, bottom: 20, left: 90 }
   const innerW = Math.max(10, width - margin.left - margin.right)
@@ -1446,15 +1448,23 @@ function offsetISO(days) {
   border-color: rgba(59, 130, 246, 0.5);
 }
 
+/* 設計稿：RRG 與領先落後圖並排各半，明細卡移到下方整列 */
 .rotation-layout {
   display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(300px, 1fr);
+  grid-template-columns: 1fr;
   gap: 16px;
 }
 
 .canvas-stack {
   display: grid;
-  gap: 12px;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+@media (max-width: 1024px) {
+  .canvas-stack {
+    grid-template-columns: 1fr;
+  }
 }
 
 .chart-card {

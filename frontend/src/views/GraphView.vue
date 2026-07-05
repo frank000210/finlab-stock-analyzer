@@ -966,9 +966,9 @@ function offsetISO(days) {
 
 .graph-canvas-wrap {
   position: relative;
-  border: 1px solid rgba(148, 163, 184, 0.14);
-  border-radius: 14px;
-  background: rgba(11, 17, 33, 0.52);
+  border: 1px solid var(--chart-border);
+  border-radius: 18px;
+  background: var(--bg-well);
   overflow: hidden;
 }
 
