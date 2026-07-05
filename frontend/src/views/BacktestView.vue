@@ -249,6 +249,11 @@ function renderEquityCurve() {
   grid-template-columns: 320px 1fr;
   gap: var(--space-6);
 }
+/* 觀測重點 banner 要橫跨兩欄；先前它佔走第一格，把設定面板擠到右邊、
+   結果區掉到左邊窄欄，造成整頁左右錯置。 */
+.backtest-page > :deep(.page-focus-banner) {
+  grid-column: 1 / -1;
+}
 .config-panel { position: sticky; top: 80px; align-self: start; }
 .form-group { margin-top: var(--space-3); }
 .form-group label { display: block; font-size: 0.8rem; color: var(--text-secondary); margin-bottom: var(--space-1); font-weight: 500; }
