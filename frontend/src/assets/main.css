@@ -478,25 +478,26 @@ tr:hover td {
   border: 1px solid rgba(100, 116, 139, 0.3);
 }
 
-/* 估算/示意資料視覺標記:斜紋底,搭配文字用在非真實成交/部位的圖表或數值上 */
+/* 估算/示意資料視覺標記:高對比實色斜紋（貼近設計稿的角標旗標），
+   搭配深色文字用在非真實成交/部位的圖表或數值上，比淡色調徽章更醒目。 */
 .badge-estimated {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 3px 9px;
-  border-radius: var(--radius-sm);
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.03em;
-  color: var(--color-warning);
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--bg-primary);
   background: repeating-linear-gradient(
     135deg,
-    rgba(245, 158, 11, 0.16),
-    rgba(245, 158, 11, 0.16) 4px,
-    rgba(245, 158, 11, 0.04) 4px,
-    rgba(245, 158, 11, 0.04) 8px
+    var(--color-warning),
+    var(--color-warning) 3px,
+    #1a1408 3px,
+    #1a1408 6px
   );
-  border: 1px solid rgba(245, 158, 11, 0.35);
+  border: none;
 }
 
 /* ===== FOCUS & ACCESSIBILITY ===== */
