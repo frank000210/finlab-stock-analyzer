@@ -211,7 +211,9 @@
 import PageFocusBanner from '../components/PageFocusBanner.vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import * as d3 from 'd3'
+import { useChartTheme } from '../composables/useChartTheme'
 
+const theme = useChartTheme()
 const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:8000' : ''
 const WATCHLIST_STORAGE_KEY = 'finlab_watchlist'
 
@@ -776,21 +778,21 @@ function renderRRG() {
     })
 
   const quad = svg.append('g')
-  quad.append('rect').attr('x', x(100)).attr('y', y(yMax)).attr('width', x(xMax) - x(100)).attr('height', y(100) - y(yMax)).attr('fill', 'rgba(34,197,94,.07)')
+  quad.append('rect').attr('x', x(100)).attr('y', y(yMax)).attr('width', x(xMax) - x(100)).attr('height', y(100) - y(yMax)).attr('fill', theme.upSoft)
   quad.append('rect').attr('x', x(100)).attr('y', y(100)).attr('width', x(xMax) - x(100)).attr('height', y(yMin) - y(100)).attr('fill', 'rgba(245,158,11,.07)')
-  quad.append('rect').attr('x', x(xMin)).attr('y', y(100)).attr('width', x(100) - x(xMin)).attr('height', y(yMin) - y(100)).attr('fill', 'rgba(239,68,68,.08)')
+  quad.append('rect').attr('x', x(xMin)).attr('y', y(100)).attr('width', x(100) - x(xMin)).attr('height', y(yMin) - y(100)).attr('fill', theme.downSoft)
   quad.append('rect').attr('x', x(xMin)).attr('y', y(yMax)).attr('width', x(100) - x(xMin)).attr('height', y(100) - y(yMax)).attr('fill', 'rgba(59,130,246,.07)')
-  quad.append('line').attr('x1', x(100)).attr('x2', x(100)).attr('y1', y(yMin)).attr('y2', y(yMax)).attr('stroke', 'rgba(148,163,184,.45)')
-  quad.append('line').attr('x1', x(xMin)).attr('x2', x(xMax)).attr('y1', y(100)).attr('y2', y(100)).attr('stroke', 'rgba(148,163,184,.45)')
+  quad.append('line').attr('x1', x(100)).attr('x2', x(100)).attr('y1', y(yMin)).attr('y2', y(yMax)).attr('stroke', theme.border)
+  quad.append('line').attr('x1', x(xMin)).attr('x2', x(xMax)).attr('y1', y(100)).attr('y2', y(100)).attr('stroke', theme.border)
 
   svg.append('g').attr('transform', `translate(0,${height - margin.bottom})`).call(d3.axisBottom(x).ticks(6))
   svg.append('g').attr('transform', `translate(${margin.left},0)`).call(d3.axisLeft(y).ticks(6))
 
   const label = svg.append('g').attr('class', 'quadrant-labels')
-  label.append('text').attr('x', x(101)).attr('y', y(101) - 8).text('領先').attr('fill', '#22c55e').attr('font-size', 12)
-  label.append('text').attr('x', x(101)).attr('y', y(99) + 14).text('轉弱').attr('fill', '#f59e0b').attr('font-size', 12)
-  label.append('text').attr('x', x(99) - 36).attr('y', y(99) + 14).text('落後').attr('fill', '#ef4444').attr('font-size', 12)
-  label.append('text').attr('x', x(99) - 36).attr('y', y(101) - 8).text('轉強').attr('fill', '#3b82f6').attr('font-size', 12)
+  label.append('text').attr('x', x(101)).attr('y', y(101) - 8).text('領先').attr('fill', theme.up).attr('font-size', 12)
+  label.append('text').attr('x', x(101)).attr('y', y(99) + 14).text('轉弱').attr('fill', theme.warn).attr('font-size', 12)
+  label.append('text').attr('x', x(99) - 36).attr('y', y(99) + 14).text('落後').attr('fill', theme.down).attr('font-size', 12)
+  label.append('text').attr('x', x(99) - 36).attr('y', y(101) - 8).text('轉強').attr('fill', theme.blue).attr('font-size', 12)
 
   const pointMap = new Map(data.map(d => [d.id, d]))
   const trailLine = d3.line().x(d => x(d.x)).y(d => y(d.y)).curve(d3.curveMonotoneX)
@@ -820,7 +822,7 @@ function renderRRG() {
   nodes.append('circle')
     .attr('r', d => selectedId.value === d.id ? 9 : 7)
     .attr('fill', d => quadrantColor(d.quadrant))
-    .attr('stroke', d => selectedId.value === d.id ? '#f8fafc' : 'rgba(255,255,255,.45)')
+    .attr('stroke', d => selectedId.value === d.id ? theme.text : theme.textSoft)
     .attr('stroke-width', d => selectedId.value === d.id ? 2.6 : 1.1)
     .attr('opacity', d => {
       if (selectedEdge.value) return (d.id === selectedEdge.value.src || d.id === selectedEdge.value.dst) ? 1 : 0.2
@@ -839,7 +841,7 @@ function renderRRG() {
   // labels apart, with a thin leader line back to the actual point
   // whenever a label had to move more than a few pixels.
   const labelData = layoutLabels(data, x, y, margin, width, height)
-  const leaderGroup = svg.append('g').attr('stroke', 'rgba(148,163,184,.4)').attr('stroke-width', 1)
+  const leaderGroup = svg.append('g').attr('stroke', theme.border).attr('stroke-width', 1)
   const labelGroup = svg.append('g').attr('class', 'point-labels')
 
   labelData.forEach(l => {
@@ -856,7 +858,7 @@ function renderRRG() {
     .attr('x', d => d.x)
     .attr('y', d => d.y)
     .attr('text-anchor', 'middle')
-    .attr('fill', '#e2e8f0')
+    .attr('fill', theme.text)
     .attr('font-size', 10)
     .style('pointer-events', 'none')
     .attr('opacity', d => {
@@ -868,8 +870,8 @@ function renderRRG() {
     })
     .text(d => d.label)
 
-  svg.append('text').attr('x', width - 90).attr('y', height - 8).attr('fill', '#94a3b8').attr('font-size', 11).text('RS-Ratio')
-  svg.append('text').attr('x', 8).attr('y', 12).attr('fill', '#94a3b8').attr('font-size', 11).text('RS-Momentum')
+  svg.append('text').attr('x', width - 90).attr('y', height - 8).attr('fill', theme.muted).attr('font-size', 11).text('RS-Ratio')
+  svg.append('text').attr('x', 8).attr('y', 12).attr('fill', theme.muted).attr('font-size', 11).text('RS-Momentum')
 }
 
 // Rough CJK-friendly width estimate for a label at font-size 10 -- good
@@ -952,8 +954,8 @@ function renderLeadGraph() {
   const ARROW_REFX = 17
   const defs = svg.append('defs')
   const arrowMarkers = [
-    { id: 'lead-arrow-pos', color: '#60a5fa' },
-    { id: 'lead-arrow-neg', color: '#f87171' },
+    { id: 'lead-arrow-pos', color: theme.blue },
+    { id: 'lead-arrow-neg', color: theme.down },
   ].map(spec => {
     const marker = defs.append('marker')
       .attr('id', spec.id)
@@ -992,7 +994,7 @@ function renderLeadGraph() {
     .selectAll('line')
     .data(validLinks)
     .join('line')
-    .attr('stroke', d => Number(d.weight) >= 0 ? '#60a5fa' : '#f87171')
+    .attr('stroke', d => Number(d.weight) >= 0 ? theme.blue : theme.down)
     .attr('stroke-width', d => wScale(Number(d.abs_weight) || 0))
     .attr('stroke-opacity', d => selectedEdgeKey.value ? (edgeKey(d) === selectedEdgeKey.value ? 0.95 : 0.1) : 0.62)
     .attr('marker-end', d => Number(d.weight) >= 0 ? 'url(#lead-arrow-pos)' : 'url(#lead-arrow-neg)')
@@ -1032,7 +1034,7 @@ function renderLeadGraph() {
   nodeSel.append('circle')
     .attr('r', d => selectedId.value === d.id ? 12 : 10)
     .attr('fill', d => quadrantColor(d.quadrant))
-    .attr('stroke', d => selectedId.value === d.id ? '#f8fafc' : 'rgba(255,255,255,.4)')
+    .attr('stroke', d => selectedId.value === d.id ? theme.text : theme.textSoft)
     .attr('stroke-width', d => selectedId.value === d.id ? 2.4 : 1.2)
     .attr('opacity', d => {
       if (selectedEdge.value) return (d.id === selectedEdge.value.src || d.id === selectedEdge.value.dst) ? 1 : 0.25
@@ -1046,7 +1048,7 @@ function renderLeadGraph() {
     .text(d => d.name.replace('類指數', ''))
     .attr('dy', -14)
     .attr('text-anchor', 'middle')
-    .attr('fill', '#e2e8f0')
+    .attr('fill', theme.text)
     .attr('font-size', 10)
     .style('pointer-events', 'none')
 
@@ -1083,10 +1085,10 @@ function pointName(id) {
 }
 
 function quadrantColor(quad) {
-  if (quad === 'leading') return '#22c55e'
-  if (quad === 'weakening') return '#f59e0b'
-  if (quad === 'lagging') return '#ef4444'
-  return '#3b82f6'
+  if (quad === 'leading') return theme.up
+  if (quad === 'weakening') return theme.warn
+  if (quad === 'lagging') return theme.down
+  return theme.blue
 }
 
 function quadrantLabel(quad) {

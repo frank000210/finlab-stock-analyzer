@@ -150,9 +150,11 @@ import { ref, computed, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useStockStore } from '../stores/stock.js'
 import * as d3 from 'd3'
+import { useChartTheme } from '../composables/useChartTheme'
 
 const router = useRouter()
 const stockStore = useStockStore()
+const theme = useChartTheme()
 const loading = ref(false)
 const heatmapEl = ref(null)
 const heatmapData = ref(null)
@@ -309,8 +311,8 @@ function renderHeatmap() {
   const color = (pct) => {
     const t = Math.min(1, Math.abs(pct) / maxAbs)
     return pct >= 0
-      ? d3.interpolateRgb('rgba(34,197,94,0.25)', 'rgba(34,197,94,0.95)')(t)
-      : d3.interpolateRgb('rgba(239,68,68,0.25)', 'rgba(239,68,68,0.95)')(t)
+      ? d3.interpolateRgb(d3.color(theme.up).copy({ opacity: 0.25 }).toString(), d3.color(theme.up).copy({ opacity: 0.95 }).toString())(t)
+      : d3.interpolateRgb(d3.color(theme.down).copy({ opacity: 0.25 }).toString(), d3.color(theme.down).copy({ opacity: 0.95 }).toString())(t)
   }
 
   const svg = d3.select(host).append('svg').attr('width', width).attr('height', height)
@@ -333,7 +335,7 @@ function renderHeatmap() {
     .append('text')
     .attr('x', 6)
     .attr('y', 16)
-    .attr('fill', '#fff')
+    .attr('fill', theme.text)
     .attr('font-size', 11)
     .attr('font-weight', 700)
     .text((d) => d.data.name)
@@ -343,7 +345,7 @@ function renderHeatmap() {
     .append('text')
     .attr('x', 6)
     .attr('y', 32)
-    .attr('fill', '#fff')
+    .attr('fill', theme.text)
     .attr('font-size', 12)
     .attr('font-weight', 800)
     .text((d) => `${d.data.pct_change >= 0 ? '+' : ''}${d.data.pct_change}%`)

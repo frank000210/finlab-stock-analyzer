@@ -295,7 +295,9 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { createChart } from 'lightweight-charts'
 import * as d3 from 'd3'
+import { useChartTheme } from '../composables/useChartTheme'
 
+const theme = useChartTheme()
 const calendarEl = ref(null)
 const volumeProfileEl = ref(null)
 
@@ -481,28 +483,28 @@ const scoreBreakdown = computed(() => [
     key: 'technical',
     label: '技術面',
     score: technicalScore.value,
-    color: '#2563eb',
+    color: theme.blue,
     description: technicalDescription(),
   },
   {
     key: 'fundamental',
     label: '基本面',
     score: fundamentalScore.value,
-    color: '#14b8a6',
+    color: theme.cyan,
     description: fundamentalDescription(),
   },
   {
     key: 'chip',
     label: '籌碼面',
     score: chipScore.value,
-    color: '#8b5cf6',
+    color: theme.purple,
     description: chipDescription(),
   },
   {
     key: 'sentiment',
     label: '市場情緒',
     score: sentimentScore.value,
-    color: '#f59e0b',
+    color: theme.warn,
     description: sentimentDescription(),
   },
 ])
@@ -553,7 +555,7 @@ const keyMetrics = computed(() => [
 ])
 
 const scoreRingStyle = computed(() => ({
-  background: `conic-gradient(#2563eb 0deg ${overallScore.value * 3.6}deg, rgba(148, 163, 184, 0.15) ${overallScore.value * 3.6}deg 360deg)`,
+  background: `conic-gradient(${theme.blue} 0deg ${overallScore.value * 3.6}deg, ${theme.neutral} ${overallScore.value * 3.6}deg 360deg)`,
 }))
 
 const topReasons = computed(() => selectTopReasons())
@@ -671,7 +673,7 @@ function applyMajorCostLine() {
   if (!c || c.cost == null) return
   majorCostLine = candleSeries.createPriceLine({
     price: c.cost,
-    color: '#f59e0b',
+    color: theme.warn,
     lineWidth: 1,
     lineStyle: 2,
     axisLabelVisible: true,
@@ -876,17 +878,17 @@ function renderCharts() {
     width,
     layout: {
       background: { color: '#0f172a' },
-      textColor: '#94a3b8',
+      textColor: theme.muted,
     },
     grid: {
-      vertLines: { color: 'rgba(51, 65, 85, 0.35)' },
-      horzLines: { color: 'rgba(51, 65, 85, 0.35)' },
+      vertLines: { color: theme.grid },
+      horzLines: { color: theme.grid },
     },
-    rightPriceScale: { borderColor: '#334155' },
-    timeScale: { borderColor: '#334155' },
+    rightPriceScale: { borderColor: theme.border },
+    timeScale: { borderColor: theme.border },
     crosshair: {
-      vertLine: { color: '#475569' },
-      horzLine: { color: '#475569' },
+      vertLine: { color: theme.border },
+      horzLine: { color: theme.border },
     },
   }
 
@@ -915,11 +917,11 @@ function renderCharts() {
   }))
 
   const candleSeriesLocal = priceChart.addCandlestickSeries({
-    upColor: '#16a34a',
-    downColor: '#dc2626',
+    upColor: theme.up,
+    downColor: theme.down,
     borderVisible: false,
-    wickUpColor: '#16a34a',
-    wickDownColor: '#dc2626',
+    wickUpColor: theme.up,
+    wickDownColor: theme.down,
   })
   candleSeriesLocal.setData(candles)
   candleSeries = candleSeriesLocal
@@ -938,20 +940,20 @@ function renderCharts() {
   volumeSeries.setData(mergedSeries.value.map(item => ({
     time: item.date,
     value: item.volume,
-    color: item.close >= item.open ? 'rgba(22, 163, 74, 0.45)' : 'rgba(220, 38, 38, 0.45)',
+    color: item.close >= item.open ? theme.upSoft : theme.downSoft,
   })))
 
-  addLineSeries(priceChart, mergedSeries.value, 'ma5', '#38bdf8')
-  addLineSeries(priceChart, mergedSeries.value, 'ma20', '#f59e0b')
-  addLineSeries(priceChart, mergedSeries.value, 'ma60', '#a855f7')
+  addLineSeries(priceChart, mergedSeries.value, 'ma5', theme.cyan)
+  addLineSeries(priceChart, mergedSeries.value, 'ma20', theme.warn)
+  addLineSeries(priceChart, mergedSeries.value, 'ma60', theme.purple)
 
   const rsiSeries = rsiChart.addLineSeries({
-    color: '#8b5cf6',
+    color: theme.purple,
     lineWidth: 2,
   })
   rsiSeries.setData(toLineData(mergedSeries.value, 'rsi14'))
-  addConstantLine(rsiChart, mergedSeries.value, 70, 'rgba(220, 38, 38, 0.55)')
-  addConstantLine(rsiChart, mergedSeries.value, 30, 'rgba(22, 163, 74, 0.55)')
+  addConstantLine(rsiChart, mergedSeries.value, 70, theme.down)
+  addConstantLine(rsiChart, mergedSeries.value, 30, theme.up)
 
   const macdHistogram = macdChart.addHistogramSeries({
     priceLineVisible: false,
@@ -962,11 +964,11 @@ function renderCharts() {
     .map(item => ({
       time: item.date,
       value: item.macd_hist,
-      color: item.macd_hist >= 0 ? 'rgba(22, 163, 74, 0.55)' : 'rgba(220, 38, 38, 0.55)',
+      color: item.macd_hist >= 0 ? theme.up : theme.down,
     })))
-  addLineSeries(macdChart, mergedSeries.value, 'macd_dif', '#60a5fa')
-  addLineSeries(macdChart, mergedSeries.value, 'macd_dea', '#f59e0b')
-  addConstantLine(macdChart, mergedSeries.value, 0, 'rgba(148, 163, 184, 0.45)')
+  addLineSeries(macdChart, mergedSeries.value, 'macd_dif', theme.blue)
+  addLineSeries(macdChart, mergedSeries.value, 'macd_dea', theme.warn)
+  addConstantLine(macdChart, mergedSeries.value, 0, theme.neutral)
 
   syncCharts([priceChart, rsiChart, macdChart])
   priceChart.timeScale().fitContent()
@@ -1069,8 +1071,8 @@ function renderCalendar() {
   const color = (pct) => {
     const t = Math.min(1, Math.abs(pct) / maxAbs)
     return pct >= 0
-      ? d3.interpolateRgb('rgba(34,197,94,0.15)', 'rgba(34,197,94,0.95)')(t)
-      : d3.interpolateRgb('rgba(239,68,68,0.15)', 'rgba(239,68,68,0.95)')(t)
+      ? d3.interpolateRgb(theme.upSoft, theme.up)(t)
+      : d3.interpolateRgb(theme.downSoft, theme.down)(t)
   }
 
   const svg = d3.select(host).append('svg').attr('width', width).attr('height', height)
@@ -1176,7 +1178,7 @@ function renderVolumeProfile() {
     .attr('y', (_, i) => yScale(i))
     .attr('width', (d) => xScale(d.volume))
     .attr('height', yScale.bandwidth())
-    .attr('fill', 'rgba(56,189,248,0.65)')
+    .attr('fill', theme.cyan)
     .append('title')
     .text((d) => `${d.lo.toFixed(2)} ~ ${d.hi.toFixed(2)}：約 ${Math.round(d.volume).toLocaleString()} 股`)
 

@@ -122,9 +122,11 @@ import PageFocusBanner from '../components/PageFocusBanner.vue'
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useStockStore } from '../stores/stock.js'
+import { useChartTheme } from '../composables/useChartTheme'
 
 const route = useRoute()
 const stockStore = useStockStore()
+const theme = useChartTheme()
 const symbol = ref(route.params.symbol || stockStore.symbol)
 const loading = ref(false)
 const error = ref('')
@@ -133,10 +135,10 @@ const data = ref(null)
 const gaugeColor = computed(() => {
   if (!data.value) return 'var(--text-muted)'
   const s = data.value.buzz_score
-  if (s >= 80) return '#ef4444'
-  if (s >= 60) return '#f97316'
-  if (s >= 40) return '#eab308'
-  if (s >= 20) return '#22c55e'
+  if (s >= 80) return theme.down
+  if (s >= 60) return theme.warn
+  if (s >= 40) return theme.warn
+  if (s >= 20) return theme.up
   return 'var(--text-muted)'
 })
 

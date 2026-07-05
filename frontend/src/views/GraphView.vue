@@ -164,7 +164,9 @@
 import PageFocusBanner from '../components/PageFocusBanner.vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import * as d3 from 'd3'
+import { useChartTheme } from '../composables/useChartTheme'
 
+const theme = useChartTheme()
 const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:8000' : ''
 const WATCHLIST_STORAGE_KEY = 'finlab_watchlist'
 
@@ -297,8 +299,8 @@ function renderMatrix(host) {
     if (!w) return 'var(--bg-tertiary)'
     const t = Math.min(1, Math.abs(w) / maxAbs)
     return w >= 0
-      ? d3.interpolateRgb('rgba(79,140,255,0.15)', 'rgba(79,140,255,0.95)')(t)
-      : d3.interpolateRgb('rgba(239,68,68,0.15)', 'rgba(239,68,68,0.95)')(t)
+      ? d3.interpolateRgb('rgba(59,130,246,0.15)', theme.blue)(t)
+      : d3.interpolateRgb(theme.downSoft, theme.down)(t)
   }
 
   const svg = d3.select(host).append('svg')
@@ -364,7 +366,7 @@ function baseSvg(host, width, height) {
       .attr('orient', 'auto')
       .append('path')
       .attr('d', 'M0,-5L10,0L0,5')
-      .attr('fill', sign === 'pos' ? '#4f8cff' : '#ef4444')
+      .attr('fill', sign === 'pos' ? theme.blue : theme.down)
   })
   return svg
 }
@@ -398,7 +400,7 @@ function renderForce(host) {
     .selectAll('line')
     .data(links)
     .join('line')
-    .attr('stroke', d => Number(d.weight) >= 0 ? '#4f8cff' : '#ef4444')
+    .attr('stroke', d => Number(d.weight) >= 0 ? theme.blue : theme.down)
     .attr('stroke-width', d => wScale(Number(d.abs_weight) || 0))
     .attr('stroke-opacity', 0.6)
     .attr('marker-end', d => d.directed ? `url(#arrow-${Number(d.weight) >= 0 ? 'pos' : 'neg'})` : null)
@@ -425,14 +427,14 @@ function renderForce(host) {
   nodeSel.append('circle')
     .attr('r', d => rScale(Number(d.weighted_degree) || 0))
     .attr('fill', d => color(d.industry || '未知產業'))
-    .attr('stroke', 'rgba(255,255,255,.35)')
+    .attr('stroke', theme.textSoft)
     .attr('stroke-width', 1.4)
 
   nodeSel.append('text')
     .text(d => d.symbol)
     .attr('text-anchor', 'middle')
     .attr('dy', '.32em')
-    .attr('fill', '#f8fafc')
+    .attr('fill', theme.text)
     .attr('font-size', 11)
     .attr('font-weight', 700)
     .style('pointer-events', 'none')
@@ -502,7 +504,7 @@ function renderBundle(host) {
     .data(bundleLinks)
     .join('path')
     .attr('d', d => line(d.path))
-    .attr('stroke', d => Number(d.edge.weight) >= 0 ? '#4f8cff' : '#ef4444')
+    .attr('stroke', d => Number(d.edge.weight) >= 0 ? theme.blue : theme.down)
     .attr('stroke-width', d => wScale(Number(d.edge.abs_weight) || 0))
     .attr('stroke-opacity', 0.55)
     .style('cursor', 'pointer')
@@ -519,14 +521,14 @@ function renderBundle(host) {
   nodeSel.append('circle')
     .attr('r', 5)
     .attr('fill', d => color(d.data.node.industry || '未知產業'))
-    .attr('stroke', 'rgba(255,255,255,.4)')
+    .attr('stroke', theme.textSoft)
 
   nodeSel.append('text')
     .attr('dy', '.31em')
     .attr('x', d => d.x < Math.PI ? 9 : -9)
     .attr('text-anchor', d => d.x < Math.PI ? 'start' : 'end')
     .attr('transform', d => d.x >= Math.PI ? 'rotate(180)' : null)
-    .attr('fill', '#e2e8f0')
+    .attr('fill', theme.text)
     .attr('font-size', 10)
     .attr('font-weight', 600)
     .text(d => `${d.data.node.symbol} ${d.data.node.name_zh || ''}`)
@@ -563,11 +565,11 @@ function applyHighlight() {
       link.attr('stroke-opacity', d => (d.src === sym || d.dst === sym) ? 0.9 : 0.06)
         .attr('stroke-width', d => (d.src === sym || d.dst === sym) ? Math.max(2, wForce(d)) : 1)
       node.attr('opacity', d => connected.has(d.symbol) ? 1 : 0.28)
-      node.select('circle').attr('stroke', d => d.symbol === sym ? '#f8fafc' : 'rgba(255,255,255,.35)')
+      node.select('circle').attr('stroke', d => d.symbol === sym ? theme.text : theme.textSoft)
         .attr('stroke-width', d => d.symbol === sym ? 3 : 1.4)
     } else {
       link.attr('stroke-opacity', 0.6)
-      node.attr('opacity', 1).select('circle').attr('stroke', 'rgba(255,255,255,.35)').attr('stroke-width', 1.4)
+      node.attr('opacity', 1).select('circle').attr('stroke', theme.textSoft).attr('stroke-width', 1.4)
     }
   } else {
     if (ek) {

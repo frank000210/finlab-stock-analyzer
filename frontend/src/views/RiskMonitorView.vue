@@ -99,7 +99,9 @@ import PageFocusBanner from '../components/PageFocusBanner.vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { createChart } from 'lightweight-charts'
 import * as d3 from 'd3'
+import { useChartTheme } from '../composables/useChartTheme'
 
+const theme = useChartTheme()
 const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:8000' : ''
 const loading = ref(false)
 const resetting = ref(false)
@@ -124,13 +126,13 @@ const statusDescription = computed(() => {
   return '尚未取得狀態說明。'
 })
 const gaugeColor = computed(() => {
-  if (mddValue.value > 0.03) return '#ef4444'
-  if (mddValue.value >= 0.02) return '#f59e0b'
-  return '#10b981'
+  if (mddValue.value > 0.03) return theme.down
+  if (mddValue.value >= 0.02) return theme.warn
+  return theme.up
 })
 const gaugeStyle = computed(() => {
   const percent = Math.min(100, Math.round((mddValue.value / 0.05) * 100))
-  return { background: `conic-gradient(${gaugeColor.value} ${percent}%, rgba(148, 163, 184, 0.16) ${percent}% 100%)` }
+  return { background: `conic-gradient(${gaugeColor.value} ${percent}%, ${theme.border} ${percent}% 100%)` }
 })
 
 onMounted(async () => {
@@ -288,12 +290,12 @@ function renderChart() {
   chart = createChart(chartEl.value, {
     width: chartEl.value.clientWidth || 720,
     height: 320,
-    layout: { background: { color: '#0d1117' }, textColor: '#94a3b8' },
-    grid: { vertLines: { color: '#1f2937' }, horzLines: { color: '#1f2937' } },
-    rightPriceScale: { borderColor: '#334155' },
-    timeScale: { borderColor: '#334155' },
+    layout: { background: { color: '#0d1117' }, textColor: theme.muted },
+    grid: { vertLines: { color: theme.grid }, horzLines: { color: theme.grid } },
+    rightPriceScale: { borderColor: theme.border },
+    timeScale: { borderColor: theme.border },
   })
-  const lineSeries = chart.addLineSeries({ color: '#22c55e', lineWidth: 2 })
+  const lineSeries = chart.addLineSeries({ color: theme.up, lineWidth: 2 })
   lineSeries.setData(equitySeries.value)
   chart.timeScale().fitContent()
 }

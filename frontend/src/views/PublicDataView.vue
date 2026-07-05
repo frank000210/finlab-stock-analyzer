@@ -80,9 +80,11 @@ import { ref, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useStockStore } from '../stores/stock.js'
 import * as d3 from 'd3'
+import { useChartTheme } from '../composables/useChartTheme'
 
 const route = useRoute()
 const stockStore = useStockStore()
+const theme = useChartTheme()
 const loading = ref(false)
 const error = ref('')
 const data = ref(null)
@@ -226,7 +228,7 @@ function renderPeBand() {
   g.append('g').attr('transform', `translate(0,${innerH})`).call(d3.axisBottom(x).ticks(6)).attr('class', 'axis')
   g.append('g').call(d3.axisLeft(y).ticks(6)).attr('class', 'axis')
 
-  const bandColors = ['#3b82f6', '#22c55e', '#eab308', '#ef4444']
+  const bandColors = [theme.blue, theme.up, theme.warn, theme.down]
   bandPercentiles.forEach((p, i) => {
     const line = d3
       .line()

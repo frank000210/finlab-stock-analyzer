@@ -139,7 +139,9 @@ import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import axios from 'axios'
 import { createChart } from 'lightweight-charts'
+import { useChartTheme } from '../composables/useChartTheme'
 
+const theme = useChartTheme()
 const route = useRoute()
 const strategies = ref([])
 const selectedStrategy = ref(null)
@@ -227,11 +229,11 @@ function renderEquityCurve() {
   const chart = createChart(equityChart.value, {
     width: equityChart.value.clientWidth,
     height: 300,
-    layout: { background: { color: '#1e293b' }, textColor: '#94a3b8' },
-    grid: { vertLines: { color: '#334155' }, horzLines: { color: '#334155' } },
+    layout: { background: { color: '#1e293b' }, textColor: theme.muted },
+    grid: { vertLines: { color: theme.border }, horzLines: { color: theme.border } },
   })
 
-  const series = chart.addLineSeries({ color: '#2563eb', lineWidth: 2 })
+  const series = chart.addLineSeries({ color: theme.blue, lineWidth: 2 })
   series.setData(result.value.equity_curve.map(e => ({
     time: e.date,
     value: e.portfolio_value,

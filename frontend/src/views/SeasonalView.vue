@@ -113,9 +113,11 @@ import { ref, nextTick, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useStockStore } from '../stores/stock.js'
 import * as d3 from 'd3'
+import { useChartTheme } from '../composables/useChartTheme'
 
 const route = useRoute()
 const stockStore = useStockStore()
+const theme = useChartTheme()
 const symbol = ref(route.params.symbol || stockStore.symbol)
 const years = ref(5)
 const loading = ref(false)
@@ -235,10 +237,10 @@ function heatColor(val) {
   const clamped = Math.max(-10, Math.min(10, val))
   if (clamped >= 0) {
     const intensity = Math.min(1, clamped / 8)
-    return { background: `rgba(34, 197, 94, ${0.1 + intensity * 0.6})`, color: intensity > 0.4 ? '#fff' : 'inherit' }
+    return { background: d3.color(theme.up).copy({ opacity: 0.1 + intensity * 0.6 }).toString(), color: intensity > 0.4 ? theme.text : 'inherit' }
   } else {
     const intensity = Math.min(1, Math.abs(clamped) / 8)
-    return { background: `rgba(239, 68, 68, ${0.1 + intensity * 0.6})`, color: intensity > 0.4 ? '#fff' : 'inherit' }
+    return { background: d3.color(theme.down).copy({ opacity: 0.1 + intensity * 0.6 }).toString(), color: intensity > 0.4 ? theme.text : 'inherit' }
   }
 }
 

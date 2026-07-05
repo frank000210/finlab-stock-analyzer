@@ -125,7 +125,9 @@ import PageFocusBanner from '../components/PageFocusBanner.vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { createChart } from 'lightweight-charts'
 import * as d3 from 'd3'
+import { useChartTheme } from '../composables/useChartTheme'
 
+const theme = useChartTheme()
 const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:8000' : ''
 const portfolioValue = 5000000
 const loading = ref(false)
@@ -252,13 +254,13 @@ function renderChart() {
   chart = createChart(chartEl.value, {
     width: chartEl.value.clientWidth || 720,
     height: 320,
-    layout: { background: { color: '#0d1117' }, textColor: '#94a3b8' },
-    grid: { vertLines: { color: '#1f2937' }, horzLines: { color: '#1f2937' } },
-    rightPriceScale: { borderColor: '#334155' },
-    timeScale: { borderColor: '#334155' },
-    crosshair: { vertLine: { color: '#475569' }, horzLine: { color: '#475569' } },
+    layout: { background: { color: '#0d1117' }, textColor: theme.muted },
+    grid: { vertLines: { color: theme.grid }, horzLines: { color: theme.grid } },
+    rightPriceScale: { borderColor: theme.border },
+    timeScale: { borderColor: theme.border },
+    crosshair: { vertLine: { color: theme.border }, horzLine: { color: theme.border } },
   })
-  const lineSeries = chart.addLineSeries({ color: '#38bdf8', lineWidth: 2 })
+  const lineSeries = chart.addLineSeries({ color: theme.blue, lineWidth: 2 })
   lineSeries.setData(priceSeries.value)
   chart.timeScale().fitContent()
 }
@@ -271,9 +273,9 @@ function destroyChart() {
 }
 
 const SIGNAL_TYPE_META = {
-  BUY: { name: '買入', color: 'rgba(34,197,94,0.85)' },
-  SELL: { name: '賣出', color: 'rgba(239,68,68,0.85)' },
-  HOLD: { name: '觀望', color: 'rgba(148,163,184,0.85)' },
+  BUY: { name: '買入', color: theme.up },
+  SELL: { name: '賣出', color: theme.down },
+  HOLD: { name: '觀望', color: theme.neutral },
 }
 
 function renderSankey() {
