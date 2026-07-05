@@ -142,7 +142,7 @@ function normalizePercent(value) {
 }
 
 function formatCurrency(value) {
-  return new Intl.NumberFormat('zh-TW', { style: 'currency', currency: 'TWD', maximumFractionDigits: 0 }).format(Number(value || 0))
+  return `NT$ ${new Intl.NumberFormat('zh-TW', { maximumFractionDigits: 0 }).format(Number(value || 0))}`
 }
 
 function formatTime(value) {

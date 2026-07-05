@@ -453,7 +453,7 @@ function normalizeCircuitStatus(payload) {
 }
 
 function formatCurrency(value) {
-  return `₺${formatNumber(value)}`
+  return `NT$ ${formatNumber(value)}`
 }
 
 function formatNumber(value) {

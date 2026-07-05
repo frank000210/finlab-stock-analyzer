@@ -304,7 +304,7 @@ function toNumber(value) {
 
 function formatPrice(value) {
   const decimals = value >= 100 ? 1 : 2
-  return `NT$ ${value.toFixed(decimals)}`
+  return `NT$ ${value.toLocaleString('zh-TW', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}`
 }
 
 function formatChange(change, changePct) {
