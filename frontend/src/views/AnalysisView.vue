@@ -146,6 +146,7 @@
         <div>
           <h2>成交量分佈圖 Volume Profile</h2>
         </div>
+        <span class="badge-estimated">估算值</span>
       </div>
       <div ref="volumeProfileEl" class="chart-host volume-profile-host"></div>
       <p class="chart-caption">

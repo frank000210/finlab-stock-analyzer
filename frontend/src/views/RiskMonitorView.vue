@@ -69,6 +69,7 @@
           <h2>權益曲線</h2>
           <p>最近 30 個資料點</p>
         </div>
+        <span v-if="riskDataIsMock" class="badge-estimated">模擬帳戶</span>
       </div>
       <div v-if="equitySeries.length" class="chart-wrapper">
         <span class="y-axis-label">新台幣(元)</span>
@@ -84,6 +85,7 @@
           <h2>權益日變動分布</h2>
           <p>直方圖 + 核密度估計，觀察報酬是否過度偏態或有厚尾風險</p>
         </div>
+        <span v-if="riskDataIsMock" class="badge-estimated">模擬帳戶</span>
       </div>
       <div ref="histEl" class="chart-host"></div>
       <p class="chart-caption">

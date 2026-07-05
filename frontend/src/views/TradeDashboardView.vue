@@ -110,6 +110,7 @@
           <h2>AI 訊號分流圖（Sankey）</h2>
           <p>訊號依買入／賣出／觀望分流至個股的相對權重</p>
         </div>
+        <span class="badge-estimated">示意資料</span>
       </div>
       <div v-if="signals.length" ref="sankeyEl" class="chart-host sankey-host"></div>
       <div v-else class="empty-state">目前沒有 AI 信號</div>
