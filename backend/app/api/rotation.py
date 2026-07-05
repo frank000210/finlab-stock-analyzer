@@ -14,6 +14,7 @@ from ..analysis.sector_rotation import (
     ingest_sector_index,
 )
 from ..analysis.watch_graph import ingest_watchlist_raw
+from ..db.memcache import mem_clear, mem_get, mem_set
 
 router = APIRouter(prefix="/api/v1/rotation", tags=["sector-rotation"])
 
@@ -47,6 +48,7 @@ async def build_rotation(payload: BuildRotationRequest):
             result = await ingest_watchlist_raw(payload.symbols, start, end)
         else:
             result = await ingest_sector_index(start, end)
+        mem_clear("rotation:")  # 原始資料重抓後，記憶體裡的輪動計算結果全部失效
         return {"success": True, "data": {"universe": payload.universe, **result}}
     except HTTPException:
         raise
@@ -65,15 +67,21 @@ async def rotation_snapshot(
     edge_threshold: float = Query(default=0.25, ge=0.0, le=1.0),
 ):
     try:
+        parsed = _parse_symbols(symbols)
+        cache_key = f"rotation:snapshot:{universe}:{freq}:{date_value}:{','.join(parsed)}:{lookback_days}:{trail_length}:{edge_threshold}"
+        cached = mem_get(cache_key)
+        if cached is not None:
+            return {"success": True, "data": cached}
         snapshot = await get_rotation_snapshot(
             universe=universe,
             freq=freq,
             target_date=date_value,
-            symbols=_parse_symbols(symbols),
+            symbols=parsed,
             lookback_days=lookback_days,
             trail_length=trail_length,
             edge_threshold=edge_threshold,
         )
+        mem_set(cache_key, snapshot)
         return {"success": True, "data": snapshot}
     except Exception as exc:
         _raise_rotation_error(exc)
@@ -91,14 +99,20 @@ async def rotation_timeline(
     try:
         end_date = end or date.today()
         start_date = start or (end_date - timedelta(days=60))
+        parsed = _parse_symbols(symbols)
+        cache_key = f"rotation:timeline:{universe}:{freq}:{start_date}:{end_date}:{','.join(parsed)}:{lookback_days}"
+        cached = mem_get(cache_key)
+        if cached is not None:
+            return {"success": True, "data": cached}
         timeline = await get_rotation_timeline(
             universe=universe,
             freq=freq,
             start_date=start_date,
             end_date=end_date,
-            symbols=_parse_symbols(symbols),
+            symbols=parsed,
             lookback_days=lookback_days,
         )
+        mem_set(cache_key, timeline)
         return {"success": True, "data": timeline}
     except Exception as exc:
         _raise_rotation_error(exc)
@@ -113,12 +127,18 @@ async def rotation_heatmap(
 ):
     """每日漲跌熱力圖（Treemap）：類股/觀察池今天對昨天的漲跌幅快照。"""
     try:
+        parsed = _parse_symbols(symbols)
+        cache_key = f"rotation:heatmap:{universe}:{date_value}:{','.join(parsed)}:{lookback_days}"
+        cached = mem_get(cache_key)
+        if cached is not None:
+            return {"success": True, "data": cached}
         data = await get_daily_heatmap(
             universe=universe,
             target_date=date_value,
-            symbols=_parse_symbols(symbols),
+            symbols=parsed,
             lookback_days=lookback_days,
         )
+        mem_set(cache_key, data)
         return {"success": True, "data": data}
     except Exception as exc:
         _raise_rotation_error(exc)
@@ -133,13 +153,19 @@ async def rotation_ranking(
     lookback_days: int = Query(default=400, ge=60, le=1100),
 ):
     try:
-        snapshot = await get_rotation_snapshot(
-            universe=universe,
-            freq=freq,
-            target_date=date_value,
-            symbols=_parse_symbols(symbols),
-            lookback_days=lookback_days,
-        )
+        parsed = _parse_symbols(symbols)
+        cache_key = f"rotation:ranking:{universe}:{freq}:{date_value}:{','.join(parsed)}:{lookback_days}"
+        cached = mem_get(cache_key)
+        if cached is None:
+            cached = await get_rotation_snapshot(
+                universe=universe,
+                freq=freq,
+                target_date=date_value,
+                symbols=parsed,
+                lookback_days=lookback_days,
+            )
+            mem_set(cache_key, cached)
+        snapshot = cached
         return {
             "success": True,
             "data": {

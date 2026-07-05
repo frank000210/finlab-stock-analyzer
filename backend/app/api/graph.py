@@ -13,6 +13,7 @@ from ..analysis.watch_graph import (
     get_watchlist_snapshot,
     get_watchlist_timeline,
 )
+from ..db.memcache import mem_clear, mem_get, mem_set
 
 router = APIRouter(prefix="/api/v1/graph/watchlist", tags=["watch-graph"])
 
@@ -52,6 +53,7 @@ async def build_graph(payload: BuildGraphRequest):
             beta=payload.beta,
             gamma=payload.gamma,
         )
+        mem_clear("graph:")  # 重建後舊的節點/邊快取全部失效
         return {
             "success": True,
             "data": {
@@ -74,12 +76,17 @@ async def graph_snapshot(
 ):
     try:
         parsed_symbols = _parse_symbols(symbols)
+        cache_key = f"graph:snapshot:{','.join(parsed_symbols)}:{date_value}:{edge_threshold}:{lookback_days}"
+        cached = mem_get(cache_key)
+        if cached is not None:
+            return {"success": True, "data": cached}
         snapshot = await get_watchlist_snapshot(
             symbols=parsed_symbols,
             target_date=date_value,
             edge_threshold=edge_threshold,
             lookback_days=lookback_days,
         )
+        mem_set(cache_key, snapshot)
         return {"success": True, "data": snapshot}
     except Exception as exc:
         _raise_graph_error(exc)
@@ -97,6 +104,10 @@ async def graph_timeline(
         parsed_symbols = _parse_symbols(symbols)
         end_date = end or date.today()
         start_date = start or (end_date - timedelta(days=30))
+        cache_key = f"graph:timeline:{','.join(parsed_symbols)}:{start_date}:{end_date}:{edge_threshold}:{lookback_days}"
+        cached = mem_get(cache_key)
+        if cached is not None:
+            return {"success": True, "data": cached}
         timeline = await get_watchlist_timeline(
             symbols=parsed_symbols,
             start_date=start_date,
@@ -104,6 +115,7 @@ async def graph_timeline(
             edge_threshold=edge_threshold,
             lookback_days=lookback_days,
         )
+        mem_set(cache_key, timeline)
         return {"success": True, "data": timeline}
     except Exception as exc:
         _raise_graph_error(exc)
@@ -116,7 +128,12 @@ async def graph_alerts(
 ):
     try:
         parsed_symbols = _parse_symbols(symbols)
+        cache_key = f"graph:alerts:{','.join(parsed_symbols)}:{edge_threshold}"
+        cached = mem_get(cache_key)
+        if cached is not None:
+            return {"success": True, "data": cached}
         alerts = await get_watchlist_alerts(parsed_symbols, edge_threshold=edge_threshold)
+        mem_set(cache_key, alerts)
         return {"success": True, "data": alerts}
     except Exception as exc:
         _raise_graph_error(exc)
