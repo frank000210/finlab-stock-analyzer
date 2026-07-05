@@ -22,6 +22,22 @@ function show(el) {
     el._revealIO.disconnect()
     el._revealIO = null
   }
+
+  // reveal-init 帶的 will-change: transform 只在動畫過程中需要；動畫結束後
+  // 沒清掉的話，will-change: transform 會跟真的加了 transform 一樣，幫這個
+  // 元素開一個新的 containing block，導致子層任何 position: fixed（例如全螢幕
+  // 彈窗）被錯誤地限制在這個元素的框內、無法真正鋪滿視窗。動畫結束後清除。
+  const clearWillChange = () => {
+    el.classList.remove('reveal-init')
+    el.style.willChange = ''
+    el.removeEventListener('transitionend', clearWillChange)
+    if (el._revealCleanupTimer) {
+      clearTimeout(el._revealCleanupTimer)
+      el._revealCleanupTimer = null
+    }
+  }
+  el.addEventListener('transitionend', clearWillChange)
+  el._revealCleanupTimer = setTimeout(clearWillChange, 1500)
 }
 
 export default {
@@ -48,5 +64,6 @@ export default {
   unmounted(el) {
     if (el._revealTimer) clearTimeout(el._revealTimer)
     if (el._revealIO) el._revealIO.disconnect()
+    if (el._revealCleanupTimer) clearTimeout(el._revealCleanupTimer)
   },
 }
