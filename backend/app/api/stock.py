@@ -29,7 +29,7 @@ async def search_stocks(q: str = Query(..., min_length=1)):
                 "symbol": row.get("stock_id", ""),
                 "name_zh": row.get("stock_name", ""),
                 "market": row.get("type", "TWSE"),
-                "industry": row.get("Industry_category", ""),
+                "industry": row.get("industry_category", row.get("Industry_category", "")),
             })
 
         return {"success": True, "data": {"items": items}}
@@ -57,7 +57,7 @@ async def get_stock_info(symbol: str):
                 "symbol": symbol,
                 "name_zh": row.get("stock_name", ""),
                 "market": row.get("type", "TWSE"),
-                "industry": row.get("Industry_category", ""),
+                "industry": row.get("industry_category", row.get("Industry_category", "")),
             },
         }
     except HTTPException:

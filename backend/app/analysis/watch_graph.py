@@ -177,7 +177,8 @@ async def ingest_watchlist_raw(
             if sid:
                 info_map[sid] = {
                     "name_zh": str(row.get("stock_name", "") or "").strip(),
-                    "industry": str(row.get("Industry_category", "") or "").strip(),
+                    # FinMind v4 回傳的欄位是小寫 industry_category；保留舊鍵作容錯
+                    "industry": str(row.get("industry_category", row.get("Industry_category", "")) or "").strip(),
                 }
 
     inserted_prices = 0
