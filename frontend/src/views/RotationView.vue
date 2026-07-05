@@ -806,14 +806,66 @@ function renderSankey() {
     (namesById.get(a) || a).localeCompare(namesById.get(b) || b, 'zh-Hant')
   )
   const index = new Map(ids.map((id, i) => [id, i]))
-  const links = edges
-    .filter((e) => index.get(e.src) !== index.get(e.dst))
-    .map((e) => ({ source: index.get(e.src), target: index.get(e.dst), value: Math.max(e.abs_weight, 0.001) }))
+
+  // d3-sankey 只吃 DAG，遇到循環邊會直接 throw「circular link」——而
+  // lead-lag 資料裡 A→B 與 B→A 互指非常常見，之前整張圖因此無聲空白。
+  // 先把同向重複邊加總、雙向邊淨額化（保留強的方向、值取差額），
+  // 再以權重由大到小貪婪保留不成環的邊，斷開更長的迴圈。
+  const agg = new Map()
+  edges.forEach((e) => {
+    const s = index.get(e.src)
+    const t = index.get(e.dst)
+    if (s == null || t == null || s === t) return
+    const key = `${s}->${t}`
+    agg.set(key, { source: s, target: t, value: (agg.get(key)?.value || 0) + Math.max(e.abs_weight, 0.001) })
+  })
+  const netted = []
+  const seenPair = new Set()
+  agg.forEach((l) => {
+    const pairKey = l.source < l.target ? `${l.source}|${l.target}` : `${l.target}|${l.source}`
+    if (seenPair.has(pairKey)) return
+    seenPair.add(pairKey)
+    const rev = agg.get(`${l.target}->${l.source}`)
+    if (!rev) {
+      netted.push(l)
+    } else if (l.value !== rev.value) {
+      const [win, lose] = l.value > rev.value ? [l, rev] : [rev, l]
+      netted.push({ source: win.source, target: win.target, value: win.value - lose.value })
+    }
+    // 兩方向剛好抵銷時整組略過
+  })
+  const adj = new Map()
+  const reaches = (from, to) => {
+    const stack = [from]
+    const visited = new Set()
+    while (stack.length) {
+      const cur = stack.pop()
+      if (cur === to) return true
+      if (visited.has(cur)) continue
+      visited.add(cur)
+      for (const next of adj.get(cur) || []) stack.push(next)
+    }
+    return false
+  }
+  const links = []
+  netted.sort((a, b) => b.value - a.value).forEach((l) => {
+    if (reaches(l.target, l.source)) return // 加入會成環，捨棄弱邊
+    links.push(l)
+    if (!adj.has(l.source)) adj.set(l.source, [])
+    adj.get(l.source).push(l.target)
+  })
 
   if (!ids.length || !links.length) {
     host.innerHTML = '<p class="chart-empty">尚無足夠的領先/落後關聯可繪製。</p>'
     return
   }
+
+  // 淨額化/斷環後可能留下沒有任何邊的節點，d3-sankey 會給它們 NaN 高度，
+  // 只保留有邊的節點並重排索引。
+  const usedIdx = new Set(links.flatMap((l) => [l.source, l.target]))
+  const usedIds = ids.filter((_, i) => usedIdx.has(i))
+  const remap = new Map(usedIds.map((id, i) => [index.get(id), i]))
+  const finalLinks = links.map((l) => ({ source: remap.get(l.source), target: remap.get(l.target), value: l.value }))
 
   const width = Math.max(host.clientWidth || 700, 320)
   const height = Math.max(360, Math.min(560, width * 0.55))
@@ -823,10 +875,16 @@ function renderSankey() {
     .nodeWidth(14)
     .nodePadding(12)
     .extent([[1, 8], [width - 1, height - 8]])
-  const graph = gen({
-    nodes: ids.map((id) => ({ id, name: namesById.get(id) || id })),
-    links: links.map((l) => ({ ...l })),
-  })
+  let graph
+  try {
+    graph = gen({
+      nodes: usedIds.map((id) => ({ id, name: namesById.get(id) || id })),
+      links: finalLinks,
+    })
+  } catch (err) {
+    host.innerHTML = '<p class="chart-empty">目前的關聯結構無法以 Sankey 呈現（含循環），請改看上方 Chord 圖。</p>'
+    return
+  }
 
   const svg = d3.select(host).append('svg').attr('width', width).attr('height', height)
 
@@ -1084,7 +1142,7 @@ function renderLeadGraph() {
   // arrowhead up to 5x its intended size. userSpaceOnUse decouples the
   // marker from the line's stroke width, and updateArrowScale() then keeps
   // its on-screen size roughly constant as the user zooms the graph.
-  const ARROW_BASE = 7
+  const ARROW_BASE = 14
   const ARROW_REFX = 17
   const defs = svg.append('defs')
   const arrowMarkers = [
