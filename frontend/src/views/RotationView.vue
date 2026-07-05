@@ -201,7 +201,17 @@
       </div>
       <div ref="chordHost" class="chart-host chord-host"></div>
       <p class="chart-caption">
-        參考：D3 gallery - Chord diagram；沿用領先/落後圖的方向性邊資料，弧段顏色＝來源類股，帶狀寬度＝領先強度（|相關係數|），可觀察資金／動能由哪些類股領先擴散到哪些類股。
+        參考：D3 gallery - Chord diagram；沿用領先/落後圖的方向性邊資料，弧段顏色＝來源類股，帶狀寬度＝領先強度（|相關係數|），可觀察資金／動能由哪些類股領先擴散到哪些類股。滑鼠移到弧段或帶狀上可聚焦、淡出其餘無關聯的部分。
+      </p>
+    </section>
+
+    <section class="card sankey-section" v-reveal>
+      <div class="chart-card-head">
+        <h3>類股資金流向（Sankey）</h3>
+      </div>
+      <div ref="sankeyHost" class="chart-host sankey-host"></div>
+      <p class="chart-caption">
+        參考：D3 gallery - Sankey diagram；資料與上方 Chord diagram 相同（領先/落後方向性邊），改以線性流向呈現同一份資料，方便對照來源類股往哪些目標類股擴散的相對比重。
       </p>
     </section>
   </div>
@@ -211,6 +221,7 @@
 import PageFocusBanner from '../components/PageFocusBanner.vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import * as d3 from 'd3'
+import { sankey as d3Sankey, sankeyLinkHorizontal } from 'd3-sankey'
 import { useChartTheme } from '../composables/useChartTheme'
 
 const theme = useChartTheme()
@@ -241,6 +252,7 @@ const rrgHost = ref(null)
 const leadHost = ref(null)
 const horizonHost = ref(null)
 const chordHost = ref(null)
+const sankeyHost = ref(null)
 
 const fullscreenTarget = ref(null) // null | 'rrg' | 'lead'
 
@@ -313,6 +325,7 @@ watch(hiddenSectors, () => {
     renderLeadGraph()
     renderHorizon()
     renderChord()
+    renderSankey()
   })
 }, { deep: true })
 
@@ -326,6 +339,7 @@ watch([snapshot], () => {
     renderRRG()
     renderLeadGraph()
     renderChord()
+    renderSankey()
   })
 })
 
@@ -339,11 +353,13 @@ onMounted(async () => {
       renderLeadGraph()
       renderHorizon()
       renderChord()
+      renderSankey()
     })
     if (rrgHost.value) resizeObserver.observe(rrgHost.value)
     if (leadHost.value) resizeObserver.observe(leadHost.value)
     if (horizonHost.value) resizeObserver.observe(horizonHost.value)
     if (chordHost.value) resizeObserver.observe(chordHost.value)
+    if (sankeyHost.value) resizeObserver.observe(sankeyHost.value)
   }
   window.addEventListener('keydown', handleKeydown)
 })
@@ -687,12 +703,15 @@ function renderChord() {
   const width = Math.max(host.clientWidth || 700, 320)
   const height = Math.max(420, Math.min(640, width * 0.7))
   const outerRadius = Math.min(width, height) * 0.5 - 60
-  const innerRadius = outerRadius - 14
+  const innerRadius = outerRadius - 20
 
   const color = d3.scaleOrdinal(d3.schemeTableau10 || d3.schemeCategory10).domain(ids)
+  // padAngle widened from the original 0.04 and the arc band thickened
+  // (14 -> 20px) per design density-pass: with 15-20+ sectors the ribbons
+  // used to fuse into an unreadable ring at the old thinner/tighter settings.
   const chord = d3
     .chord()
-    .padAngle(0.04)
+    .padAngle(0.06)
     .sortSubgroups(d3.descending)(matrix)
 
   const arc = d3.arc().innerRadius(innerRadius).outerRadius(outerRadius)
@@ -706,7 +725,25 @@ function renderChord() {
     .append('g')
     .attr('transform', `translate(${width / 2},${height / 2})`)
 
-  svg
+  const ribbonSel = svg
+    .append('g')
+    .attr('fill-opacity', 0.75)
+    .selectAll('path')
+    .data(chord)
+    .join('path')
+    .attr('d', ribbon)
+    .attr('fill', (d) => color(ids[d.source.index]))
+    .attr('stroke', 'var(--bg-primary)')
+    .style('cursor', 'pointer')
+    .append('title')
+    .text((d) => {
+      const srcName = namesById.get(ids[d.source.index]) || ids[d.source.index]
+      const dstName = namesById.get(ids[d.target.index]) || ids[d.target.index]
+      return `${srcName} → ${dstName}：強度 ${matrix[d.source.index][d.target.index].toFixed(2)}`
+    })
+    .select(function () { return this.parentNode })
+
+  const groupSel = svg
     .append('g')
     .selectAll('path')
     .data(chord.groups)
@@ -714,8 +751,10 @@ function renderChord() {
     .attr('d', arc)
     .attr('fill', (d) => color(ids[d.index]))
     .attr('stroke', 'var(--bg-primary)')
+    .style('cursor', 'pointer')
     .append('title')
     .text((d) => namesById.get(ids[d.index]) || ids[d.index])
+    .select(function () { return this.parentNode })
 
   svg
     .append('g')
@@ -733,21 +772,116 @@ function renderChord() {
     .attr('fill', 'var(--text-muted)')
     .text((d) => namesById.get(ids[d.index]) || ids[d.index])
 
-  svg
+  // Hover focus: dim every ribbon/group not touching the hovered sector so
+  // dense charts (15-20+ sectors) stay legible instead of a solid ring.
+  function focusGroup(groupIndex) {
+    ribbonSel.attr('fill-opacity', (d) =>
+      d.source.index === groupIndex || d.target.index === groupIndex ? 0.85 : 0.06
+    )
+    groupSel.attr('opacity', (d) => (d.index === groupIndex ? 1 : 0.35))
+  }
+  function clearFocus() {
+    ribbonSel.attr('fill-opacity', 0.75)
+    groupSel.attr('opacity', 1)
+  }
+  groupSel.on('mouseenter', (event, d) => focusGroup(d.index)).on('mouseleave', clearFocus)
+  ribbonSel
+    .on('mouseenter', (event, d) => focusGroup(d.source.index))
+    .on('mouseleave', clearFocus)
+}
+
+function renderSankey() {
+  const host = sankeyHost.value
+  if (!host) return
+  host.innerHTML = ''
+
+  // Same directed lead-lag edges as the Chord diagram above -- this is a
+  // second layout of the identical data, not a separate data source.
+  const edges = leadEdges.value.filter((e) => {
+    if (universe.value !== 'twse' || hiddenSectors.value.size === 0) return true
+    return !hiddenSectors.value.has(e.src) && !hiddenSectors.value.has(e.dst)
+  })
+  const namesById = new Map(points.value.map((p) => [p.id, p.name]))
+  const ids = Array.from(new Set(edges.flatMap((e) => [e.src, e.dst]))).sort((a, b) =>
+    (namesById.get(a) || a).localeCompare(namesById.get(b) || b, 'zh-Hant')
+  )
+  const index = new Map(ids.map((id, i) => [id, i]))
+  const links = edges
+    .filter((e) => index.get(e.src) !== index.get(e.dst))
+    .map((e) => ({ source: index.get(e.src), target: index.get(e.dst), value: Math.max(e.abs_weight, 0.001) }))
+
+  if (!ids.length || !links.length) {
+    host.innerHTML = '<p class="chart-empty">尚無足夠的領先/落後關聯可繪製。</p>'
+    return
+  }
+
+  const width = Math.max(host.clientWidth || 700, 320)
+  const height = Math.max(360, Math.min(560, width * 0.55))
+  const color = d3.scaleOrdinal(d3.schemeTableau10 || d3.schemeCategory10).domain(ids)
+
+  const gen = d3Sankey()
+    .nodeWidth(14)
+    .nodePadding(12)
+    .extent([[1, 8], [width - 1, height - 8]])
+  const graph = gen({
+    nodes: ids.map((id) => ({ id, name: namesById.get(id) || id })),
+    links: links.map((l) => ({ ...l })),
+  })
+
+  const svg = d3.select(host).append('svg').attr('width', width).attr('height', height)
+
+  const linkSel = svg
     .append('g')
-    .attr('fill-opacity', 0.75)
+    .attr('fill', 'none')
     .selectAll('path')
-    .data(chord)
+    .data(graph.links)
     .join('path')
-    .attr('d', ribbon)
-    .attr('fill', (d) => color(ids[d.source.index]))
-    .attr('stroke', 'var(--bg-primary)')
+    .attr('d', sankeyLinkHorizontal())
+    .attr('stroke', (d) => color(d.source.id))
+    .attr('stroke-opacity', 0.45)
+    .attr('stroke-width', (d) => Math.max(1, d.width))
+    .style('cursor', 'pointer')
     .append('title')
-    .text((d) => {
-      const srcName = namesById.get(ids[d.source.index]) || ids[d.source.index]
-      const dstName = namesById.get(ids[d.target.index]) || ids[d.target.index]
-      return `${srcName} → ${dstName}：強度 ${matrix[d.source.index][d.target.index].toFixed(2)}`
-    })
+    .text((d) => `${d.source.name} → ${d.target.name}：強度 ${d.value.toFixed(2)}`)
+    .select(function () { return this.parentNode })
+
+  const nodeGroup = svg
+    .append('g')
+    .selectAll('g')
+    .data(graph.nodes)
+    .join('g')
+
+  nodeGroup
+    .append('rect')
+    .attr('x', (d) => d.x0)
+    .attr('y', (d) => d.y0)
+    .attr('width', (d) => d.x1 - d.x0)
+    .attr('height', (d) => Math.max(1, d.y1 - d.y0))
+    .attr('fill', (d) => color(d.id))
+    .style('cursor', 'pointer')
+    .append('title')
+    .text((d) => d.name)
+
+  nodeGroup
+    .append('text')
+    .attr('x', (d) => (d.x0 < width / 2 ? d.x1 + 6 : d.x0 - 6))
+    .attr('y', (d) => (d.y0 + d.y1) / 2)
+    .attr('dy', '0.32em')
+    .attr('text-anchor', (d) => (d.x0 < width / 2 ? 'start' : 'end'))
+    .attr('font-size', 10)
+    .attr('fill', theme.textSoft)
+    .text((d) => d.name)
+
+  // Hover focus, mirroring the Chord diagram's interaction so the two
+  // views feel like the same instrument viewed two ways.
+  function focusNode(nodeId) {
+    linkSel.attr('stroke-opacity', (d) => (d.source.id === nodeId || d.target.id === nodeId ? 0.75 : 0.05))
+  }
+  function clearFocus() {
+    linkSel.attr('stroke-opacity', 0.45)
+  }
+  nodeGroup.on('mouseenter', (event, d) => focusNode(d.id)).on('mouseleave', clearFocus)
+  linkSel.on('mouseenter', (event, d) => focusNode(d.source.id)).on('mouseleave', clearFocus)
 }
 
 function renderRRG() {
@@ -1371,6 +1505,16 @@ function offsetISO(days) {
   min-height: 320px;
   display: flex;
   justify-content: center;
+}
+
+.sankey-section {
+  display: flex;
+  flex-direction: column;
+}
+
+.sankey-host {
+  height: auto;
+  min-height: 320px;
 }
 
 .chart-caption {
