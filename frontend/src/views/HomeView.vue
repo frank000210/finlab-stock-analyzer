@@ -58,7 +58,7 @@
           class="feature-card"
           :class="{ 'is-featured': feature.featured }"
         >
-          <div class="feature-icon">{{ feature.icon }}</div>
+          <div class="feature-icon" :class="`icon-tone-${feature.tone}`">{{ feature.icon }}</div>
           <h3>{{ feature.title }}</h3>
           <p>{{ feature.description }}</p>
           <ul v-if="feature.points" class="feature-points">
@@ -173,32 +173,38 @@ const featureCards = [
     title: 'AI 決策信號',
     description: '整合技術、基本、籌碼三大維度加權評分，即時生成 BUY / HOLD / SELL 建議與信心度。',
     featured: true,
+    tone: 'blue',
     points: ['三維加權綜合評分', '即時買賣建議與信心度', '逐檔主力成本 × 籌碼健診徽章']
   },
   {
     icon: '📈',
     title: '技術指標分析',
-    description: 'K線、MA、RSI、MACD 完整技術圖表'
+    description: 'K線、MA、RSI、MACD 完整技術圖表',
+    tone: 'cyan',
   },
   {
     icon: '🧪',
     title: '策略回測',
-    description: '四大策略歷史驗證，績效一目了然'
+    description: '四大策略歷史驗證，績效一目了然',
+    tone: 'purple',
   },
   {
     icon: '🛡️',
     title: '風控監控',
-    description: 'MDD 追蹤、斷路器保護'
+    description: 'MDD 追蹤、斷路器保護',
+    tone: 'warn',
   },
   {
     icon: '📰',
     title: '新聞可信度',
-    description: 'AI 五層新聞分析，辨別市場噪音'
+    description: 'AI 五層新聞分析，辨別市場噪音',
+    tone: 'up',
   },
   {
     icon: '⚡',
     title: '即時數據',
-    description: '台股價格、法人進出、月營收追蹤'
+    description: '台股價格、法人進出、月營收追蹤',
+    tone: 'blue',
   }
 ]
 
@@ -687,6 +693,13 @@ onBeforeUnmount(() => {
   background: rgba(59, 130, 246, 0.12);
   font-size: 1.4rem;
 }
+
+/* 色塊圖示:每張特色卡用不同色調的光暈邊框做視覺分群，取代原本統一藍色 */
+.icon-tone-blue { background: rgba(59, 130, 246, 0.14); box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.3); }
+.icon-tone-cyan { background: rgba(6, 182, 212, 0.14); box-shadow: inset 0 0 0 1px rgba(6, 182, 212, 0.3); }
+.icon-tone-purple { background: rgba(139, 92, 246, 0.14); box-shadow: inset 0 0 0 1px rgba(139, 92, 246, 0.3); }
+.icon-tone-warn { background: var(--warn-soft); box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.3); }
+.icon-tone-up { background: var(--up-soft); box-shadow: inset 0 0 0 1px rgba(16, 185, 129, 0.3); }
 
 .feature-card h3 {
   margin: 0;
