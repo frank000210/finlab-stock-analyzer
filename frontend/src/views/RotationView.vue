@@ -194,6 +194,16 @@
         參考：D3 gallery - Horizon chart；用顏色分層壓縮呈現，一次比較所有顯示中類股的相對強弱走勢（RS-Ratio，100＝與大盤同步）。
       </p>
     </section>
+
+    <section class="card chord-section" v-reveal>
+      <div class="chart-card-head">
+        <h3>類股資金流向（Chord Diagram）</h3>
+      </div>
+      <div ref="chordHost" class="chart-host chord-host"></div>
+      <p class="chart-caption">
+        參考：D3 gallery - Chord diagram；沿用領先/落後圖的方向性邊資料，弧段顏色＝來源類股，帶狀寬度＝領先強度（|相關係數|），可觀察資金／動能由哪些類股領先擴散到哪些類股。
+      </p>
+    </section>
   </div>
 </template>
 
@@ -228,6 +238,7 @@ const playIntervalMs = ref(700)
 const rrgHost = ref(null)
 const leadHost = ref(null)
 const horizonHost = ref(null)
+const chordHost = ref(null)
 
 const fullscreenTarget = ref(null) // null | 'rrg' | 'lead'
 
@@ -299,6 +310,7 @@ watch(hiddenSectors, () => {
     renderRRG()
     renderLeadGraph()
     renderHorizon()
+    renderChord()
   })
 }, { deep: true })
 
@@ -311,6 +323,7 @@ watch([snapshot], () => {
   nextTick(() => {
     renderRRG()
     renderLeadGraph()
+    renderChord()
   })
 })
 
@@ -323,10 +336,12 @@ onMounted(async () => {
       renderRRG()
       renderLeadGraph()
       renderHorizon()
+      renderChord()
     })
     if (rrgHost.value) resizeObserver.observe(rrgHost.value)
     if (leadHost.value) resizeObserver.observe(leadHost.value)
     if (horizonHost.value) resizeObserver.observe(horizonHost.value)
+    if (chordHost.value) resizeObserver.observe(chordHost.value)
   }
   window.addEventListener('keydown', handleKeydown)
 })
@@ -635,6 +650,102 @@ function renderHorizon() {
         .tickValues(dates.filter((_, i) => i % Math.ceil(dates.length / 6 || 1) === 0))
     )
     .attr('class', 'axis')
+}
+
+function renderChord() {
+  const host = chordHost.value
+  if (!host) return
+  host.innerHTML = ''
+
+  // Reuse the same directed lead-lag edges as the force graph, honoring the
+  // sector picker so the two views always describe the same visible set.
+  const edges = leadEdges.value.filter((e) => {
+    if (universe.value !== 'twse' || hiddenSectors.value.size === 0) return true
+    return !hiddenSectors.value.has(e.src) && !hiddenSectors.value.has(e.dst)
+  })
+  if (!edges.length) {
+    host.innerHTML = '<p class="chart-empty">尚無足夠的領先/落後關聯可繪製。</p>'
+    return
+  }
+
+  const namesById = new Map(points.value.map((p) => [p.id, p.name]))
+  const ids = Array.from(new Set(edges.flatMap((e) => [e.src, e.dst]))).sort((a, b) =>
+    (namesById.get(a) || a).localeCompare(namesById.get(b) || b, 'zh-Hant')
+  )
+  const index = new Map(ids.map((id, i) => [id, i]))
+  const n = ids.length
+  const matrix = Array.from({ length: n }, () => new Array(n).fill(0))
+  edges.forEach((e) => {
+    const i = index.get(e.src)
+    const j = index.get(e.dst)
+    if (i == null || j == null || i === j) return
+    matrix[i][j] += e.abs_weight
+  })
+
+  const width = Math.max(host.clientWidth || 700, 320)
+  const height = Math.max(420, Math.min(640, width * 0.7))
+  const outerRadius = Math.min(width, height) * 0.5 - 60
+  const innerRadius = outerRadius - 14
+
+  const color = d3.scaleOrdinal(d3.schemeTableau10 || d3.schemeCategory10).domain(ids)
+  const chord = d3
+    .chord()
+    .padAngle(0.04)
+    .sortSubgroups(d3.descending)(matrix)
+
+  const arc = d3.arc().innerRadius(innerRadius).outerRadius(outerRadius)
+  const ribbon = d3.ribbon().radius(innerRadius)
+
+  const svg = d3
+    .select(host)
+    .append('svg')
+    .attr('width', width)
+    .attr('height', height)
+    .append('g')
+    .attr('transform', `translate(${width / 2},${height / 2})`)
+
+  svg
+    .append('g')
+    .selectAll('path')
+    .data(chord.groups)
+    .join('path')
+    .attr('d', arc)
+    .attr('fill', (d) => color(ids[d.index]))
+    .attr('stroke', 'var(--bg-primary)')
+    .append('title')
+    .text((d) => namesById.get(ids[d.index]) || ids[d.index])
+
+  svg
+    .append('g')
+    .selectAll('text')
+    .data(chord.groups)
+    .join('text')
+    .attr('transform', (d) => {
+      const mid = (d.startAngle + d.endAngle) / 2
+      const rot = (mid * 180) / Math.PI - 90
+      const flip = mid > Math.PI ? 180 : 0
+      return `rotate(${rot}) translate(${outerRadius + 8},0) rotate(${flip})`
+    })
+    .attr('text-anchor', (d) => ((d.startAngle + d.endAngle) / 2 > Math.PI ? 'end' : 'start'))
+    .attr('font-size', 10)
+    .attr('fill', 'var(--text-muted)')
+    .text((d) => namesById.get(ids[d.index]) || ids[d.index])
+
+  svg
+    .append('g')
+    .attr('fill-opacity', 0.75)
+    .selectAll('path')
+    .data(chord)
+    .join('path')
+    .attr('d', ribbon)
+    .attr('fill', (d) => color(ids[d.source.index]))
+    .attr('stroke', 'var(--bg-primary)')
+    .append('title')
+    .text((d) => {
+      const srcName = namesById.get(ids[d.source.index]) || ids[d.source.index]
+      const dstName = namesById.get(ids[d.target.index]) || ids[d.target.index]
+      return `${srcName} → ${dstName}：強度 ${matrix[d.source.index][d.target.index].toFixed(2)}`
+    })
 }
 
 function renderRRG() {
@@ -1246,6 +1357,18 @@ function offsetISO(days) {
 .horizon-host :deep(.axis path),
 .horizon-host :deep(.axis line) {
   stroke: var(--border-color);
+}
+
+.chord-section {
+  display: flex;
+  flex-direction: column;
+}
+
+.chord-host {
+  height: auto;
+  min-height: 320px;
+  display: flex;
+  justify-content: center;
 }
 
 .chart-caption {
