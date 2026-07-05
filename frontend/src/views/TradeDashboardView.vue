@@ -582,20 +582,32 @@ function statusClass(status) {
   border-radius: 999px;
   font-size: 0.78rem;
   font-weight: 700;
-  color: #fff;
 }
 
-.badge-buy,
+.badge-buy {
+  background: var(--up-soft);
+  color: var(--color-up);
+}
+
+.badge-sell {
+  background: var(--down-soft);
+  color: var(--color-down);
+}
+
+.badge-hold {
+  background: var(--warn-soft);
+  color: var(--color-warning);
+}
+
+/* 進度條本身維持實心填色，跟徽章的淡色調分開處理 */
 .progress-fill.badge-buy {
   background: var(--color-up);
 }
 
-.badge-sell,
 .progress-fill.badge-sell {
   background: var(--color-down);
 }
 
-.badge-hold,
 .progress-fill.badge-hold {
   background: var(--color-warning);
 }

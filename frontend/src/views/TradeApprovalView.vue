@@ -260,11 +260,21 @@ function statusClass(status) {
 }
 
 .approve-btn {
+  background: var(--up-soft);
+  color: var(--color-up);
+}
+
+.approve-btn:hover:not(:disabled) {
   background: var(--color-up);
   color: white;
 }
 
 .reject-btn {
+  background: var(--down-soft);
+  color: var(--color-down);
+}
+
+.reject-btn:hover:not(:disabled) {
   background: var(--color-down);
   color: white;
 }

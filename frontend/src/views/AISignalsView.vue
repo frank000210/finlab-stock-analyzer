@@ -368,22 +368,17 @@ function badgeClass(type) {
   border-radius: inherit;
 }
 
-.progress-fill.badge-buy,
-.badge-buy {
+/* 只有進度條實心填色，訊號徽章本身沿用 main.css 全站統一的淡色調樣式 */
+.progress-fill.badge-buy {
   background: var(--color-up);
-  color: #fff;
 }
 
-.progress-fill.badge-sell,
-.badge-sell {
+.progress-fill.badge-sell {
   background: var(--color-down);
-  color: #fff;
 }
 
-.progress-fill.badge-hold,
-.badge-hold {
+.progress-fill.badge-hold {
   background: var(--color-warning);
-  color: #fff;
 }
 
 .progress-fill.alpha {

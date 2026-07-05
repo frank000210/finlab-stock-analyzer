@@ -300,7 +300,6 @@ function formatTime(value) {
 .sentiment {
   padding: 5px 10px;
   border-radius: 999px;
-  color: #fff;
   font-size: 0.78rem;
   font-weight: 700;
 }
@@ -356,15 +355,18 @@ function formatTime(value) {
 }
 
 .bullish {
-  background: var(--color-up);
+  background: var(--up-soft);
+  color: var(--color-up);
 }
 
 .bearish {
-  background: var(--color-down);
+  background: var(--down-soft);
+  color: var(--color-down);
 }
 
 .neutral {
-  background: var(--color-warning);
+  background: var(--warn-soft);
+  color: var(--color-warning);
 }
 
 @media (max-width: 980px) {

@@ -401,23 +401,26 @@ function statusClass(status) {
   padding: 6px 12px;
   border-radius: 999px;
   font-weight: 700;
-  color: #fff;
 }
 
 .is-active {
-  background: var(--color-up);
+  background: var(--up-soft);
+  color: var(--color-up);
 }
 
 .is-warning {
-  background: var(--color-warning);
+  background: var(--warn-soft);
+  color: var(--color-warning);
 }
 
 .is-paused {
-  background: var(--color-down);
+  background: var(--down-soft);
+  color: var(--color-down);
 }
 
 .is-neutral {
-  background: #64748b;
+  background: rgba(100, 116, 139, 0.15);
+  color: #94a3b8;
 }
 
 .trade-counter {
