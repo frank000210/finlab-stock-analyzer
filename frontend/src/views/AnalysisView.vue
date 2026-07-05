@@ -131,6 +131,16 @@
       </article>
     </section>
 
+    <section class="card calendar-section">
+      <div class="section-head compact">
+        <div>
+          <h2>每日漲跌日曆熱力圖</h2>
+        </div>
+      </div>
+      <div ref="calendarEl" class="chart-host calendar-host"></div>
+      <p class="chart-caption">參考：D3 gallery - Calendar；每格為一個交易日，顏色深淺＝當日漲跌幅。</p>
+    </section>
+
     <section class="metrics-grid">
       <article v-for="metric in keyMetrics" :key="metric.label" class="card metric-tile">
         <div class="metric-label">{{ metric.label }}</div>
@@ -272,6 +282,9 @@ import PageFocusBanner from '../components/PageFocusBanner.vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { createChart } from 'lightweight-charts'
+import * as d3 from 'd3'
+
+const calendarEl = ref(null)
 
 const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:8000' : ''
 
@@ -607,6 +620,7 @@ async function loadAnalysis() {
 
   await nextTick()
   renderCharts()
+  renderCalendar()
   loading.value = false
   loadMajorCost(sym, token)
   loadChipScore(sym, token)
@@ -1007,6 +1021,82 @@ function destroyCharts() {
 function handleResize() {
   if (!mergedSeries.value.length) return
   renderCharts()
+  renderCalendar()
+}
+
+function renderCalendar() {
+  const host = calendarEl.value
+  if (!host) return
+  host.innerHTML = ''
+  const rows = priceItems.value
+  if (rows.length < 2) return
+
+  // Daily % change per trading day.
+  const daily = []
+  for (let i = 1; i < rows.length; i++) {
+    const prev = rows[i - 1].close
+    const cur = rows[i].close
+    if (prev > 0) daily.push({ date: new Date(rows[i].date), pct: ((cur - prev) / prev) * 100 })
+  }
+  if (!daily.length) return
+
+  const byYear = d3.group(daily, (d) => d.date.getFullYear())
+  const years = Array.from(byYear.keys()).sort()
+
+  const cellSize = 13
+  const cellGap = 2
+  const weekWidth = 53 * (cellSize + cellGap)
+  const yearHeight = 7 * (cellSize + cellGap) + 20
+  const width = Math.max(host.clientWidth || 900, weekWidth + 40)
+  const height = yearHeight * years.length + 10
+
+  const maxAbs = d3.max(daily, (d) => Math.abs(d.pct)) || 1
+  const color = (pct) => {
+    const t = Math.min(1, Math.abs(pct) / maxAbs)
+    return pct >= 0
+      ? d3.interpolateRgb('rgba(34,197,94,0.15)', 'rgba(34,197,94,0.95)')(t)
+      : d3.interpolateRgb('rgba(239,68,68,0.15)', 'rgba(239,68,68,0.95)')(t)
+  }
+
+  const svg = d3.select(host).append('svg').attr('width', width).attr('height', height)
+
+  years.forEach((year, yi) => {
+    const yearData = byYear.get(year)
+    const byDate = new Map(yearData.map((d) => [d3.timeFormat('%Y-%m-%d')(d.date), d.pct]))
+    const yOffset = yi * yearHeight
+
+    const g = svg.append('g').attr('transform', `translate(20,${yOffset + 16})`)
+    g.append('text')
+      .attr('x', -10)
+      .attr('y', -4)
+      .attr('fill', 'var(--text-muted)')
+      .attr('font-size', 11)
+      .attr('font-weight', 700)
+      .text(year)
+
+    const yearStart = new Date(year, 0, 1)
+    const yearEnd = new Date(year, 11, 31)
+    const allDays = d3.timeDays(yearStart, d3.timeDay.offset(yearEnd, 1))
+
+    g.selectAll('rect')
+      .data(allDays)
+      .join('rect')
+      .attr('width', cellSize)
+      .attr('height', cellSize)
+      .attr('rx', 2)
+      .attr('x', (d) => d3.timeWeek.count(d3.timeYear(d), d) * (cellSize + cellGap))
+      .attr('y', (d) => d.getDay() * (cellSize + cellGap))
+      .attr('fill', (d) => {
+        const pct = byDate.get(d3.timeFormat('%Y-%m-%d')(d))
+        return pct == null ? 'var(--bg-tertiary)' : color(pct)
+      })
+      .append('title')
+      .text((d) => {
+        const pct = byDate.get(d3.timeFormat('%Y-%m-%d')(d))
+        const label = d3.timeFormat('%Y-%m-%d')(d)
+        return pct == null ? `${label}：無交易` : `${label}：${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%`
+      })
+  })
 }
 
 function buildDateRange(rangeLabel) {
@@ -1494,6 +1584,10 @@ function valueTone(value) {
   color: #eff6ff;
   background: rgba(37, 99, 235, 0.22);
 }
+
+.calendar-section { overflow-x: auto; }
+.calendar-host { min-height: 120px; }
+.chart-caption { font-size: 0.72rem; color: var(--text-muted); margin-top: 6px; }
 
 .chart-stack {
   display: flex;
