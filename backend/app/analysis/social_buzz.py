@@ -94,6 +94,11 @@ async def analyze_social_buzz(symbol: str, stock_name: str = "") -> dict:
     except Exception:
         volume_result = {"attention_score": 50, "volume_surge": False, "volume_ratio": 1.0, "vol_increasing": False, "avg_volume_20d": 0, "avg_volume_5d": 0}
 
+    try:
+        factcheck_result = await _scrape_factcheck(search_terms)
+    except Exception:
+        factcheck_result = {"check_count": 0, "items": [], "source": "台灣事實查核中心", "source_url": "https://tfc-taiwan.org.tw/"}
+
     # Compute composite buzz score (0-100)
     ptt_score = min(100, ptt_result["post_count"] * 5)  # 20 posts = 100
     news_score = min(100, news_result["article_count"] * 10)  # 10 articles = 100
@@ -150,6 +155,7 @@ async def analyze_social_buzz(symbol: str, stock_name: str = "") -> dict:
         "sentiment_label": sentiment_label,
         "ptt": ptt_result,
         "news": news_result,
+        "fact_check": factcheck_result,
         "volume_attention": volume_result,
         "updated_at": str(date.today()),
     }
@@ -178,18 +184,19 @@ async def _scrape_ptt(search_terms: list[str]) -> dict:
                     continue
 
                 html = resp.text
-                # Extract post titles and metadata
-                title_pattern = r'<div class="title">\s*<a[^>]*>(.+?)</a>'
+                # Extract post titles, links and metadata
+                title_pattern = r'<div class="title">\s*<a href="([^"]+)"[^>]*>(.+?)</a>'
                 date_pattern = r'<div class="date">\s*(\d+/\d+)'
                 push_pattern = r'<span class="hl f\d">(\d+)</span>'
 
-                titles = re.findall(title_pattern, html)
+                matches = re.findall(title_pattern, html)
                 dates = re.findall(date_pattern, html)
                 pushes = re.findall(push_pattern, html)
 
-                for i, title in enumerate(titles[:20]):
+                for i, (href, title) in enumerate(matches[:20]):
                     post = {
                         "title": title.strip(),
+                        "url": f"https://www.ptt.cc{href}" if href.startswith("/") else href,
                         "date": dates[i] if i < len(dates) else "",
                         "push_count": int(pushes[i]) if i < len(pushes) else 0,
                     }
@@ -262,12 +269,14 @@ async def _scrape_news(search_terms: list[str]) -> dict:
                 items = re.findall(r"<item>(.*?)</item>", xml, re.DOTALL)
                 for item in items[:10]:
                     title_match = re.search(r"<title>(.*?)</title>", item)
+                    link_match = re.search(r"<link>(.*?)</link>", item)
                     pub_match = re.search(r"<pubDate>(.*?)</pubDate>", item)
                     source_match = re.search(r"<source[^>]*>(.*?)</source>", item)
 
                     if title_match:
                         articles.append({
                             "title": title_match.group(1).strip(),
+                            "url": link_match.group(1).strip() if link_match else "",
                             "published": pub_match.group(1).strip() if pub_match else "",
                             "source": source_match.group(1).strip() if source_match else "Google News",
                         })
@@ -297,6 +306,53 @@ async def _scrape_news(search_terms: list[str]) -> dict:
         "articles": unique_articles[:8],
         "trend": trend,
         "source": "Google News",
+    }
+
+
+async def _scrape_factcheck(search_terms: list[str]) -> dict:
+    """Query 台灣事實查核中心 (TFC) WordPress search RSS for related fact checks."""
+    items: list[dict] = []
+    # 純數字代號會在查核中心全文搜尋裡亂匹配（日期、金額等），只用中文股名查
+    name_terms = [t for t in search_terms if not t.isdigit()]
+    try:
+        async with httpx.AsyncClient(timeout=10, follow_redirects=True) as client:
+            for term in name_terms[:2]:
+                url = f"https://tfc-taiwan.org.tw/?s={term}&feed=rss2"
+                headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+                resp = await client.get(url, headers=headers)
+                if resp.status_code != 200:
+                    continue
+                xml = resp.text
+                for item in re.findall(r"<item>(.*?)</item>", xml, re.DOTALL)[:6]:
+                    title_match = re.search(r"<title>(.*?)</title>", item)
+                    link_match = re.search(r"<link>(.*?)</link>", item)
+                    pub_match = re.search(r"<pubDate>(.*?)</pubDate>", item)
+                    if not title_match or not link_match:
+                        continue
+                    title = title_match.group(1).strip()
+                    # 查核報告標題常見【錯誤】【部分錯誤】【事實釐清】等前綴,抽出當判定結果
+                    verdict_match = re.match(r"^[【\[]([^】\]]{1,6})[】\]]", title)
+                    items.append({
+                        "title": title,
+                        "url": link_match.group(1).strip(),
+                        "published": pub_match.group(1).strip() if pub_match else "",
+                        "verdict": verdict_match.group(1) if verdict_match else "相關文章",
+                    })
+    except Exception:
+        pass
+
+    seen: set[str] = set()
+    unique_items = []
+    for it in items:
+        if it["url"] not in seen:
+            seen.add(it["url"])
+            unique_items.append(it)
+
+    return {
+        "check_count": len(unique_items),
+        "items": unique_items[:6],
+        "source": "台灣事實查核中心",
+        "source_url": "https://tfc-taiwan.org.tw/",
     }
 
 

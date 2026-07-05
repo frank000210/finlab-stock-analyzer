@@ -90,11 +90,20 @@
           <span>看空: <strong class="negative">{{ data.ptt.bearish_count }}</strong></span>
         </div>
         <div class="posts-list" v-if="data.ptt.posts.length">
-          <div v-for="(p, i) in data.ptt.posts" :key="i" class="post-item">
+          <component
+            :is="p.url ? 'a' : 'div'"
+            v-for="(p, i) in data.ptt.posts"
+            :key="i"
+            class="post-item"
+            :href="p.url || undefined"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
             <span class="post-push" v-if="p.push_count">{{ p.push_count }}</span>
             <span class="post-title">{{ p.title }}</span>
             <span class="post-date">{{ p.date }}</span>
-          </div>
+            <span class="ext-link" v-if="p.url">↗</span>
+          </component>
         </div>
         <p v-else class="no-data">未搜尋到相關文章</p>
       </section>
@@ -106,12 +115,45 @@
           <span>新聞篇數: <strong>{{ data.news.article_count }}</strong></span>
         </div>
         <div class="news-list" v-if="data.news.articles.length">
-          <div v-for="(a, i) in data.news.articles" :key="i" class="news-item">
+          <component
+            :is="a.url ? 'a' : 'div'"
+            v-for="(a, i) in data.news.articles"
+            :key="i"
+            class="news-item"
+            :href="a.url || undefined"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
             <span class="news-title">{{ a.title }}</span>
             <span class="news-source">{{ a.source }}</span>
-          </div>
+            <span class="ext-link" v-if="a.url">↗</span>
+          </component>
         </div>
         <p v-else class="no-data">未搜尋到相關新聞</p>
+      </section>
+
+      <!-- Fact Check -->
+      <section class="card" v-if="data.fact_check">
+        <h2>🔍 事實查核（台灣事實查核中心）</h2>
+        <div class="source-meta">
+          <span>相關查核/文章: <strong>{{ data.fact_check.check_count }}</strong></span>
+          <a class="tfc-link" :href="data.fact_check.source_url" target="_blank" rel="noopener noreferrer">前往查核中心 ↗</a>
+        </div>
+        <div class="news-list" v-if="data.fact_check.items && data.fact_check.items.length">
+          <a
+            v-for="(f, i) in data.fact_check.items"
+            :key="i"
+            class="news-item"
+            :href="f.url"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <span class="fc-verdict" :class="verdictClass(f.verdict)">{{ f.verdict }}</span>
+            <span class="news-title">{{ f.title }}</span>
+            <span class="ext-link">↗</span>
+          </a>
+        </div>
+        <p v-else class="no-data">查核中心目前沒有與本股票相關的查核報告</p>
       </section>
     </div>
   </div>
@@ -167,6 +209,13 @@ function formatVol(v) {
   return v.toString()
 }
 
+function verdictClass(verdict) {
+  if (!verdict) return 'fc-neutral'
+  if (verdict.includes('錯誤')) return 'fc-false'
+  if (verdict.includes('釐清') || verdict.includes('正確')) return 'fc-clarify'
+  return 'fc-neutral'
+}
+
 onMounted(fetchData)
 </script>
 
@@ -210,7 +259,15 @@ onMounted(fetchData)
 .negative { color: var(--accent-red); }
 
 .posts-list, .news-list { display: flex; flex-direction: column; gap: 6px; }
-.post-item, .news-item { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: var(--bg-tertiary); border-radius: var(--radius-sm); font-size: 0.82rem; }
+.post-item, .news-item { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: var(--bg-tertiary); border-radius: var(--radius-sm); font-size: 0.82rem; color: var(--text-primary); text-decoration: none; }
+a.post-item:hover, a.news-item:hover { background: var(--bg-hover); }
+a.post-item:hover .post-title, a.news-item:hover .news-title { color: var(--accent-blue); }
+.ext-link { color: var(--text-muted); font-size: 0.75rem; flex-shrink: 0; }
+.tfc-link { color: var(--accent-cyan); text-decoration: none; font-size: 0.8rem; margin-left: auto; }
+.fc-verdict { flex-shrink: 0; padding: 2px 8px; border-radius: 10px; font-size: 0.7rem; font-weight: 700; }
+.fc-false { background: var(--down-soft); color: var(--color-down); }
+.fc-clarify { background: var(--up-soft); color: var(--color-up); }
+.fc-neutral { background: rgba(100, 116, 139, 0.15); color: var(--text-muted); }
 .post-push { background: var(--accent-blue); color: #fff; padding: 2px 8px; border-radius: 10px; font-size: 0.7rem; font-weight: 700; min-width: 28px; text-align: center; }
 .post-title, .news-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .post-date { font-size: 0.7rem; color: var(--text-muted); }
