@@ -1,5 +1,7 @@
 <template>
   <div class="major-page">
+    <PageFocusBanner text="追蹤主力與大戶籌碼的買賣動向，判斷聰明錢是否正在進場或出場。" />
+
     <header class="page-header">
       <div>
         <h1>🐋 主力動向分析</h1>
@@ -143,6 +145,7 @@
 </template>
 
 <script setup>
+import PageFocusBanner from '../components/PageFocusBanner.vue'
 import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useStockStore } from '../stores/stock.js'

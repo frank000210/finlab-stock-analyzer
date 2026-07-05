@@ -1,5 +1,7 @@
 <template>
   <div class="signals-page">
+    <PageFocusBanner text="檢視 AI 模型產出的進出場訊號與信心度，作為決策的量化參考。" />
+
     <div class="page-header">
       <div>
         <h1>AI 交易信號</h1>
@@ -93,6 +95,7 @@
 </template>
 
 <script setup>
+import PageFocusBanner from '../components/PageFocusBanner.vue'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:8000' : ''

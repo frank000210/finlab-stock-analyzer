@@ -1,5 +1,7 @@
 <template>
   <div class="public-data-page">
+    <PageFocusBanner text="檢視基本面數據，判斷目前股價相對獲利與成長性是便宜還是昂貴。" />
+
     <header class="page-header">
       <div>
         <h1>📋 公開資訊</h1>
@@ -57,6 +59,7 @@
 </template>
 
 <script setup>
+import PageFocusBanner from '../components/PageFocusBanner.vue'
 import { ref, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useStockStore } from '../stores/stock.js'

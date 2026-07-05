@@ -1,5 +1,7 @@
 <template>
   <div class="approval-page">
+    <PageFocusBanner text="審核待執行的交易指令，確保下單前有人工把關。" />
+
     <div class="page-header">
       <div>
         <h1>交易核准中心</h1>
@@ -63,6 +65,7 @@
 </template>
 
 <script setup>
+import PageFocusBanner from '../components/PageFocusBanner.vue'
 import { onMounted, ref, watch } from 'vue'
 
 const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:8000' : ''

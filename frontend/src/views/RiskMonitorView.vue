@@ -1,5 +1,7 @@
 <template>
   <div class="risk-page">
+    <PageFocusBanner text="監控帳戶與部位風險指標，及早發現超出容忍範圍的風險。" />
+
     <div class="page-header">
       <div>
         <h1>風控監控</h1>
@@ -79,6 +81,7 @@
 </template>
 
 <script setup>
+import PageFocusBanner from '../components/PageFocusBanner.vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { createChart } from 'lightweight-charts'
 

@@ -1,5 +1,7 @@
 <template>
   <div class="chip-page">
+    <PageFocusBanner text="檢視籌碼分布是否健康、有無異常集中，評估軋空或出貨風險。" />
+
     <header class="page-header">
       <div class="header-titles">
         <h1>籌碼分析</h1>
@@ -470,6 +472,7 @@
 </template>
 
 <script setup>
+import PageFocusBanner from '../components/PageFocusBanner.vue'
 import { ref, computed, watch, onMounted, nextTick, onBeforeUnmount } from 'vue'
 import { useRoute } from 'vue-router'
 import { createChart } from 'lightweight-charts'

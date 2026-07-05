@@ -1,5 +1,7 @@
 <template>
   <div class="trade-dashboard">
+    <PageFocusBanner text="總覽投資組合部位、AI 訊號與風控狀態，掌握帳戶整體現況。" />
+
     <div class="page-header">
       <div>
         <h1>交易儀表板</h1>
@@ -105,6 +107,7 @@
 </template>
 
 <script setup>
+import PageFocusBanner from '../components/PageFocusBanner.vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { createChart } from 'lightweight-charts'
 

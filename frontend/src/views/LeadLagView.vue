@@ -1,5 +1,7 @@
 <template>
   <div class="leadlag-page">
+    <PageFocusBanner text="找出哪些標的的走勢會領先預告這檔股票的變動，用來提前佈局。" />
+
     <header class="page-header">
       <div>
         <h1>⏱️ 領先/落後分析</h1>
@@ -92,6 +94,7 @@
 </template>
 
 <script setup>
+import PageFocusBanner from '../components/PageFocusBanner.vue'
 import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useStockStore } from '../stores/stock.js'

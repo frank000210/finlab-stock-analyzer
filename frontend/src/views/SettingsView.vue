@@ -1,5 +1,7 @@
 <template>
   <div class="settings-page">
+    <PageFocusBanner text="管理個人化設定與偏好，確保各分析頁面依需求呈現。" />
+
     <h2>⚙️ 設定</h2>
 
     <div class="card" style="margin-top: 24px;">
@@ -57,6 +59,7 @@
 </template>
 
 <script setup>
+import PageFocusBanner from '../components/PageFocusBanner.vue'
 import { ref } from 'vue'
 import axios from 'axios'
 

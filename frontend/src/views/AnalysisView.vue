@@ -1,5 +1,7 @@
 <template>
   <div class="analysis-view">
+    <PageFocusBanner text="檢視價格趨勢、動能與波動，判斷技術面是否支持進出場時機。" />
+
     <section class="hero-card card">
       <div class="hero-main">
         <div class="hero-copy">
@@ -266,6 +268,7 @@
 </template>
 
 <script setup>
+import PageFocusBanner from '../components/PageFocusBanner.vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { createChart } from 'lightweight-charts'

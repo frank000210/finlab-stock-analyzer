@@ -1,5 +1,7 @@
 <template>
   <div class="backtest-page">
+    <PageFocusBanner text="驗證交易策略的歷史績效與風險，評估是否值得實際採用。" />
+
     <aside class="config-panel card">
       <h3>📊 回測設定</h3>
       <div class="form-group">
@@ -132,6 +134,7 @@
 </template>
 
 <script setup>
+import PageFocusBanner from '../components/PageFocusBanner.vue'
 import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import axios from 'axios'

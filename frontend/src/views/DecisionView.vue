@@ -1,5 +1,7 @@
 <template>
   <div class="decision-dashboard">
+    <PageFocusBanner text="整合技術動能、AI 訊號與觀察清單，快速判斷今天最值得進出場的標的與時機。" />
+
     <header class="page-header">
       <div class="header-main">
         <div class="header-copy">
@@ -278,6 +280,7 @@
 </template>
 
 <script setup>
+import PageFocusBanner from '../components/PageFocusBanner.vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { createChart } from 'lightweight-charts'
 

@@ -1,5 +1,7 @@
 <template>
   <div class="data-agent-page">
+    <PageFocusBanner text="檢視資料擷取與整合流程的運作狀態，確保分析所需資料來源正常。" />
+
     <div class="page-header">
       <div>
         <h1>資料爬蟲與新聞檢查</h1>
@@ -91,6 +93,7 @@
 </template>
 
 <script setup>
+import PageFocusBanner from '../components/PageFocusBanner.vue'
 import { computed, onMounted, ref, watch } from 'vue'
 
 const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:8000' : ''

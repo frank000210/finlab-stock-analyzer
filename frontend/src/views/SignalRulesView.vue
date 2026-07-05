@@ -1,5 +1,7 @@
 <template>
   <div class="rules-page">
+    <PageFocusBanner text="管理訊號觸發規則與門檻，讓自動化提醒符合策略邏輯。" />
+
     <div class="page-header">
       <div>
         <h1>信號規則編輯器</h1>
@@ -108,6 +110,7 @@
 </template>
 
 <script setup>
+import PageFocusBanner from '../components/PageFocusBanner.vue'
 import { onMounted, ref } from 'vue'
 
 const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:8000' : ''

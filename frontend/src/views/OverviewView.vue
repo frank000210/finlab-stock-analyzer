@@ -1,5 +1,7 @@
 <template>
   <div class="overview-page">
+    <PageFocusBanner text="一眼掌握個股在技術、籌碼、基本面、情緒等維度的綜合健康度，作為深入分析前的第一站。" />
+
     <header class="page-header">
       <div>
         <h1>📊 個股總覽儀表板</h1>
@@ -134,6 +136,7 @@
 </template>
 
 <script setup>
+import PageFocusBanner from '../components/PageFocusBanner.vue'
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useStockStore } from '../stores/stock.js'

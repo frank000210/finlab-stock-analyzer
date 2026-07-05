@@ -1,5 +1,7 @@
 <template>
   <div class="rotation-page">
+    <PageFocusBanner text="觀察資金在各類股之間的輪動方向，找出目前領漲與即將接棒的類股。" />
+
     <section class="section-block rotation-hero" v-reveal>
       <div>
         <h1>類股輪動觀察（Sector Rotation）</h1>
@@ -186,6 +188,7 @@
 </template>
 
 <script setup>
+import PageFocusBanner from '../components/PageFocusBanner.vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import * as d3 from 'd3'
 

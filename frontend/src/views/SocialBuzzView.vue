@@ -1,5 +1,7 @@
 <template>
   <div class="buzz-page">
+    <PageFocusBanner text="觀察社群與新聞討論熱度及情緒，判斷市場是否過度樂觀或悲觀。" />
+
     <header class="page-header">
       <div>
         <h1>🔥 社群熱度分析</h1>
@@ -116,6 +118,7 @@
 </template>
 
 <script setup>
+import PageFocusBanner from '../components/PageFocusBanner.vue'
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useStockStore } from '../stores/stock.js'

@@ -1,5 +1,7 @@
 <template>
   <div class="graph-page">
+    <PageFocusBanner text="檢視這檔股票與其他標的的關聯強度與網絡結構，評估風險是否集中在同一群。" />
+
     <section class="section-block graph-hero" v-reveal>
       <div>
         <h1>觀察股關聯圖（Graph）</h1>
@@ -157,6 +159,7 @@
 </template>
 
 <script setup>
+import PageFocusBanner from '../components/PageFocusBanner.vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import * as d3 from 'd3'
 

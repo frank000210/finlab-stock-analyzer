@@ -1,5 +1,7 @@
 <template>
   <div class="seasonal-page">
+    <PageFocusBanner text="找出這檔股票是否存在季節性慣性，作為擇時的輔助參考。" />
+
     <header class="page-header">
       <div>
         <h1>📅 季節性分析</h1>
@@ -99,6 +101,7 @@
 </template>
 
 <script setup>
+import PageFocusBanner from '../components/PageFocusBanner.vue'
 import { ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { useStockStore } from '../stores/stock.js'

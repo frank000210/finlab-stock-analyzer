@@ -17,6 +17,8 @@
 
     <!-- Admin Dashboard -->
     <div v-else class="admin-content">
+      <PageFocusBanner text="監控系統使用狀況與後台管理功能，掌握平台運作健康度。" />
+
       <header class="admin-header">
         <div class="admin-header-left">
           <h1>⚙️ 後台管理</h1>
@@ -166,6 +168,7 @@
 </template>
 
 <script setup>
+import PageFocusBanner from '../components/PageFocusBanner.vue'
 import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useAuthStore } from '../stores/auth.js'
 
