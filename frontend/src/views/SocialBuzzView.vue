@@ -176,7 +176,7 @@ onMounted(fetchData)
 .subtitle { color: var(--text-muted); font-size: 0.85rem; margin-top: 4px; }
 .controls { display: flex; gap: 8px; align-items: center; }
 .input-symbol { width: 90px; padding: 8px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-primary); font-weight: 700; text-align: center; }
-.error-card { color: var(--color-down); background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.3); }
+.error-card { color: var(--color-down); background: var(--down-soft); border: 1px solid rgba(239, 68, 68, 0.3); }
 
 .score-section { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); }
 .buzz-score-card { display: flex; align-items: center; gap: 20px; }
@@ -186,10 +186,10 @@ onMounted(fetchData)
 .gauge-label { font-size: 0.7rem; color: var(--text-muted); }
 .buzz-info { flex: 1; }
 .buzz-level { display: inline-block; padding: 3px 12px; border-radius: 20px; font-weight: 700; font-size: 0.85rem; margin-bottom: 8px; }
-.level-極高 { background: rgba(239, 68, 68, 0.15); color: var(--color-down); }
-.level-高 { background: rgba(249, 115, 22, 0.15); color: #f97316; }
-.level-中等 { background: rgba(234, 179, 8, 0.15); color: #eab308; }
-.level-低 { background: rgba(34, 197, 94, 0.15); color: #22c55e; }
+.level-極高 { background: var(--down-soft); color: var(--color-down); }
+.level-高 { background: var(--warn-soft); color: #f97316; }
+.level-中等 { background: var(--warn-soft); color: #eab308; }
+.level-低 { background: var(--up-soft); color: #22c55e; }
 .level-極低 { background: rgba(156, 163, 175, 0.15); color: var(--text-muted); }
 .buzz-desc { font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5; }
 

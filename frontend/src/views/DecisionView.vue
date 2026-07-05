@@ -1636,8 +1636,8 @@ function toDateParam(value) {
   color: var(--accent-blue, #3b82f6);
   border: 1px solid rgba(59, 130, 246, 0.28);
 }
-.mc-verdict.up { background: rgba(34,197,94,0.12); color: var(--accent-green, #22c55e); border-color: rgba(34,197,94,0.3); }
-.mc-verdict.down { background: rgba(239,68,68,0.12); color: var(--accent-red, #ef4444); border-color: rgba(239,68,68,0.3); }
+.mc-verdict.up { background: var(--up-soft); color: var(--accent-green, #22c55e); border-color: rgba(34,197,94,0.3); }
+.mc-verdict.down { background: var(--down-soft); color: var(--accent-red, #ef4444); border-color: rgba(239,68,68,0.3); }
 
 .chiphealth-strip {
   display: flex;
@@ -1681,11 +1681,11 @@ function toDateParam(value) {
 .chiphealth-strip.tone-up .ch-score,
 .chiphealth-strip.tone-up .ch-tag { color: var(--accent-green, #22c55e); }
 .chiphealth-strip.tone-up .ch-track > i { background: var(--accent-green, #22c55e); }
-.chiphealth-strip.tone-up .ch-tag { background: rgba(34,197,94,0.12); border-color: rgba(34,197,94,0.3); }
+.chiphealth-strip.tone-up .ch-tag { background: var(--up-soft); border-color: rgba(34,197,94,0.3); }
 .chiphealth-strip.tone-down .ch-score,
 .chiphealth-strip.tone-down .ch-tag { color: var(--accent-red, #ef4444); }
 .chiphealth-strip.tone-down .ch-track > i { background: var(--accent-red, #ef4444); }
-.chiphealth-strip.tone-down .ch-tag { background: rgba(239,68,68,0.12); border-color: rgba(239,68,68,0.3); }
+.chiphealth-strip.tone-down .ch-tag { background: var(--down-soft); border-color: rgba(239,68,68,0.3); }
 
 .sparkline-panel,
 .conditions-panel {

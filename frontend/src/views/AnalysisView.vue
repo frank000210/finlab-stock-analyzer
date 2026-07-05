@@ -1568,17 +1568,17 @@ function valueTone(value) {
 }
 
 .signal-badge.buy {
-  background: rgba(22, 163, 74, 0.18);
+  background: var(--up-soft);
   color: #86efac;
 }
 
 .signal-badge.sell {
-  background: rgba(220, 38, 38, 0.16);
+  background: var(--down-soft);
   color: #fca5a5;
 }
 
 .signal-badge.hold {
-  background: rgba(245, 158, 11, 0.14);
+  background: var(--warn-soft);
   color: #fcd34d;
 }
 
@@ -1649,9 +1649,9 @@ function valueTone(value) {
 .chip-health-badge .chb-label { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.02em; }
 .chip-health-badge .chb-score { font-size: 1.05rem; font-variant-numeric: tabular-nums; }
 .chip-health-badge .chb-arrow { font-size: 0.85rem; opacity: 0.7; }
-.chip-health-badge.tone-up { background: rgba(22,163,74,0.12); border-color: rgba(22,163,74,0.3); color: #16a34a; }
-.chip-health-badge.tone-down { background: rgba(220,38,38,0.12); border-color: rgba(220,38,38,0.3); color: #dc2626; }
-.chip-health-badge.tone-flat { background: rgba(234,179,8,0.12); border-color: rgba(234,179,8,0.3); color: #b45309; }
+.chip-health-badge.tone-up { background: var(--up-soft); border-color: rgba(22,163,74,0.3); color: #16a34a; }
+.chip-health-badge.tone-down { background: var(--down-soft); border-color: rgba(220,38,38,0.3); color: #dc2626; }
+.chip-health-badge.tone-flat { background: var(--warn-soft); border-color: rgba(234,179,8,0.3); color: #b45309; }
 
 .chart-card,
 .decision-card,

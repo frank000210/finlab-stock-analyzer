@@ -888,7 +888,7 @@ onMounted(fetchData)
 
 
 /* ---- caveat ---- */
-.caveat { margin-top: 14px; padding: 12px 14px; background: rgba(234,179,8,0.07); border: 1px solid rgba(234,179,8,0.25); border-radius: var(--radius-sm); font-size: 0.8rem; line-height: 1.6; color: var(--text-secondary); }
+.caveat { margin-top: 14px; padding: 12px 14px; background: var(--warn-soft); border: 1px solid rgba(234,179,8,0.25); border-radius: var(--radius-sm); font-size: 0.8rem; line-height: 1.6; color: var(--text-secondary); }
 .caveat strong { color: var(--text-primary); }
 
 /* ---- retail chips ---- */
@@ -989,8 +989,8 @@ onMounted(fetchData)
   border: 1px solid transparent;
 }
 .verdict-tag.sm { font-size: 0.82rem; padding: 3px 11px; }
-.tag-up { color: var(--accent-green); background: rgba(34,197,94,0.12); border-color: rgba(34,197,94,0.3); }
-.tag-down { color: var(--accent-red); background: rgba(239,68,68,0.12); border-color: rgba(239,68,68,0.3); }
+.tag-up { color: var(--accent-green); background: var(--up-soft); border-color: rgba(34,197,94,0.3); }
+.tag-down { color: var(--accent-red); background: var(--down-soft); border-color: rgba(239,68,68,0.3); }
 .tag-flat { color: var(--accent-blue); background: rgba(59,130,246,0.12); border-color: rgba(59,130,246,0.3); }
 .verdict-date { font-size: 0.72rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }
 .verdict-desc { color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 14px; }
@@ -1034,7 +1034,7 @@ onMounted(fetchData)
 
 .struct-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
 .struct-card { display: flex; flex-direction: column; gap: 4px; padding: 14px; background: var(--bg-tertiary); border-radius: var(--radius-sm); border: 1px solid transparent; }
-.struct-card.highlight { border-color: rgba(34,197,94,0.35); background: rgba(34,197,94,0.06); }
+.struct-card.highlight { border-color: rgba(34,197,94,0.35); background: var(--up-soft); }
 .sc-key { display: flex; align-items: center; gap: 6px; font-size: 0.76rem; color: var(--text-muted); }
 .swatch { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
 .sw-retail { background: var(--color-warning); }

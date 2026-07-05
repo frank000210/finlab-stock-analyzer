@@ -202,7 +202,7 @@ onMounted(fetchData)
 .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .input-symbol { width: 90px; padding: 8px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-primary); font-weight: 700; text-align: center; }
 .controls select { padding: 8px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-primary); }
-.error-card { color: var(--color-down); background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.3); }
+.error-card { color: var(--color-down); background: var(--down-soft); border: 1px solid rgba(239, 68, 68, 0.3); }
 
 .verdict-section { display: grid; grid-template-columns: 2fr 1fr; gap: var(--space-4); }
 .verdict-card { background: var(--bg-elevated); box-shadow: var(--shadow-md); }
@@ -228,9 +228,9 @@ onMounted(fetchData)
 
 .signals-list { display: flex; flex-direction: column; gap: 8px; }
 .signal-item { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: var(--bg-tertiary); border-radius: var(--radius-sm); }
-.signal-bullish { background: rgba(34, 197, 94, 0.12); }
-.signal-bearish { background: rgba(239, 68, 68, 0.12); }
-.signal-caution { background: rgba(234, 179, 8, 0.12); }
+.signal-bullish { background: var(--up-soft); }
+.signal-bearish { background: var(--down-soft); }
+.signal-caution { background: var(--warn-soft); }
 .signal-icon { font-size: 1rem; }
 .signal-label { flex: 1; font-size: 0.85rem; }
 .signal-weight { font-size: 0.7rem; color: var(--text-muted); padding: 2px 8px; background: var(--bg-primary); border-radius: 10px; }

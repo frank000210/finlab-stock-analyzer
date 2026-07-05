@@ -259,15 +259,15 @@ fetchData()
 .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .input-symbol { width: 90px; padding: 8px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-primary); font-weight: 700; text-align: center; }
 .controls select { padding: 8px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-primary); }
-.error-card { color: var(--color-down); background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.3); }
+.error-card { color: var(--color-down); background: var(--down-soft); border: 1px solid rgba(239, 68, 68, 0.3); }
 
 .patterns-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: var(--space-4); }
 .pattern-card { padding: var(--space-4); background: var(--bg-tertiary); border-radius: var(--radius); }
 .pattern-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
 .pattern-name { font-weight: 700; font-size: 1rem; }
 .pattern-strength { font-size: 0.75rem; padding: 2px 10px; border-radius: 20px; font-weight: 600; }
-.strength-強 { background: rgba(34, 197, 94, 0.15); color: var(--accent-green); }
-.strength-中 { background: rgba(234, 179, 8, 0.15); color: #eab308; }
+.strength-強 { background: var(--up-soft); color: var(--accent-green); }
+.strength-中 { background: var(--warn-soft); color: #eab308; }
 .strength-弱 { background: rgba(156, 163, 175, 0.15); color: var(--text-muted); }
 .pattern-desc { font-size: 0.85rem; color: var(--text-secondary); line-height: 1.6; margin: 8px 0; }
 .pattern-suggestion { font-size: 0.8rem; color: var(--accent-blue); background: rgba(59, 130, 246, 0.08); padding: 8px 12px; border-radius: var(--radius-sm); }

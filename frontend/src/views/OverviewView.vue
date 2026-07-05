@@ -394,10 +394,10 @@ onBeforeUnmount(() => {
 .loading-placeholder { color: var(--text-muted); font-size: 0.85rem; }
 
 .verdict-badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 0.8rem; }
-.v-拉抬 { background: rgba(34, 197, 94, 0.15); color: var(--accent-green); }
-.v-偏多 { background: rgba(34, 197, 94, 0.1); color: var(--accent-green); }
-.v-出貨 { background: rgba(239, 68, 68, 0.15); color: var(--accent-red); }
-.v-偏空 { background: rgba(239, 68, 68, 0.1); color: var(--accent-red); }
+.v-拉抬 { background: var(--up-soft); color: var(--accent-green); }
+.v-偏多 { background: var(--up-soft); color: var(--accent-green); }
+.v-出貨 { background: var(--down-soft); color: var(--accent-red); }
+.v-偏空 { background: var(--down-soft); color: var(--accent-red); }
 .v-中性 { background: rgba(59, 130, 246, 0.1); color: var(--accent-blue); }
 
 @media (max-width: 768px) {

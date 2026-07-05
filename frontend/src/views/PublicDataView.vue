@@ -349,7 +349,7 @@ watch(() => route.params.symbol, () => {
 .public-data-page { display: flex; flex-direction: column; gap: var(--space-5); }
 .page-header { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: var(--space-4); }
 .subtitle { color: var(--text-muted); font-size: 0.85rem; margin-top: 4px; }
-.error-card { color: var(--color-down); background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.3); }
+.error-card { color: var(--color-down); background: var(--down-soft); border: 1px solid rgba(239, 68, 68, 0.3); }
 .no-data { color: var(--text-muted); font-style: italic; }
 .chart-host { width: 100%; min-height: 300px; }
 .chart-host :deep(.axis text) { fill: var(--text-muted); font-size: 0.7rem; }
