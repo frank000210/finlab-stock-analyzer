@@ -10,7 +10,8 @@
       <div class="hero-meta">
         <span class="badge">觀察池 {{ symbols.length }} 檔</span>
         <span class="badge">門檻 {{ threshold.toFixed(2) }}</span>
-        <span class="badge">邊 {{ activeEdges.length }} 條</span>
+        <span class="badge">已載入節點 {{ snapshotNodes.length }} 個</span>
+        <span class="badge">已載入邊（{{ layerLabel(activeLayer) }}）{{ activeEdges.length }} 條</span>
       </div>
     </section>
 
