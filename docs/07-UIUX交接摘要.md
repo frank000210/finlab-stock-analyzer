@@ -109,10 +109,13 @@
 
 ## 五、已知但還沒處理的視覺問題
 
-- 全站的「淡色調」badge（如信號徽章、狀態標籤）顏色沒有統一 token，見第二節。
-- 圖表配色（D3 + lightweight-charts）不吃 CSS 變數，改主題色不會連動。
-- Volume Profile / Sankey 是資料層面的「近似值」，如果設計要調整呈現方式，記得保留「這是估算/示意」的視覺提示，不要讓使用者誤判成即時真實數據。
+- ~~全站的「淡色調」badge（如信號徽章、狀態標籤）顏色沒有統一 token~~ **已處理**：`main.css` 新增 `--up-soft`/`--down-soft`/`--warn-soft`，並把 10 個檔案、40 處一次性 rgba 疊色換成共用 token（湊不到剩下的 10 個檔案是因為裡面沒有符合的淡色調用色，不是漏改）。
+- ~~圖表配色（D3 + lightweight-charts）不吃 CSS 變數~~ **已處理**：新增 `--chart-*` token 組 + `frontend/src/composables/useChartTheme.js`，10 個畫圖表的 view 都已改吃這個 composable。
+- Volume Profile / Sankey 是資料層面的「近似值」：**視覺標記已補上**（`.badge-estimated` 斜紋徽章），Analysis 的 Volume Profile、TradeDashboard 的 Sankey、RiskMonitor 的模擬帳戶圖表都已加註，不用再只靠文字說明。
+- 類股輪動頁新增了 Sankey 資金流向圖（沿用既有 Chord diagram 的 lead-lag 邊資料），Chord 本身也做了密度優化（加大 padAngle/弧寬、hover 聚焦淡出）。
+- 首頁 Bento 特色卡圖示改為依類別上色（藍/青/紫/黃/綠），取代原本統一藍色。
 - 尚未做過響應式（mobile）系統性檢視，部分圖表（Calendar、相關矩陣）在小螢幕上文字/格子會太密。
+- **未完成**：設計稿裡逐頁的卡片陰影/光暈/間距細節沒有逐一比對落地——Decision、AISignals、SocialBuzz、Home 這幾頁本來就已經有相近水準的「交易終端機」視覺（頂部色條、半圓 gauge、玻璃質感卡片），這次沒有重做；其餘頁面也維持原有卡片語彙，只做了配色 token 化，沒有逐頁重新刻版面。如果要更貼近設計稿的逐頁像素級還原，需要再開一輪聚焦視覺細節的工作。
 
 ---
 
