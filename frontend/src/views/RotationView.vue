@@ -184,6 +184,16 @@
         </template>
       </aside>
     </section>
+
+    <section class="card horizon-section" v-reveal>
+      <div class="chart-card-head">
+        <h3>類股 RS-Ratio 一覽（Horizon Chart）</h3>
+      </div>
+      <div ref="horizonHost" class="chart-host horizon-host"></div>
+      <p class="chart-caption">
+        參考：D3 gallery - Horizon chart；用顏色分層壓縮呈現，一次比較所有顯示中類股的相對強弱走勢（RS-Ratio，100＝與大盤同步）。
+      </p>
+    </section>
   </div>
 </template>
 
@@ -217,6 +227,7 @@ const playIntervalMs = ref(700)
 
 const rrgHost = ref(null)
 const leadHost = ref(null)
+const horizonHost = ref(null)
 
 const fullscreenTarget = ref(null) // null | 'rrg' | 'lead'
 
@@ -287,6 +298,7 @@ watch(hiddenSectors, () => {
   nextTick(() => {
     renderRRG()
     renderLeadGraph()
+    renderHorizon()
   })
 }, { deep: true })
 
@@ -302,15 +314,19 @@ watch([snapshot], () => {
   })
 })
 
+watch(timelineItems, () => nextTick(renderHorizon))
+
 onMounted(async () => {
   await reloadTimeline()
   if ('ResizeObserver' in window) {
     resizeObserver = new ResizeObserver(() => {
       renderRRG()
       renderLeadGraph()
+      renderHorizon()
     })
     if (rrgHost.value) resizeObserver.observe(rrgHost.value)
     if (leadHost.value) resizeObserver.observe(leadHost.value)
+    if (horizonHost.value) resizeObserver.observe(horizonHost.value)
   }
   window.addEventListener('keydown', handleKeydown)
 })
@@ -521,6 +537,104 @@ function togglePlay() {
     }
     currentIndex.value += 1
   }, playIntervalMs.value)
+}
+
+function renderHorizon() {
+  const host = horizonHost.value
+  if (!host) return
+  host.innerHTML = ''
+  const items = timelineItems.value
+  if (!items.length) return
+
+  // Build per-sector rs_ratio series across the loaded timeline.
+  const seriesBySector = new Map()
+  const namesBySector = new Map()
+  items.forEach((snap) => {
+    ;(snap.points || []).forEach((p) => {
+      if (universe.value === 'twse' && hiddenSectors.value.has(p.id)) return
+      if (!seriesBySector.has(p.id)) seriesBySector.set(p.id, [])
+      seriesBySector.get(p.id).push({ date: snap.date, value: p.rs_ratio })
+      namesBySector.set(p.id, p.name)
+    })
+  })
+  const sectorIds = Array.from(seriesBySector.keys())
+  if (!sectorIds.length) {
+    host.innerHTML = '<p class="chart-empty">尚無資料可繪製。</p>'
+    return
+  }
+
+  const rowHeight = 26
+  const width = host.clientWidth || 900
+  const margin = { top: 4, right: 4, bottom: 20, left: 90 }
+  const innerW = Math.max(10, width - margin.left - margin.right)
+  const height = rowHeight * sectorIds.length + margin.top + margin.bottom
+
+  const dates = items.map((s) => s.date)
+  const x = d3.scalePoint().domain(dates).range([0, innerW])
+
+  const svg = d3.select(host).append('svg').attr('width', width).attr('height', height)
+
+  // Sort rows by latest RS-Ratio (leading sectors on top).
+  sectorIds.sort((a, b) => {
+    const av = seriesBySector.get(a).at(-1)?.value ?? 100
+    const bv = seriesBySector.get(b).at(-1)?.value ?? 100
+    return bv - av
+  })
+
+  sectorIds.forEach((id, i) => {
+    const series = seriesBySector.get(id)
+    const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top + i * rowHeight})`)
+    g.append('text')
+      .attr('x', -6)
+      .attr('y', rowHeight / 2 + 4)
+      .attr('text-anchor', 'end')
+      .attr('font-size', 10)
+      .attr('fill', 'var(--text-muted)')
+      .text(namesBySector.get(id) || id)
+
+    const values = series.map((s) => s.value).filter((v) => v != null)
+    const maxDev = d3.max(values, (v) => Math.abs(v - 100)) || 1
+    const y = d3.scaleLinear().domain([0, maxDev]).range([0, rowHeight / 2 - 2])
+
+    const area = d3
+      .area()
+      .x((d) => x(d.date))
+      .y0(rowHeight / 2)
+      .y1((d) => (d.value == null ? rowHeight / 2 : rowHeight / 2 - y(Math.abs(d.value - 100))))
+      .defined((d) => d.value != null)
+
+    g.append('line')
+      .attr('x1', 0).attr('x2', innerW)
+      .attr('y1', rowHeight / 2).attr('y2', rowHeight / 2)
+      .attr('stroke', 'var(--border-color)')
+
+    g.append('path')
+      .datum(series)
+      .attr('fill', (d) => 'var(--accent-green)')
+      .attr('fill-opacity', 0.75)
+      .attr('d', (d) => {
+        const positiveOnly = d.map((pt) => ({ ...pt, value: pt.value != null && pt.value >= 100 ? pt.value : 100 }))
+        return area(positiveOnly)
+      })
+    g.append('path')
+      .datum(series)
+      .attr('fill', 'var(--accent-red)')
+      .attr('fill-opacity', 0.75)
+      .attr('d', (d) => {
+        const negativeOnly = d.map((pt) => ({ ...pt, value: pt.value != null && pt.value <= 100 ? pt.value : 100 }))
+        return area(negativeOnly)
+      })
+  })
+
+  svg
+    .append('g')
+    .attr('transform', `translate(${margin.left},${height - margin.bottom + 6})`)
+    .call(
+      d3
+        .axisBottom(x)
+        .tickValues(dates.filter((_, i) => i % Math.ceil(dates.length / 6 || 1) === 0))
+    )
+    .attr('class', 'axis')
 }
 
 function renderRRG() {
@@ -1111,6 +1225,39 @@ function offsetISO(days) {
 
 .chart-host {
   height: 360px;
+}
+
+.horizon-section {
+  display: flex;
+  flex-direction: column;
+}
+
+.horizon-host {
+  height: auto;
+  min-height: 120px;
+  overflow-x: auto;
+}
+
+.horizon-host :deep(.axis text) {
+  fill: var(--text-muted);
+  font-size: 0.68rem;
+}
+
+.horizon-host :deep(.axis path),
+.horizon-host :deep(.axis line) {
+  stroke: var(--border-color);
+}
+
+.chart-caption {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin-top: 6px;
+}
+
+.chart-empty {
+  color: var(--text-muted);
+  font-style: italic;
+  font-size: 0.85rem;
 }
 
 .lead-host {
