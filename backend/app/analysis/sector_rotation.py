@@ -465,3 +465,52 @@ async def get_rotation_timeline(
             items.append({"date": iso_day, "points": points})
 
     return {"freq": freq, "universe": universe, "items": items}
+
+
+async def get_daily_heatmap(
+    universe: str = "twse",
+    target_date: str | date | None = None,
+    symbols: list[str] | None = None,
+    lookback_days: int = 10,
+) -> dict[str, Any]:
+    """Latest-day % change per sector/industry group, for a market-pulse treemap.
+
+    Unlike the RRG snapshot (RS-Ratio/RS-Momentum vs benchmark, smoothed over a
+    trailing window), this is a plain same-day close-vs-previous-close snapshot:
+    D3 gallery 參考: Treemap -- size = |pct_change| (今天動最大的類股方塊最大),
+    color = sign (漲綠跌紅)。
+    """
+    end = _parse_date(target_date)
+    start = end - timedelta(days=lookback_days)
+
+    if universe == "watchlist":
+        series, names = await _load_watchlist_series(symbols or [], start, end)
+    else:
+        series, names = await _load_twse_series(start, end)
+
+    items: list[dict[str, Any]] = []
+    for sector_id, curve in series.items():
+        if sector_id == BENCHMARK_ID:
+            continue
+        dates = sorted(d for d in curve if d <= end.isoformat())
+        if len(dates) < 2:
+            continue
+        last_day, prev_day = dates[-1], dates[-2]
+        last_close = curve[last_day]
+        prev_close = curve[prev_day]
+        if prev_close <= 0:
+            continue
+        pct = (last_close - prev_close) / prev_close * 100.0
+        items.append(
+            {
+                "id": sector_id,
+                "name": names.get(sector_id, sector_id),
+                "date": last_day,
+                "close": round(float(last_close), 3),
+                "pct_change": round(float(pct), 2),
+            }
+        )
+
+    items.sort(key=lambda it: -abs(it["pct_change"]))
+    latest_date = items[0]["date"] if items else end.isoformat()
+    return {"date": latest_date, "universe": universe, "items": items}

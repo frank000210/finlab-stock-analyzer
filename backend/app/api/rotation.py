@@ -8,6 +8,7 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from ..analysis.sector_rotation import (
+    get_daily_heatmap,
     get_rotation_snapshot,
     get_rotation_timeline,
     ingest_sector_index,
@@ -99,6 +100,26 @@ async def rotation_timeline(
             lookback_days=lookback_days,
         )
         return {"success": True, "data": timeline}
+    except Exception as exc:
+        _raise_rotation_error(exc)
+
+
+@router.get("/heatmap")
+async def rotation_heatmap(
+    universe: str = Query(default="twse", pattern="^(twse|watchlist)$"),
+    date_value: date | None = Query(default=None, alias="date"),
+    symbols: str | None = Query(default=None, description="watchlist universe 逗號分隔代碼"),
+    lookback_days: int = Query(default=10, ge=2, le=60),
+):
+    """每日漲跌熱力圖（Treemap）：類股/觀察池今天對昨天的漲跌幅快照。"""
+    try:
+        data = await get_daily_heatmap(
+            universe=universe,
+            target_date=date_value,
+            symbols=_parse_symbols(symbols),
+            lookback_days=lookback_days,
+        )
+        return {"success": True, "data": data}
     except Exception as exc:
         _raise_rotation_error(exc)
 
