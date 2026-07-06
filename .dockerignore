@@ -1,0 +1,32 @@
+# Version control / CI
+.git
+.github
+.gitignore
+.gitattributes
+
+# Node / Python build artifacts (rebuilt inside the image)
+node_modules
+frontend/node_modules
+frontend/dist
+**/__pycache__
+*.pyc
+
+# Local env / secrets (env is injected at runtime via --env-file)
+.env
+
+# Editor / agent tooling
+.agents
+.claude
+.vscode
+
+# Docs and handover bundles (not needed at runtime)
+docs
+*.zip
+交接SOP.md
+USER_GUIDE.md
+
+# Local dev databases / caches
+*.sqlite
+*.db
+claude-usage
+claude_usage_app.py

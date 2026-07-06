@@ -46,11 +46,11 @@ npm run dev
 ### Docker
 ```bash
 docker build -t finlab-stock-analyzer .
-docker run -p 8000:8000 --env-file .env finlab-stock-analyzer
+docker run -p 8080:8080 --env-file .env finlab-stock-analyzer
 ```
 
 ## API 文件
-啟動後訪問 http://localhost:8000/api/docs (Swagger UI)
+啟動後訪問 http://localhost:8080/api/docs (Swagger UI)
 
 ## 內建策略
 - **MA Crossover** - 均線交叉
