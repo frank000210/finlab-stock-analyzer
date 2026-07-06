@@ -79,7 +79,9 @@
             <option :value="350">快（0.35s）</option>
           </select>
         </label>
-        <span class="controls-meta">已載入節點 {{ snapshotNodes.length }} 個 · 邊（{{ layerLabel(activeLayer) }}）{{ activeEdges.length }} 條</span>
+        <span class="controls-meta">
+          <template v-if="usingMockData">示意資料 · </template>已載入節點 {{ snapshotNodes.length }} 個 · 邊（{{ layerLabel(activeLayer) }}）{{ activeEdges.length }} 條
+        </span>
       </div>
 
       <p v-if="errorMessage" class="error-text">{{ errorMessage }}</p>
@@ -89,6 +91,7 @@
     <div class="graph-grid" v-reveal>
       <div class="canvas-well">
         <div ref="graphHost" class="graph-canvas"></div>
+        <span v-if="usingMockData" class="badge-estimated canvas-mock-badge">示意資料</span>
         <div v-if="!hasGraphData && !loading" class="canvas-empty">
           目前區間查無可視化資料，已自動嘗試以單日快照回補。請調整日期區間或降低門檻。
         </div>
@@ -196,6 +199,7 @@ const currentIndex = ref(0)
 const selectedSymbol = ref('')
 const selectedEdgeKey = ref('')
 const alerts = ref([])
+const usingMockData = ref(false)
 const isPlaying = ref(false)
 const playIntervalMs = ref(700)
 const viewMode = ref('force')
@@ -728,23 +732,33 @@ async function reloadTimeline() {
         items = [snapshot]
       }
     }
-    timelineItems.value = items
     if (items.length) {
+      timelineItems.value = items
+      usingMockData.value = false
       currentIndex.value = Math.max(0, items.length - 1)
       await loadAlerts()
     } else {
-      currentIndex.value = 0
-      alerts.value = []
-      errorMessage.value = '查無可顯示的圖資料，請調整日期區間或降低 Edge 門檻。'
+      // 後端無資料（本機常見：MongoDB 未啟用）→ 用示意假資料讓圖能運作
+      useMockFallback()
     }
   } catch (error) {
-    errorMessage.value = error?.message || '關聯圖載入失敗'
-    timelineItems.value = []
-    alerts.value = []
+    // API 失敗一律降級到示意假資料，而不是留一張空圖
+    useMockFallback()
   } finally {
     loading.value = false
     nextTick(renderGraph)
   }
+}
+
+// 真實資料拿不到時的降級：改用一組固定的示意觀察池，讓力導向/矩陣/邊綁定
+// 三種檢視、關聯層切換、日期播放都能正常展示。畫面會標「示意資料」。
+function useMockFallback() {
+  const mock = buildMockTimeline()
+  timelineItems.value = mock
+  usingMockData.value = true
+  currentIndex.value = Math.max(0, mock.length - 1)
+  alerts.value = buildMockAlerts()
+  errorMessage.value = ''
 }
 
 async function loadAlerts() {
@@ -779,6 +793,125 @@ function togglePlay() {
     }
     currentIndex.value += 1
   }, playIntervalMs.value)
+}
+
+/* ------------------------- mock fallback data ------------------------- */
+
+// 固定的示意觀察池（取材自設計稿範例的台股）；本機無 MongoDB 時用它撐起整個頁面。
+const MOCK_NODES = [
+  { symbol: '2330', name_zh: '台積電', industry: '半導體業', base_close: 1015 },
+  { symbol: '2317', name_zh: '鴻海', industry: '電子零組件業', base_close: 203 },
+  { symbol: '2454', name_zh: '聯發科', industry: '半導體業', base_close: 1180 },
+  { symbol: '3008', name_zh: '大立光', industry: '光電業', base_close: 2450 },
+  { symbol: '2308', name_zh: '台達電', industry: '電子零組件業', base_close: 415 },
+  { symbol: '2603', name_zh: '長榮', industry: '航運業', base_close: 205 },
+  { symbol: '2609', name_zh: '陽明', industry: '航運業', base_close: 78 },
+  { symbol: '1301', name_zh: '台塑', industry: '塑膠業', base_close: 48 },
+]
+
+// [src, dst, 基準強度, 正負號, 領先天數]
+const MOCK_LINKS = [
+  ['2330', '2317', 0.42, 1, 2],
+  ['2330', '2454', 0.31, 1, 1],
+  ['2330', '2603', 0.22, -1, 3],
+  ['2603', '2609', 0.48, 1, 1],
+  ['2330', '3008', 0.18, 1, 2],
+  ['2317', '1301', 0.15, 1, 4],
+  ['2330', '2308', 0.20, -1, 2],
+  ['2454', '3008', 0.16, 1, 1],
+]
+
+function mulberry32(seed) {
+  let a = seed >>> 0
+  return function () {
+    a = (a + 0x6d2b79f5) | 0
+    let t = Math.imul(a ^ (a >>> 15), 1 | a)
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+function buildMockTimeline() {
+  const dates = []
+  const end = new Date(endDate.value || todayISO())
+  for (let i = 7; i >= 0; i -= 1) {
+    const d = new Date(end)
+    d.setDate(d.getDate() - i)
+    dates.push(d.toISOString().slice(0, 10))
+  }
+  return dates.map((dateStr, idx) => buildMockSnapshot(dateStr, mulberry32(9001 + idx)))
+}
+
+function buildMockSnapshot(dateStr, rng) {
+  const jitter = (scale) => (rng() - 0.5) * 2 * scale
+
+  // 每個節點的加權連結＝所有觸及它的邊強度加總（含當日擾動）
+  const degree = {}
+  const perturbed = MOCK_LINKS.map(([src, dst, val, sign, lag]) => {
+    const v = Math.max(0.03, val + jitter(0.05))
+    degree[src] = (degree[src] || 0) + v
+    degree[dst] = (degree[dst] || 0) + v
+    return { src, dst, val: v, sign, lag }
+  })
+  const maxDeg = Math.max(1, ...Object.values(degree))
+
+  const industryOf = new Map(MOCK_NODES.map((n) => [n.symbol, n.industry]))
+  const nodes = MOCK_NODES.map((n) => {
+    const deg = degree[n.symbol] || 0
+    return {
+      symbol: n.symbol,
+      name_zh: n.name_zh,
+      industry: n.industry,
+      latest_close: +(n.base_close * (1 + jitter(0.02))).toFixed(2),
+      centrality: +(deg / maxDeg).toFixed(3),
+      pagerank: +((deg / maxDeg) * 0.18 + 0.02).toFixed(4),
+      weighted_degree: +deg.toFixed(3),
+      risk_transmission: +(deg * 0.6 + rng() * 0.4).toFixed(3),
+      momentum_20: +jitter(0.07).toFixed(4),
+      flow_strength: +jitter(1.2).toFixed(3),
+    }
+  })
+
+  const fusion = perturbed.map(({ src, dst, val, sign, lag }) => {
+    const lead = +(sign * val * 0.5).toFixed(4)
+    const chip = +(sign * val * 0.3).toFixed(4)
+    const sameInd = industryOf.get(src) === industryOf.get(dst)
+    const industry = +(sameInd ? val * 0.4 : 0).toFixed(4)
+    const weight = +(lead + chip + industry).toFixed(4)
+    return {
+      src, dst, layer: 'fusion',
+      weight, abs_weight: +Math.abs(weight).toFixed(4),
+      lag: 0, directed: false,
+      confidence: +Math.min(0.98, 0.45 + val).toFixed(3),
+      components: { lead, chip, industry },
+    }
+  })
+
+  const lead = perturbed.map(({ src, dst, val, sign, lag }) => {
+    const weight = +(sign * val * 0.9).toFixed(4)
+    return { src, dst, layer: 'lead', weight, abs_weight: +Math.abs(weight).toFixed(4), lag, directed: true, confidence: +Math.min(0.95, 0.4 + val).toFixed(3) }
+  })
+
+  const chip = perturbed.map(({ src, dst, val, sign }) => {
+    const weight = +(sign * val * 0.7).toFixed(4)
+    return { src, dst, layer: 'chip', weight, abs_weight: +Math.abs(weight).toFixed(4), lag: 0, directed: false }
+  })
+
+  // 產業層：只連同產業的標的（半導體 2330-2454、電子零組件 2317-2308、航運 2603-2609）
+  const industryPairs = [['2330', '2454'], ['2317', '2308'], ['2603', '2609']]
+  const industry = industryPairs.map(([src, dst]) => {
+    const weight = +(0.35 + jitter(0.08)).toFixed(4)
+    return { src, dst, layer: 'industry', weight, abs_weight: weight, lag: 0, directed: false }
+  })
+
+  return { date: dateStr, nodes, layers: { fusion, lead, chip, industry } }
+}
+
+function buildMockAlerts() {
+  return [
+    { severity: 'warn', message: '2603 與 2609 的關聯 20 日內急升至 0.81，航運股連動增強' },
+    { severity: 'info', message: '2330 對觀察池中心性維持最高，仍是風險傳導樞紐' },
+  ]
 }
 
 /* ------------------------- helpers ------------------------- */
@@ -994,6 +1127,12 @@ function offsetISO(days) {
   inset: 0;
   width: 100%;
   height: 100%;
+}
+.canvas-mock-badge {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 2;
 }
 .canvas-caption {
   position: absolute;
