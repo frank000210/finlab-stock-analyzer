@@ -161,6 +161,12 @@
         <div v-else class="side-hint">目前沒有告警</div>
       </aside>
     </div>
+
+    <p v-if="usingMockData" class="mock-note">
+      ※ 目前為<strong>示意資料</strong>：偵測不到後端關聯圖資料（例如本機未啟用資料庫，或資料源連線失敗）時，
+      改用一組固定的範例觀察池與模擬指標讓頁面維持可操作。上方所有節點、關聯強度與告警<strong>皆非真實市場數據</strong>，
+      僅供介面展示；接上真實資料後會自動改用實際計算結果。
+    </p>
   </div>
 </template>
 
@@ -1143,6 +1149,17 @@ function offsetISO(days) {
   color: #5b6b84;
   pointer-events: none;
 }
+.mock-note {
+  margin: 4px 2px 0;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  font-size: 0.78rem;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+.mock-note strong { color: var(--color-warning); }
 .canvas-empty {
   position: absolute;
   inset: auto 16px 40px 16px;

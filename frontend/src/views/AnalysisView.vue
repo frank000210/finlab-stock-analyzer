@@ -953,8 +953,9 @@ function renderCharts() {
     lineWidth: 2,
   })
   rsiSeries.setData(toLineData(mergedSeries.value, 'rsi14'))
-  addConstantLine(rsiChart, mergedSeries.value, 70, theme.down)
-  addConstantLine(rsiChart, mergedSeries.value, 30, theme.up)
+  // 超買(70)＝過熱→紅、超賣(30)→綠（漲紅跌綠；theme.up 現為紅、theme.down 現為綠）
+  addConstantLine(rsiChart, mergedSeries.value, 70, theme.up)
+  addConstantLine(rsiChart, mergedSeries.value, 30, theme.down)
 
   const macdHistogram = macdChart.addHistogramSeries({
     priceLineVisible: false,
@@ -1684,7 +1685,20 @@ function valueTone(value) {
 }
 
 .calendar-section { overflow-x: auto; }
-.calendar-host { min-height: 120px; }
+.calendar-host { min-height: 120px; overflow-x: auto; }
+/* 手機上日曆格固定 13px 不縮，改為可橫向捲動維持可讀（設計稿建議） */
+.calendar-host :deep(svg) { display: block; }
+@media (max-width: 640px) {
+  .calendar-host { -webkit-overflow-scrolling: touch; }
+  .calendar-host::after {
+    content: '← 可左右滑動查看完整日曆 →';
+    display: block;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    text-align: center;
+    padding-top: 6px;
+  }
+}
 .volume-profile-section { overflow-x: auto; }
 .volume-profile-host { min-height: 320px; }
 .chart-caption { font-size: 0.72rem; color: var(--text-muted); margin-top: 6px; }
