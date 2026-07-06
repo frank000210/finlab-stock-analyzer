@@ -50,6 +50,7 @@ fi
 cd $ProjPath
 docker rm -f finlab-test >/dev/null 2>&1 || true
 docker run -d --name finlab-test --network $Network \
+  --restart unless-stopped \
   --env-file .env \
   -e MONGODB_URI=mongodb://mongo:27017 \
   -e FINMIND_TOKEN="`$FINMIND_TOKEN" \
