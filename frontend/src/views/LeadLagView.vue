@@ -146,6 +146,8 @@ onMounted(fetchData)
 
 <style scoped>
 .leadlag-page { display: flex; flex-direction: column; gap: var(--space-5); }
+/* 區塊都包在 .results 裡，間隔要下在這層（比照分析頁 16px） */
+.results { display: flex; flex-direction: column; gap: 16px; }
 .page-header { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: var(--space-4); }
 .subtitle { color: var(--text-muted); font-size: 0.85rem; margin-top: 4px; }
 .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }

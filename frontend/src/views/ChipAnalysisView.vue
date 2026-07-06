@@ -843,7 +843,7 @@ onMounted(fetchData)
 .error-card { color: var(--accent-red); border-color: rgba(239,68,68,0.4); }
 .warn-card { color: var(--text-muted); border-color: rgba(234,179,8,0.4); }
 
-.results { display: flex; flex-direction: column; gap: var(--space-5); }
+.results { display: flex; flex-direction: column; gap: 16px; }
 
 /* ---- 籌碼健診（綜合研判 hero） ---- */
 .health-card { display: flex; flex-direction: column; gap: 16px; }
