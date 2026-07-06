@@ -299,7 +299,7 @@ function renderMatrix(host) {
     const t = Math.min(1, Math.abs(w) / maxAbs)
     return w >= 0
       ? d3.interpolateRgb('rgba(59,130,246,0.15)', theme.blue)(t)
-      : d3.interpolateRgb(theme.downSoft, theme.down)(t)
+      : d3.interpolateRgb(theme.negativeSoft, theme.negative)(t)
   }
 
   const svg = d3.select(host).append('svg')
@@ -363,7 +363,7 @@ function baseSvg(host, width, height) {
       .attr('orient', 'auto')
       .append('path')
       .attr('d', 'M0,-5L10,0L0,5')
-      .attr('fill', sign === 'pos' ? theme.blue : theme.down)
+      .attr('fill', sign === 'pos' ? theme.blue : theme.negative)
   })
   return svg
 }
@@ -399,7 +399,7 @@ function renderForce(host) {
     .selectAll('line')
     .data(links)
     .join('line')
-    .attr('stroke', d => Number(d.weight) >= 0 ? theme.blue : theme.down)
+    .attr('stroke', d => Number(d.weight) >= 0 ? theme.blue : theme.negative)
     .attr('stroke-width', d => wScale(Number(d.abs_weight) || 0))
     .attr('stroke-opacity', 0.55)
     .attr('marker-end', d => d.directed ? `url(#g01-arrow-${Number(d.weight) >= 0 ? 'pos' : 'neg'})` : null)
@@ -521,7 +521,7 @@ function renderBundle(host) {
     .data(bundleLinks)
     .join('path')
     .attr('d', d => line(d.path))
-    .attr('stroke', d => Number(d.edge.weight) >= 0 ? theme.blue : theme.down)
+    .attr('stroke', d => Number(d.edge.weight) >= 0 ? theme.blue : theme.negative)
     .attr('stroke-width', d => wScale(Number(d.edge.abs_weight) || 0))
     .attr('stroke-opacity', 0.55)
     .style('cursor', 'pointer')

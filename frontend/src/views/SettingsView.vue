@@ -53,6 +53,54 @@
       </label>
     </div>
 
+    <div class="card theme-card" style="margin-top: 16px;">
+      <h3>🎨 外觀主題</h3>
+      <p class="theme-hint">調整頁面、區塊與卡片的底色與邊界，變更會即時套用並自動記住（存在本機瀏覽器）。</p>
+
+      <!-- 常見組合：套用 / 刪除自訂組合 -->
+      <div class="preset-section">
+        <span class="preset-label">常見組合</span>
+        <div class="preset-list">
+          <div v-for="p in allPresets" :key="p.id" class="preset-chip">
+            <button class="preset-apply" @click="applyPreset(p.values)">{{ p.name }}</button>
+            <button v-if="!p.builtin" class="preset-del" title="刪除此組合" @click="deletePreset(p.id)">✕</button>
+          </div>
+        </div>
+      </div>
+      <div class="preset-add">
+        <input v-model="newPresetName" class="form-input" placeholder="輸入組合名稱，例如「我的暗色」" @keyup.enter="saveAsPreset" />
+        <button class="btn btn-primary" @click="saveAsPreset">＋ 儲存目前為新組合</button>
+        <button class="btn btn-ghost" @click="resetDefault">重設為預設</button>
+      </div>
+
+      <!-- 逐項調整 -->
+      <div class="theme-grid">
+        <div v-for="f in THEME_FIELDS" :key="f.key" class="theme-field">
+          <label>{{ f.label }}</label>
+          <div class="theme-control" v-if="f.type === 'color'">
+            <input type="color" :value="toHex(state.current[f.key])" @input="setField(f.key, $event.target.value)" />
+            <input type="text" class="form-input hex-input" :value="state.current[f.key]" @change="setField(f.key, $event.target.value)" />
+          </div>
+          <div class="theme-control" v-else>
+            <input type="range" min="0" max="6" step="1" :value="toPx(state.current[f.key])" @input="setField(f.key, $event.target.value + 'px')" />
+            <span class="width-val">{{ state.current[f.key] }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 即時預覽 -->
+      <div class="theme-preview">
+        <div class="tp-block">
+          <span class="tp-tag">區塊預覽</span>
+          <div class="tp-inner-card">
+            <span>區塊裏的卡片</span>
+            <span class="tp-up">▲ 漲 1.50%</span>
+            <span class="tp-down">▼ 跌 0.80%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <button class="btn btn-primary" style="margin-top: 24px;" @click="save">💾 儲存設定</button>
     <span v-if="saved" style="margin-left: 12px; color: var(--color-up);">✓ 已儲存</span>
   </div>
@@ -60,8 +108,33 @@
 
 <script setup>
 import PageFocusBanner from '../components/PageFocusBanner.vue'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import axios from 'axios'
+import { useTheme } from '../composables/useTheme.js'
+
+const { state, THEME_FIELDS, BUILT_IN_PRESETS, setField, applyPreset, resetDefault, addPreset, deletePreset } = useTheme()
+const newPresetName = ref('')
+const allPresets = computed(() => [...BUILT_IN_PRESETS, ...state.presets])
+
+function saveAsPreset() {
+  if (addPreset(newPresetName.value)) {
+    newPresetName.value = ''
+  } else {
+    alert('請先輸入組合名稱')
+  }
+}
+
+// <input type="color"> 只吃 #rrggbb；把值正規化，非 hex 時給合理預設
+function toHex(value) {
+  const v = String(value || '').trim()
+  if (/^#[0-9a-fA-F]{6}$/.test(v)) return v
+  if (/^#[0-9a-fA-F]{3}$/.test(v)) return '#' + v.slice(1).split('').map((c) => c + c).join('')
+  return '#131b30'
+}
+function toPx(value) {
+  const n = parseInt(String(value), 10)
+  return Number.isFinite(n) ? n : 1
+}
 
 const finmindToken = ref('')
 const lineToken = ref('')
@@ -104,8 +177,62 @@ async function save() {
 .checkbox-label { display: block; padding: 8px 0; cursor: pointer; }
 .checkbox-label input { margin-right: 8px; }
 
+/* ===== 外觀主題自訂 ===== */
+.theme-hint { font-size: 0.82rem; color: var(--text-muted); margin: 4px 0 16px; }
+
+.preset-section { display: flex; align-items: flex-start; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.preset-label { font-size: 0.82rem; color: var(--text-secondary); padding-top: 7px; white-space: nowrap; }
+.preset-list { display: flex; flex-wrap: wrap; gap: 8px; }
+.preset-chip { display: inline-flex; align-items: stretch; border-radius: 8px; overflow: hidden; border: 1px solid var(--border-color); }
+.preset-apply {
+  padding: 6px 12px; border: none; cursor: pointer;
+  background: var(--bg-elevated); color: var(--text-primary); font-size: 0.82rem;
+}
+.preset-apply:hover { background: var(--bg-hover); color: var(--accent-blue); }
+.preset-del {
+  padding: 0 8px; border: none; border-left: 1px solid var(--border-color); cursor: pointer;
+  background: var(--bg-elevated); color: var(--text-muted); font-size: 0.72rem;
+}
+.preset-del:hover { color: var(--color-down); }
+
+.preset-add { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
+.preset-add .form-input { flex: 1; min-width: 180px; }
+.btn { padding: 8px 14px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-elevated); color: var(--text-primary); cursor: pointer; font-size: 0.85rem; }
+.btn-primary { background: var(--accent-blue); border-color: var(--accent-blue); color: #fff; }
+.btn-ghost { background: transparent; }
+
+.theme-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 20px; }
+.theme-field { display: grid; gap: 6px; }
+.theme-field label { font-size: 0.82rem; color: var(--text-secondary); }
+.theme-control { display: flex; align-items: center; gap: 10px; }
+.theme-control input[type="color"] {
+  width: 42px; height: 32px; padding: 0; border: 1px solid var(--border-color);
+  border-radius: 6px; background: transparent; cursor: pointer; flex-shrink: 0;
+}
+.theme-control input[type="range"] { flex: 1; }
+.hex-input { flex: 1; font-family: var(--font-mono); font-size: 0.8rem; text-transform: uppercase; }
+.width-val { font-family: var(--font-mono); font-size: 0.82rem; color: var(--text-secondary); min-width: 34px; }
+
+.theme-preview { margin-top: 20px; }
+.tp-block {
+  position: relative;
+  background: var(--bg-card);
+  border: var(--block-border-width) solid var(--block-border-color);
+  border-radius: var(--radius-lg); padding: 20px;
+}
+.tp-tag { font-size: 0.72rem; color: var(--text-muted); }
+.tp-inner-card {
+  margin-top: 10px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  background: var(--card-inner-bg);
+  border: var(--card-inner-border-width) solid var(--card-inner-border-color);
+  border-radius: var(--radius); padding: 16px; color: var(--text-secondary); font-size: 0.9rem;
+}
+.tp-up { color: var(--color-up); font-family: var(--font-mono); font-weight: 700; }
+.tp-down { color: var(--color-down); font-family: var(--font-mono); font-weight: 700; }
+
 @media (max-width: 420px) {
   .settings-page { max-width: 100%; padding: 0; }
   .input-row { flex-direction: column; }
+  .theme-grid { grid-template-columns: 1fr; }
 }
 </style>

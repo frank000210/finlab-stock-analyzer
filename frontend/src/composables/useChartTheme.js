@@ -21,8 +21,11 @@ export function useChartTheme() {
     muted: v('--chart-muted', '#5b6b84'),
     grid: v('--chart-grid', 'rgba(148,163,184,0.06)'),
     border: v('--chart-border', 'rgba(148,163,184,0.14)'),
-    upSoft: v('--chart-up-soft', 'rgba(16,185,129,0.12)'),
-    downSoft: v('--chart-down-soft', 'rgba(239,68,68,0.12)'),
+    upSoft: v('--chart-up-soft', 'rgba(239,68,68,0.12)'),
+    downSoft: v('--chart-down-soft', 'rgba(16,185,129,0.12)'),
+    // 相關係數負向色（恆紅，不隨漲紅跌綠翻轉）— 關聯圖/領先落後圖用
+    negative: v('--chart-negative', '#ef4444'),
+    negativeSoft: v('--chart-negative-soft', 'rgba(239,68,68,0.12)'),
   }
   return cached
 }

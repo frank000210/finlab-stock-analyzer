@@ -1149,7 +1149,7 @@ function renderLeadGraph() {
   const defs = svg.append('defs')
   const arrowMarkers = [
     { id: 'lead-arrow-pos', color: theme.blue },
-    { id: 'lead-arrow-neg', color: theme.down },
+    { id: 'lead-arrow-neg', color: theme.negative },
   ].map(spec => {
     const marker = defs.append('marker')
       .attr('id', spec.id)
@@ -1188,7 +1188,7 @@ function renderLeadGraph() {
     .selectAll('line')
     .data(validLinks)
     .join('line')
-    .attr('stroke', d => Number(d.weight) >= 0 ? theme.blue : theme.down)
+    .attr('stroke', d => Number(d.weight) >= 0 ? theme.blue : theme.negative)
     .attr('stroke-width', d => wScale(Number(d.abs_weight) || 0))
     .attr('stroke-opacity', d => selectedEdgeKey.value ? (edgeKey(d) === selectedEdgeKey.value ? 0.95 : 0.1) : 0.62)
     .attr('marker-end', d => Number(d.weight) >= 0 ? 'url(#lead-arrow-pos)' : 'url(#lead-arrow-neg)')

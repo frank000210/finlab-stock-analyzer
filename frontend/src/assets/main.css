@@ -28,6 +28,14 @@
   --border-color: rgba(148, 163, 184, 0.12);
   --border-subtle: rgba(148, 163, 184, 0.06);
 
+  /* 可由「設定 → 外觀主題」即時覆寫的變數（存 localStorage，開頁時套回）。
+     區塊＝.card；區塊裏卡片＝.metric-card。邊界粗細/顏色皆可調。 */
+  --block-border-width: 1px;
+  --block-border-color: var(--border-color);
+  --card-inner-bg: var(--bg-elevated);
+  --card-inner-border-width: 1px;
+  --card-inner-border-color: var(--border-color);
+
   /* 淡色調 token(badge/底色統一用這組,取代散落在各檔案的 rgba 疊色) */
   --up-soft: rgba(239, 68, 68, 0.12);    /* 漲=紅 soft */
   --down-soft: rgba(16, 185, 129, 0.12); /* 跌=綠 soft */
@@ -35,11 +43,15 @@
 
   /* 圖表專用色票:D3 / lightweight-charts 一律透過 useChartTheme() 讀這組值,
      不要在圖表 JS 裡寫死 hex,換主題只需要改這裡。 */
-  --chart-up: #10b981;
-  --chart-up-strong: #34d399;
-  --chart-down: #ef4444;
-  --chart-down-strong: #f87171;
+  --chart-up: #ef4444;        /* 漲=紅（台股慣例，套用到 K 線/直方/熱力圖等）*/
+  --chart-up-strong: #f87171;
+  --chart-down: #10b981;      /* 跌=綠 */
+  --chart-down-strong: #34d399;
   --chart-warn: #f59e0b;
+  /* 相關係數正負色（與漲跌無關，恆定「藍＝正相關 / 紅＝負相關」），
+     供關聯圖、領先落後圖使用，不隨漲紅跌綠翻轉。 */
+  --chart-negative: #ef4444;
+  --chart-negative-soft: rgba(239, 68, 68, 0.12);
   --chart-blue: #3b82f6;
   --chart-purple: #8b5cf6;
   --chart-cyan: #06b6d4;
@@ -49,8 +61,8 @@
   --chart-muted: #5b6b84;
   --chart-grid: rgba(148, 163, 184, 0.06);
   --chart-border: rgba(148, 163, 184, 0.14);
-  --chart-up-soft: rgba(16, 185, 129, 0.12);
-  --chart-down-soft: rgba(239, 68, 68, 0.12);
+  --chart-up-soft: rgba(239, 68, 68, 0.12);
+  --chart-down-soft: rgba(16, 185, 129, 0.12);
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
   --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
@@ -251,7 +263,7 @@ p { line-height: 1.65; color: var(--text-secondary); }
    scoped 樣式裡硬寫的卡片底色（漸層/半透明navy 等），讓全站區塊底色一致。 */
 .card {
   background: var(--bg-card) !important;
-  border: 1px solid var(--border-color);
+  border: var(--block-border-width) solid var(--block-border-color) !important;
   border-radius: var(--radius-lg);
   padding: var(--space-6);
   transition: transform var(--transition-base), box-shadow var(--transition-base);
@@ -275,8 +287,8 @@ p { line-height: 1.65; color: var(--text-secondary); }
 .metric-card {
   text-align: center;
   padding: var(--space-5);
-  background: var(--bg-card);
-  border: 1px solid var(--border-color);
+  background: var(--card-inner-bg) !important;
+  border: var(--card-inner-border-width) solid var(--card-inner-border-color) !important;
   border-radius: var(--radius);
 }
 
