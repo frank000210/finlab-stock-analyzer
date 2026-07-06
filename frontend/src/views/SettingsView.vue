@@ -53,6 +53,15 @@
       </label>
     </div>
 
+    <div class="card" style="margin-top: 16px;">
+      <h3>🔄 資料更新</h3>
+      <p class="theme-hint">關聯圖與類股輪動的資料每天收盤後（15:00）自動更新。需要立即更新時按下方按鈕（大盤資料量大，可能需數十秒）。</p>
+      <button class="btn btn-primary" @click="reingestNow" :disabled="reingesting">
+        {{ reingesting ? '更新中…' : '立即更新 關聯圖 / 類股輪動 資料' }}
+      </button>
+      <span v-if="reingestMsg" class="reingest-msg">{{ reingestMsg }}</span>
+    </div>
+
     <div class="card theme-card" style="margin-top: 16px;">
       <h3>🎨 外觀主題</h3>
       <p class="theme-hint">調整頁面、區塊與卡片的底色與邊界，變更會即時套用並自動記住（存在本機瀏覽器）。</p>
@@ -136,6 +145,23 @@ function toPx(value) {
   return Number.isFinite(n) ? n : 1
 }
 
+const reingesting = ref(false)
+const reingestMsg = ref('')
+async function reingestNow() {
+  reingesting.value = true
+  reingestMsg.value = ''
+  try {
+    const resp = await axios.post('/api/v1/cache/reingest')
+    reingestMsg.value = resp.data?.success
+      ? '✓ 已更新，回到關聯圖／類股輪動頁重新整理即可看到最新資料'
+      : '✗ 更新失敗'
+  } catch {
+    reingestMsg.value = '✗ 更新失敗，請稍後再試'
+  } finally {
+    reingesting.value = false
+  }
+}
+
 const finmindToken = ref('')
 const lineToken = ref('')
 const defaultPeriod = ref('1Y')
@@ -176,6 +202,8 @@ async function save() {
 .input-row .form-input { flex: 1; }
 .checkbox-label { display: block; padding: 8px 0; cursor: pointer; }
 .checkbox-label input { margin-right: 8px; }
+
+.reingest-msg { margin-left: 12px; font-size: 0.85rem; color: var(--text-secondary); }
 
 /* ===== 外觀主題自訂 ===== */
 .theme-hint { font-size: 0.82rem; color: var(--text-muted); margin: 4px 0 16px; }

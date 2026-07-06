@@ -89,7 +89,22 @@ async def lifespan(app: FastAPI):
     except Exception as exc:
         logging.warning(f"MongoDB init skipped: {exc}")
 
+    # 每日收盤後自動 re-ingest 關聯圖/類股輪動資料
+    try:
+        from .scheduler import start_scheduler
+
+        start_scheduler()
+    except Exception as exc:
+        logging.warning(f"auto-ingest scheduler not started: {exc}")
+
     yield
+
+    try:
+        from .scheduler import stop_scheduler
+
+        stop_scheduler()
+    except Exception:
+        pass
 
     try:
         from .db.mongodb import close_mongodb

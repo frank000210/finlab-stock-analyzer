@@ -57,3 +57,16 @@ async def clear_cache(
         return {"success": True, "data": {"deleted": deleted, "memory_cleared": memory_cleared}}
     except Exception as e:
         return {"success": False, "error": str(e)}
+
+
+@router.post("/reingest")
+async def reingest_now():
+    """手動立即執行一次「每日排程」的 re-ingest（類股輪動指數＋關聯圖觀察池），
+    並清掉圖/輪動記憶體快取。跟每日排程做的事完全一樣，供需要時手動觸發。"""
+    try:
+        from ..scheduler import _run_once
+
+        await _run_once()
+        return {"success": True, "data": {"status": "reingested"}}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
