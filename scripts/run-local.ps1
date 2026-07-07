@@ -9,7 +9,8 @@
   - Ensures the shared docker network + MongoDB container are up.
   - (Re)starts the app container with the real token and Mongo wired in.
 
-  App:    http://localhost:8080
+  App:    http://localhost:8000   (host 8000 -> container 8080; the SPA
+          hardcodes localhost:8000 for its API calls when on localhost)
   Mongo:  localhost:27017
 
 .NOTES
@@ -54,11 +55,11 @@ docker run -d --name finlab-test --network $Network \
   --env-file .env \
   -e MONGODB_URI=mongodb://mongo:27017 \
   -e FINMIND_TOKEN="`$FINMIND_TOKEN" \
-  -p 8080:8080 $Image >/dev/null
+  -p 8000:8080 $Image >/dev/null
 echo "app container FINMIND_TOKEN length:"
 docker exec finlab-test printenv FINMIND_TOKEN | tr -d '\n' | wc -c
 "@
 
 wsl -d $Distro -u root -- bash -lc $remote
 
-Write-Host "`nApp starting at http://localhost:8080  (Swagger: /api/docs)" -ForegroundColor Cyan
+Write-Host "`nApp starting at http://localhost:8000  (Swagger: /api/docs)" -ForegroundColor Cyan

@@ -46,11 +46,18 @@ npm run dev
 ### Docker
 ```bash
 docker build -t finlab-stock-analyzer .
-docker run -p 8080:8080 --env-file .env finlab-stock-analyzer
+# 容器內服務跑在 8080；本機測試請把 host 埠對應到 8000，
+# 因為前端在 localhost 時 API base 寫死為 http://localhost:8000。
+docker run -p 8000:8080 --env-file .env finlab-stock-analyzer
+```
+
+本機一鍵啟動（含 MongoDB、從 Windows 環境變數帶入 `FINMIND_TOKEN`）：
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\run-local.ps1
 ```
 
 ## API 文件
-啟動後訪問 http://localhost:8080/api/docs (Swagger UI)
+啟動後訪問 http://localhost:8000/api/docs (Swagger UI)
 
 ## 內建策略
 - **MA Crossover** - 均線交叉
