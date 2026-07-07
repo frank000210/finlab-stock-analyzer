@@ -1,0 +1,33 @@
+#!/bin/sh
+# Pre-push gate: code changes must pass the Playwright E2E suite before push.
+# Requires the app running at BASE_URL (default http://localhost:8000);
+# start it with scripts/run-local.ps1.
+#
+# Enable once per clone:  git config core.hooksPath .githooks
+# Emergency bypass:       git push --no-verify   (avoid unless necessary)
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+E2E_DIR="$REPO_ROOT/e2e"
+BASE_URL="${BASE_URL:-http://localhost:8000}"
+
+echo "[pre-push] Checking app is reachable at $BASE_URL ..."
+if ! curl -sf -o /dev/null "$BASE_URL/api/health"; then
+  echo "[pre-push] ABORT: app not reachable at $BASE_URL."
+  echo "           Start it (scripts/run-local.ps1) or set BASE_URL, then retry."
+  exit 1
+fi
+
+echo "[pre-push] Running Playwright E2E tests ..."
+if [ ! -d "$E2E_DIR/node_modules" ]; then
+  echo "[pre-push] Installing e2e deps (first run) ..."
+  ( cd "$E2E_DIR" && npm install --silent )
+fi
+
+( cd "$E2E_DIR" && BASE_URL="$BASE_URL" npm test )
+if [ $? -ne 0 ]; then
+  echo "[pre-push] E2E tests FAILED — push aborted."
+  exit 1
+fi
+
+echo "[pre-push] E2E tests passed — proceeding with push."
+exit 0
