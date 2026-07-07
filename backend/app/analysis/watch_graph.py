@@ -638,6 +638,7 @@ async def get_watchlist_snapshot(
     target_date: str | date | None = None,
     edge_threshold: float = 0.12,
     lookback_days: int = 60,
+    force_ingest: bool = True,
 ) -> dict[str, Any]:
     symbols = _normalize_symbols(symbols)
     target = _parse_date(target_date, fallback=date.today())
@@ -650,7 +651,9 @@ async def get_watchlist_snapshot(
         {"_id": 0},
     )
     if not snapshot:
-        snapshot = await build_watchlist_graph(symbols, target, lookback_days=lookback_days, force_ingest=True)
+        snapshot = await build_watchlist_graph(
+            symbols, target, lookback_days=lookback_days, force_ingest=force_ingest
+        )
     return _filter_snapshot(snapshot, edge_threshold=edge_threshold)
 
 
@@ -669,16 +672,24 @@ async def get_watchlist_timeline(
     if end < start:
         start, end = end, start
 
-    await ingest_watchlist_raw(symbols, start - timedelta(days=max(lookback_days * 2, 120)), end)
+    # Ingest the whole window's raw data from FinMind ONCE up front. Use the
+    # same margin build_watchlist_graph would use per day so every day in the
+    # range has enough history without re-fetching.
+    await ingest_watchlist_raw(symbols, start - timedelta(days=max(lookback_days * 3, 180)), end)
     snapshots: list[dict[str, Any]] = []
     cursor_day = start
     while cursor_day <= end:
         try:
+            # force_ingest=False: raw data was ingested once above. Re-fetching
+            # FinMind per day turned a timeline build into hundreds of API
+            # calls (blowing the rate limit) and took 85-144s; now each day is
+            # computed from stored raw data.
             snapshot = await get_watchlist_snapshot(
                 symbols=symbols,
                 target_date=cursor_day,
                 edge_threshold=edge_threshold,
                 lookback_days=lookback_days,
+                force_ingest=False,
             )
             if snapshot.get("nodes"):
                 snapshots.append(snapshot)
