@@ -77,6 +77,11 @@ const routes = [
     component: () => import('./views/RiskSizingView.vue'),
   },
   {
+    path: '/portfolio-heat',
+    name: 'portfolio-heat',
+    component: () => import('./views/PortfolioHeatView.vue'),
+  },
+  {
     path: '/settings',
     name: 'settings',
     component: () => import('./views/SettingsView.vue'),

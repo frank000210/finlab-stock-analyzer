@@ -42,6 +42,7 @@
         <router-link :to="`/stocks/${stockStore.symbol}/public-data`">公開資訊</router-link>
         <router-link :to="`/stocks/${stockStore.symbol}/backtest`">回測</router-link>
         <router-link to="/risk-sizing">🛡️ 部位風控</router-link>
+        <router-link to="/portfolio-heat">🔥 投組風險</router-link>
         <router-link to="/settings">設定</router-link>
         <router-link to="/admin" class="nav-admin">⚙️ 後台</router-link>
       </div>

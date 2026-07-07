@@ -100,12 +100,15 @@ async def position_sizing(
     ]
 
     name = symbol
+    industry = ""
     try:
         info = await FinMindClient().get_stock_info()
         if info is not None and not info.empty:
             row = info[info["stock_id"] == symbol]
             if not row.empty:
-                name = str(row.iloc[0].get("stock_name", symbol)) or symbol
+                r0 = row.iloc[0]
+                name = str(r0.get("stock_name", symbol)) or symbol
+                industry = str(r0.get("industry_category", r0.get("Industry_category", "")) or "").strip()
     except Exception:
         pass
 
@@ -114,6 +117,7 @@ async def position_sizing(
         "data": {
             "symbol": symbol,
             "name": name,
+            "industry": industry or "未分類",
             "price": round(price, 2),
             "atr": round(atr, 2),
             "atr_period": atr_period,

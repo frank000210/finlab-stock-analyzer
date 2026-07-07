@@ -1,0 +1,230 @@
+<template>
+  <div class="portfolio-heat-view">
+    <div class="focus-banner" v-reveal>
+      <span class="focus-tag">🔥 觀測重點</span>
+      單筆控好，還會被「同時壓太多、又高度相關」的部位殺死。這裡盯的是整個投組的<strong>總風險熱度</strong>與<strong>產業集中度</strong>。
+    </div>
+
+    <section class="section-block" v-reveal>
+      <div class="head-row">
+        <div>
+          <h2>投組總風險（Portfolio Heat）</h2>
+          <p class="muted">把每個部位的「風險金額」加總，控管總曝險不超過帳戶的安全上限。</p>
+        </div>
+        <label class="acct">帳戶資金 (TWD)
+          <input v-model.number="account" type="number" min="0" step="10000" class="inp" @change="save" />
+        </label>
+      </div>
+
+      <!-- 總覽 -->
+      <div class="summary-cards">
+        <div class="scard heat" :class="heatLevel">
+          <span class="slabel">總風險熱度</span>
+          <strong class="sval">{{ totalHeat.toFixed(2) }}%</strong>
+          <span class="shint">{{ heatText }}</span>
+        </div>
+        <div class="scard"><span class="slabel">部位數</span><strong class="sval">{{ positions.length }}</strong></div>
+        <div class="scard"><span class="slabel">總部位金額</span><strong class="sval">{{ fmtInt(totalValue) }}</strong><span class="shint">佔資金 {{ deployedPct.toFixed(1) }}%</span></div>
+        <div class="scard"><span class="slabel">未實現損益</span><strong class="sval" :class="totalUnrealized >= 0 ? 'up' : 'down'">{{ fmtInt(totalUnrealized) }}</strong></div>
+      </div>
+    </section>
+
+    <section class="section-block" v-reveal>
+      <h3>新增部位</h3>
+      <div class="add-form">
+        <input v-model="form.symbol" class="inp" placeholder="代碼 2330" @keyup.enter="addPosition" />
+        <input v-model.number="form.entry" type="number" class="inp" placeholder="進場價" step="0.05" @keyup.enter="addPosition" />
+        <input v-model.number="form.stop" type="number" class="inp" placeholder="停損價" step="0.05" @keyup.enter="addPosition" />
+        <input v-model.number="form.lots" type="number" class="inp" placeholder="張數" min="1" step="1" @keyup.enter="addPosition" />
+        <button class="btn btn-primary" @click="addPosition">加入</button>
+        <button v-if="positions.length" class="btn" @click="clearAll">清空</button>
+      </div>
+      <p v-if="formError" class="error-text">{{ formError }}</p>
+
+      <div class="table-wrap" v-if="positions.length">
+        <table class="pos-table">
+          <thead>
+            <tr>
+              <th>代碼</th><th>產業</th><th>進場</th><th>停損</th><th>張數</th>
+              <th>部位金額</th><th>風險金額</th><th>風險%</th><th>未實現</th><th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(p, i) in positions" :key="p.symbol + '-' + i">
+              <td class="sym">{{ p.symbol }}<small>{{ p.name && p.name !== p.symbol ? ' ' + p.name : '' }}</small></td>
+              <td class="muted">{{ p.industry || '—' }}</td>
+              <td>{{ fmt(p.entry) }}</td>
+              <td>{{ fmt(p.stop) }}</td>
+              <td>{{ p.lots }}</td>
+              <td>{{ fmtInt(posValue(p)) }}</td>
+              <td>{{ fmtInt(posRisk(p)) }}</td>
+              <td><strong :class="{ warn: posRiskPct(p) > 2 }">{{ posRiskPct(p).toFixed(2) }}%</strong></td>
+              <td :class="posUnreal(p) >= 0 ? 'up' : 'down'">{{ p.price ? fmtInt(posUnreal(p)) : '—' }}</td>
+              <td><button class="del" @click="remove(i)" title="移除">✕</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p v-else class="muted empty">尚無部位。加入幾檔持股，看看你的總熱度與產業集中度。</p>
+    </section>
+
+    <section class="section-block" v-reveal v-if="sectorHeat.length">
+      <h3>產業集中度（依風險金額）</h3>
+      <div class="sector-bars">
+        <div v-for="s in sectorHeat" :key="s.industry" class="sector-row">
+          <span class="sname">{{ s.industry }}</span>
+          <div class="bar-track"><div class="bar-fill" :class="{ warn: s.pct > 50 }" :style="{ width: Math.min(s.pct, 100) + '%' }"></div></div>
+          <span class="spct">{{ s.pct.toFixed(0) }}%</span>
+        </div>
+      </div>
+      <ul class="checklist">
+        <li :class="totalHeat <= 6 ? 'ok' : 'bad'">{{ totalHeat <= 6 ? '✓' : '✗' }} 總熱度 {{ totalHeat.toFixed(1) }}%（建議 ≤ 6%）</li>
+        <li :class="maxSectorPct <= 50 ? 'ok' : 'bad'">{{ maxSectorPct <= 50 ? '✓' : '✗' }} 單一產業佔風險 {{ maxSectorPct.toFixed(0) }}%（避免集中，建議 ≤ 50%）</li>
+      </ul>
+      <p class="disclaimer">※ 風險金額＝張數×1000×|進場−停損|。本工具僅為風險試算，非投資建議。</p>
+    </section>
+  </div>
+</template>
+
+<script setup>
+import { ref, reactive, computed, onMounted } from 'vue'
+
+const API_BASE = import.meta.env.VITE_API_BASE ?? ''
+const LS_POS = 'portfolio_heat_positions'
+const LS_ACCT = 'portfolio_heat_account'
+
+const account = ref(1000000)
+const positions = ref([])
+const form = reactive({ symbol: '', entry: null, stop: null, lots: 1 })
+const formError = ref('')
+
+function posShares(p) { return (Number(p.lots) || 0) * 1000 }
+function posValue(p) { return posShares(p) * (Number(p.entry) || 0) }
+function posRisk(p) { return posShares(p) * Math.abs((Number(p.entry) || 0) - (Number(p.stop) || 0)) }
+function posRiskPct(p) { return account.value > 0 ? posRisk(p) / account.value * 100 : 0 }
+function posUnreal(p) { return p.price ? posShares(p) * (Number(p.price) - Number(p.entry)) : 0 }
+
+const totalHeat = computed(() => positions.value.reduce((a, p) => a + posRiskPct(p), 0))
+const totalValue = computed(() => positions.value.reduce((a, p) => a + posValue(p), 0))
+const deployedPct = computed(() => (account.value > 0 ? totalValue.value / account.value * 100 : 0))
+const totalUnrealized = computed(() => positions.value.reduce((a, p) => a + posUnreal(p), 0))
+const heatLevel = computed(() => (totalHeat.value > 10 ? 'danger' : totalHeat.value > 6 ? 'warn' : 'safe'))
+const heatText = computed(() => (totalHeat.value > 10 ? '危險：總曝險過高' : totalHeat.value > 6 ? '偏高：留意加碼' : '安全區間'))
+
+const sectorHeat = computed(() => {
+  const byInd = {}
+  let total = 0
+  for (const p of positions.value) {
+    const r = posRisk(p)
+    total += r
+    const key = p.industry || '未分類'
+    byInd[key] = (byInd[key] || 0) + r
+  }
+  if (total <= 0) return []
+  return Object.entries(byInd)
+    .map(([industry, r]) => ({ industry, pct: r / total * 100 }))
+    .sort((a, b) => b.pct - a.pct)
+})
+const maxSectorPct = computed(() => (sectorHeat.value.length ? sectorHeat.value[0].pct : 0))
+
+function fmt(v) { return (v == null || isNaN(v)) ? '—' : Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }
+function fmtInt(v) { return (v == null || isNaN(v)) ? '—' : Math.round(v).toLocaleString('en-US') }
+
+function save() {
+  localStorage.setItem(LS_POS, JSON.stringify(positions.value))
+  localStorage.setItem(LS_ACCT, String(account.value))
+}
+
+function load() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(LS_POS) || '[]')
+    if (Array.isArray(raw)) positions.value = raw
+    const a = Number(localStorage.getItem(LS_ACCT))
+    if (a > 0) account.value = a
+  } catch { /* ignore */ }
+}
+
+async function addPosition() {
+  formError.value = ''
+  const symbol = String(form.symbol || '').trim().toUpperCase()
+  const entry = Number(form.entry)
+  const stop = Number(form.stop)
+  const lots = Math.floor(Number(form.lots) || 0)
+  if (!symbol || !(entry > 0) || !(stop > 0) || !(lots >= 1) || entry === stop) {
+    formError.value = '請填入代碼、有效的進場/停損價（不可相等）與至少 1 張。'
+    return
+  }
+  const pos = reactive({ symbol, name: symbol, industry: '', entry, stop, lots, price: 0 })
+  positions.value.push(pos)
+  save()
+  form.symbol = ''; form.entry = null; form.stop = null; form.lots = 1
+  // best-effort enrichment (name / industry / current price)
+  try {
+    const resp = await fetch(`${API_BASE}/api/v1/risk/sizing/${symbol}`)
+    const payload = await resp.json().catch(() => ({}))
+    if (resp.ok && payload?.data) {
+      pos.name = payload.data.name || symbol
+      pos.industry = payload.data.industry || '未分類'
+      pos.price = payload.data.price || 0
+      save()
+    }
+  } catch { /* keep basic entry */ }
+}
+
+function remove(i) { positions.value.splice(i, 1); save() }
+function clearAll() { positions.value = []; save() }
+
+onMounted(load)
+</script>
+
+<style scoped>
+.portfolio-heat-view { display: flex; flex-direction: column; gap: 16px; }
+.head-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+.head-row h2 { margin: 0 0 4px; }
+.muted { color: var(--text-muted); }
+.acct { display: flex; flex-direction: column; gap: 4px; font-size: 0.8rem; color: var(--text-muted); }
+.inp { background: var(--bg-well); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 10px; padding: 8px 12px; font-size: 0.9rem; }
+.error-text { color: #ef4444; margin-top: 8px; }
+
+.summary-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-top: 16px; }
+.scard { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; }
+.slabel { font-size: 0.76rem; color: var(--text-muted); }
+.sval { font-size: 1.6rem; }
+.shint { font-size: 0.74rem; color: var(--text-muted); }
+.scard.heat.safe { border-color: #22c55e; }
+.scard.heat.warn { border-color: #f59e0b; }
+.scard.heat.danger { border-color: #ef4444; }
+.scard.heat.safe .sval { color: #22c55e; }
+.scard.heat.warn .sval { color: #f59e0b; }
+.scard.heat.danger .sval { color: #ef4444; }
+
+.add-form { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.add-form .inp { width: 130px; }
+
+.table-wrap { overflow-x: auto; margin-top: 14px; }
+.pos-table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+.pos-table th, .pos-table td { text-align: right; padding: 8px 10px; border-bottom: 1px solid var(--border-color); white-space: nowrap; }
+.pos-table th:first-child, .pos-table td:first-child, .pos-table th:nth-child(2), .pos-table td:nth-child(2) { text-align: left; }
+.pos-table th { color: var(--text-muted); font-weight: 500; font-size: 0.76rem; }
+.sym small { color: var(--text-muted); }
+.del { background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.9rem; }
+.del:hover { color: #ef4444; }
+.empty { padding: 16px 0; }
+.up { color: #ef4444; }
+.down { color: #22c55e; }
+strong.warn { color: #f59e0b; }
+
+.sector-bars { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
+.sector-row { display: grid; grid-template-columns: 120px 1fr 48px; align-items: center; gap: 10px; }
+.sname { font-size: 0.82rem; }
+.bar-track { background: var(--bg-well); border-radius: 999px; height: 10px; overflow: hidden; }
+.bar-fill { height: 100%; background: var(--accent-blue); border-radius: 999px; }
+.bar-fill.warn { background: #f59e0b; }
+.spct { font-size: 0.8rem; text-align: right; color: var(--text-muted); }
+
+.checklist { list-style: none; padding: 0; margin: 12px 0 0; display: flex; flex-direction: column; gap: 6px; }
+.checklist li { font-size: 0.86rem; }
+.checklist li.ok { color: #22c55e; }
+.checklist li.bad { color: #f59e0b; }
+.disclaimer { font-size: 0.74rem; color: var(--text-muted); margin-top: 12px; }
+</style>
