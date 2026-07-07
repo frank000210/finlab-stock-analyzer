@@ -83,6 +83,48 @@
       </ul>
       <p class="disclaimer">※ 風險金額＝張數×1000×|進場−停損|。本工具僅為風險試算，非投資建議。</p>
     </section>
+
+    <section class="section-block" v-reveal v-if="positions.length >= 2">
+      <div class="head-row">
+        <div>
+          <h3>相關風險（Correlation）</h3>
+          <p class="muted">產業分類看不出的「隱性同一注」：不同產業卻高度連動的部位，靠報酬相關矩陣才抓得到。</p>
+        </div>
+        <button class="btn btn-primary" :disabled="corrLoading" @click="analyzeCorrelation">
+          <span v-if="corrLoading" class="loading-spinner btn-spinner" aria-hidden="true"></span>分析相關性
+        </button>
+      </div>
+      <p v-if="corrError" class="error-text">{{ corrError }}</p>
+
+      <template v-if="corr">
+        <div class="summary-cards">
+          <div class="scard"><span class="slabel">平均相關（越低越分散）</span><strong class="sval" :class="{ warn: corr.avg_abs_corr > 0.6 }">{{ corr.avg_abs_corr.toFixed(2) }}</strong><span class="shint">近 {{ corr.days }} 日報酬</span></div>
+        </div>
+
+        <div v-if="corr.high_pairs.length" class="high-pairs">
+          <div v-for="hp in corr.high_pairs" :key="hp.a + '-' + hp.b" class="hp-warn">
+            ⚠ {{ hp.a }} × {{ hp.b }} 相關 {{ hp.corr.toFixed(2) }} — 實質同一注，別當成兩個獨立部位
+          </div>
+        </div>
+        <p v-else class="ok-text">✓ 無高相關對（≥ {{ corr.high_threshold }}），分散度良好</p>
+
+        <div class="corr-matrix">
+          <table>
+            <thead><tr><th></th><th v-for="s in corr.symbols" :key="s">{{ s }}</th></tr></thead>
+            <tbody>
+              <tr v-for="(row, i) in corr.matrix" :key="i">
+                <th>{{ corr.symbols[i] }}</th>
+                <td v-for="(v, j) in row" :key="j" :style="{ background: i === j ? 'transparent' : corrColor(v) }">{{ i === j ? '—' : v.toFixed(2) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <ul class="checklist">
+          <li :class="(maxPosCorr ?? 0) < 0.7 ? 'ok' : 'bad'">{{ (maxPosCorr ?? 0) < 0.7 ? '✓' : '✗' }} 最高正相關 {{ (maxPosCorr ?? 0).toFixed(2) }}（建議 &lt; 0.7，避免隱性集中）</li>
+        </ul>
+      </template>
+    </section>
   </div>
 </template>
 
@@ -97,6 +139,10 @@ const account = ref(1000000)
 const positions = ref([])
 const form = reactive({ symbol: '', entry: null, stop: null, lots: 1 })
 const formError = ref('')
+
+const corr = ref(null)
+const corrLoading = ref(false)
+const corrError = ref('')
 
 function posShares(p) { return (Number(p.lots) || 0) * 1000 }
 function posValue(p) { return posShares(p) * (Number(p.entry) || 0) }
@@ -171,10 +217,42 @@ async function addPosition() {
   } catch { /* keep basic entry */ }
 }
 
-function remove(i) { positions.value.splice(i, 1); save() }
-function clearAll() { positions.value = []; save() }
+function remove(i) { positions.value.splice(i, 1); save(); if (positions.value.length < 2) corr.value = null }
+function clearAll() { positions.value = []; save(); corr.value = null }
 
-onMounted(load)
+const maxPosCorr = computed(() => {
+  if (!corr.value?.pairs?.length) return null
+  return Math.max(...corr.value.pairs.map(p => p.corr))
+})
+
+function corrColor(v) {
+  if (v == null || isNaN(v)) return 'transparent'
+  const a = Math.min(Math.abs(v), 1) * 0.75
+  return v >= 0 ? `rgba(239, 68, 68, ${a})` : `rgba(79, 140, 255, ${a})`
+}
+
+async function analyzeCorrelation() {
+  const syms = [...new Set(positions.value.map(p => p.symbol))]
+  if (syms.length < 2) { corrError.value = '至少需要 2 檔部位'; corr.value = null; return }
+  corrLoading.value = true
+  corrError.value = ''
+  try {
+    const resp = await fetch(`${API_BASE}/api/v1/risk/correlation?symbols=${syms.join(',')}`)
+    const payload = await resp.json().catch(() => ({}))
+    if (!resp.ok || payload?.success === false) throw new Error(payload?.detail || '相關性計算失敗')
+    corr.value = payload.data
+  } catch (e) {
+    corr.value = null
+    corrError.value = e?.message || '相關性計算失敗'
+  } finally {
+    corrLoading.value = false
+  }
+}
+
+onMounted(() => {
+  load()
+  if (positions.value.length >= 2) analyzeCorrelation()
+})
 </script>
 
 <style scoped>
@@ -227,4 +305,13 @@ strong.warn { color: #f59e0b; }
 .checklist li.ok { color: #22c55e; }
 .checklist li.bad { color: #f59e0b; }
 .disclaimer { font-size: 0.74rem; color: var(--text-muted); margin-top: 12px; }
+
+.btn-spinner { width: 14px; height: 14px; border-width: 2px; vertical-align: -2px; margin-right: 6px; }
+.high-pairs { display: flex; flex-direction: column; gap: 6px; margin: 12px 0; }
+.hp-warn { background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.4); color: #f87171; border-radius: 10px; padding: 8px 12px; font-size: 0.86rem; }
+.ok-text { color: #22c55e; font-size: 0.88rem; margin: 12px 0; }
+.corr-matrix { overflow-x: auto; margin-top: 12px; }
+.corr-matrix table { border-collapse: collapse; font-size: 0.82rem; }
+.corr-matrix th, .corr-matrix td { padding: 8px 12px; text-align: center; border: 1px solid var(--border-color); min-width: 56px; }
+.corr-matrix thead th, .corr-matrix tbody th { color: var(--text-muted); font-weight: 500; background: var(--bg-well); }
 </style>

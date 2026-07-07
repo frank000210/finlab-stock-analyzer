@@ -126,3 +126,83 @@ async def position_sizing(
             "as_of": str(df["date"].iloc[-1])[:10],
         },
     }
+
+
+@router.get("/correlation")
+async def portfolio_correlation(
+    symbols: str = Query(..., description="逗號分隔股票代碼，例如 2330,2454,2882"),
+    lookback_days: int = Query(default=90, ge=20, le=365),
+    high_threshold: float = Query(default=0.7, ge=0.0, le=1.0),
+):
+    """投組相關性：以日報酬計算兩兩 Pearson 相關矩陣，標出高相關對。
+
+    產業分類抓不到的「隱性同一注」——不同產業卻高度連動的部位——靠這個
+    相關矩陣才看得出來（非投資建議）。
+    """
+    import asyncio
+    from datetime import date, timedelta
+
+    import numpy as np
+    import pandas as pd
+
+    from ..crawler.stock_price import StockPriceCrawler
+
+    seen: set[str] = set()
+    syms = [
+        s.strip().upper()
+        for s in symbols.split(",")
+        if s.strip() and not (s.strip().upper() in seen or seen.add(s.strip().upper()))
+    ]
+    if len(syms) < 2:
+        raise HTTPException(status_code=400, detail="至少需要 2 檔股票才能計算相關性")
+
+    end = date.today()
+    start = end - timedelta(days=lookback_days + 15)
+    crawler = StockPriceCrawler()
+
+    async def _fetch(sym: str):
+        try:
+            df = await crawler.get_price(sym, start.isoformat(), end.isoformat(), "1d")
+            if df is None or df.empty:
+                return sym, None
+            s = df.sort_values("date").set_index("date")["close"].astype(float)
+            return sym, s
+        except Exception:
+            return sym, None
+
+    results = await asyncio.gather(*[_fetch(s) for s in syms])
+    series = {sym: s for sym, s in results if s is not None and len(s) > 5}
+    valid = [s for s in syms if s in series]
+    if len(valid) < 2:
+        raise HTTPException(status_code=404, detail="可用價格資料不足，無法計算相關性")
+
+    price_df = pd.DataFrame({s: series[s] for s in valid}).sort_index()
+    ret = price_df.pct_change().dropna(how="any")
+    if len(ret) < 5:
+        raise HTTPException(status_code=404, detail="重疊交易日不足，無法計算相關性")
+
+    corr = ret.corr()
+    matrix = [[round(float(corr.loc[a, b]), 3) for b in valid] for a in valid]
+
+    pairs = []
+    for i in range(len(valid)):
+        for j in range(i + 1, len(valid)):
+            c = float(corr.iloc[i, j])
+            if not np.isnan(c):
+                pairs.append({"a": valid[i], "b": valid[j], "corr": round(c, 3)})
+    pairs.sort(key=lambda p: abs(p["corr"]), reverse=True)
+    high_pairs = [p for p in pairs if p["corr"] >= high_threshold]
+    avg_abs = round(float(np.mean([abs(p["corr"]) for p in pairs])), 3) if pairs else 0.0
+
+    return {
+        "success": True,
+        "data": {
+            "symbols": valid,
+            "matrix": matrix,
+            "pairs": pairs,
+            "high_pairs": high_pairs,
+            "high_threshold": high_threshold,
+            "avg_abs_corr": avg_abs,
+            "days": int(len(ret)),
+        },
+    }
