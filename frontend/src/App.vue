@@ -69,7 +69,7 @@ import { useStockStore } from './stores/stock.js'
 import { useAuthStore } from './stores/auth.js'
 import PageCounter from './components/PageCounter.vue'
 
-const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:8000' : ''
+const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 const router = useRouter()
 const route = useRoute()
 const stockStore = useStockStore()

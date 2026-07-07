@@ -227,7 +227,7 @@ import { sankey as d3Sankey, sankeyLinkHorizontal } from 'd3-sankey'
 import { useChartTheme } from '../composables/useChartTheme'
 
 const theme = useChartTheme()
-const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:8000' : ''
+const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 const WATCHLIST_STORAGE_KEY = 'finlab_watchlist'
 
 const loading = ref(false)

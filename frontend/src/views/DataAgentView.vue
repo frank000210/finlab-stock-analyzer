@@ -96,7 +96,7 @@
 import PageFocusBanner from '../components/PageFocusBanner.vue'
 import { computed, onMounted, ref, watch } from 'vue'
 
-const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:8000' : ''
+const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 const sourceTabs = ['ALL', 'TWSE', 'PTT', 'NEWS']
 const selectedSource = ref('ALL')
 const checking = ref(false)

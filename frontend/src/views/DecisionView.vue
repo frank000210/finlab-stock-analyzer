@@ -284,7 +284,7 @@ import PageFocusBanner from '../components/PageFocusBanner.vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { createChart } from 'lightweight-charts'
 
-const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:8000' : ''
+const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 const WATCHLIST_STORAGE_KEY = 'finlab_watchlist'
 const filters = [
   { label: '全部', value: 'ALL' },

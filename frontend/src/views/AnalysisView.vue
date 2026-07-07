@@ -302,7 +302,7 @@ const theme = useChartTheme()
 const calendarEl = ref(null)
 const volumeProfileEl = ref(null)
 
-const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:8000' : ''
+const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 
 const route = useRoute()
 const router = useRouter()

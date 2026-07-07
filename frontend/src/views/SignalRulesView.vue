@@ -113,7 +113,7 @@
 import PageFocusBanner from '../components/PageFocusBanner.vue'
 import { onMounted, ref } from 'vue'
 
-const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:8000' : ''
+const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 const defaultScript = `def generate_signal(context):
     signal = 'HOLD'
     confidence = 0.5

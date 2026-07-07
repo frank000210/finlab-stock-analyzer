@@ -68,7 +68,7 @@
 import PageFocusBanner from '../components/PageFocusBanner.vue'
 import { onMounted, ref, watch } from 'vue'
 
-const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:8000' : ''
+const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 const statuses = ['ALL', 'PENDING', 'APPROVED', 'REJECTED']
 const selectedStatus = ref('ALL')
 const trades = ref([])
