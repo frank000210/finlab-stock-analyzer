@@ -170,7 +170,7 @@ def _fetch_taiex(start: str, end: str) -> Optional[pd.DataFrame]:
 
     # Method 2: yfinance ^TWII
     try:
-        df = yf.download("^TWII", start=start, end=end, progress=False)
+        df = yf.download("^TWII", start=start, end=end, progress=False, auto_adjust=False)
         if df.empty:
             return None
         df = df.reset_index()

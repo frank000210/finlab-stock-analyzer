@@ -42,11 +42,11 @@ class StockPriceCrawler:
         interval_map = {"1d": "1d", "1w": "1wk", "1mo": "1mo"}
         interval = interval_map.get(period, "1d")
 
-        df = yf.download(ticker, start=start, end=end, interval=interval, progress=False)
+        df = yf.download(ticker, start=start, end=end, interval=interval, progress=False, auto_adjust=False)
         if df.empty:
             # Try .TWO for OTC stocks
             ticker = f"{symbol}.TWO"
-            df = yf.download(ticker, start=start, end=end, interval=interval, progress=False)
+            df = yf.download(ticker, start=start, end=end, interval=interval, progress=False, auto_adjust=False)
 
         if df.empty:
             return pd.DataFrame(columns=["date", "open", "high", "low", "close", "volume"])
