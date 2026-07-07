@@ -72,6 +72,11 @@ const routes = [
     component: () => import('./views/PublicDataView.vue'),
   },
   {
+    path: '/risk-sizing',
+    name: 'risk-sizing',
+    component: () => import('./views/RiskSizingView.vue'),
+  },
+  {
     path: '/settings',
     name: 'settings',
     component: () => import('./views/SettingsView.vue'),

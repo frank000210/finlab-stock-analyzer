@@ -1,0 +1,220 @@
+<template>
+  <div class="risk-sizing-view">
+    <div class="focus-banner" v-reveal>
+      <span class="focus-tag">🎯 觀測重點</span>
+      先定停損與單筆風險，再回推部位大小。紀律先於方向——這是把勝率轉成長期獲利的關鍵。
+    </div>
+
+    <section class="section-block" v-reveal>
+      <div class="head-row">
+        <div>
+          <h2>部位風控試算（Position Sizing）</h2>
+          <p class="muted">以 ATR 波動度定停損、以單筆風險回推張數，並檢視風報比與期望值。</p>
+        </div>
+        <div class="symbol-box">
+          <input v-model="symbolInput" class="inp" placeholder="股票代碼，例如 2330" @keyup.enter="loadMarket" />
+          <button class="btn btn-primary" :disabled="loading" @click="loadMarket">
+            <span v-if="loading" class="loading-spinner btn-spinner" aria-hidden="true"></span>查詢
+          </button>
+        </div>
+      </div>
+
+      <p v-if="errorMessage" class="error-text">{{ errorMessage }}</p>
+
+      <!-- 市場資料 -->
+      <div class="market-cards" v-if="market">
+        <div class="mcard">
+          <span class="mlabel">{{ market.symbol }} {{ market.name }} 現價</span>
+          <strong class="mval">{{ fmt(market.price) }}</strong>
+          <span class="mhint">資料日 {{ market.as_of }}</span>
+        </div>
+        <div class="mcard">
+          <span class="mlabel">ATR({{ market.atr_period }}) 每日波動</span>
+          <strong class="mval">{{ fmt(market.atr) }}</strong>
+          <span class="mhint">≈ {{ market.atr_pct }}%／日</span>
+        </div>
+        <div class="mcard">
+          <span class="mlabel">ATR 停損建議（點擊套用）</span>
+          <div class="stop-chips">
+            <button
+              v-for="s in market.suggested_stops"
+              :key="s.label"
+              type="button"
+              class="chip"
+              :class="{ active: Number(stop) === s.stop_price }"
+              @click="stop = s.stop_price"
+            >{{ s.label }} {{ fmt(s.stop_price) }}<small>(-{{ s.distance_pct }}%)</small></button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section-block sizing-grid" v-reveal>
+      <!-- 輸入 -->
+      <div class="inputs">
+        <h3>試算條件</h3>
+        <label class="field"><span>帳戶資金 (TWD)</span>
+          <input v-model.number="account" type="number" min="0" step="10000" class="inp" /></label>
+        <label class="field"><span>單筆風險 (% 資金)</span>
+          <input v-model.number="riskPct" type="number" min="0.1" max="100" step="0.1" class="inp" /></label>
+        <label class="field"><span>進場價</span>
+          <input v-model.number="entry" type="number" min="0" step="0.05" class="inp" /></label>
+        <label class="field"><span>停損價</span>
+          <input v-model.number="stop" type="number" min="0" step="0.05" class="inp" /></label>
+        <label class="field"><span>目標價（選填）</span>
+          <input v-model.number="target" type="number" min="0" step="0.05" class="inp" /></label>
+        <label class="field"><span>預估勝率 %（選填，算期望值）</span>
+          <input v-model.number="winRate" type="number" min="0" max="100" step="1" class="inp" /></label>
+      </div>
+
+      <!-- 結果 -->
+      <div class="results">
+        <h3>試算結果 <small class="muted">{{ directionLabel }}</small></h3>
+        <div v-if="!valid" class="muted empty">請輸入有效的資金、進場價與停損價（停損不可等於進場）。</div>
+        <template v-else>
+          <div class="rgrid">
+            <div class="rcard hl">
+              <span>建議部位</span>
+              <strong>{{ lots }} 張<small v-if="lots > 0"> ({{ fmtInt(lots * 1000) }} 股)</small></strong>
+              <em v-if="lots === 0" class="warn">資金不足一張，零股約 {{ fmtInt(oddShares) }} 股</em>
+            </div>
+            <div class="rcard"><span>每股風險</span><strong>{{ fmt(perShareRisk) }}</strong></div>
+            <div class="rcard"><span>風險預算 (資金×{{ riskPct }}%)</span><strong>{{ fmtInt(riskBudget) }}</strong></div>
+            <div class="rcard"><span>實際風險金額</span><strong :class="{ warn: capitalAtRisk > riskBudget * 1.02 }">{{ fmtInt(capitalAtRisk) }}</strong></div>
+            <div class="rcard"><span>部位金額</span><strong>{{ fmtInt(positionValue) }}</strong></div>
+            <div class="rcard"><span>佔資金比重</span><strong :class="{ warn: pctOfAccount > 30 }">{{ pctOfAccount.toFixed(1) }}%</strong></div>
+            <div class="rcard" v-if="target"><span>風報比 R:R</span><strong :class="rrClass">1 : {{ rr.toFixed(2) }}</strong></div>
+            <div class="rcard" v-if="target"><span>達標獲利</span><strong class="up">{{ fmtInt(profitAtTarget) }}</strong></div>
+            <div class="rcard" v-if="expectancyR !== null"><span>期望值 / 筆</span><strong :class="expectancyR >= 0 ? 'up' : 'warn'">{{ expectancyR.toFixed(2) }} R（{{ fmtInt(expectancyMoney) }}）</strong></div>
+          </div>
+
+          <h4>紀律檢查</h4>
+          <ul class="checklist">
+            <li :class="riskPct <= 2 ? 'ok' : 'bad'">{{ riskPct <= 2 ? '✓' : '✗' }} 單筆風險 {{ riskPct }}%（建議 ≤ 2%）</li>
+            <li v-if="target" :class="rr >= 2 ? 'ok' : 'bad'">{{ rr >= 2 ? '✓' : '✗' }} 風報比 1:{{ rr.toFixed(2) }}（建議 ≥ 1:2）</li>
+            <li :class="pctOfAccount <= 30 ? 'ok' : 'bad'">{{ pctOfAccount <= 30 ? '✓' : '✗' }} 單一部位佔資金 {{ pctOfAccount.toFixed(1) }}%（避免過度集中，建議 ≤ 30%）</li>
+          </ul>
+          <p class="disclaimer">※ 本工具僅為風險試算，非投資建議；停損/目標請自行判斷。</p>
+        </template>
+      </div>
+    </section>
+  </div>
+</template>
+
+<script setup>
+import { ref, computed, onMounted } from 'vue'
+
+const API_BASE = import.meta.env.VITE_API_BASE ?? ''
+
+const symbolInput = ref('2330')
+const market = ref(null)
+const loading = ref(false)
+const errorMessage = ref('')
+
+const account = ref(1000000)
+const riskPct = ref(1)
+const entry = ref(0)
+const stop = ref(0)
+const target = ref(0)
+const winRate = ref(0)
+
+const perShareRisk = computed(() => Math.abs((entry.value || 0) - (stop.value || 0)))
+const valid = computed(() => account.value > 0 && entry.value > 0 && stop.value > 0 && perShareRisk.value > 0)
+const riskBudget = computed(() => (account.value || 0) * (riskPct.value || 0) / 100)
+const rawShares = computed(() => (perShareRisk.value > 0 ? riskBudget.value / perShareRisk.value : 0))
+const lots = computed(() => Math.floor(rawShares.value / 1000))
+const shares = computed(() => lots.value * 1000)
+const oddShares = computed(() => Math.floor(rawShares.value))
+const positionValue = computed(() => shares.value * (entry.value || 0))
+const capitalAtRisk = computed(() => shares.value * perShareRisk.value)
+const pctOfAccount = computed(() => (account.value > 0 ? positionValue.value / account.value * 100 : 0))
+const rewardPerShare = computed(() => (target.value ? Math.abs(target.value - (entry.value || 0)) : 0))
+const rr = computed(() => (perShareRisk.value > 0 && target.value ? rewardPerShare.value / perShareRisk.value : 0))
+const profitAtTarget = computed(() => shares.value * rewardPerShare.value)
+const expectancyR = computed(() => {
+  if (!winRate.value || !target.value || rr.value <= 0) return null
+  const p = Math.min(Math.max(winRate.value / 100, 0), 1)
+  return p * rr.value - (1 - p) * 1
+})
+const expectancyMoney = computed(() => (expectancyR.value === null ? 0 : expectancyR.value * capitalAtRisk.value))
+const directionLabel = computed(() => {
+  if (!valid.value) return ''
+  return (entry.value > stop.value) ? '做多情境' : '做空情境'
+})
+const rrClass = computed(() => (rr.value >= 2 ? 'up' : rr.value > 0 ? 'warn' : ''))
+
+function fmt(v) { return (v == null || isNaN(v)) ? '—' : Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }
+function fmtInt(v) { return (v == null || isNaN(v)) ? '—' : Math.round(v).toLocaleString('en-US') }
+
+async function loadMarket() {
+  const sym = String(symbolInput.value || '').trim().toUpperCase()
+  if (!sym) { errorMessage.value = '請輸入股票代碼'; return }
+  loading.value = true
+  errorMessage.value = ''
+  try {
+    const resp = await fetch(`${API_BASE}/api/v1/risk/sizing/${sym}`)
+    const payload = await resp.json().catch(() => ({}))
+    if (!resp.ok || payload?.success === false) {
+      throw new Error(payload?.detail || '查詢失敗')
+    }
+    market.value = payload.data
+    // 預設帶入現價與「穩健」ATR 停損
+    entry.value = market.value.price
+    const moderate = (market.value.suggested_stops || []).find(s => s.label === '穩健')
+    stop.value = moderate ? moderate.stop_price : Math.round((market.value.price - market.value.atr * 2) * 100) / 100
+  } catch (e) {
+    market.value = null
+    errorMessage.value = e?.message || '查詢失敗'
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(loadMarket)
+</script>
+
+<style scoped>
+.risk-sizing-view { display: flex; flex-direction: column; gap: 16px; }
+.head-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+.head-row h2 { margin: 0 0 4px; }
+.muted { color: var(--text-muted); }
+.symbol-box { display: flex; gap: 8px; }
+.inp {
+  background: var(--bg-well); border: 1px solid var(--border-color); color: var(--text-primary);
+  border-radius: 10px; padding: 8px 12px; font-size: 0.9rem; width: 100%;
+}
+.error-text { color: #ef4444; margin-top: 10px; }
+
+.market-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-top: 16px; }
+.mcard { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; }
+.mlabel { font-size: 0.78rem; color: var(--text-muted); }
+.mval { font-size: 1.5rem; }
+.mhint { font-size: 0.74rem; color: var(--text-muted); }
+.stop-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { background: var(--bg-hover); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 999px; padding: 4px 10px; font-size: 0.78rem; cursor: pointer; }
+.chip small { color: var(--text-muted); margin-left: 4px; }
+.chip.active { border-color: var(--accent-blue); color: var(--accent-blue); }
+
+.sizing-grid { display: grid; grid-template-columns: 320px 1fr; gap: 20px; }
+@media (max-width: 900px) { .sizing-grid { grid-template-columns: 1fr; } }
+.inputs h3, .results h3 { margin-top: 0; }
+.field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; font-size: 0.82rem; color: var(--text-muted); }
+
+.rgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+.rcard { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; }
+.rcard span { font-size: 0.76rem; color: var(--text-muted); }
+.rcard strong { font-size: 1.15rem; }
+.rcard.hl { border-color: var(--accent-blue); }
+.rcard.hl strong { font-size: 1.5rem; color: var(--accent-blue); }
+.rcard .warn, strong.warn { color: #f59e0b; }
+.up { color: var(--up-color, #ef4444); }
+.warn.up { color: #f59e0b; }
+.empty { padding: 20px 0; }
+
+.checklist { list-style: none; padding: 0; margin: 8px 0 0; display: flex; flex-direction: column; gap: 6px; }
+.checklist li { font-size: 0.86rem; }
+.checklist li.ok { color: #22c55e; }
+.checklist li.bad { color: #f59e0b; }
+.disclaimer { font-size: 0.74rem; color: var(--text-muted); margin-top: 14px; }
+.btn-spinner { width: 14px; height: 14px; border-width: 2px; vertical-align: -2px; margin-right: 6px; }
+</style>
