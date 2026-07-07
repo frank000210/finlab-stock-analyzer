@@ -43,12 +43,17 @@
       </div>
 
       <button class="btn btn-primary" style="width: 100%; margin-top: 16px;" @click="runBacktest" :disabled="running">
-        {{ running ? '回測中...' : '🚀 執行回測' }}
+        <span v-if="running" class="loading-spinner" style="width:14px;height:14px;border-width:2px;vertical-align:-2px;margin-right:6px;" aria-hidden="true"></span>{{ running ? '回測中...' : '🚀 執行回測' }}
       </button>
     </aside>
 
     <main class="results">
-      <div v-if="!result" class="empty-state card">
+      <div v-if="running" class="empty-state card" role="status" aria-live="polite">
+        <div class="loading-spinner" style="width:40px;height:40px;border-width:3px;margin:0 auto 12px;"></div>
+        <h3>回測運算中…</h3>
+        <p>正在計算年化報酬率、最大回撤、夏普比率等績效指標</p>
+      </div>
+      <div v-else-if="!result" class="empty-state card">
         <h3>設定策略參數後點擊「執行回測」</h3>
         <p>系統將計算年化報酬率、最大回撤、夏普比率等績效指標</p>
       </div>

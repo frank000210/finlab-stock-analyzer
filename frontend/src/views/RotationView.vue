@@ -58,8 +58,12 @@
 
       <div class="control-actions">
         <button class="btn" v-if="universe === 'watchlist'" @click="applySymbols">套用觀察池</button>
-        <button class="btn" :disabled="loading" @click="buildData">更新原始資料</button>
-        <button class="btn btn-primary" :disabled="loading" @click="reloadTimeline">重算輪動</button>
+        <button class="btn" :disabled="loading" @click="buildData">
+          <span v-if="loading" class="loading-spinner btn-spinner" aria-hidden="true"></span>更新原始資料
+        </button>
+        <button class="btn btn-primary" :disabled="loading" @click="reloadTimeline">
+          <span v-if="loading" class="loading-spinner btn-spinner" aria-hidden="true"></span>重算輪動
+        </button>
       </div>
 
       <div class="sector-picker" v-if="universe === 'twse' && sectorOptions.length">
@@ -127,6 +131,10 @@
 
     <section class="rotation-layout section-block" v-reveal>
       <div class="canvas-stack">
+        <div v-if="loading" class="canvas-loading" role="status" aria-live="polite">
+          <div class="loading-spinner canvas-spinner"></div>
+          <span>{{ loadingLabel }}</span>
+        </div>
         <div class="chart-card" :class="{ 'is-fullscreen': fullscreenTarget === 'rrg' }">
           <div class="chart-card-head">
             <h3>RRG 輪動時鐘</h3>
@@ -231,6 +239,7 @@ const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 const WATCHLIST_STORAGE_KEY = 'finlab_watchlist'
 
 const loading = ref(false)
+const loadingLabel = ref('運算中…')
 const errorMessage = ref('')
 const universe = ref('twse')
 const freq = ref('daily')
@@ -480,6 +489,7 @@ function buildCommonParams(dateValue) {
 async function buildData() {
   try {
     loading.value = true
+    loadingLabel.value = '更新原始資料中…'
     errorMessage.value = ''
     await apiPost('/api/v1/rotation/build', {
       universe: universe.value,
@@ -498,6 +508,7 @@ async function buildData() {
 async function reloadTimeline() {
   try {
     loading.value = true
+    loadingLabel.value = '重算輪動中…'
     errorMessage.value = ''
     const params = new URLSearchParams({
       universe: universe.value,
@@ -1459,6 +1470,36 @@ function offsetISO(days) {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
+  position: relative;
+}
+
+.canvas-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: rgba(10, 15, 26, 0.62);
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  border-radius: 18px;
+  z-index: 5;
+}
+
+.canvas-spinner {
+  width: 40px;
+  height: 40px;
+  border-width: 3px;
+}
+
+.btn-spinner {
+  width: 14px;
+  height: 14px;
+  border-width: 2px;
+  vertical-align: -2px;
+  margin-right: 6px;
 }
 
 @media (max-width: 1024px) {
