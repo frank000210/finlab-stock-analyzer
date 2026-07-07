@@ -37,7 +37,10 @@
 
       <div class="control-actions">
         <button class="btn" @click="applySymbols">套用觀察池</button>
-        <button class="btn btn-primary" :disabled="loading" @click="reloadTimeline">重算圖譜</button>
+        <button class="btn btn-primary" :disabled="loading" @click="reloadTimeline">
+          <span v-if="loading" class="loading-spinner btn-spinner" aria-hidden="true"></span>
+          {{ loading ? '運算中…' : '重算圖譜' }}
+        </button>
       </div>
 
       <div class="switch-row">
@@ -95,6 +98,10 @@
     <section class="graph-layout section-block" v-reveal>
       <div class="graph-canvas-wrap">
         <div ref="graphHost" class="graph-canvas"></div>
+        <div v-if="loading" class="canvas-loading" role="status" aria-live="polite">
+          <div class="loading-spinner canvas-spinner"></div>
+          <span>重算圖譜中…</span>
+        </div>
         <div v-if="!hasGraphData && !loading" class="canvas-empty">
           目前區間查無可視化資料，已自動嘗試以單日快照回補。請調整日期區間或降低門檻。
         </div>
@@ -976,6 +983,34 @@ function offsetISO(days) {
   width: 100%;
   height: 560px;
   display: block;
+}
+
+.canvas-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: rgba(10, 15, 26, 0.62);
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  z-index: 5;
+}
+
+.canvas-spinner {
+  width: 40px;
+  height: 40px;
+  border-width: 3px;
+}
+
+.btn-spinner {
+  width: 14px;
+  height: 14px;
+  border-width: 2px;
+  vertical-align: -2px;
+  margin-right: 6px;
 }
 
 .legend {
