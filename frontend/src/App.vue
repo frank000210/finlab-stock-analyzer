@@ -38,6 +38,7 @@
         <router-link :to="`/stocks/${stockStore.symbol}/social-buzz`">熱度</router-link>
       </div>
       <div class="nav-links secondary-nav">
+        <router-link to="/guide" class="nav-guide">🚀 新手上路</router-link>
         <router-link to="/overview">總覽</router-link>
         <router-link :to="`/stocks/${stockStore.symbol}/public-data`">公開資訊</router-link>
         <router-link :to="`/stocks/${stockStore.symbol}/backtest`">回測</router-link>
@@ -58,6 +59,11 @@
         <button v-else class="nav-signin-btn" @click="triggerGoogleSignIn">Google 登入</button>
       </div>
     </nav>
+    <div v-if="showOnboard" class="onboard-banner">
+      <span>👋 第一次來？花 3 分鐘看「新手上路」，把整套交易紀律流程走一遍。</span>
+      <router-link class="ob-go" to="/guide" @click="dismissOnboard">開始導覽 →</router-link>
+      <button class="ob-x" @click="dismissOnboard" aria-label="關閉導覽提示">✕</button>
+    </div>
     <main class="main-content">
       <router-view />
     </main>
@@ -82,6 +88,12 @@ const stockStore = useStockStore()
 const authStore = useAuthStore()
 const searchQuery = ref('')
 const searchResults = ref([])
+const showOnboard = ref(false)
+function dismissOnboard() { showOnboard.value = false; localStorage.setItem('finlab_onboarded', '1') }
+onMounted(() => {
+  // Only surface the first-visit banner on the landing page.
+  if (!localStorage.getItem('finlab_onboarded') && route.path === '/') showOnboard.value = true
+})
 let searchTimeout = null
 
 const currentRouteName = computed(() => route.name || route.path || 'home')
@@ -238,6 +250,18 @@ function triggerGoogleSignIn() {
   opacity: 0.7;
 }
 .nav-admin:hover { opacity: 1; }
+.nav-guide { color: #22c55e !important; font-weight: 600; }
+
+.onboard-banner {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  background: linear-gradient(90deg, rgba(34,197,94,0.14), rgba(79,140,255,0.14));
+  border-bottom: 1px solid var(--border-color);
+  padding: 10px 20px; font-size: 0.88rem;
+}
+.onboard-banner .ob-go { color: var(--accent-blue); font-weight: 700; text-decoration: none; }
+.onboard-banner .ob-go:hover { text-decoration: underline; }
+.onboard-banner .ob-x { margin-left: auto; background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.9rem; }
+.onboard-banner .ob-x:hover { color: var(--text-primary); }
 
 .nav-auth {
   display: flex;

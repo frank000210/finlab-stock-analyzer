@@ -102,6 +102,11 @@ const routes = [
     component: () => import('./views/CommandView.vue'),
   },
   {
+    path: '/guide',
+    name: 'guide',
+    component: () => import('./views/OnboardingView.vue'),
+  },
+  {
     path: '/settings',
     name: 'settings',
     component: () => import('./views/SettingsView.vue'),
