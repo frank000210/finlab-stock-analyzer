@@ -47,6 +47,25 @@
           </div>
         </div>
       </div>
+
+      <div v-if="market && market.setup" class="setup-panel">
+        <div class="setup-head">
+          <div class="setup-score" :class="setupClass(market.setup.total)">
+            <strong>{{ market.setup.total }}</strong><span>/100</span>
+          </div>
+          <div>
+            <div class="setup-verdict" :class="setupClass(market.setup.total)">進場評分：{{ market.setup.verdict }}</div>
+            <div class="muted small">趨勢/風報比/量能/RSI 綜合 · 目標波段高 {{ market.setup.target }} · R:R≈{{ market.setup.rr }}</div>
+          </div>
+        </div>
+        <div class="setup-components">
+          <div v-for="c in market.setup.components" :key="c.name" class="comp">
+            <div class="comp-top"><span>{{ c.name }}</span><strong>{{ c.score }}/{{ c.max }}</strong></div>
+            <div class="comp-bar"><div class="comp-fill" :style="{ width: (c.score / c.max * 100) + '%' }"></div></div>
+            <span class="comp-note muted">{{ c.note }}</span>
+          </div>
+        </div>
+      </div>
     </section>
 
     <section class="section-block sizing-grid" v-reveal>
@@ -246,6 +265,7 @@ async function loadFromBacktest() {
 
 function fmt(v) { return (v == null || isNaN(v)) ? '—' : Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }
 function fmtInt(v) { return (v == null || isNaN(v)) ? '—' : Math.round(v).toLocaleString('en-US') }
+function setupClass(total) { return total >= 70 ? 'good' : total >= 45 ? 'mid' : 'bad' }
 
 async function loadMarket() {
   const sym = String(symbolInput.value || '').trim().toUpperCase()
@@ -321,4 +341,21 @@ onMounted(loadMarket)
 .kelly-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin: 12px 0; max-width: 520px; }
 .bt-import { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .apply-cell { align-items: center; justify-content: center; }
+
+.setup-panel { margin-top: 16px; border: 1px solid var(--border-color); border-radius: 14px; padding: 16px; background: var(--card-bg); }
+.setup-head { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.setup-score { display: flex; align-items: baseline; gap: 2px; }
+.setup-score strong { font-size: 2.2rem; line-height: 1; }
+.setup-score span { color: var(--text-muted); font-size: 0.9rem; }
+.setup-score.good strong, .setup-verdict.good { color: #22c55e; }
+.setup-score.mid strong, .setup-verdict.mid { color: #f59e0b; }
+.setup-score.bad strong, .setup-verdict.bad { color: #ef4444; }
+.setup-verdict { font-size: 1.1rem; font-weight: 700; }
+.small { font-size: 0.78rem; }
+.setup-components { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-top: 14px; }
+.comp { display: flex; flex-direction: column; gap: 4px; }
+.comp-top { display: flex; justify-content: space-between; font-size: 0.82rem; }
+.comp-bar { background: var(--bg-well); border-radius: 999px; height: 8px; overflow: hidden; }
+.comp-fill { height: 100%; background: var(--accent-blue); border-radius: 999px; }
+.comp-note { font-size: 0.74rem; }
 </style>

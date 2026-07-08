@@ -76,3 +76,11 @@ test('凱利 從交易日誌帶入 uses real journal stats', async ({ page }) =>
   await expect(kellyInputs.nth(0)).toHaveValue('67')
   await expect(kellyInputs.nth(1)).toHaveValue('2')
 })
+
+test('部位風控 shows a setup-score panel', async ({ page }) => {
+  await page.goto('/risk-sizing')
+  await expect(page.locator('.setup-panel')).toBeVisible({ timeout: 60_000 })
+  await expect(page.locator('.setup-score')).toContainText('/100')
+  await expect(page.getByText(/進場評分：/)).toBeVisible()
+  await expect(page.locator('.setup-components .comp')).toHaveCount(4)
+})

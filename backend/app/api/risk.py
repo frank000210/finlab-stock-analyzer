@@ -87,6 +87,9 @@ async def position_sizing(
     if math.isnan(atr) or math.isnan(price) or price <= 0:
         raise HTTPException(status_code=404, detail=f"{symbol} 無法計算有效的 ATR/現價")
 
+    # --- 進場評分 (Setup Score, 0-100) ---
+    setup = _setup_score(df, close, high, price, atr)
+
     stop_multiples = [("積極", 1.5), ("穩健", 2.0), ("保守", 3.0)]
     suggested_stops = [
         {
@@ -123,8 +126,69 @@ async def position_sizing(
             "atr_period": atr_period,
             "atr_pct": round(atr / price * 100, 2),
             "suggested_stops": suggested_stops,
+            "setup": setup,
             "as_of": str(df["date"].iloc[-1])[:10],
         },
+    }
+
+
+def _setup_score(df, close, high, price, atr):
+    """0–100 進場品質評分：趨勢排列(30) + 風報比(30) + 量能(20) + RSI 位置(20)。"""
+    import numpy as np
+
+    n = len(close)
+    ma20 = float(close.tail(20).mean())
+    ma60 = float(close.tail(60).mean()) if n >= 60 else float(close.mean())
+
+    delta = close.diff()
+    gain = delta.clip(lower=0).rolling(14).mean()
+    loss = (-delta.clip(upper=0)).rolling(14).mean()
+    rs = gain / loss.replace(0, np.nan)
+    rsi_series = 100 - 100 / (1 + rs)
+    rsi = float(rsi_series.iloc[-1]) if not np.isnan(rsi_series.iloc[-1]) else 50.0
+
+    vol = df["volume"].astype(float)
+    vol_ma20 = float(vol.tail(20).mean()) if len(vol) >= 20 else float(vol.mean())
+    vol_ratio = float(vol.iloc[-1]) / vol_ma20 if vol_ma20 else 1.0
+
+    hi60 = float(high.tail(60).max())
+    stop = price - 2 * atr
+    risk = price - stop
+    rr = (hi60 - price) / risk if risk > 0 else 0.0
+
+    if price > ma20 and ma20 > ma60:
+        trend, trend_note = 30, "多頭排列"
+    elif price > ma20:
+        trend, trend_note = 20, "站上 20MA"
+    elif price > ma60:
+        trend, trend_note = 10, "站上 60MA"
+    else:
+        trend, trend_note = 0, "弱勢（跌破均線）"
+
+    rr_s = 30 if rr >= 3 else 22 if rr >= 2 else 12 if rr >= 1 else 4 if rr > 0 else 0
+    vol_s = 20 if vol_ratio >= 1.5 else 14 if vol_ratio >= 1.0 else 8 if vol_ratio >= 0.7 else 4
+    if 40 <= rsi <= 65:
+        rsi_s = 20
+    elif 30 <= rsi <= 70:
+        rsi_s = 12
+    elif rsi > 70:
+        rsi_s = 4
+    else:
+        rsi_s = 8
+
+    total = int(trend + rr_s + vol_s + rsi_s)
+    verdict = "進場條件佳" if total >= 70 else ("普通，需再確認" if total >= 45 else "條件不佳，觀望")
+    return {
+        "total": total,
+        "verdict": verdict,
+        "rr": round(rr, 2),
+        "target": round(hi60, 2),
+        "components": [
+            {"name": "趨勢排列", "score": trend, "max": 30, "note": trend_note},
+            {"name": "風報比", "score": rr_s, "max": 30, "note": f"2×ATR 停損、波段高為目標，R:R≈{round(rr, 2)}"},
+            {"name": "量能", "score": vol_s, "max": 20, "note": f"{round(vol_ratio, 2)}× 20日均量"},
+            {"name": "RSI 位置", "score": rsi_s, "max": 20, "note": f"RSI {round(rsi, 1)}"},
+        ],
     }
 
 
