@@ -77,6 +77,12 @@ test('凱利 從交易日誌帶入 uses real journal stats', async ({ page }) =>
   await expect(kellyInputs.nth(1)).toHaveValue('2')
 })
 
+test('部位風控 accepts ?symbol= query (deep link from decision panel)', async ({ page }) => {
+  await page.goto('/risk-sizing?symbol=2454')
+  await expect(page.locator('.symbol-box input')).toHaveValue('2454')
+  await expect(page.locator('.mval').first()).toBeVisible({ timeout: 60_000 })
+})
+
 test('部位風控 shows a setup-score panel', async ({ page }) => {
   await page.goto('/risk-sizing')
   await expect(page.locator('.setup-panel')).toBeVisible({ timeout: 60_000 })

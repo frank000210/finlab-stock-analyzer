@@ -158,6 +158,9 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
+
+const route = useRoute()
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 
@@ -291,7 +294,11 @@ async function loadMarket() {
   }
 }
 
-onMounted(loadMarket)
+onMounted(() => {
+  const q = route.query.symbol
+  if (q) symbolInput.value = String(q).trim().toUpperCase()
+  loadMarket()
+})
 </script>
 
 <style scoped>

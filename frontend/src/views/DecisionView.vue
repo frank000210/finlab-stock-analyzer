@@ -194,6 +194,13 @@
               >
                 分析→
               </router-link>
+              <router-link
+                class="analysis-link risk-link"
+                :to="{ name: 'risk-sizing', query: { symbol: card.symbol } }"
+                title="用這檔的 ATR 停損試算部位"
+              >
+                🛡️風控→
+              </router-link>
             </div>
             <p class="company-name">{{ card.companyName }}</p>
           </div>
