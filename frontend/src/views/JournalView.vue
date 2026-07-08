@@ -43,6 +43,7 @@
         <input v-model.number="form.stop" type="number" class="inp w110" placeholder="停損價" step="0.05" />
         <input v-model.number="form.target" type="number" class="inp w110" placeholder="目標價(選填)" step="0.05" />
         <input v-model.number="form.lots" type="number" class="inp w90" placeholder="張數" min="1" step="1" />
+        <input v-model="form.tag" class="inp w110" placeholder="型態(選填)" />
         <button class="btn btn-primary" @click="addTrade">加入</button>
         <button class="btn" @click="importOpenPositions">從投組帶入</button>
       </div>
@@ -103,6 +104,38 @@
       <p v-else class="muted empty">還沒有已平倉紀錄。記錄幾筆交易並平倉，系統就會算出你的實戰勝率與期望值。</p>
       <p class="disclaimer">※ R＝(出場−進場)/|進場−停損|（做空反向）。本工具僅為交易紀錄與統計，非投資建議。</p>
     </section>
+
+    <!-- 複盤分析 -->
+    <section class="section-block" v-reveal v-if="closedTrades.length">
+      <h3>複盤分析</h3>
+      <div class="analytics-grid">
+        <div class="an-block" v-if="rHist">
+          <span class="slabel">R 分布（{{ closedTrades.length }} 筆）——留意有沒有「凹單放大虧損」或「賺一點就跑」</span>
+          <svg class="rhist-svg" :viewBox="`0 0 ${eqW} ${eqH}`" preserveAspectRatio="none">
+            <line :x1="rHist.zeroX" y1="0" :x2="rHist.zeroX" :y2="eqH" class="rh-zero" />
+            <rect v-for="(b, i) in rHist.bars" :key="i" :x="b.x" :y="eqH - b.h" :width="b.w" :height="b.h" :class="b.mid >= 0 ? 'bar-up' : 'bar-down'" />
+          </svg>
+          <div class="rhist-axis"><span>{{ rHist.min.toFixed(1) }}R</span><span>0</span><span>+{{ rHist.max.toFixed(1) }}R</span></div>
+        </div>
+        <div class="an-block">
+          <span class="slabel">依型態統計（哪種設定最會賺，就多做那種）</span>
+          <div class="table-wrap">
+            <table class="j-table">
+              <thead><tr><th>型態</th><th>筆數</th><th>勝率</th><th>期望值</th><th>累計 R</th></tr></thead>
+              <tbody>
+                <tr v-for="g in byTag" :key="g.tag">
+                  <td class="sym">{{ g.tag }}</td>
+                  <td>{{ g.count }}</td>
+                  <td>{{ (g.winRate * 100).toFixed(0) }}%</td>
+                  <td :class="g.expectancyR >= 0 ? 'up' : 'down'">{{ g.expectancyR >= 0 ? '+' : '' }}{{ g.expectancyR.toFixed(2) }}R</td>
+                  <td><strong :class="g.totalR >= 0 ? 'up' : 'down'">{{ g.totalR >= 0 ? '+' : '' }}{{ g.totalR.toFixed(2) }}R</strong></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
   </div>
 </template>
 
@@ -113,7 +146,7 @@ const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 const LS_KEY = 'finlab_trade_journal'
 
 const trades = ref([])
-const form = reactive({ symbol: '', side: 'long', entry: null, stop: null, target: null, lots: 1 })
+const form = reactive({ symbol: '', side: 'long', entry: null, stop: null, target: null, lots: 1, tag: '' })
 const formError = ref('')
 const importMsg = ref('')
 
@@ -178,6 +211,38 @@ const equityPolyline = computed(() => {
   }).join(' ')
 })
 
+// R-multiple distribution histogram
+const rHist = computed(() => {
+  const Rs = closedTrades.value.map(realizedR)
+  if (!Rs.length) return null
+  const min = Math.min(-1, ...Rs), max = Math.max(1, ...Rs)
+  const bins = 16
+  const range = (max - min) || 1
+  const counts = new Array(bins).fill(0)
+  for (const r of Rs) { let idx = Math.floor(((r - min) / range) * bins); if (idx >= bins) idx = bins - 1; if (idx < 0) idx = 0; counts[idx] += 1 }
+  const maxC = Math.max(...counts, 1)
+  const bw = eqW / bins
+  return {
+    min, max, zeroX: ((0 - min) / range) * eqW,
+    bars: counts.map((c, i) => ({ x: i * bw, w: Math.max(bw - 1, 1), h: (c / maxC) * eqH, mid: min + (i + 0.5) * (range / bins) })),
+  }
+})
+
+// group closed trades by 型態 tag
+const byTag = computed(() => {
+  const groups = {}
+  for (const t of closedTrades.value) {
+    const key = (t.tag && String(t.tag).trim()) || '未分類'
+    if (!groups[key]) groups[key] = []
+    groups[key].push(t)
+  }
+  return Object.entries(groups).map(([tag, arr]) => {
+    const Rs = arr.map(realizedR)
+    const totalR = Rs.reduce((a, b) => a + b, 0)
+    return { tag, count: arr.length, winRate: Rs.filter(r => r > 0).length / arr.length, expectancyR: totalR / arr.length, totalR }
+  }).sort((a, b) => b.totalR - a.totalR)
+})
+
 function fmt(v) { return (v == null || isNaN(v)) ? '—' : Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }
 function fmtInt(v) { return (v == null || isNaN(v)) ? '—' : Math.round(v).toLocaleString('en-US') }
 
@@ -198,11 +263,12 @@ function addTrade() {
     id: Date.now() + '-' + Math.random().toString(36).slice(2, 7),
     symbol, name: symbol, side: form.side, entry, stop,
     target: Number(form.target) > 0 ? Number(form.target) : null,
-    lots, openDate: new Date().toISOString().slice(0, 10), status: 'open',
+    lots, tag: String(form.tag || '').trim(),
+    openDate: new Date().toISOString().slice(0, 10), status: 'open',
     exit: null, exitDate: null,
   })
   save()
-  form.symbol = ''; form.entry = null; form.stop = null; form.target = null; form.lots = 1
+  form.symbol = ''; form.entry = null; form.stop = null; form.target = null; form.lots = 1; form.tag = ''
 }
 
 function closeTrade(t) {
@@ -281,4 +347,12 @@ onMounted(load)
 .up { color: #ef4444; } .down { color: #22c55e; }
 .empty { padding: 14px 0; }
 .disclaimer { font-size: 0.74rem; color: var(--text-muted); margin-top: 12px; }
+
+.analytics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 8px; }
+@media (max-width: 900px) { .analytics-grid { grid-template-columns: 1fr; } }
+.an-block { display: flex; flex-direction: column; gap: 8px; }
+.rhist-svg { width: 100%; height: 120px; background: var(--bg-well); border: 1px solid var(--border-color); border-radius: 12px; }
+.bar-up { fill: rgba(239, 68, 68, 0.75); } .bar-down { fill: rgba(34, 197, 94, 0.75); }
+.rh-zero { stroke: var(--text-muted); stroke-width: 1; vector-effect: non-scaling-stroke; stroke-dasharray: 3 3; }
+.rhist-axis { display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--text-muted); }
 </style>

@@ -15,6 +15,7 @@ test('交易日誌 records a trade, closes it, computes R and stats', async ({ p
   await page.getByPlaceholder('停損價').fill('90')
   await page.getByPlaceholder('目標價(選填)').fill('130')
   await page.getByPlaceholder('張數').fill('1')
+  await page.getByPlaceholder('型態(選填)').fill('突破')
   await page.getByRole('button', { name: '加入' }).click()
 
   await expect(page.getByRole('heading', { name: /進行中/ })).toBeVisible()
@@ -24,6 +25,11 @@ test('交易日誌 records a trade, closes it, computes R and stats', async ({ p
   await page.getByRole('button', { name: '平倉' }).click()
 
   // Realized R in the closed table, and cumulative-R stat card.
-  await expect(page.locator('.j-table')).toContainText('+2.00R')
+  await expect(page.locator('.j-table').first()).toContainText('+2.00R')
   await expect(page.getByText('+2.00 R').first()).toBeVisible()
+
+  // Review analytics: R histogram + per-型態 stats (突破 group).
+  await expect(page.getByRole('heading', { name: '複盤分析' })).toBeVisible()
+  await expect(page.locator('.rhist-svg')).toBeVisible()
+  await expect(page.locator('.analytics-grid')).toContainText('突破')
 })
