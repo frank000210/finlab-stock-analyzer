@@ -68,6 +68,10 @@
                     乖離 {{ majorCost.deviation > 0 ? '+' : '' }}{{ majorCost.deviation }}%
                   </span>
                 </template>
+                <label class="ch-toggle" title="吊燈出場：Highest(High,22) − 3×ATR(22)，趨勢單的移動停利">
+                  <input type="checkbox" v-model="showChandelier" />
+                  <i class="legend-dot chandelier"></i>ATR 移動停利
+                </label>
               </span>
             </div>
             <div class="chart-wrapper">
@@ -338,6 +342,7 @@ let requestToken = 0
 let candleSeries = null
 let majorCostLine = null
 const majorCost = ref(null)
+const showChandelier = ref(true)
 const chipHealth = ref(null)
 
 const symbol = computed(() => String(route.params.symbol || '').toUpperCase())
@@ -570,6 +575,10 @@ const trustTrendTone = computed(() => {
 watch(() => route.params.symbol, async () => {
   saveRecent()
   await loadAnalysis()
+})
+
+watch(showChandelier, () => {
+  renderCharts()
 })
 
 watch(selectedRange, async () => {
@@ -948,6 +957,17 @@ function renderCharts() {
   addLineSeries(priceChart, mergedSeries.value, 'ma20', theme.warn)
   addLineSeries(priceChart, mergedSeries.value, 'ma60', theme.purple)
 
+  if (showChandelier.value) {
+    const chSeries = priceChart.addLineSeries({
+      color: '#e879f9',
+      lineWidth: 2,
+      lineStyle: 2, // dashed
+      priceLineVisible: false,
+      lastValueVisible: false,
+    })
+    chSeries.setData(computeChandelier(mergedSeries.value))
+  }
+
   const rsiSeries = rsiChart.addLineSeries({
     color: theme.purple,
     lineWidth: 2,
@@ -976,6 +996,34 @@ function renderCharts() {
   priceChart.timeScale().fitContent()
   rsiChart.timeScale().fitContent()
   macdChart.timeScale().fitContent()
+}
+
+// Chandelier exit (trailing stop for trend longs):
+// Highest(High, period) − mult × ATR(period).
+function computeChandelier(rows, period = 22, mult = 3) {
+  const out = []
+  const trs = []
+  for (let i = 0; i < rows.length; i += 1) {
+    const r = rows[i]
+    const high = Number(r.high)
+    const low = Number(r.low)
+    const close = Number(r.close)
+    const prevClose = i > 0 ? Number(rows[i - 1].close) : close
+    if (![high, low, close].every(Number.isFinite)) { trs.push(null); continue }
+    trs.push(Math.max(high - low, Math.abs(high - prevClose), Math.abs(low - prevClose)))
+    if (i < period - 1) continue
+    const windowTr = trs.slice(i - period + 1, i + 1).filter(v => v != null)
+    if (windowTr.length < period) continue
+    const atr = windowTr.reduce((a, b) => a + b, 0) / windowTr.length
+    let hh = -Infinity
+    for (let j = i - period + 1; j <= i; j += 1) {
+      const h = Number(rows[j].high)
+      if (Number.isFinite(h) && h > hh) hh = h
+    }
+    if (!Number.isFinite(hh)) continue
+    out.push({ time: r.date, value: roundTo(hh - mult * atr, 2) })
+  }
+  return out
 }
 
 function addLineSeries(chart, rows, key, color) {
@@ -1774,6 +1822,9 @@ function valueTone(value) {
 .legend-dot.ma20 { background: var(--color-warning); }
 .legend-dot.ma60 { background: #a855f7; }
 .legend-dot.cost-line { width: 16px; height: 0; border-radius: 0; border-top: 2px dashed var(--color-warning); }
+.legend-dot.chandelier { width: 16px; height: 0; border-radius: 0; border-top: 2px dashed #e879f9; }
+.ch-toggle { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; user-select: none; }
+.ch-toggle input { accent-color: #e879f9; cursor: pointer; }
 .legend-dev { font-variant-numeric: tabular-nums; font-weight: 700; }
 .legend-dev.up { color: #16a34a; }
 .legend-dev.down { color: #dc2626; }
