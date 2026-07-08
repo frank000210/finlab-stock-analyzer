@@ -82,6 +82,11 @@ const routes = [
     component: () => import('./views/PortfolioHeatView.vue'),
   },
   {
+    path: '/journal',
+    name: 'journal',
+    component: () => import('./views/JournalView.vue'),
+  },
+  {
     path: '/settings',
     name: 'settings',
     component: () => import('./views/SettingsView.vue'),
