@@ -97,6 +97,11 @@ const routes = [
     component: () => import('./views/SignalsView.vue'),
   },
   {
+    path: '/command',
+    name: 'command',
+    component: () => import('./views/CommandView.vue'),
+  },
+  {
     path: '/settings',
     name: 'settings',
     component: () => import('./views/SettingsView.vue'),

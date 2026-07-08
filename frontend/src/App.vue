@@ -46,6 +46,7 @@
         <router-link to="/journal">📓 交易日誌</router-link>
         <router-link to="/monte-carlo">🎲 風險模擬</router-link>
         <router-link to="/signals">📡 訊號</router-link>
+        <router-link to="/command">⚡ 作戰台</router-link>
         <router-link to="/settings">設定</router-link>
         <router-link to="/admin" class="nav-admin">⚙️ 後台</router-link>
       </div>

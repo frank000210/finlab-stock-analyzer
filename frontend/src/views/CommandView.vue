@@ -1,0 +1,162 @@
+<template>
+  <div class="command-view">
+    <div class="focus-banner" v-reveal>
+      <span class="focus-tag">⚡ 觀測重點</span>
+      一頁跑完你的一天：觀察清單<strong>依進場評分排名</strong>，直接給出在你風險%下該買<strong>幾張</strong>。看得到，就下得了手。
+    </div>
+
+    <section class="section-block" v-reveal>
+      <div class="head-row">
+        <div>
+          <h2>作戰儀表板（Command）</h2>
+          <p class="muted">評分 + 訊號 + 依 ATR 停損回推的建議張數，一次到位。</p>
+        </div>
+        <div class="ctrl">
+          <label class="mini">資金<input v-model.number="account" type="number" min="0" step="10000" class="inp w130" @change="saveCfg" /></label>
+          <label class="mini">風險%<input v-model.number="riskPct" type="number" min="0.1" max="100" step="0.1" class="inp w70" @change="saveCfg" /></label>
+          <input v-model="symbolsInput" class="inp w200" placeholder="2330,2454,2317" />
+          <button class="btn btn-primary" :disabled="loading" @click="scan">
+            <span v-if="loading" class="loading-spinner btn-spinner" aria-hidden="true"></span>掃描
+          </button>
+        </div>
+      </div>
+      <p v-if="errorMessage" class="error-text">{{ errorMessage }}</p>
+
+      <div v-if="rows.length" class="summary">
+        <span>掃描 {{ okRows.length }} 檔 · 資料日 {{ asOf }}</span>
+        <span :class="totalHeat > 6 ? 'warn' : 'ok'">若全數各下 1 注，總風險熱度 {{ totalHeat.toFixed(1) }}%（建議 ≤ 6%）</span>
+      </div>
+
+      <div v-if="rows.length" class="table-wrap">
+        <table class="cmd-table">
+          <thead>
+            <tr><th>評分</th><th>代碼</th><th>現價</th><th>漲跌</th><th>訊號</th><th>停損距</th><th>建議張數</th><th>1R 風險</th></tr>
+          </thead>
+          <tbody>
+            <tr v-for="r in rows" :key="r.symbol" :class="{ dim: !r.ok }">
+              <td><span v-if="r.ok && r.setup_total != null" class="score" :class="scoreClass(r.setup_total)" :title="r.setup_verdict">{{ r.setup_total }}</span><span v-else>—</span></td>
+              <td class="sym">{{ r.symbol }}</td>
+              <td>{{ r.ok ? fmt(r.price) : '—' }}</td>
+              <td v-if="r.ok" :class="r.chg_pct >= 0 ? 'up' : 'down'">{{ r.chg_pct >= 0 ? '+' : '' }}{{ r.chg_pct }}%</td>
+              <td v-else class="muted">{{ r.error }}</td>
+              <td class="tags">
+                <span v-for="(t, i) in (r.tags || [])" :key="i" class="tag" :class="'tone-' + t.tone">{{ t.t }}</span>
+              </td>
+              <td>{{ r.ok && r.stop_dist_pct != null ? r.stop_dist_pct + '%' : '—' }}</td>
+              <td><strong>{{ r.ok ? lots(r) + ' 張' : '—' }}</strong><small v-if="r.ok && lots(r) === 0" class="muted"> (零股 {{ oddShares(r) }})</small></td>
+              <td>{{ r.ok ? fmtInt(riskAmount(r)) : '—' }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p v-else-if="!loading" class="muted empty">觀察清單為空或尚未掃描。先在關聯圖／決策面板加入標的，或在上方輸入代碼後按「掃描」。</p>
+      <p class="disclaimer">※ 建議張數＝(資金×風險%) ÷ (現價×停損距%)，取整張。本工具僅為風險試算，非投資建議。</p>
+    </section>
+  </div>
+</template>
+
+<script setup>
+import { ref, computed, onMounted } from 'vue'
+
+const API_BASE = import.meta.env.VITE_API_BASE ?? ''
+
+const account = ref(1000000)
+const riskPct = ref(1)
+const symbolsInput = ref('')
+const rows = ref([])
+const asOf = ref('')
+const loading = ref(false)
+const errorMessage = ref('')
+
+const okRows = computed(() => rows.value.filter(r => r.ok))
+
+function riskPerShare(r) { return (Number(r.price) || 0) * (Number(r.stop_dist_pct) || 0) / 100 }
+function budget() { return (Number(account.value) || 0) * (Number(riskPct.value) || 0) / 100 }
+function rawShares(r) { const rps = riskPerShare(r); return rps > 0 ? budget() / rps : 0 }
+function lots(r) { return Math.floor(rawShares(r) / 1000) }
+function oddShares(r) { return Math.floor(rawShares(r)) }
+function riskAmount(r) { return lots(r) * 1000 * riskPerShare(r) }
+
+const totalHeat = computed(() => {
+  if (!account.value) return 0
+  return okRows.value.reduce((a, r) => a + riskAmount(r), 0) / account.value * 100
+})
+
+function fmt(v) { return (v == null || isNaN(v)) ? '—' : Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }
+function fmtInt(v) { return (v == null || isNaN(v)) ? '—' : Math.round(v).toLocaleString('en-US') }
+function scoreClass(total) { return total >= 70 ? 'good' : total >= 45 ? 'mid' : 'bad' }
+
+function saveCfg() {
+  localStorage.setItem('portfolio_heat_account', String(account.value))
+  localStorage.setItem('finlab_risk_pct', String(riskPct.value))
+}
+
+function readWatchlist() {
+  try {
+    const raw = JSON.parse(localStorage.getItem('finlab_watchlist') || '[]')
+    if (Array.isArray(raw)) return raw.map(s => String(typeof s === 'string' ? s : (s?.symbol || '')).trim().toUpperCase()).filter(Boolean)
+  } catch { /* ignore */ }
+  return []
+}
+
+async function scan() {
+  const syms = [...new Set(String(symbolsInput.value || '').split(',').map(s => s.trim().toUpperCase()).filter(Boolean))]
+  if (!syms.length) { errorMessage.value = '請輸入至少一個代碼。'; return }
+  loading.value = true
+  errorMessage.value = ''
+  try {
+    const resp = await fetch(`${API_BASE}/api/v1/risk/watchlist-signals?symbols=${syms.join(',')}`)
+    const payload = await resp.json().catch(() => ({}))
+    if (!resp.ok || payload?.success === false) throw new Error(payload?.detail || '掃描失敗')
+    rows.value = payload.data?.items || []
+    asOf.value = payload.data?.as_of || ''
+  } catch (e) {
+    rows.value = []
+    errorMessage.value = e?.message || '掃描失敗'
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(() => {
+  const a = Number(localStorage.getItem('portfolio_heat_account')); if (a > 0) account.value = a
+  const rp = Number(localStorage.getItem('finlab_risk_pct')); if (rp > 0) riskPct.value = rp
+  const wl = readWatchlist()
+  symbolsInput.value = wl.length ? wl.join(',') : '2330,2454,2317'
+  scan()
+})
+</script>
+
+<style scoped>
+.command-view { display: flex; flex-direction: column; gap: 16px; }
+.head-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+.head-row h2 { margin: 0 0 4px; }
+.muted { color: var(--text-muted); }
+.ctrl { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.mini { display: inline-flex; align-items: center; gap: 4px; font-size: 0.8rem; color: var(--text-muted); }
+.inp { background: var(--bg-well); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 10px; padding: 8px 12px; font-size: 0.9rem; }
+.w130 { width: 130px; } .w70 { width: 70px; } .w200 { width: 200px; }
+.error-text { color: #ef4444; margin-top: 8px; }
+.btn-spinner { width: 14px; height: 14px; border-width: 2px; vertical-align: -2px; margin-right: 6px; }
+
+.summary { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 14px 0 6px; font-size: 0.84rem; color: var(--text-muted); }
+.summary .warn { color: #f59e0b; } .summary .ok { color: #22c55e; }
+
+.table-wrap { overflow-x: auto; }
+.cmd-table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+.cmd-table th, .cmd-table td { text-align: right; padding: 9px 10px; border-bottom: 1px solid var(--border-color); white-space: nowrap; }
+.cmd-table th:nth-child(2), .cmd-table td:nth-child(2), .cmd-table th:nth-child(5), .cmd-table td:nth-child(5) { text-align: left; }
+.cmd-table th { color: var(--text-muted); font-weight: 500; font-size: 0.74rem; }
+.tr.dim, tr.dim { opacity: 0.55; }
+.sym { font-weight: 700; }
+.score { font-weight: 800; min-width: 32px; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; padding: 2px 6px; }
+.score.good { background: rgba(34,197,94,0.18); color: #22c55e; }
+.score.mid { background: rgba(245,158,11,0.18); color: #f59e0b; }
+.score.bad { background: rgba(239,68,68,0.18); color: #ef4444; }
+.tags { display: flex; flex-wrap: wrap; gap: 4px; }
+.tag { font-size: 0.72rem; padding: 2px 7px; border-radius: 999px; border: 1px solid var(--border-color); }
+.tone-up { color: #ef4444; } .tone-down { color: #22c55e; } .tone-warn { color: #f59e0b; } .tone-flat { color: var(--text-muted); }
+.up { color: #ef4444; } .down { color: #22c55e; }
+.empty { padding: 16px 0; }
+.disclaimer { font-size: 0.74rem; color: var(--text-muted); margin-top: 12px; }
+</style>
