@@ -24,6 +24,7 @@
       <div v-if="items.length" class="cards">
         <div v-for="it in items" :key="it.symbol" class="scard" :class="{ err: !it.ok }">
           <div class="row1">
+            <span v-if="it.ok && it.setup_total != null" class="score" :class="scoreClass(it.setup_total)" :title="it.setup_verdict">{{ it.setup_total }}</span>
             <span class="sym">{{ it.symbol }}</span>
             <template v-if="it.ok">
               <span class="price">{{ fmt(it.price) }}</span>
@@ -60,6 +61,7 @@ const loading = ref(false)
 const errorMessage = ref('')
 
 function fmt(v) { return (v == null || isNaN(v)) ? '—' : Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }
+function scoreClass(total) { return total >= 70 ? 'good' : total >= 45 ? 'mid' : 'bad' }
 
 function readWatchlist() {
   try {
@@ -109,6 +111,10 @@ onMounted(() => {
 .scard { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
 .scard.err { opacity: 0.6; }
 .row1 { display: flex; align-items: baseline; gap: 10px; }
+.score { font-size: 0.95rem; font-weight: 800; min-width: 34px; height: 26px; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; padding: 0 6px; }
+.score.good { background: rgba(34,197,94,0.18); color: #22c55e; }
+.score.mid { background: rgba(245,158,11,0.18); color: #f59e0b; }
+.score.bad { background: rgba(239,68,68,0.18); color: #ef4444; }
 .sym { font-size: 1.15rem; font-weight: 700; }
 .price { font-size: 1.05rem; }
 .chg { font-weight: 700; }

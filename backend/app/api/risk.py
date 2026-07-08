@@ -360,11 +360,20 @@ async def watchlist_signals(
         elif pos_pct <= 5:
             tags.append({"t": "逼近波段低", "tone": "warn"})
 
+        try:
+            _s = _setup_score(df, close, high, price, atr)
+            setup_total, setup_verdict = _s["total"], _s["verdict"]
+        except Exception:
+            setup_total, setup_verdict = None, ""
+
         return {
             "symbol": sym, "ok": True, "price": round(price, 2), "chg_pct": chg_pct,
             "trend": trend, "rsi": round(rsi, 1), "stop_dist_pct": stop_dist_pct,
             "vol_ratio": vol_ratio, "range_pos_pct": pos_pct, "tags": tags,
+            "setup_total": setup_total, "setup_verdict": setup_verdict,
         }
 
     items = await asyncio.gather(*[_one(s) for s in syms])
+    # 有評分的排前面，並依評分由高到低（最佳設定優先）
+    items.sort(key=lambda x: (x.get("setup_total") is None, -(x.get("setup_total") or 0)))
     return {"success": True, "data": {"items": items, "as_of": end.isoformat()}}
