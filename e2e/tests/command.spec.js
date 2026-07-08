@@ -70,3 +70,17 @@ test('作戰台 suggests risk% from journal half-Kelly', async ({ page }) => {
   await page.locator('.kelly-hint .link-btn').click()
   await expect(page.locator('.inp.w70')).toHaveValue('10')
 })
+
+test('作戰台 warns when top picks are highly correlated', async ({ page }) => {
+  await page.route('**/api/v1/risk/correlation*', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ success: true, data: { symbols: ['2882', '2330'], matrix: [[1, 0.88], [0.88, 1]], pairs: [{ a: '2882', b: '2330', corr: 0.88 }], high_pairs: [{ a: '2882', b: '2330', corr: 0.88 }], high_threshold: 0.7, avg_abs_corr: 0.88, days: 60 } }),
+    })
+  })
+  await seed(page)
+
+  await expect(page.locator('.corr-warn')).toContainText('0.88')
+  await expect(page.locator('.corr-warn')).toContainText('同一注')
+})

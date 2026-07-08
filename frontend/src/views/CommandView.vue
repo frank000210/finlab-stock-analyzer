@@ -24,6 +24,12 @@
       <p v-if="errorMessage" class="error-text">{{ errorMessage }}</p>
       <p v-if="logMsg" class="log-msg">{{ logMsg }}</p>
 
+      <div v-if="corr && corr.high_pairs && corr.high_pairs.length" class="corr-warn">
+        <div v-for="hp in corr.high_pairs" :key="hp.a + '-' + hp.b">
+          ⚠ {{ hp.a }} × {{ hp.b }} 相關 {{ hp.corr.toFixed(2) }} — 這兩檔實質同一注，別各下滿倉、重複曝險
+        </div>
+      </div>
+
       <div v-if="rows.length" class="summary">
         <span>掃描 {{ okRows.length }} 檔 · 資料日 {{ asOf }}</span>
         <span :class="totalHeat > 6 ? 'warn' : 'ok'">若全數各下 1 注，總風險熱度 {{ totalHeat.toFixed(1) }}%（建議 ≤ 6%）</span>
@@ -71,6 +77,7 @@ const asOf = ref('')
 const loading = ref(false)
 const errorMessage = ref('')
 const logMsg = ref('')
+const corr = ref(null)
 
 const okRows = computed(() => rows.value.filter(r => r.ok))
 
@@ -152,12 +159,24 @@ async function scan() {
     if (!resp.ok || payload?.success === false) throw new Error(payload?.detail || '掃描失敗')
     rows.value = payload.data?.items || []
     asOf.value = payload.data?.as_of || ''
+    analyzeCorr()
   } catch (e) {
     rows.value = []
     errorMessage.value = e?.message || '掃描失敗'
   } finally {
     loading.value = false
   }
+}
+
+async function analyzeCorr() {
+  corr.value = null
+  const syms = [...new Set(okRows.value.map(r => r.symbol))]
+  if (syms.length < 2) return
+  try {
+    const resp = await fetch(`${API_BASE}/api/v1/risk/correlation?symbols=${syms.join(',')}`)
+    const payload = await resp.json().catch(() => ({}))
+    if (resp.ok && payload?.data) corr.value = payload.data
+  } catch { /* best-effort */ }
 }
 
 onMounted(() => {
@@ -203,6 +222,8 @@ onMounted(() => {
 .empty { padding: 16px 0; }
 .btn.xs { padding: 4px 10px; font-size: 0.78rem; }
 .log-msg { margin-top: 8px; color: #22c55e; font-size: 0.84rem; }
+.corr-warn { margin: 12px 0 0; display: flex; flex-direction: column; gap: 6px; }
+.corr-warn div { background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.4); color: #f87171; border-radius: 10px; padding: 8px 12px; font-size: 0.84rem; }
 .kelly-hint { font-size: 0.78rem; color: var(--text-muted); display: inline-flex; align-items: center; gap: 4px; }
 .link-btn { background: none; border: none; color: var(--accent-blue); cursor: pointer; padding: 0 2px; font-size: 0.78rem; }
 .disclaimer { font-size: 0.74rem; color: var(--text-muted); margin-top: 12px; }
