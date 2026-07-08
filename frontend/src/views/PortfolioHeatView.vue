@@ -37,9 +37,13 @@
         <input v-model.number="form.stop" type="number" class="inp" placeholder="停損價" step="0.05" @keyup.enter="addPosition" />
         <input v-model.number="form.lots" type="number" class="inp" placeholder="張數" min="1" step="1" @keyup.enter="addPosition" />
         <button class="btn btn-primary" @click="addPosition">加入</button>
+        <button class="btn" :disabled="importing" @click="importFromWatchlist">
+          <span v-if="importing" class="loading-spinner btn-spinner" aria-hidden="true"></span>從觀察清單匯入
+        </button>
         <button v-if="positions.length" class="btn" @click="clearAll">清空</button>
       </div>
       <p v-if="formError" class="error-text">{{ formError }}</p>
+      <p v-if="importMsg" class="muted import-msg">{{ importMsg }}</p>
 
       <div class="table-wrap" v-if="positions.length">
         <table class="pos-table">
@@ -143,6 +147,8 @@ const formError = ref('')
 const corr = ref(null)
 const corrLoading = ref(false)
 const corrError = ref('')
+const importMsg = ref('')
+const importing = ref(false)
 
 function posShares(p) { return (Number(p.lots) || 0) * 1000 }
 function posValue(p) { return posShares(p) * (Number(p.entry) || 0) }
@@ -219,6 +225,49 @@ async function addPosition() {
 
 function remove(i) { positions.value.splice(i, 1); save(); if (positions.value.length < 2) corr.value = null }
 function clearAll() { positions.value = []; save(); corr.value = null }
+
+// One-click import: pull the shared watchlist (關聯圖／決策面板 use the same
+// 'finlab_watchlist' key), auto-fill entry=price and an ATR-based stop.
+async function importFromWatchlist() {
+  importMsg.value = ''
+  let syms = []
+  try {
+    const raw = JSON.parse(localStorage.getItem('finlab_watchlist') || '[]')
+    if (Array.isArray(raw)) {
+      syms = raw
+        .map(s => String(typeof s === 'string' ? s : (s?.symbol || '')).trim().toUpperCase())
+        .filter(Boolean)
+    }
+  } catch { /* ignore */ }
+  syms = [...new Set(syms)]
+  if (!syms.length) { importMsg.value = '觀察清單是空的，先到關聯圖或決策面板加入標的。'; return }
+  const existing = new Set(positions.value.map(p => p.symbol))
+  const toAdd = syms.filter(s => !existing.has(s))
+  if (!toAdd.length) { importMsg.value = '觀察清單標的都已在投組內。'; return }
+
+  importing.value = true
+  try {
+    const results = await Promise.all(toAdd.map(async (symbol) => {
+      try {
+        const resp = await fetch(`${API_BASE}/api/v1/risk/sizing/${symbol}`)
+        const payload = await resp.json().catch(() => ({}))
+        if (!resp.ok || !payload?.data) return null
+        const d = payload.data
+        const moderate = (d.suggested_stops || []).find(s => s.label === '穩健')
+        const stop = moderate ? moderate.stop_price : Math.round((d.price - d.atr * 2) * 100) / 100
+        return { symbol, name: d.name || symbol, industry: d.industry || '未分類', entry: d.price, stop, lots: 1, price: d.price }
+      } catch { return null }
+    }))
+    const added = results.filter(Boolean)
+    positions.value.push(...added)
+    save()
+    const failed = toAdd.length - added.length
+    importMsg.value = `已匯入 ${added.length} 檔${failed ? `（${failed} 檔查無資料略過）` : ''}：進場=現價、停損=ATR 穩健停損、預設 1 張，請再自行調整。`
+    if (positions.value.length >= 2) analyzeCorrelation()
+  } finally {
+    importing.value = false
+  }
+}
 
 const maxPosCorr = computed(() => {
   if (!corr.value?.pairs?.length) return null
@@ -307,6 +356,7 @@ strong.warn { color: #f59e0b; }
 .disclaimer { font-size: 0.74rem; color: var(--text-muted); margin-top: 12px; }
 
 .btn-spinner { width: 14px; height: 14px; border-width: 2px; vertical-align: -2px; margin-right: 6px; }
+.import-msg { margin-top: 8px; font-size: 0.82rem; }
 .high-pairs { display: flex; flex-direction: column; gap: 6px; margin: 12px 0; }
 .hp-warn { background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.4); color: #f87171; border-radius: 10px; padding: 8px 12px; font-size: 0.86rem; }
 .ok-text { color: #22c55e; font-size: 0.88rem; margin: 12px 0; }

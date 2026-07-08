@@ -66,3 +66,41 @@ test('投組風險 warns on highly-correlated positions', async ({ page }) => {
   await expect(page.getByText(/實質同一注/)).toBeVisible()
   await expect(page.locator('.corr-matrix table')).toBeVisible()
 })
+
+test('投組風險 從觀察清單匯入 adds watchlist symbols', async ({ page }) => {
+  await page.route('**/api/v1/risk/sizing/*', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        success: true,
+        data: {
+          symbol: '2330', name: '台積電', industry: '半導體業', price: 2440,
+          atr: 65, atr_period: 14, atr_pct: 2.66,
+          suggested_stops: [{ label: '穩健', mult: 2, stop_price: 2310, distance: 130, distance_pct: 5.33 }],
+          as_of: '2026-07-07',
+        },
+      }),
+    })
+  })
+  await page.route('**/api/v1/risk/correlation*', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ success: true, data: { symbols: ['2330', '2454'], matrix: [[1, 0.4], [0.4, 1]], pairs: [{ a: '2330', b: '2454', corr: 0.4 }], high_pairs: [], high_threshold: 0.7, avg_abs_corr: 0.4, days: 60 } }),
+    })
+  })
+
+  await page.goto('/portfolio-heat')
+  await page.evaluate(() => {
+    localStorage.clear()
+    localStorage.setItem('finlab_watchlist', JSON.stringify(['2330', '2454']))
+  })
+  await page.reload()
+
+  await page.getByRole('button', { name: /從觀察清單匯入/ }).click()
+
+  await expect(page.locator('.pos-table tbody tr')).toHaveCount(2)
+  await expect(page.locator('.pos-table')).toContainText('2330')
+  await expect(page.locator('.pos-table')).toContainText('2454')
+})
