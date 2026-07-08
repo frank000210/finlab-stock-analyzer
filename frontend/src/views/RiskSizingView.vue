@@ -63,8 +63,7 @@
           <input v-model.number="stop" type="number" min="0" step="0.05" class="inp" /></label>
         <label class="field"><span>目標價（選填）</span>
           <input v-model.number="target" type="number" min="0" step="0.05" class="inp" /></label>
-        <label class="field"><span>預估勝率 %（選填，算期望值）</span>
-          <input v-model.number="winRate" type="number" min="0" max="100" step="1" class="inp" /></label>
+        <p class="hint-inline muted">勝率／盈虧比在下方「凱利」區設定（可算期望值與建議風險%）。</p>
       </div>
 
       <!-- 結果 -->
@@ -98,6 +97,42 @@
         </template>
       </div>
     </section>
+
+    <section class="section-block kelly-block" v-reveal>
+      <div class="head-row">
+        <div>
+          <h3>凱利部位建議（Kelly）</h3>
+          <p class="muted">用「勝率 × 盈虧比」推估數學最優下注比例。實務取<strong>半凱利</strong>降低波動——全凱利太猛，回檔會很痛。</p>
+        </div>
+        <div class="bt-import">
+          <select v-model="btStrategy" class="inp">
+            <option value="ma_crossover">MA 交叉</option>
+            <option value="macd_trend">MACD 趨勢</option>
+            <option value="bollinger_breakout">布林突破</option>
+            <option value="rsi_reversion">RSI 反轉</option>
+          </select>
+          <button class="btn" :disabled="btLoading" @click="loadFromBacktest">
+            <span v-if="btLoading" class="loading-spinner btn-spinner" aria-hidden="true"></span>從回測帶入
+          </button>
+        </div>
+      </div>
+      <p v-if="btError" class="error-text">{{ btError }}</p>
+
+      <div class="kelly-grid">
+        <label class="field"><span>勝率 %</span>
+          <input v-model.number="winRate" type="number" min="0" max="100" step="1" class="inp" /></label>
+        <label class="field"><span>盈虧比（獲利因子 PF）</span>
+          <input v-model.number="profitFactor" type="number" min="0" step="0.1" class="inp" /></label>
+      </div>
+
+      <div class="rgrid" v-if="kelly > 0">
+        <div class="rcard"><span>全凱利比例</span><strong>{{ (kelly * 100).toFixed(1) }}%</strong></div>
+        <div class="rcard hl"><span>建議單筆風險（半凱利）</span><strong>{{ suggestedRiskPct.toFixed(1) }}%</strong></div>
+        <div class="rcard apply-cell"><button class="btn btn-primary" @click="applyKelly">套用到單筆風險%</button></div>
+      </div>
+      <p v-else class="muted empty">此勝率／盈虧比沒有數學優勢（凱利 ≤ 0），不建議加碼——先把策略練到有正期望值。</p>
+      <p class="disclaimer">※ 凱利＝勝率×(PF−1)/PF。全凱利波動大，建議取半凱利，且仍以總風控上限為準。</p>
+    </section>
   </div>
 </template>
 
@@ -117,6 +152,10 @@ const entry = ref(0)
 const stop = ref(0)
 const target = ref(0)
 const winRate = ref(0)
+const profitFactor = ref(0)
+const btStrategy = ref('ma_crossover')
+const btLoading = ref(false)
+const btError = ref('')
 
 const perShareRisk = computed(() => Math.abs((entry.value || 0) - (stop.value || 0)))
 const valid = computed(() => account.value > 0 && entry.value > 0 && stop.value > 0 && perShareRisk.value > 0)
@@ -142,6 +181,49 @@ const directionLabel = computed(() => {
   return (entry.value > stop.value) ? '做多情境' : '做空情境'
 })
 const rrClass = computed(() => (rr.value >= 2 ? 'up' : rr.value > 0 ? 'warn' : ''))
+
+// Kelly: f* = W*(PF-1)/PF, derived from win rate + profit factor.
+const kelly = computed(() => {
+  const w = (winRate.value || 0) / 100
+  const pf = profitFactor.value || 0
+  if (w <= 0 || w >= 1 || pf <= 1) return 0
+  return Math.max(0, w * (pf - 1) / pf)
+})
+const suggestedRiskPct = computed(() => Math.min(kelly.value * 0.5 * 100, 10))
+
+function applyKelly() {
+  if (suggestedRiskPct.value > 0) riskPct.value = Math.round(suggestedRiskPct.value * 10) / 10
+}
+
+async function loadFromBacktest() {
+  const sym = String(symbolInput.value || market.value?.symbol || '').trim().toUpperCase()
+  if (!sym) { btError.value = '請先查詢一檔股票'; return }
+  btLoading.value = true
+  btError.value = ''
+  try {
+    const end = new Date()
+    const start = new Date(); start.setFullYear(start.getFullYear() - 5)
+    const iso = (d) => d.toISOString().slice(0, 10)
+    const resp = await fetch(`${API_BASE}/api/v1/backtest/run`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        symbol: sym, strategy_id: btStrategy.value, params: {},
+        date_range: { start: iso(start), end: iso(end) }, capital: account.value || 1000000,
+      }),
+    })
+    const payload = await resp.json().catch(() => ({}))
+    const perf = payload?.data?.performance
+    if (!resp.ok || !perf) throw new Error(payload?.detail || '回測失敗')
+    if (!perf.total_trades) throw new Error('此策略在該區間無交易，換一個策略或標的')
+    winRate.value = Math.round((perf.win_rate || 0) * 100)
+    profitFactor.value = perf.profit_factor || 0
+  } catch (e) {
+    btError.value = e?.message || '回測失敗'
+  } finally {
+    btLoading.value = false
+  }
+}
 
 function fmt(v) { return (v == null || isNaN(v)) ? '—' : Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }
 function fmtInt(v) { return (v == null || isNaN(v)) ? '—' : Math.round(v).toLocaleString('en-US') }
@@ -217,4 +299,7 @@ onMounted(loadMarket)
 .checklist li.bad { color: #f59e0b; }
 .disclaimer { font-size: 0.74rem; color: var(--text-muted); margin-top: 14px; }
 .btn-spinner { width: 14px; height: 14px; border-width: 2px; vertical-align: -2px; margin-right: 6px; }
+.kelly-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin: 12px 0; max-width: 520px; }
+.bt-import { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.apply-cell { align-items: center; justify-content: center; }
 </style>
