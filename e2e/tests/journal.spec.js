@@ -33,3 +33,16 @@ test('交易日誌 records a trade, closes it, computes R and stats', async ({ p
   await expect(page.locator('.rhist-svg')).toBeVisible()
   await expect(page.locator('.analytics-grid')).toContainText('突破')
 })
+
+test('交易日誌 匯出 CSV', async ({ page }) => {
+  await page.goto('/journal')
+  await page.evaluate(() => localStorage.setItem('finlab_trade_journal', JSON.stringify([
+    { id: 'x1', symbol: '2330', name: '台積電', side: 'long', entry: 100, stop: 90, target: 130, lots: 1, tag: '突破', openDate: '2026-07-01', status: 'closed', exit: 120, exitDate: '2026-07-05' },
+  ])))
+  await page.reload()
+
+  const downloadPromise = page.waitForEvent('download')
+  await page.getByRole('button', { name: '匯出 CSV' }).click()
+  const download = await downloadPromise
+  expect(download.suggestedFilename()).toMatch(/trade-journal.*\.csv/)
+})

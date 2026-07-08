@@ -81,7 +81,10 @@
     <section class="section-block" v-reveal>
       <div class="head-row">
         <h3>已平倉（{{ closedTrades.length }}）</h3>
-        <button v-if="trades.length" class="btn" @click="clearAll">清空全部</button>
+        <div class="head-actions">
+          <button v-if="trades.length" class="btn" @click="exportCsv">匯出 CSV</button>
+          <button v-if="trades.length" class="btn" @click="clearAll">清空全部</button>
+        </div>
       </div>
       <div v-if="closedTrades.length" class="table-wrap">
         <table class="j-table">
@@ -285,6 +288,24 @@ function closeTrade(t) {
 function removeTrade(id) { trades.value = trades.value.filter(t => t.id !== id); save() }
 function clearAll() { trades.value = []; save() }
 
+function csvCell(v) { const s = String(v ?? ''); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s }
+function exportCsv() {
+  if (!trades.value.length) return
+  const cols = ['symbol', 'side', 'entry', 'stop', 'target', 'lots', 'tag', 'openDate', 'status', 'exit', 'exitDate', 'R', 'pnl']
+  const lines = trades.value.map((t) => {
+    const R = t.status === 'closed' ? realizedR(t).toFixed(3) : ''
+    const p = t.status === 'closed' ? Math.round(pnl(t)) : ''
+    return [t.symbol, t.side, t.entry, t.stop, t.target ?? '', t.lots, t.tag ?? '', t.openDate, t.status, t.exit ?? '', t.exitDate ?? '', R, p].map(csvCell).join(',')
+  })
+  const csv = '﻿' + [cols.join(','), ...lines].join('\n')
+  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }))
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `trade-journal-${new Date().toISOString().slice(0, 10)}.csv`
+  document.body.appendChild(a); a.click(); a.remove()
+  URL.revokeObjectURL(url)
+}
+
 async function importOpenPositions() {
   importMsg.value = ''
   let positions = []
@@ -315,6 +336,7 @@ onMounted(load)
 .journal-view { display: flex; flex-direction: column; gap: 16px; }
 .head-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
 .head-row h2, .head-row h3 { margin: 0; }
+.head-actions { display: flex; gap: 8px; }
 .muted { color: var(--text-muted); }
 .small { font-size: 0.82rem; }
 .inp { background: var(--bg-well); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 10px; padding: 8px 12px; font-size: 0.9rem; }
