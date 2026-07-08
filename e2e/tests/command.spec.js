@@ -50,3 +50,23 @@ test('作戰台 記錄 writes an open trade to the journal', async ({ page }) =>
   expect(journal[0].lots).toBe(3)
   expect(journal[0].status).toBe('open')
 })
+
+test('作戰台 suggests risk% from journal half-Kelly', async ({ page }) => {
+  await page.goto('/command')
+  await page.evaluate(() => {
+    localStorage.setItem('finlab_watchlist', JSON.stringify(['2882', '2330']))
+    localStorage.setItem('portfolio_heat_account', '1000000')
+    localStorage.setItem('finlab_risk_pct', '1')
+    // 2 wins (+20k,+10k), 1 loss (-15k) -> W=2/3, PF=2 -> half-Kelly capped at 10%.
+    localStorage.setItem('finlab_trade_journal', JSON.stringify([
+      { status: 'closed', side: 'long', entry: 100, stop: 90, exit: 120, lots: 1 },
+      { status: 'closed', side: 'long', entry: 100, stop: 90, exit: 85, lots: 1 },
+      { status: 'closed', side: 'long', entry: 100, stop: 90, exit: 110, lots: 1 },
+    ]))
+  })
+  await page.reload()
+
+  await expect(page.locator('.kelly-hint')).toContainText('10.0%')
+  await page.locator('.kelly-hint .link-btn').click()
+  await expect(page.locator('.inp.w70')).toHaveValue('10')
+})

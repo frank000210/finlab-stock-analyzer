@@ -14,6 +14,7 @@
         <div class="ctrl">
           <label class="mini">資金<input v-model.number="account" type="number" min="0" step="10000" class="inp w130" @change="saveCfg" /></label>
           <label class="mini">風險%<input v-model.number="riskPct" type="number" min="0.1" max="100" step="0.1" class="inp w70" @change="saveCfg" /></label>
+          <span v-if="kellyRisk && kellyRisk.pct" class="kelly-hint">實戰半凱利建議 {{ kellyRisk.pct.toFixed(1) }}%（{{ kellyRisk.count }} 筆）<button type="button" class="link-btn" @click="applyKellyRisk">套用</button></span>
           <input v-model="symbolsInput" class="inp w200" placeholder="2330,2454,2317" />
           <button class="btn btn-primary" :disabled="loading" @click="scan">
             <span v-if="loading" class="loading-spinner btn-spinner" aria-hidden="true"></span>掃描
@@ -72,6 +73,25 @@ const errorMessage = ref('')
 const logMsg = ref('')
 
 const okRows = computed(() => rows.value.filter(r => r.ok))
+
+const journalTrades = ref([])
+const kellyRisk = computed(() => {
+  const closed = journalTrades.value.filter(t => t.status === 'closed')
+  if (closed.length < 3) return null
+  const pps = (t) => { const d = Number(t.exit) - Number(t.entry); return t.side === 'short' ? -d : d }
+  const pnl = (t) => (Number(t.lots) || 0) * 1000 * pps(t)
+  const pnls = closed.map(pnl)
+  const gw = pnls.filter(p => p > 0).reduce((a, b) => a + b, 0)
+  const gl = Math.abs(pnls.filter(p => p < 0).reduce((a, b) => a + b, 0))
+  const w = pnls.filter(p => p > 0).length / closed.length
+  const pf = gl > 0 ? gw / gl : 99.99
+  if (w <= 0 || pf <= 1) return { pct: null, count: closed.length }
+  const kelly = w * (pf - 1) / pf
+  return { pct: Math.min(kelly * 0.5 * 100, 10), count: closed.length }
+})
+function applyKellyRisk() {
+  if (kellyRisk.value?.pct) { riskPct.value = Math.round(kellyRisk.value.pct * 10) / 10; saveCfg() }
+}
 
 function riskPerShare(r) { return (Number(r.price) || 0) * (Number(r.stop_dist_pct) || 0) / 100 }
 function budget() { return (Number(account.value) || 0) * (Number(riskPct.value) || 0) / 100 }
@@ -141,6 +161,7 @@ async function scan() {
 }
 
 onMounted(() => {
+  try { const raw = JSON.parse(localStorage.getItem('finlab_trade_journal') || '[]'); if (Array.isArray(raw)) journalTrades.value = raw } catch { /* ignore */ }
   const a = Number(localStorage.getItem('portfolio_heat_account')); if (a > 0) account.value = a
   const rp = Number(localStorage.getItem('finlab_risk_pct')); if (rp > 0) riskPct.value = rp
   const wl = readWatchlist()
@@ -182,5 +203,7 @@ onMounted(() => {
 .empty { padding: 16px 0; }
 .btn.xs { padding: 4px 10px; font-size: 0.78rem; }
 .log-msg { margin-top: 8px; color: #22c55e; font-size: 0.84rem; }
+.kelly-hint { font-size: 0.78rem; color: var(--text-muted); display: inline-flex; align-items: center; gap: 4px; }
+.link-btn { background: none; border: none; color: var(--accent-blue); cursor: pointer; padding: 0 2px; font-size: 0.78rem; }
 .disclaimer { font-size: 0.74rem; color: var(--text-muted); margin-top: 12px; }
 </style>
