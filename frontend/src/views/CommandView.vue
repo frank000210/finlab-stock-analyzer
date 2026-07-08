@@ -21,6 +21,7 @@
         </div>
       </div>
       <p v-if="errorMessage" class="error-text">{{ errorMessage }}</p>
+      <p v-if="logMsg" class="log-msg">{{ logMsg }}</p>
 
       <div v-if="rows.length" class="summary">
         <span>掃描 {{ okRows.length }} 檔 · 資料日 {{ asOf }}</span>
@@ -30,7 +31,7 @@
       <div v-if="rows.length" class="table-wrap">
         <table class="cmd-table">
           <thead>
-            <tr><th>評分</th><th>代碼</th><th>現價</th><th>漲跌</th><th>訊號</th><th>停損距</th><th>建議張數</th><th>1R 風險</th></tr>
+            <tr><th>評分</th><th>代碼</th><th>現價</th><th>漲跌</th><th>訊號</th><th>停損距</th><th>建議張數</th><th>1R 風險</th><th>動作</th></tr>
           </thead>
           <tbody>
             <tr v-for="r in rows" :key="r.symbol" :class="{ dim: !r.ok }">
@@ -45,6 +46,7 @@
               <td>{{ r.ok && r.stop_dist_pct != null ? r.stop_dist_pct + '%' : '—' }}</td>
               <td><strong>{{ r.ok ? lots(r) + ' 張' : '—' }}</strong><small v-if="r.ok && lots(r) === 0" class="muted"> (零股 {{ oddShares(r) }})</small></td>
               <td>{{ r.ok ? fmtInt(riskAmount(r)) : '—' }}</td>
+              <td><button v-if="r.ok && lots(r) > 0" class="btn xs" @click="logTrade(r)">記錄</button></td>
             </tr>
           </tbody>
         </table>
@@ -67,6 +69,7 @@ const rows = ref([])
 const asOf = ref('')
 const loading = ref(false)
 const errorMessage = ref('')
+const logMsg = ref('')
 
 const okRows = computed(() => rows.value.filter(r => r.ok))
 
@@ -89,6 +92,25 @@ function scoreClass(total) { return total >= 70 ? 'good' : total >= 45 ? 'mid' :
 function saveCfg() {
   localStorage.setItem('portfolio_heat_account', String(account.value))
   localStorage.setItem('finlab_risk_pct', String(riskPct.value))
+}
+
+// One click: log the planned trade (entry=price, ATR-based stop, suggested
+// lots) as an open trade in the journal.
+function logTrade(r) {
+  const l = lots(r)
+  if (!(l >= 1)) return
+  const entry = Number(r.price)
+  const stop = Math.round(entry * (1 - (Number(r.stop_dist_pct) || 0) / 100) * 100) / 100
+  let journal = []
+  try { const raw = JSON.parse(localStorage.getItem('finlab_trade_journal') || '[]'); if (Array.isArray(raw)) journal = raw } catch { /* ignore */ }
+  journal.unshift({
+    id: Date.now() + '-' + Math.random().toString(36).slice(2, 7),
+    symbol: r.symbol, name: r.symbol, side: 'long', entry, stop, target: null,
+    lots: l, tag: r.trend || '', openDate: new Date().toISOString().slice(0, 10),
+    status: 'open', exit: null, exitDate: null,
+  })
+  localStorage.setItem('finlab_trade_journal', JSON.stringify(journal))
+  logMsg.value = `已記錄 ${r.symbol} ${l} 張到交易日誌（進場 ${entry}、停損 ${stop}），到「交易日誌」平倉即納入統計。`
 }
 
 function readWatchlist() {
@@ -158,5 +180,7 @@ onMounted(() => {
 .tone-up { color: #ef4444; } .tone-down { color: #22c55e; } .tone-warn { color: #f59e0b; } .tone-flat { color: var(--text-muted); }
 .up { color: #ef4444; } .down { color: #22c55e; }
 .empty { padding: 16px 0; }
+.btn.xs { padding: 4px 10px; font-size: 0.78rem; }
+.log-msg { margin-top: 8px; color: #22c55e; font-size: 0.84rem; }
 .disclaimer { font-size: 0.74rem; color: var(--text-muted); margin-top: 12px; }
 </style>
