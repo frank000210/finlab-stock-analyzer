@@ -206,3 +206,101 @@ async def portfolio_correlation(
             "days": int(len(ret)),
         },
     }
+
+
+@router.get("/watchlist-signals")
+async def watchlist_signals(
+    symbols: str = Query(..., description="逗號分隔股票代碼"),
+    lookback_days: int = Query(default=120, ge=60, le=365),
+):
+    """觀察清單每日訊號摘要：趨勢排列、RSI、量能、距波段高低、ATR 停損距離。
+
+    只掃你的觀察清單（少量、額度可控）；把清單變成每日行動清單。非投資建議。
+    """
+    import asyncio
+    from datetime import date, timedelta
+
+    import numpy as np
+    import pandas as pd
+
+    from ..crawler.stock_price import StockPriceCrawler
+
+    seen: set[str] = set()
+    syms = [
+        s.strip().upper()
+        for s in symbols.split(",")
+        if s.strip() and not (s.strip().upper() in seen or seen.add(s.strip().upper()))
+    ]
+    if not syms:
+        raise HTTPException(status_code=400, detail="請提供至少 1 檔股票")
+    syms = syms[:30]  # 安全上限，避免爆 FinMind 額度
+
+    end = date.today()
+    start = end - timedelta(days=lookback_days)
+    crawler = StockPriceCrawler()
+
+    async def _one(sym: str):
+        try:
+            df = await crawler.get_price(sym, start.isoformat(), end.isoformat(), "1d")
+        except Exception:
+            return {"symbol": sym, "ok": False, "error": "資料取得失敗"}
+        if df is None or df.empty or len(df) < 30:
+            return {"symbol": sym, "ok": False, "error": "資料不足"}
+        df = df.sort_values("date").reset_index(drop=True)
+        close = df["close"].astype(float)
+        high = df["high"].astype(float)
+        low = df["low"].astype(float)
+        vol = df["volume"].astype(float)
+        price = float(close.iloc[-1])
+        prev = float(close.iloc[-2])
+        chg_pct = round((price - prev) / prev * 100, 2) if prev else 0.0
+
+        ma20 = float(close.tail(20).mean())
+        ma60 = float(close.tail(60).mean()) if len(close) >= 60 else float(close.mean())
+
+        # RSI(14)
+        delta = close.diff()
+        gain = delta.clip(lower=0).rolling(14).mean()
+        loss = (-delta.clip(upper=0)).rolling(14).mean()
+        rs = gain / loss.replace(0, np.nan)
+        rsi = float((100 - 100 / (1 + rs)).iloc[-1]) if not np.isnan(rs.iloc[-1]) else 50.0
+
+        # ATR(14) + 2xATR stop distance
+        prev_close = close.shift(1)
+        tr = pd.concat([(high - low), (high - prev_close).abs(), (low - prev_close).abs()], axis=1).max(axis=1)
+        atr = float(tr.rolling(14).mean().iloc[-1])
+        stop_dist_pct = round(2 * atr / price * 100, 2) if price else None
+
+        vol_ma20 = float(vol.tail(20).mean()) if len(vol) >= 20 else float(vol.mean())
+        vol_ratio = round(float(vol.iloc[-1]) / vol_ma20, 2) if vol_ma20 else None
+
+        window = close.tail(60)
+        hi60, lo60 = float(window.max()), float(window.min())
+        pos_pct = round((price - lo60) / (hi60 - lo60) * 100, 1) if hi60 > lo60 else 50.0
+
+        tags = []
+        if price > ma20 > ma60:
+            trend = "多頭排列"; tags.append({"t": "多頭排列", "tone": "up"})
+        elif price < ma20 < ma60:
+            trend = "空頭排列"; tags.append({"t": "空頭排列", "tone": "down"})
+        else:
+            trend = "盤整"; tags.append({"t": "盤整", "tone": "flat"})
+        if rsi >= 70:
+            tags.append({"t": f"RSI {rsi:.0f} 超買", "tone": "down"})
+        elif rsi <= 30:
+            tags.append({"t": f"RSI {rsi:.0f} 超賣", "tone": "up"})
+        if vol_ratio and vol_ratio >= 1.5:
+            tags.append({"t": f"爆量 {vol_ratio}×", "tone": "warn"})
+        if pos_pct >= 95:
+            tags.append({"t": "逼近波段高", "tone": "warn"})
+        elif pos_pct <= 5:
+            tags.append({"t": "逼近波段低", "tone": "warn"})
+
+        return {
+            "symbol": sym, "ok": True, "price": round(price, 2), "chg_pct": chg_pct,
+            "trend": trend, "rsi": round(rsi, 1), "stop_dist_pct": stop_dist_pct,
+            "vol_ratio": vol_ratio, "range_pos_pct": pos_pct, "tags": tags,
+        }
+
+    items = await asyncio.gather(*[_one(s) for s in syms])
+    return {"success": True, "data": {"items": items, "as_of": end.isoformat()}}

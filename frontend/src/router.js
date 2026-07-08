@@ -92,6 +92,11 @@ const routes = [
     component: () => import('./views/MonteCarloView.vue'),
   },
   {
+    path: '/signals',
+    name: 'signals',
+    component: () => import('./views/SignalsView.vue'),
+  },
+  {
     path: '/settings',
     name: 'settings',
     component: () => import('./views/SettingsView.vue'),
