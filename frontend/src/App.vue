@@ -37,7 +37,8 @@
         <router-link :to="`/stocks/${stockStore.symbol}/chip`">籌碼</router-link>
         <router-link :to="`/stocks/${stockStore.symbol}/social-buzz`">熱度</router-link>
       </div>
-      <div class="nav-links secondary-nav">
+      <button class="more-toggle" @click="mobileMoreOpen = !mobileMoreOpen" aria-label="更多功能" aria-haspopup="true">☰ 更多</button>
+      <div class="nav-links secondary-nav" :class="{ open: mobileMoreOpen }" @click="mobileMoreOpen = false">
         <router-link to="/guide" class="nav-guide">🚀 新手上路</router-link>
         <router-link to="/overview">總覽</router-link>
         <router-link :to="`/stocks/${stockStore.symbol}/public-data`">公開資訊</router-link>
@@ -75,7 +76,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useStockStore } from './stores/stock.js'
 import { useAuthStore } from './stores/auth.js'
@@ -90,6 +91,8 @@ const searchQuery = ref('')
 const searchResults = ref([])
 const showOnboard = ref(false)
 function dismissOnboard() { showOnboard.value = false; localStorage.setItem('finlab_onboarded', '1') }
+const mobileMoreOpen = ref(false)
+watch(() => route.path, () => { mobileMoreOpen.value = false })
 onMounted(() => {
   // Only surface the first-visit banner on the landing page.
   if (!localStorage.getItem('finlab_onboarded') && route.path === '/') showOnboard.value = true
@@ -300,8 +303,45 @@ function triggerGoogleSignIn() {
   .nav-auth { display: none; }
 }
 
+.more-toggle {
+  display: none;
+  position: relative;
+  z-index: 250;
+  background: rgba(99,102,241,0.12);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  padding: 4px 12px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.more-toggle:hover { background: rgba(99,102,241,0.22); }
+
 @media (max-width: 1024px) {
+  .more-toggle { display: inline-flex; align-items: center; }
   .secondary-nav { display: none; }
+  .secondary-nav.open {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 8px;
+    z-index: 300;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 8px;
+    gap: 2px;
+    min-width: 190px;
+    max-height: 72vh;
+    overflow-y: auto;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+  }
+  .secondary-nav.open a { padding: 8px 12px; border-radius: 8px; }
+  .secondary-nav.open a:hover { background: var(--bg-hover); }
 }
 
 @media (max-width: 768px) {
