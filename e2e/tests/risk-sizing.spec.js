@@ -57,3 +57,22 @@ test('凱利 從回測帶入 fills win rate and profit factor', async ({ page })
   await expect(kellyInputs.nth(1)).toHaveValue('1.8')
   await expect(page.locator('.kelly-block .rcard.hl strong')).toContainText('%')
 })
+
+test('凱利 從交易日誌帶入 uses real journal stats', async ({ page }) => {
+  await page.goto('/risk-sizing')
+  // 2 wins (+20k, +10k), 1 loss (-15k) -> win rate 67%, PF = 30k/15k = 2.
+  await page.evaluate(() => {
+    localStorage.setItem('finlab_trade_journal', JSON.stringify([
+      { status: 'closed', side: 'long', entry: 100, stop: 90, exit: 120, lots: 1 },
+      { status: 'closed', side: 'long', entry: 100, stop: 90, exit: 85, lots: 1 },
+      { status: 'closed', side: 'long', entry: 100, stop: 90, exit: 110, lots: 1 },
+    ]))
+  })
+  await expect(page.locator('.mval').first()).toBeVisible({ timeout: 60_000 })
+
+  await page.getByRole('button', { name: '從交易日誌帶入' }).click()
+
+  const kellyInputs = page.locator('.kelly-block .kelly-grid input')
+  await expect(kellyInputs.nth(0)).toHaveValue('67')
+  await expect(kellyInputs.nth(1)).toHaveValue('2')
+})

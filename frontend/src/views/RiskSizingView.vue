@@ -114,6 +114,7 @@
           <button class="btn" :disabled="btLoading" @click="loadFromBacktest">
             <span v-if="btLoading" class="loading-spinner btn-spinner" aria-hidden="true"></span>從回測帶入
           </button>
+          <button class="btn" @click="loadFromJournal" title="用你交易日誌的實戰勝率／盈虧比">從交易日誌帶入</button>
         </div>
       </div>
       <p v-if="btError" class="error-text">{{ btError }}</p>
@@ -193,6 +194,24 @@ const suggestedRiskPct = computed(() => Math.min(kelly.value * 0.5 * 100, 10))
 
 function applyKelly() {
   if (suggestedRiskPct.value > 0) riskPct.value = Math.round(suggestedRiskPct.value * 10) / 10
+}
+
+// Use YOUR real stats from the trade journal, not a backtest.
+function loadFromJournal() {
+  btError.value = ''
+  let trades = []
+  try { const raw = JSON.parse(localStorage.getItem('finlab_trade_journal') || '[]'); if (Array.isArray(raw)) trades = raw } catch { /* ignore */ }
+  const closed = trades.filter(t => t.status === 'closed')
+  if (!closed.length) { btError.value = '交易日誌尚無已平倉紀錄，先去記錄幾筆交易。'; return }
+  const pps = (t) => { const d = Number(t.exit) - Number(t.entry); return t.side === 'short' ? -d : d }
+  const pnl = (t) => (Number(t.lots) || 0) * 1000 * pps(t)
+  const pnls = closed.map(pnl)
+  const wins = pnls.filter(p => p > 0).length
+  const grossWin = pnls.filter(p => p > 0).reduce((a, b) => a + b, 0)
+  const grossLoss = Math.abs(pnls.filter(p => p < 0).reduce((a, b) => a + b, 0))
+  winRate.value = Math.round(wins / closed.length * 100)
+  profitFactor.value = grossLoss > 0 ? Math.round((grossWin / grossLoss) * 100) / 100 : 99.99
+  if (closed.length < 20) btError.value = `已帶入你 ${closed.length} 筆實戰統計；樣本 <20 筆，凱利僅供參考。`
 }
 
 async function loadFromBacktest() {

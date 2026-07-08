@@ -87,6 +87,11 @@ const routes = [
     component: () => import('./views/JournalView.vue'),
   },
   {
+    path: '/monte-carlo',
+    name: 'monte-carlo',
+    component: () => import('./views/MonteCarloView.vue'),
+  },
+  {
     path: '/settings',
     name: 'settings',
     component: () => import('./views/SettingsView.vue'),
