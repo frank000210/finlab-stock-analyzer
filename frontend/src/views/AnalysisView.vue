@@ -72,6 +72,7 @@
                   <input type="checkbox" v-model="showChandelier" />
                   <i class="legend-dot chandelier"></i>ATR 移動停利
                 </label>
+                <span v-if="setup" class="setup-badge" :class="setupCls(setup.total)" :title="setup.verdict + '（趨勢/風報比/量能/RSI）'">進場評分 {{ setup.total }}</span>
               </span>
             </div>
             <div class="chart-wrapper">
@@ -343,6 +344,17 @@ let candleSeries = null
 let majorCostLine = null
 const majorCost = ref(null)
 const showChandelier = ref(true)
+const setup = ref(null)
+
+async function fetchSetup(sym) {
+  setup.value = null
+  try {
+    const r = await fetch(`${API_BASE}/api/v1/risk/sizing/${sym}`)
+    const p = await r.json().catch(() => ({}))
+    if (r.ok && p?.data?.setup && symbol.value === sym) setup.value = p.data.setup
+  } catch { /* best-effort */ }
+}
+function setupCls(total) { return total >= 70 ? 'good' : total >= 45 ? 'mid' : 'bad' }
 const chipHealth = ref(null)
 
 const symbol = computed(() => String(route.params.symbol || '').toUpperCase())
@@ -638,6 +650,8 @@ async function loadAnalysis() {
   if (fundamentalRes.status === 'fulfilled') fundamentalData.value = fundamentalRes.value || {}
   if (chipRes.status === 'fulfilled') chipData.value = chipRes.value || {}
   if (signalRes.status === 'fulfilled') aiSignal.value = normalizeSignal(signalRes.value)
+
+  fetchSetup(sym)
 
   if (!priceItems.value.length) {
     errorMessage.value = '無法取得價格資料，請稍後再試。'
@@ -1823,6 +1837,10 @@ function valueTone(value) {
 .legend-dot.ma60 { background: #a855f7; }
 .legend-dot.cost-line { width: 16px; height: 0; border-radius: 0; border-top: 2px dashed var(--color-warning); }
 .legend-dot.chandelier { width: 16px; height: 0; border-radius: 0; border-top: 2px dashed #e879f9; }
+.setup-badge { font-size: 0.72rem; font-weight: 700; padding: 2px 8px; border-radius: 999px; }
+.setup-badge.good { background: rgba(34,197,94,0.18); color: #22c55e; }
+.setup-badge.mid { background: rgba(245,158,11,0.18); color: #f59e0b; }
+.setup-badge.bad { background: rgba(239,68,68,0.18); color: #ef4444; }
 .ch-toggle { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; user-select: none; }
 .ch-toggle input { accent-color: #e879f9; cursor: pointer; }
 .legend-dev { font-variant-numeric: tabular-nums; font-weight: 700; }

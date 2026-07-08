@@ -24,3 +24,9 @@ test('分析 K 線有 ATR 移動停利切換且不報錯', async ({ page }) => {
 
   expect(errors).toEqual([])
 })
+
+test('分析 K 線顯示進場評分徽章', async ({ page }) => {
+  await page.goto('/stocks/2330')
+  await expect(page.locator('.setup-badge')).toBeVisible({ timeout: 60_000 })
+  await expect(page.locator('.setup-badge')).toContainText('進場評分')
+})
