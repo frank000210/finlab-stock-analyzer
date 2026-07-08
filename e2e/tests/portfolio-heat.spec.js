@@ -104,3 +104,20 @@ test('投組風險 從觀察清單匯入 adds watchlist symbols', async ({ page 
   await expect(page.locator('.pos-table')).toContainText('2330')
   await expect(page.locator('.pos-table')).toContainText('2454')
 })
+
+test('投組風險 推播風險摘要 (mocked telegram relay)', async ({ page }) => {
+  await page.route('**/api/v1/risk/notify', async (route) => {
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, sent: true, error: '' }) })
+  })
+  await page.goto('/portfolio-heat')
+  await page.evaluate(() => {
+    localStorage.clear()
+    localStorage.setItem('portfolio_heat_positions', JSON.stringify([
+      { symbol: '2330', name: '台積電', industry: '半導體業', entry: 2440, stop: 2380, lots: 2, price: 2440 },
+    ]))
+  })
+  await page.reload()
+
+  await page.getByRole('button', { name: /推播風險摘要/ }).click()
+  await expect(page.locator('.notify-row')).toContainText('已推播')
+})

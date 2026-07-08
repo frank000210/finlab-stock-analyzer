@@ -3,10 +3,36 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Query
+from pydantic import BaseModel
 
 from ..risk import risk_manager
 
 router = APIRouter(prefix="/api/v1/risk", tags=["risk"])
+
+
+class NotifyReq(BaseModel):
+    message: str
+
+
+@router.post("/notify")
+async def notify(req: NotifyReq):
+    """把前端組好的風險摘要透過 Telegram 推播（需設定 TELEGRAM_BOT_TOKEN/CHAT_ID）。"""
+    from ..config.settings import get_settings
+    from ..notify.telegram import send_telegram
+
+    s = get_settings()
+    token = (s.telegram_bot_token or "").strip()
+    chat = (s.telegram_chat_id or "").strip()
+    if not token or not chat:
+        return {"success": True, "sent": False, "error": "未設定 TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID"}
+    msg = (req.message or "").strip()[:3500]
+    if not msg:
+        raise HTTPException(status_code=400, detail="訊息為空")
+    try:
+        ok = await send_telegram(msg, token, chat)
+        return {"success": True, "sent": bool(ok), "error": "" if ok else "Telegram 回應非 200"}
+    except Exception as exc:  # noqa: BLE001
+        return {"success": True, "sent": False, "error": str(exc)[:200]}
 
 
 @router.get("/status")

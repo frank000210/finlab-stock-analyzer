@@ -27,6 +27,10 @@
         <div class="scard"><span class="slabel">總部位金額</span><strong class="sval">{{ fmtInt(totalValue) }}</strong><span class="shint">佔資金 {{ deployedPct.toFixed(1) }}%</span></div>
         <div class="scard"><span class="slabel">未實現損益</span><strong class="sval" :class="totalUnrealized >= 0 ? 'up' : 'down'">{{ fmtInt(totalUnrealized) }}</strong></div>
       </div>
+      <div v-if="positions.length" class="notify-row">
+        <button class="btn" :disabled="notifying" @click="notifyRisk">🔔 推播風險摘要</button>
+        <span v-if="notifyMsg" class="muted small">{{ notifyMsg }}</span>
+      </div>
     </section>
 
     <section class="section-block" v-reveal>
@@ -149,6 +153,33 @@ const corrLoading = ref(false)
 const corrError = ref('')
 const importMsg = ref('')
 const importing = ref(false)
+const notifyMsg = ref('')
+const notifying = ref(false)
+
+async function notifyRisk() {
+  notifying.value = true
+  notifyMsg.value = '推播中…'
+  const lines = [
+    '📊 投組風險摘要',
+    `總熱度 ${totalHeat.value.toFixed(1)}%（${positions.value.length} 檔）`,
+    `部位金額 ${fmtInt(totalValue.value)}（佔資金 ${deployedPct.value.toFixed(1)}%）`,
+    `未實現 ${fmtInt(totalUnrealized.value)}`,
+  ]
+  const hp = corr.value?.high_pairs || []
+  if (hp.length) lines.push('⚠ 高相關：' + hp.map(p => `${p.a}×${p.b} ${p.corr.toFixed(2)}`).join('、'))
+  try {
+    const resp = await fetch(`${API_BASE}/api/v1/risk/notify`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: lines.join('\n') }),
+    })
+    const p = await resp.json().catch(() => ({}))
+    notifyMsg.value = p.sent ? '✓ 已推播到 Telegram。' : '未推播：' + (p.error || '請先在後端設定 TELEGRAM_BOT_TOKEN / CHAT_ID。')
+  } catch (e) {
+    notifyMsg.value = '推播失敗：' + (e?.message || '')
+  } finally {
+    notifying.value = false
+  }
+}
 
 function posShares(p) { return (Number(p.lots) || 0) * 1000 }
 function posValue(p) { return posShares(p) * (Number(p.entry) || 0) }
@@ -357,6 +388,8 @@ strong.warn { color: #f59e0b; }
 
 .btn-spinner { width: 14px; height: 14px; border-width: 2px; vertical-align: -2px; margin-right: 6px; }
 .import-msg { margin-top: 8px; font-size: 0.82rem; }
+.notify-row { margin-top: 12px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.small { font-size: 0.8rem; }
 .high-pairs { display: flex; flex-direction: column; gap: 6px; margin: 12px 0; }
 .hp-warn { background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.4); color: #f87171; border-radius: 10px; padding: 8px 12px; font-size: 0.86rem; }
 .ok-text { color: #22c55e; font-size: 0.88rem; margin: 12px 0; }
