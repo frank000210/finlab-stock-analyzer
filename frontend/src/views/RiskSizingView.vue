@@ -157,7 +157,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
 const route = useRoute()
@@ -294,7 +294,16 @@ async function loadMarket() {
   }
 }
 
+// Shared risk config: keep account size + per-trade risk% in sync with the
+// 投組風險 / 作戰台 pages (same localStorage keys).
+watch([account, riskPct], () => {
+  if (account.value > 0) localStorage.setItem('portfolio_heat_account', String(account.value))
+  if (riskPct.value > 0) localStorage.setItem('finlab_risk_pct', String(riskPct.value))
+})
+
 onMounted(() => {
+  const a = Number(localStorage.getItem('portfolio_heat_account')); if (a > 0) account.value = a
+  const rp = Number(localStorage.getItem('finlab_risk_pct')); if (rp > 0) riskPct.value = rp
   const q = route.query.symbol
   if (q) symbolInput.value = String(q).trim().toUpperCase()
   loadMarket()

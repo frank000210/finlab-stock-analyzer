@@ -83,6 +83,24 @@ test('部位風控 accepts ?symbol= query (deep link from decision panel)', asyn
   await expect(page.locator('.mval').first()).toBeVisible({ timeout: 60_000 })
 })
 
+test('部位風控 syncs account/risk with shared config', async ({ page }) => {
+  await page.goto('/risk-sizing')
+  await page.evaluate(() => {
+    localStorage.setItem('portfolio_heat_account', '5000000')
+    localStorage.setItem('finlab_risk_pct', '2')
+  })
+  await page.reload()
+
+  const account = page.locator('.inputs input').nth(0)
+  const risk = page.locator('.inputs input').nth(1)
+  await expect(account).toHaveValue('5000000')
+  await expect(risk).toHaveValue('2')
+
+  // Editing here writes back to the shared key (so 作戰台/投組 pick it up).
+  await account.fill('3000000')
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('portfolio_heat_account'))).toBe('3000000')
+})
+
 test('部位風控 shows a setup-score panel', async ({ page }) => {
   await page.goto('/risk-sizing')
   await expect(page.locator('.setup-panel')).toBeVisible({ timeout: 60_000 })
