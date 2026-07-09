@@ -117,10 +117,11 @@ body {
 }
 
 /* ===== TYPOGRAPHY ===== */
-h1 { font-size: 1.75rem; font-weight: 800; letter-spacing: -0.025em; line-height: 1.15; }
-h2 { font-size: 1.35rem; font-weight: 700; letter-spacing: -0.02em; line-height: 1.25; }
-h3 { font-size: 1.1rem; font-weight: 600; letter-spacing: -0.01em; line-height: 1.35; }
-h4 { font-size: 0.95rem; font-weight: 600; line-height: 1.4; }
+/* 緊湊化：標題階層整體降一級，資訊密度優先（交易工具而非行銷頁）。 */
+h1 { font-size: 1.5rem; font-weight: 800; letter-spacing: -0.025em; line-height: 1.15; }
+h2 { font-size: 1.2rem; font-weight: 700; letter-spacing: -0.02em; line-height: 1.25; }
+h3 { font-size: 1rem; font-weight: 600; letter-spacing: -0.01em; line-height: 1.35; }
+h4 { font-size: 0.9rem; font-weight: 600; line-height: 1.4; }
 p { line-height: 1.65; color: var(--text-secondary); }
 
 .eyebrow, .section-kicker {
@@ -135,11 +136,11 @@ p { line-height: 1.65; color: var(--text-secondary); }
 .top-nav {
   display: flex;
   align-items: center;
-  gap: var(--space-6);
-  padding: 0 var(--space-6);
+  gap: var(--space-4);
+  padding: 0 var(--space-4);
   background: var(--bg-secondary);
   border-bottom: 1px solid var(--border-color);
-  height: 56px;
+  height: 48px;
   position: sticky;
   top: 0;
   z-index: 100;
@@ -252,7 +253,7 @@ p { line-height: 1.65; color: var(--text-secondary); }
 /* ===== MAIN CONTENT ===== */
 .main-content {
   flex: 1;
-  padding: var(--space-6);
+  padding: var(--space-4) var(--space-5);
   max-width: 1440px;
   margin: 0 auto;
   width: 100%;
@@ -265,7 +266,7 @@ p { line-height: 1.65; color: var(--text-secondary); }
   background: var(--bg-card) !important;
   border: var(--block-border-width) solid var(--block-border-color) !important;
   border-radius: var(--radius-lg);
-  padding: var(--space-6);
+  padding: var(--space-4);
   transition: transform var(--transition-base), box-shadow var(--transition-base);
 }
 
@@ -280,13 +281,44 @@ p { line-height: 1.65; color: var(--text-secondary); }
 .chip-page, .data-agent-page, .decision-dashboard, .graph-page, .graph01-page,
 .home-page, .leadlag-page, .major-page, .overview-page, .public-data-page,
 .risk-page, .rotation-page, .rules-page, .seasonal-page, .settings-page,
-.signals-page, .trade-dashboard {
-  gap: 16px !important;
+.signals-page, .trade-dashboard,
+.risk-sizing-view, .portfolio-heat-view, .journal-view, .mc-view,
+.signals-view, .command-view, .guide-view {
+  gap: 12px !important;
 }
+
+/* 風控/日誌/作戰台等新頁面的共用區塊：之前無全域樣式（各頁裸 div），
+   這裡補上與全站一致的卡片外觀 + 緊湊 padding。限定在新頁 root 下，
+   避免影響 HomeView 等已有各自 scoped .section-block 樣式的頁面。 */
+.risk-sizing-view .section-block, .portfolio-heat-view .section-block,
+.journal-view .section-block, .mc-view .section-block,
+.signals-view .section-block, .command-view .section-block {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+}
+
+/* 觀測重點橫幅（新頁面用的 .focus-banner；PageFocusBanner 元件另有自己的 class） */
+.focus-banner {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+  background: var(--bg-well);
+  border: 1px solid var(--border-color);
+  border-left: 3px solid var(--accent-blue);
+  border-radius: var(--radius);
+  padding: 7px 12px;
+  font-size: 0.84rem;
+  color: var(--text-muted);
+  line-height: 1.55;
+}
+.focus-banner .focus-tag { color: var(--accent-blue); font-weight: 700; white-space: nowrap; }
 
 .metric-card {
   text-align: center;
-  padding: var(--space-5);
+  padding: var(--space-3);
   background: var(--card-inner-bg) !important;
   border: var(--card-inner-border-width) solid var(--card-inner-border-color) !important;
   border-radius: var(--radius);
@@ -409,7 +441,7 @@ thead {
 }
 
 th {
-  padding: 10px 14px;
+  padding: 7px 10px;
   text-align: right;
   color: var(--text-muted);
   font-weight: 600;
@@ -422,7 +454,7 @@ th {
 th:first-child { text-align: left; }
 
 td {
-  padding: 10px 14px;
+  padding: 7px 10px;
   text-align: right;
   border-bottom: 1px solid var(--border-subtle);
   color: var(--text-secondary);
