@@ -47,12 +47,29 @@ test('作戰台 ranks watchlist and computes suggested lots', async ({ page }) =
   await expect(page.locator('.cmd-table .score').first()).toContainText('72') // best-first
 })
 
-test('作戰台 記錄 writes an open trade to the journal', async ({ page }) => {
+test('作戰台 記錄 goes through the discipline gate then writes (E17)', async ({ page }) => {
   await seed(page)
   const row2882 = page.locator('.cmd-table tbody tr', { hasText: '2882' })
   await row2882.getByRole('button', { name: '記錄' }).click()
 
-  const journal = await page.evaluate(() => JSON.parse(localStorage.getItem('finlab_trade_journal') || '[]'))
+  // 閘門先開，尚未寫入
+  await expect(page.locator('.trade-gate')).toBeVisible()
+  await expect(page.locator('.trade-gate')).toContainText('停損已設')
+  await expect(page.locator('.trade-gate')).toContainText('單筆風險')
+  let journal = await page.evaluate(() => JSON.parse(localStorage.getItem('finlab_trade_journal') || '[]'))
+  expect(journal.length).toBe(0)
+
+  // 取消 → 不寫入
+  await page.getByRole('button', { name: '取消' }).click()
+  await expect(page.locator('.trade-gate')).toBeHidden()
+  journal = await page.evaluate(() => JSON.parse(localStorage.getItem('finlab_trade_journal') || '[]'))
+  expect(journal.length).toBe(0)
+
+  // 再記錄 → 確認 → 寫入
+  await row2882.getByRole('button', { name: '記錄' }).click()
+  await page.getByRole('button', { name: '確認記錄' }).click()
+  await expect(page.locator('.trade-gate')).toBeHidden()
+  journal = await page.evaluate(() => JSON.parse(localStorage.getItem('finlab_trade_journal') || '[]'))
   expect(journal.length).toBe(1)
   expect(journal[0].symbol).toBe('2882')
   expect(journal[0].lots).toBe(3)

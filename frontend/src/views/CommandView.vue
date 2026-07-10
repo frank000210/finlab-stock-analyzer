@@ -24,6 +24,17 @@
       <p v-if="errorMessage" class="error-text">{{ errorMessage }}</p>
       <p v-if="logMsg" class="log-msg">{{ logMsg }}</p>
 
+      <div v-if="pendingTrade" class="trade-gate" role="alertdialog" aria-label="交易紀律檢查">
+        <strong>紀律檢查 — {{ pendingTrade.symbol }} {{ lots(pendingTrade) }} 張</strong>
+        <ul class="gate-list">
+          <li v-for="(c, i) in gateChecks" :key="i" :class="c.ok ? 'ok' : 'bad'">{{ c.ok ? '✓' : '✗' }} {{ c.text }}</li>
+        </ul>
+        <div class="gate-actions">
+          <button class="btn btn-primary" @click="commitTrade">確認記錄</button>
+          <button class="btn" @click="cancelGate">取消</button>
+        </div>
+      </div>
+
       <div v-if="regime" class="regime-strip" :class="'regime-' + regime.regime">
         <strong>市場體制：{{ regime.label }}</strong>
         <span class="rg-detail">0050 {{ regime.close }} vs 年線 {{ regime.ma200 }}（{{ regime.above_ma200 ? '站上' : '跌破' }}、年線{{ regime.ma200_rising ? '上揚' : '下彎' }}）· 20日動能 {{ regime.mom20_pct >= 0 ? '+' : '' }}{{ regime.mom20_pct }}%</span>
@@ -149,11 +160,42 @@ function saveCfg() {
   localStorage.setItem('finlab_apply_regime', applyRegime.value ? '1' : '0')
 }
 
-// One click: log the planned trade (entry=price, ATR-based stop, suggested
-// lots) as an open trade in the journal.
+// E17 決策防呆閘門：按「記錄」先開紀律檢查，確認後才寫入日誌。
+// nudge 而非硬擋——可以確認通過，但必須「看過」再按一次。
+const pendingTrade = ref(null)
+
+const gateChecks = computed(() => {
+  const r = pendingTrade.value
+  if (!r) return []
+  const entry = Number(r.price)
+  const stop = Math.round(entry * (1 - (Number(r.stop_dist_pct) || 0) / 100) * 100) / 100
+  const checks = [
+    { ok: stop > 0 && stop < entry, text: `停損已設：${stop}（-${r.stop_dist_pct}%，ATR 基準）` },
+    { ok: effRiskPct.value <= 2, text: `單筆風險 ${effRiskPct.value.toFixed(2)}%（紀律上限 2%）` },
+  ]
+  const hp = (corr.value?.high_pairs || []).filter(p => p.a === r.symbol || p.b === r.symbol)
+  checks.push(hp.length
+    ? { ok: false, text: `高相關警示：與 ${hp.map(p => (p.a === r.symbol ? p.b : p.a)).join('、')} 相關 ≥0.7，等於加碼同一注` }
+    : { ok: true, text: '與掃描清單無高相關重複曝險' })
+  if (regime.value) {
+    checks.push({ ok: regime.value.regime !== 'defense', text: `市場體制：${regime.value.label}${regime.value.regime === 'defense' ? '——逆風環境，確定要進場？' : ''}` })
+  }
+  return checks
+})
+
 function logTrade(r) {
+  if (!(lots(r) >= 1)) return
+  logMsg.value = ''
+  pendingTrade.value = r
+}
+
+function cancelGate() { pendingTrade.value = null }
+
+function commitTrade() {
+  const r = pendingTrade.value
+  if (!r) return
   const l = lots(r)
-  if (!(l >= 1)) return
+  if (!(l >= 1)) { pendingTrade.value = null; return }
   const entry = Number(r.price)
   const stop = Math.round(entry * (1 - (Number(r.stop_dist_pct) || 0) / 100) * 100) / 100
   let journal = []
@@ -166,6 +208,7 @@ function logTrade(r) {
   })
   localStorage.setItem('finlab_trade_journal', JSON.stringify(journal))
   logMsg.value = `已記錄 ${r.symbol} ${l} 張到交易日誌（進場 ${entry}、停損 ${stop}），到「交易日誌」平倉即納入統計。`
+  pendingTrade.value = null
 }
 
 function readWatchlist() {
@@ -273,6 +316,18 @@ onMounted(() => {
 .empty { padding: 16px 0; }
 .btn.xs { padding: 4px 10px; font-size: 0.78rem; }
 .log-msg { margin-top: 8px; color: #22c55e; font-size: 0.84rem; }
+.trade-gate {
+  margin-top: 12px;
+  padding: 12px 16px;
+  border: 1px solid rgba(99, 102, 241, 0.5);
+  border-radius: 12px;
+  background: rgba(99, 102, 241, 0.08);
+  font-size: 0.86rem;
+}
+.gate-list { list-style: none; padding: 0; margin: 8px 0; display: flex; flex-direction: column; gap: 4px; }
+.gate-list .ok { color: #22c55e; }
+.gate-list .bad { color: #f59e0b; }
+.gate-actions { display: flex; gap: 8px; margin-top: 6px; }
 .corr-warn { margin: 12px 0 0; display: flex; flex-direction: column; gap: 6px; }
 .corr-warn div { background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.4); color: #f87171; border-radius: 10px; padding: 8px 12px; font-size: 0.84rem; }
 .kelly-hint { font-size: 0.78rem; color: var(--text-muted); display: inline-flex; align-items: center; gap: 4px; }
