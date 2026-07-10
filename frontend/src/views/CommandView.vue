@@ -24,6 +24,16 @@
       <p v-if="errorMessage" class="error-text">{{ errorMessage }}</p>
       <p v-if="logMsg" class="log-msg">{{ logMsg }}</p>
 
+      <div v-if="regime" class="regime-strip" :class="'regime-' + regime.regime">
+        <strong>市場體制：{{ regime.label }}</strong>
+        <span class="rg-detail">0050 {{ regime.close }} vs 年線 {{ regime.ma200 }}（{{ regime.above_ma200 ? '站上' : '跌破' }}、年線{{ regime.ma200_rising ? '上揚' : '下彎' }}）· 20日動能 {{ regime.mom20_pct >= 0 ? '+' : '' }}{{ regime.mom20_pct }}%</span>
+        <label class="rg-apply">
+          <input type="checkbox" v-model="applyRegime" @change="saveCfg" />
+          套用風險係數 ×{{ regime.risk_mult }}
+          <em v-if="applyRegime">→ 有效單筆風險 {{ effRiskPct.toFixed(2) }}%</em>
+        </label>
+      </div>
+
       <div v-if="corr && corr.high_pairs && corr.high_pairs.length" class="corr-warn">
         <div v-for="hp in corr.high_pairs" :key="hp.a + '-' + hp.b">
           ⚠ {{ hp.a }} × {{ hp.b }} 相關 {{ hp.corr.toFixed(2) }} — 這兩檔實質同一注，別各下滿倉、重複曝險
@@ -79,6 +89,22 @@ const errorMessage = ref('')
 const logMsg = ref('')
 const corr = ref(null)
 
+// B5 市場體制：進攻/中性/防守 × 風險係數（套用時縮放有效單筆風險）
+const regime = ref(null)
+const applyRegime = ref(true)
+const effRiskPct = computed(() => {
+  const base = Number(riskPct.value) || 0
+  return applyRegime.value && regime.value ? base * regime.value.risk_mult : base
+})
+
+async function loadRegime() {
+  try {
+    const resp = await fetch(`${API_BASE}/api/v1/risk/market-regime`)
+    const payload = await resp.json().catch(() => ({}))
+    if (resp.ok && payload?.data) regime.value = payload.data
+  } catch { /* best-effort */ }
+}
+
 const okRows = computed(() => rows.value.filter(r => r.ok))
 
 const journalTrades = ref([])
@@ -101,7 +127,7 @@ function applyKellyRisk() {
 }
 
 function riskPerShare(r) { return (Number(r.price) || 0) * (Number(r.stop_dist_pct) || 0) / 100 }
-function budget() { return (Number(account.value) || 0) * (Number(riskPct.value) || 0) / 100 }
+function budget() { return (Number(account.value) || 0) * effRiskPct.value / 100 }
 function rawShares(r) { const rps = riskPerShare(r); return rps > 0 ? budget() / rps : 0 }
 function lots(r) { return Math.floor(rawShares(r) / 1000) }
 function oddShares(r) { return Math.floor(rawShares(r)) }
@@ -119,6 +145,7 @@ function scoreClass(total) { return total >= 70 ? 'good' : total >= 45 ? 'mid' :
 function saveCfg() {
   localStorage.setItem('portfolio_heat_account', String(account.value))
   localStorage.setItem('finlab_risk_pct', String(riskPct.value))
+  localStorage.setItem('finlab_apply_regime', applyRegime.value ? '1' : '0')
 }
 
 // One click: log the planned trade (entry=price, ATR-based stop, suggested
@@ -183,8 +210,10 @@ onMounted(() => {
   try { const raw = JSON.parse(localStorage.getItem('finlab_trade_journal') || '[]'); if (Array.isArray(raw)) journalTrades.value = raw } catch { /* ignore */ }
   const a = Number(localStorage.getItem('portfolio_heat_account')); if (a > 0) account.value = a
   const rp = Number(localStorage.getItem('finlab_risk_pct')); if (rp > 0) riskPct.value = rp
+  applyRegime.value = localStorage.getItem('finlab_apply_regime') !== '0'
   const wl = readWatchlist()
   symbolsInput.value = wl.length ? wl.join(',') : '2330,2454,2317'
+  loadRegime()
   scan()
 })
 </script>
@@ -200,6 +229,27 @@ onMounted(() => {
 .w130 { width: 130px; } .w70 { width: 70px; } .w200 { width: 200px; }
 .error-text { color: #ef4444; margin-top: 8px; }
 .btn-spinner { width: 14px; height: 14px; border-width: 2px; vertical-align: -2px; margin-right: 6px; }
+
+.regime-strip {
+  margin-top: 12px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 0.84rem;
+}
+.regime-offense { border-color: rgba(239,68,68,0.45); background: rgba(239,68,68,0.08); }
+.regime-offense strong { color: #ef4444; }
+.regime-neutral { border-color: rgba(245,158,11,0.45); background: rgba(245,158,11,0.08); }
+.regime-neutral strong { color: #f59e0b; }
+.regime-defense { border-color: rgba(59,130,246,0.45); background: rgba(59,130,246,0.08); }
+.regime-defense strong { color: #3b82f6; }
+.rg-detail { color: var(--text-muted); }
+.rg-apply { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; margin-left: auto; }
+.rg-apply em { font-style: normal; color: var(--text-primary); font-weight: 600; }
 
 .summary { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 14px 0 6px; font-size: 0.84rem; color: var(--text-muted); }
 .summary .warn { color: #f59e0b; } .summary .ok { color: #22c55e; }

@@ -16,6 +16,14 @@ test.beforeEach(async ({ page }) => {
   await page.route('**/api/v1/risk/watchlist-signals*', async (route) => {
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(SIGNALS) })
   })
+  // 預設體制 mock：進攻 ×1.0（個別測試可用後註冊的 route 覆蓋）
+  await page.route('**/api/v1/risk/market-regime', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ success: true, data: { regime: 'offense', label: '進攻', risk_mult: 1.0, proxy: '0050', close: 60, ma200: 55, above_ma200: true, ma200_rising: true, mom20_pct: 2.5, as_of: '2026-07-10' } }),
+    })
+  })
 })
 
 async function seed(page) {
@@ -69,6 +77,28 @@ test('作戰台 suggests risk% from journal half-Kelly', async ({ page }) => {
   await expect(page.locator('.kelly-hint')).toContainText('10.0%')
   await page.locator('.kelly-hint .link-btn').click()
   await expect(page.locator('.inp.w70')).toHaveValue('10')
+})
+
+test('作戰台 market regime scales suggested lots (B5)', async ({ page }) => {
+  await page.route('**/api/v1/risk/market-regime', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ success: true, data: { regime: 'defense', label: '防守', risk_mult: 0.5, proxy: '0050', close: 50, ma200: 55, above_ma200: false, ma200_rising: false, mom20_pct: -3.1, as_of: '2026-07-10' } }),
+    })
+  })
+  await seed(page)
+
+  await expect(page.locator('.regime-strip')).toContainText('防守')
+  await expect(page.locator('.regime-strip')).toContainText('×0.5')
+  // 1% base × 0.5 = 0.5% -> budget 5,000; 2882 risk/share 3.25 -> 1538 shares -> 1 lot（未套用時為 3 張）
+  await expect(page.locator('.regime-strip')).toContainText('有效單筆風險 0.50%')
+  const row2882 = page.locator('.cmd-table tbody tr', { hasText: '2882' })
+  await expect(row2882).toContainText('1 張')
+
+  // 取消套用 → 回到 3 張
+  await page.locator('.rg-apply input').uncheck()
+  await expect(row2882).toContainText('3 張')
 })
 
 test('作戰台 warns when top picks are highly correlated', async ({ page }) => {

@@ -35,6 +35,68 @@ async def notify(req: NotifyReq):
         return {"success": True, "sent": False, "error": str(exc)[:200]}
 
 
+@router.get("/market-regime")
+async def market_regime():
+    """市場體制（B5）：以 0050 為大盤代理，判定 進攻/中性/防守 並給風險係數。
+
+    規則（指數層級，非個股）：
+    - 收盤 > 年線(MA200) 且年線上揚 → offense（風險係數 1.0）
+    - 收盤 < 年線 且年線下彎     → defense（0.5）
+    - 其他                        → neutral（0.7）
+    結果快取 30 分鐘以節省資料源額度。
+    """
+    import math
+    from datetime import date, timedelta
+
+    from ..crawler.stock_price import StockPriceCrawler
+    from ..db.memcache import mem_get, mem_set
+
+    cache_key = "risk:market-regime"
+    cached = mem_get(cache_key)
+    if cached is not None:
+        return {"success": True, "data": cached}
+
+    end = date.today()
+    start = end - timedelta(days=420)
+    try:
+        df = await StockPriceCrawler().get_price("0050", start.isoformat(), end.isoformat(), "1d")
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"大盤代理資料取得失敗：{exc}")
+    if df is None or df.empty or len(df) < 220:
+        raise HTTPException(status_code=404, detail="大盤代理資料不足（需 220 個交易日）")
+
+    closes = df.sort_values("date")["close"].astype(float).tolist()
+    close = closes[-1]
+    ma200 = sum(closes[-200:]) / 200
+    ma200_prev = sum(closes[-220:-20]) / 200
+    mom20 = close / closes[-21] - 1 if len(closes) >= 21 and closes[-21] else 0.0
+    if any(math.isnan(x) for x in (close, ma200, ma200_prev)):
+        raise HTTPException(status_code=404, detail="大盤代理資料異常")
+
+    above, rising = close > ma200, ma200 > ma200_prev
+    if above and rising:
+        regime, label, mult = "offense", "進攻", 1.0
+    elif not above and not rising:
+        regime, label, mult = "defense", "防守", 0.5
+    else:
+        regime, label, mult = "neutral", "中性", 0.7
+
+    data = {
+        "regime": regime,
+        "label": label,
+        "risk_mult": mult,
+        "proxy": "0050",
+        "close": round(close, 2),
+        "ma200": round(ma200, 2),
+        "above_ma200": above,
+        "ma200_rising": rising,
+        "mom20_pct": round(mom20 * 100, 2),
+        "as_of": str(df.sort_values("date")["date"].iloc[-1])[:10],
+    }
+    mem_set(cache_key, data, ttl_seconds=1800)
+    return {"success": True, "data": data}
+
+
 @router.get("/status")
 async def get_risk_status():
     try:
