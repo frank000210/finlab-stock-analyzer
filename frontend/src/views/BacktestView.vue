@@ -117,6 +117,39 @@
           約佔初始資金 {{ ((result.costs.cost_pct_of_capital || 0) * 100).toFixed(1) }}%）— 上列績效皆為<strong>稅後費後淨值</strong>。
         </div>
 
+        <!-- A3 過擬合防護：樣本內／樣本外 70/30 走勢驗證 -->
+        <div v-if="result.overfit_check" class="card overfit-card">
+          <h4>🛡️ 樣本外驗證（防止過擬合）</h4>
+          <p v-if="result.overfit_check.low_trade_count" class="of-warn">
+            ⚠ {{ result.overfit_check.low_trade_note }}
+          </p>
+          <template v-if="result.overfit_check.available">
+            <div class="of-verdict" :class="'of-' + result.overfit_check.verdict">
+              {{ result.overfit_check.verdict_label }}
+            </div>
+            <div class="of-split">切分日：{{ result.overfit_check.split_date }}（前 70% 為樣本內、後 30% 為樣本外，同一策略同一組參數）</div>
+            <div class="of-grid">
+              <div class="of-col">
+                <div class="of-col-title">樣本內 In-Sample</div>
+                <div class="of-range">{{ result.overfit_check.in_sample.start }} ~ {{ result.overfit_check.in_sample.end }}</div>
+                <div class="of-metric"><span>年化報酬</span><strong :class="result.overfit_check.in_sample.annual_return >= 0 ? 'up' : 'down'">{{ (result.overfit_check.in_sample.annual_return * 100).toFixed(1) }}%</strong></div>
+                <div class="of-metric"><span>勝率</span><strong>{{ (result.overfit_check.in_sample.win_rate * 100).toFixed(0) }}%</strong></div>
+                <div class="of-metric"><span>獲利因子</span><strong>{{ result.overfit_check.in_sample.profit_factor }}</strong></div>
+                <div class="of-metric"><span>交易數</span><strong>{{ result.overfit_check.in_sample.total_trades }}</strong></div>
+              </div>
+              <div class="of-col">
+                <div class="of-col-title">樣本外 Out-of-Sample</div>
+                <div class="of-range">{{ result.overfit_check.out_sample.start }} ~ {{ result.overfit_check.out_sample.end }}</div>
+                <div class="of-metric"><span>年化報酬</span><strong :class="result.overfit_check.out_sample.annual_return >= 0 ? 'up' : 'down'">{{ (result.overfit_check.out_sample.annual_return * 100).toFixed(1) }}%</strong></div>
+                <div class="of-metric"><span>勝率</span><strong>{{ (result.overfit_check.out_sample.win_rate * 100).toFixed(0) }}%</strong></div>
+                <div class="of-metric"><span>獲利因子</span><strong>{{ result.overfit_check.out_sample.profit_factor }}</strong></div>
+                <div class="of-metric"><span>交易數</span><strong>{{ result.overfit_check.out_sample.total_trades }}</strong></div>
+              </div>
+            </div>
+          </template>
+          <p v-else-if="!result.overfit_check.low_trade_count || result.overfit_check.note" class="of-note">{{ result.overfit_check.note }}</p>
+        </div>
+
         <!-- Equity Curve Chart -->
         <div class="card" style="margin-bottom: 16px;">
           <h4>權益曲線</h4>
@@ -368,4 +401,29 @@ function renderEquityCurve() {
   line-height: 1.6;
 }
 .cost-strip strong { color: #f59e0b; }
+
+.overfit-card { margin-bottom: 16px; }
+.overfit-card h4 { margin: 0 0 10px; }
+.of-warn { color: #f59e0b; font-size: 0.82rem; margin: 0 0 10px; }
+.of-note { color: var(--text-muted); font-size: 0.84rem; }
+.of-verdict {
+  font-weight: 700;
+  font-size: 0.9rem;
+  padding: 8px 12px;
+  border-radius: 8px;
+  margin-bottom: 8px;
+}
+.of-verdict.of-low { background: rgba(34,197,94,0.14); color: #22c55e; }
+.of-verdict.of-medium { background: rgba(245,158,11,0.14); color: #f59e0b; }
+.of-verdict.of-high { background: rgba(239,68,68,0.14); color: #ef4444; }
+.of-split { font-size: 0.78rem; color: var(--text-muted); margin-bottom: 12px; }
+.of-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.of-col { border: 1px solid var(--border-color); border-radius: 10px; padding: 10px 12px; }
+.of-col-title { font-weight: 700; font-size: 0.84rem; margin-bottom: 2px; }
+.of-range { font-size: 0.72rem; color: var(--text-muted); margin-bottom: 8px; }
+.of-metric { display: flex; justify-content: space-between; font-size: 0.82rem; padding: 3px 0; }
+.of-metric span { color: var(--text-muted); }
+@media (max-width: 640px) {
+  .of-grid { grid-template-columns: 1fr; }
+}
 </style>

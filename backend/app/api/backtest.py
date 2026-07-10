@@ -6,9 +6,70 @@ from typing import Optional
 from datetime import date, timedelta
 import uuid
 
+import pandas as pd
+
 from ..crawler import StockPriceCrawler
 from ..backtest import BacktestEngine
 from ..backtest.strategies import ALL_STRATEGIES
+
+# 過擬合防護（A3）門檻：樣本外交易數低於此值視為不可靠，不下判斷。
+_MIN_OOS_TRADES = 5
+_MIN_TOTAL_TRADES_FOR_STATS = 30
+
+
+def _check_overfit(engine: BacktestEngine, df: pd.DataFrame, strategy, capital: float,
+                    commission: float, slippage: float) -> dict:
+    """樣本內／樣本外 70/30 走勢驗證：同一份已下載的資料切兩段重跑同一策略
+    同一組參數，比較樣本外是否還撐得住。不額外呼叫資料源。"""
+    dates = pd.to_datetime(df["date"]).sort_values().reset_index(drop=True)
+    n = len(dates)
+    split_idx = int(n * 0.7)
+    if split_idx < _MIN_OOS_TRADES or (n - split_idx) < _MIN_OOS_TRADES:
+        return {"available": False, "note": "資料筆數不足以拆分樣本內／外，略過過擬合檢查。"}
+
+    split_date = dates.iloc[split_idx]
+    df_dates = pd.to_datetime(df["date"])
+    is_df = df[df_dates <= split_date].reset_index(drop=True)
+    oos_df = df[df_dates > split_date].reset_index(drop=True)
+
+    is_result = engine.run(is_df, strategy, capital=capital, commission=commission, slippage=slippage)
+    oos_result = engine.run(oos_df, strategy, capital=capital, commission=commission, slippage=slippage)
+    is_perf, oos_perf = is_result["performance"], oos_result["performance"]
+
+    oos_trades = oos_perf.get("total_trades", 0)
+    if oos_trades < _MIN_OOS_TRADES:
+        return {
+            "available": False,
+            "note": f"樣本外只有 {oos_trades} 筆交易，太少無法判斷是否過擬合。",
+            "split_date": str(split_date.date()),
+        }
+
+    is_annual = is_perf.get("annual_return", 0)
+    oos_annual = oos_perf.get("annual_return", 0)
+
+    if oos_annual <= 0 and is_annual > 0:
+        verdict, label = "high", "⚠ 樣本外由賺轉賠，過擬合風險高——參數很可能是套在歷史資料上調出來的"
+    elif is_annual > 0 and oos_annual < is_annual * 0.5:
+        verdict, label = "medium", "樣本外報酬明顯衰退（不到樣本內一半），留意過擬合、建議降低參數複雜度"
+    else:
+        verdict, label = "low", "樣本外表現與樣本內相近，過擬合疑慮較低"
+
+    return {
+        "available": True,
+        "split_date": str(split_date.date()),
+        "in_sample": {
+            "start": str(is_df["date"].iloc[0])[:10], "end": str(is_df["date"].iloc[-1])[:10],
+            "annual_return": is_perf.get("annual_return", 0), "win_rate": is_perf.get("win_rate", 0),
+            "profit_factor": is_perf.get("profit_factor", 0), "total_trades": is_perf.get("total_trades", 0),
+        },
+        "out_sample": {
+            "start": str(oos_df["date"].iloc[0])[:10], "end": str(oos_df["date"].iloc[-1])[:10],
+            "annual_return": oos_annual, "win_rate": oos_perf.get("win_rate", 0),
+            "profit_factor": oos_perf.get("profit_factor", 0), "total_trades": oos_trades,
+        },
+        "verdict": verdict,
+        "verdict_label": label,
+    }
 
 router = APIRouter(prefix="/api/v1/backtest", tags=["backtest"])
 
@@ -68,11 +129,20 @@ async def run_backtest(req: BacktestRequest):
         strategy = strategy_cls(params=req.params)
 
         # Run backtest (net of commission/tax/slippage)
+        commission = max(req.commission, 0.0)
+        slippage = max(req.slippage, 0.0)
         engine = BacktestEngine()
-        result = engine.run(
-            df, strategy, capital=req.capital,
-            commission=max(req.commission, 0.0), slippage=max(req.slippage, 0.0),
-        )
+        result = engine.run(df, strategy, capital=req.capital, commission=commission, slippage=slippage)
+
+        # 過擬合防護（A3）：同一份資料切樣本內/外重跑同一策略同一組參數。
+        overfit_check = _check_overfit(engine, df, strategy, req.capital, commission, slippage)
+        total_trades = result["performance"].get("total_trades", 0)
+        if total_trades < _MIN_TOTAL_TRADES_FOR_STATS:
+            overfit_check = {
+                **overfit_check,
+                "low_trade_count": True,
+                "low_trade_note": f"總交易數僅 {total_trades} 筆（建議 ≥ {_MIN_TOTAL_TRADES_FOR_STATS} 筆），統計效力有限，數字僅供參考。",
+            }
 
         # Store result
         backtest_id = f"bt_{uuid.uuid4().hex[:12]}"
@@ -95,6 +165,7 @@ async def run_backtest(req: BacktestRequest):
                 "equity_curve": result["equity_curve"],
                 "monthly_returns": result["monthly_returns"],
                 "costs": result.get("costs", {}),
+                "overfit_check": overfit_check,
             },
         }
     except HTTPException:
