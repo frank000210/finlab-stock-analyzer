@@ -9,12 +9,27 @@ router = APIRouter(prefix="/api/v1/stocks", tags=["stocks"])
 
 @router.get("/search")
 async def search_stocks(q: str = Query(..., min_length=1)):
-    """Search stocks by symbol or name."""
+    """Search stocks by symbol or name（台股 FinMind + 內建美股指數/龍頭）。"""
+    from ..data.us_symbols import US_SYMBOLS
+
+    # 美股/指數：內建字典比對（代號前綴或名稱包含），放在最前面
+    us_items = []
+    qu = q.strip().upper()
+    for sym, meta in US_SYMBOLS.items():
+        if qu in sym or q.strip() in meta["name"]:
+            us_items.append({
+                "symbol": sym,
+                "name_zh": meta["name"],
+                "market": "us",
+                "industry": meta["industry"],
+            })
+    us_items = us_items[:8]
+
     try:
         client = FinMindClient()
         df = await client.get_stock_info()
         if df.empty:
-            return {"success": True, "data": {"items": []}}
+            return {"success": True, "data": {"items": us_items}}
 
         # Filter by query
         mask = (
@@ -32,14 +47,32 @@ async def search_stocks(q: str = Query(..., min_length=1)):
                 "industry": row.get("industry_category", row.get("Industry_category", "")),
             })
 
-        return {"success": True, "data": {"items": items}}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        return {"success": True, "data": {"items": (us_items + items)[:20]}}
+    except HTTPException:
+        raise
+    except Exception:
+        # FinMind 掛掉時至少回美股內建結果
+        return {"success": True, "data": {"items": us_items}}
 
 
 @router.get("/{symbol}/info")
 async def get_stock_info(symbol: str):
-    """Get stock basic info."""
+    """Get stock basic info（台股 FinMind；美股/指數用內建字典）。"""
+    from ..data.us_symbols import US_SYMBOLS, is_tw_symbol
+
+    sym_u = (symbol or "").strip().upper()
+    if not is_tw_symbol(sym_u):
+        meta = US_SYMBOLS.get(sym_u)
+        return {
+            "success": True,
+            "data": {
+                "symbol": sym_u,
+                "name_zh": meta["name"] if meta else sym_u,
+                "market": "us",
+                "industry": meta["industry"] if meta else "美股",
+            },
+        }
+
     try:
         client = FinMindClient()
         df = await client.get_stock_info()

@@ -292,16 +292,23 @@ async def position_sizing(
 
     name = symbol
     industry = ""
-    try:
-        info = await FinMindClient().get_stock_info()
-        if info is not None and not info.empty:
-            row = info[info["stock_id"] == symbol]
-            if not row.empty:
-                r0 = row.iloc[0]
-                name = str(r0.get("stock_name", symbol)) or symbol
-                industry = str(r0.get("industry_category", r0.get("Industry_category", "")) or "").strip()
-    except Exception:
-        pass
+    from ..data.us_symbols import US_SYMBOLS, is_tw_symbol
+
+    if not is_tw_symbol(symbol):
+        meta = US_SYMBOLS.get(symbol)
+        if meta:
+            name, industry = meta["name"], meta["industry"]
+    else:
+        try:
+            info = await FinMindClient().get_stock_info()
+            if info is not None and not info.empty:
+                row = info[info["stock_id"] == symbol]
+                if not row.empty:
+                    r0 = row.iloc[0]
+                    name = str(r0.get("stock_name", symbol)) or symbol
+                    industry = str(r0.get("industry_category", r0.get("Industry_category", "")) or "").strip()
+        except Exception:
+            pass
 
     return {
         "success": True,
@@ -492,31 +499,35 @@ async def watchlist_signals(
     start = end - timedelta(days=lookback_days)
     crawler = StockPriceCrawler()
 
-    # 代號→名稱 批次查表：FinMind 全市場 info（模組層 5 分快取，僅 1 次呼叫）；
-    # 失敗時退 Mongo raw_industry（關聯圖 ingest 累積的名稱），再不行就只給代號。
-    name_map: dict[str, str] = {}
-    try:
-        from ..crawler.finmind_client import FinMindClient
+    # 代號→名稱 批次查表：美股用內建字典；台股用 FinMind 全市場 info
+    # （模組層 5 分快取，僅 1 次呼叫）；失敗時退 Mongo raw_industry。
+    from ..data.us_symbols import US_SYMBOLS, is_tw_symbol
 
-        info = await FinMindClient().get_stock_info()
-        if info is not None and not info.empty:
-            for _, row in info.iterrows():
-                sid = str(row.get("stock_id", "")).strip().upper()
-                nm = str(row.get("stock_name", "") or "").strip()
-                if sid and nm:
-                    name_map[sid] = nm
-    except Exception:
-        pass
-    if not name_map:
+    name_map: dict[str, str] = {s: m["name"] for s, m in US_SYMBOLS.items() if s in syms}
+    tw_syms = [s for s in syms if is_tw_symbol(s)]
+    if tw_syms:
         try:
-            from ..db.mongodb import get_mongodb
+            from ..crawler.finmind_client import FinMindClient
 
-            mongo = await get_mongodb()
-            async for doc in mongo.raw_industry.find({"symbol": {"$in": syms}}, {"_id": 0}):
-                if doc.get("name_zh"):
-                    name_map[doc["symbol"]] = doc["name_zh"]
+            info = await FinMindClient().get_stock_info()
+            if info is not None and not info.empty:
+                for _, row in info.iterrows():
+                    sid = str(row.get("stock_id", "")).strip().upper()
+                    nm = str(row.get("stock_name", "") or "").strip()
+                    if sid and nm:
+                        name_map[sid] = nm
         except Exception:
             pass
+        if not any(s in name_map for s in tw_syms):
+            try:
+                from ..db.mongodb import get_mongodb
+
+                mongo = await get_mongodb()
+                async for doc in mongo.raw_industry.find({"symbol": {"$in": tw_syms}}, {"_id": 0}):
+                    if doc.get("name_zh"):
+                        name_map[doc["symbol"]] = doc["name_zh"]
+            except Exception:
+                pass
 
     async def _one(sym: str):
         try:

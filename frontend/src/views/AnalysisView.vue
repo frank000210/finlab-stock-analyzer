@@ -643,17 +643,16 @@ async function loadAnalysis() {
   chipHealth.value = null
   const token = ++requestToken
 
-  // If symbol is non-numeric (Chinese name), resolve to code first
+  // 中文名（含漢字）才需要解析成代號轉址；美股字母代號（AAPL、^GSPC）
+  // 與台股數字代號都直接載入，避免被搜尋結果轉址到自己而中斷。
   let sym = symbol.value
-  if (sym && !/^\d{4,6}$/.test(sym)) {
+  if (sym && /[一-鿿]/.test(sym)) {
     try {
       const searchRes = await apiGet(`/api/v1/stocks/search?q=${encodeURIComponent(sym)}`)
       const items = searchRes?.items || searchRes?.data?.items || []
       const match = items[0]
-      if (match && match.symbol) {
-        sym = match.symbol
-        // Redirect to correct URL
-        router.replace(`/stocks/${sym}`)
+      if (match && match.symbol && match.symbol !== sym) {
+        router.replace(`/stocks/${match.symbol}`)
         return
       }
     } catch {}
