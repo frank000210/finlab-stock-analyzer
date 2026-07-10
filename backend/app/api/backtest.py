@@ -23,6 +23,9 @@ class BacktestRequest(BaseModel):
     date_range: dict  # {"start": "2021-01-01", "end": "2026-06-26"}
     capital: float = 1_000_000
     benchmark: str = "TAIEX"
+    # 真實交易成本（台股散戶預設）：手續費/邊 0.1425%、賣出證交稅 0.3%（引擎內固定）、滑價/邊 0.1%
+    commission: float = 0.001425
+    slippage: float = 0.001
 
 
 @router.get("/strategies")
@@ -64,9 +67,12 @@ async def run_backtest(req: BacktestRequest):
         strategy_cls = ALL_STRATEGIES[req.strategy_id]
         strategy = strategy_cls(params=req.params)
 
-        # Run backtest
+        # Run backtest (net of commission/tax/slippage)
         engine = BacktestEngine()
-        result = engine.run(df, strategy, capital=req.capital)
+        result = engine.run(
+            df, strategy, capital=req.capital,
+            commission=max(req.commission, 0.0), slippage=max(req.slippage, 0.0),
+        )
 
         # Store result
         backtest_id = f"bt_{uuid.uuid4().hex[:12]}"
@@ -88,6 +94,7 @@ async def run_backtest(req: BacktestRequest):
                 "performance": result["performance"],
                 "equity_curve": result["equity_curve"],
                 "monthly_returns": result["monthly_returns"],
+                "costs": result.get("costs", {}),
             },
         }
     except HTTPException:

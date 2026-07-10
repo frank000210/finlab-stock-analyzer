@@ -28,6 +28,14 @@
         <label>初始資金 (TWD)</label>
         <input type="number" v-model.number="form.capital" class="form-input" />
       </div>
+      <div class="form-group">
+        <label>手續費率 %／邊（券商折扣後）</label>
+        <input type="number" v-model.number="form.commissionPct" step="0.001" min="0" class="form-input" />
+      </div>
+      <div class="form-group">
+        <label>滑價 %／邊（賣出證交稅 0.3% 另計）</label>
+        <input type="number" v-model.number="form.slippagePct" step="0.01" min="0" class="form-input" />
+      </div>
 
       <div v-if="selectedStrategy" class="params-section">
         <h4>策略參數</h4>
@@ -102,6 +110,13 @@
           </div>
         </div>
 
+        <!-- 交易成本（績效已淨值化） -->
+        <div v-if="result.costs" class="cost-strip">
+          💸 交易成本已計入：本次回測共支出 <strong>{{ Math.round(result.costs.total_costs || 0).toLocaleString('en-US') }}</strong> 元
+          （手續費 {{ ((result.costs.commission || 0) * 100).toFixed(4) }}%/邊、證交稅 0.3%、滑價 {{ ((result.costs.slippage || 0) * 100).toFixed(2) }}%/邊，
+          約佔初始資金 {{ ((result.costs.cost_pct_of_capital || 0) * 100).toFixed(1) }}%）— 上列績效皆為<strong>稅後費後淨值</strong>。
+        </div>
+
         <!-- Equity Curve Chart -->
         <div class="card" style="margin-bottom: 16px;">
           <h4>權益曲線</h4>
@@ -161,6 +176,8 @@ const form = ref({
   start: '2021-01-01',
   end: new Date().toISOString().split('T')[0],
   capital: 1000000,
+  commissionPct: 0.1425, // 手續費率%／邊（可依券商折扣調低）
+  slippagePct: 0.1,      // 滑價%／邊
   params: { fast_ma: 5, slow_ma: 20, stop_loss: 0.08, take_profit: 0.20 },
 })
 
@@ -195,6 +212,8 @@ async function runBacktest() {
       params: form.value.params,
       date_range: { start: form.value.start, end: form.value.end },
       capital: form.value.capital,
+      commission: Math.max(form.value.commissionPct || 0, 0) / 100,
+      slippage: Math.max(form.value.slippagePct || 0, 0) / 100,
     })
     if (!resp.data?.data || typeof resp.data.data !== 'object') {
       throw new Error('回測回應格式異常')
@@ -329,4 +348,16 @@ function renderEquityCurve() {
     padding: var(--space-3);
   }
 }
+
+.cost-strip {
+  margin-bottom: 16px;
+  padding: 8px 14px;
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  border-radius: 10px;
+  background: rgba(245, 158, 11, 0.08);
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  line-height: 1.6;
+}
+.cost-strip strong { color: #f59e0b; }
 </style>

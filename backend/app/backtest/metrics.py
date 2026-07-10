@@ -30,13 +30,17 @@ def compute_metrics(
     daily_returns = np.diff(values) / np.array(values[:-1])
     sharpe = _sharpe_ratio(daily_returns, risk_free_annual=0.02)
 
-    # Win rate
-    winning = [t for t in trades if t["return"] > 0]
+    # Win rate / profit factor — use NET returns (after commission + tax +
+    # slippage) when the engine provides them; gross numbers flattered
+    # marginal strategies whose edge is smaller than their costs.
+    def _ret(t: dict) -> float:
+        return t.get("net_return", t["return"])
+
+    winning = [t for t in trades if _ret(t) > 0]
     win_rate = len(winning) / len(trades) if trades else 0
 
-    # Profit factor
-    gross_profit = sum(t["return"] for t in trades if t["return"] > 0)
-    gross_loss = abs(sum(t["return"] for t in trades if t["return"] < 0))
+    gross_profit = sum(_ret(t) for t in trades if _ret(t) > 0)
+    gross_loss = abs(sum(_ret(t) for t in trades if _ret(t) < 0))
     profit_factor = gross_profit / gross_loss if gross_loss > 0 else 99.99
 
     # Average holding days
