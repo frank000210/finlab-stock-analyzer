@@ -72,6 +72,8 @@
     <div class="global-counter-wrap">
       <PageCounter :page="currentRouteName" :symbol="stockStore.symbol" />
     </div>
+    <!-- Ctrl/Cmd+K 全域快速切換（頁面 + 個股） -->
+    <QuickSwitcher />
     <!-- Global error toasts (fed by app.config.errorHandler via finlab:app-error) -->
     <div v-if="errorToasts.length" class="error-toasts" role="alert" aria-live="assertive">
       <div v-for="t in errorToasts" :key="t.id" class="error-toast">
@@ -89,6 +91,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { useStockStore } from './stores/stock.js'
 import { useAuthStore } from './stores/auth.js'
 import PageCounter from './components/PageCounter.vue'
+import QuickSwitcher from './components/QuickSwitcher.vue'
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 const router = useRouter()
