@@ -42,6 +42,17 @@
             <h2>多因子技術圖表</h2>
           </div>
           <div class="range-selector">
+            <span class="tf-group" role="tablist" aria-label="時間框架">
+              <button
+                v-for="tf in timeframes"
+                :key="tf.value"
+                class="range-button tf-button"
+                :class="{ active: timeframe === tf.value }"
+                @click="timeframe = tf.value"
+              >
+                {{ tf.label }}
+              </button>
+            </span>
             <button
               v-for="range in ranges"
               :key="range.label"
@@ -322,6 +333,16 @@ const ranges = [
 ]
 
 const selectedRange = ref('1Y')
+
+// 時間框架（B6）：週/月由後端 price API 以 period 參數重採樣；
+// 技術指標（MA/RSI/MACD）在非日線時改用前端 fallback 依該框架的 bar 重算，
+// 否則會拿日線指標去對週/月 K 造成錯位。
+const timeframes = [
+  { label: '日', value: '1d' },
+  { label: '週', value: '1w' },
+  { label: '月', value: '1mo' },
+]
+const timeframe = ref('1d')
 const loading = ref(false)
 const errorMessage = ref('')
 const stockInfo = ref({})
@@ -589,6 +610,10 @@ watch(() => route.params.symbol, async () => {
   await loadAnalysis()
 })
 
+watch(timeframe, async () => {
+  await loadAnalysis()
+})
+
 watch(showChandelier, () => {
   renderCharts()
 })
@@ -635,7 +660,7 @@ async function loadAnalysis() {
 
   const [infoRes, priceRes, technicalRes, fundamentalRes, chipRes, signalRes] = await Promise.allSettled([
     apiGet(`/api/v1/stocks/${sym}/info`),
-    apiGet(`/api/v1/stocks/${sym}/price?start=${start}&end=${end}`),
+    apiGet(`/api/v1/stocks/${sym}/price?start=${start}&end=${end}&period=${timeframe.value}`),
     apiGet(`/api/v1/analysis/${sym}/technical?indicators=ma,macd,rsi,volume&start=${start}&end=${end}`),
     apiGet(`/api/v1/analysis/${sym}/fundamental`),
     apiGet(`/api/v1/analysis/${sym}/chip`),
@@ -646,7 +671,11 @@ async function loadAnalysis() {
 
   if (infoRes.status === 'fulfilled') stockInfo.value = infoRes.value || {}
   if (priceRes.status === 'fulfilled') priceItems.value = normalizePriceRows(priceRes.value?.items || priceRes.value?.prices || [])
-  if (technicalRes.status === 'fulfilled') technicalPayload.value = technicalRes.value || {}
+  // 週/月線：伺服器技術指標是日線算的，硬套會錯位 → 丟棄，讓
+  // mergePriceWithTechnical 的前端 fallback 依當前框架的 bar 重算。
+  if (technicalRes.status === 'fulfilled') {
+    technicalPayload.value = timeframe.value === '1d' ? (technicalRes.value || {}) : {}
+  }
   if (fundamentalRes.status === 'fulfilled') fundamentalData.value = fundamentalRes.value || {}
   if (chipRes.status === 'fulfilled') chipData.value = chipRes.value || {}
   if (signalRes.status === 'fulfilled') aiSignal.value = normalizeSignal(signalRes.value)
@@ -1744,6 +1773,20 @@ function valueTone(value) {
   border-color: #2563eb;
   color: #eff6ff;
   background: rgba(37, 99, 235, 0.22);
+}
+
+.tf-group {
+  display: inline-flex;
+  gap: 6px;
+  padding-right: 10px;
+  margin-right: 4px;
+  border-right: 1px solid var(--border-color);
+}
+
+.tf-button.active {
+  border-color: #e879f9;
+  color: #fdf4ff;
+  background: rgba(232, 121, 249, 0.18);
 }
 
 .calendar-section { overflow-x: auto; }

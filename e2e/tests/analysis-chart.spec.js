@@ -30,3 +30,23 @@ test('分析 K 線顯示進場評分徽章', async ({ page }) => {
   await expect(page.locator('.setup-badge')).toBeVisible({ timeout: 60_000 })
   await expect(page.locator('.setup-badge')).toContainText('進場評分')
 })
+
+test('分析 K 線可切換 日/週/月 時間框架', async ({ page }) => {
+  const errors = []
+  page.on('pageerror', (e) => errors.push(e.message))
+
+  await page.goto('/stocks/2330')
+  await expect(page.locator('.price-chart canvas').first()).toBeVisible({ timeout: 60_000 })
+
+  // 切到週線：price API 應帶 period=1w，圖表重繪不報錯
+  const weeklyReq = page.waitForRequest((r) => r.url().includes('/price?') && r.url().includes('period=1w'), { timeout: 30_000 })
+  await page.getByRole('button', { name: '週', exact: true }).click()
+  await weeklyReq
+  await expect(page.locator('.price-chart canvas').first()).toBeVisible({ timeout: 60_000 })
+
+  // 切回日線
+  await page.getByRole('button', { name: '日', exact: true }).click()
+  await expect(page.locator('.price-chart canvas').first()).toBeVisible({ timeout: 60_000 })
+
+  expect(errors).toEqual([])
+})
