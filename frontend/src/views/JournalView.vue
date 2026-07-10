@@ -139,6 +139,18 @@
         </div>
       </div>
     </section>
+
+    <!-- E15 複盤教練：從既有統計自動生成的紀律建議 -->
+    <section class="section-block" v-reveal v-if="closedTrades.length">
+      <h3>🎓 複盤教練</h3>
+      <ul class="coach-list">
+        <li v-for="(insight, i) in coachInsights" :key="i" class="coach-item" :class="'coach-' + insight.tone">
+          <span class="coach-icon">{{ insight.icon }}</span>
+          <span class="coach-text">{{ insight.text }}</span>
+        </li>
+      </ul>
+      <p class="disclaimer">※ 教練建議由你自己的交易紀錄統計規則產生，僅供覆盤參考，非投資建議。</p>
+    </section>
   </div>
 </template>
 
@@ -253,6 +265,76 @@ const byTag = computed(() => {
     const totalR = Rs.reduce((a, b) => a + b, 0)
     return { tag, count: arr.length, winRate: Rs.filter(r => r > 0).length / arr.length, expectancyR: totalR / arr.length, totalR }
   }).sort((a, b) => b.totalR - a.totalR)
+})
+
+// E15 複盤教練：純用既有統計（stats/byTag）產生規則式建議，不打任何 API。
+// tone 排序 bad > warn > good > info；最多顯示 6 條，避免資訊過載。
+const coachInsights = computed(() => {
+  const s = stats.value
+  const out = []
+  if (!s.count) return out
+
+  // 1. 賺賠不對稱：平均獲利遠小於平均虧損（賺一點就跑、賠了拗單）
+  if (s.avgWinR > 0 && s.avgLossR < 0 && s.avgWinR < Math.abs(s.avgLossR) * 0.8) {
+    out.push({
+      tone: 'bad', icon: '✂️',
+      text: `平均獲利 ${s.avgWinR.toFixed(2)}R 小於平均虧損 ${Math.abs(s.avgLossR).toFixed(2)}R——典型「賺一點就跑、賠了拗單」。就算勝率不低也難賺錢，建議停損照設定執行、目標價至少拉到 1.5 倍風險。`,
+    })
+  }
+
+  // 2. 連續虧損過多：情緒最容易在此時被放大成報復性下單
+  if (s.maxConsecLoss >= 4) {
+    out.push({
+      tone: 'warn', icon: '🔥',
+      text: `最長連續虧損 ${s.maxConsecLoss} 筆。連虧到第 3 筆之後最容易報復性下單、越做越大——建議連虧 3 筆就強制停手一天，冷靜後再上場。`,
+    })
+  }
+
+  // 3. 整體期望值為負且樣本夠大：目前做法長期是虧錢的
+  if (s.count >= 10 && s.expectancyR < 0) {
+    out.push({
+      tone: 'bad', icon: '📉',
+      text: `近 ${s.count} 筆交易整體期望值為 ${s.expectancyR.toFixed(2)}R（負值）——照目前的做法長期會虧錢。先停手複盤找出問題，別急著加碼攤平想扳回來。`,
+    })
+  }
+
+  // 4. 最拖累績效的型態：筆數夠多、期望值為負
+  const tags = byTag.value
+  const worstTag = tags.find(g => g.count >= 5 && g.expectancyR < 0)
+  if (worstTag) {
+    out.push({
+      tone: 'warn', icon: '🚫',
+      text: `「${worstTag.tag}」型態做了 ${worstTag.count} 次，期望值 ${worstTag.expectancyR.toFixed(2)}R——是拖累績效的主因，建議先停用這個 setup 或重新檢視進場條件。`,
+    })
+  }
+
+  // 5. 表現最好的型態：值得集中火力
+  const bestTag = tags.find(g => g.count >= 3 && g.expectancyR >= 0.3)
+  if (bestTag) {
+    out.push({
+      tone: 'good', icon: '🎯',
+      text: `「${bestTag.tag}」型態勝率 ${(bestTag.winRate * 100).toFixed(0)}%、期望值 +${bestTag.expectancyR.toFixed(2)}R，是目前表現最好的設定——之後可以優先找這種形態進場。`,
+    })
+  }
+
+  // 6. 樣本數不足：統計還不太可靠
+  if (s.count < 15) {
+    out.push({
+      tone: 'info', icon: 'ℹ️',
+      text: `目前只有 ${s.count} 筆已平倉紀錄，統計上還不太可靠。建議累積到至少 20-30 筆，再認真檢討要不要調整策略。`,
+    })
+  }
+
+  // 7. 沒有任何警訊時的正向回饋
+  if (!out.some(x => x.tone === 'bad' || x.tone === 'warn') && s.count >= 10 && s.expectancyR > 0 && s.profitFactor >= 1.5) {
+    out.push({
+      tone: 'good', icon: '✅',
+      text: `期望值 +${s.expectancyR.toFixed(2)}R、獲利因子 ${s.profitFactor.toFixed(2)}，目前紀律執行得不錯——繼續保持，別因為手癢而破壞已經有效的作法。`,
+    })
+  }
+
+  const order = { bad: 0, warn: 1, good: 2, info: 3 }
+  return out.sort((a, b) => order[a.tone] - order[b.tone]).slice(0, 6)
 })
 
 function fmt(v) { return (v == null || isNaN(v)) ? '—' : Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }
@@ -402,4 +484,13 @@ onMounted(load)
 .bar-up { fill: rgba(239, 68, 68, 0.75); } .bar-down { fill: rgba(34, 197, 94, 0.75); }
 .rh-zero { stroke: var(--text-muted); stroke-width: 1; vector-effect: non-scaling-stroke; stroke-dasharray: 3 3; }
 .rhist-axis { display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--text-muted); }
+
+.coach-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
+.coach-item { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border-radius: 10px; font-size: 0.86rem; line-height: 1.55; border: 1px solid var(--border-color); }
+.coach-icon { flex-shrink: 0; font-size: 1rem; }
+.coach-text { flex: 1; }
+.coach-bad { background: rgba(239,68,68,0.08); border-color: rgba(239,68,68,0.35); }
+.coach-warn { background: rgba(245,158,11,0.08); border-color: rgba(245,158,11,0.35); }
+.coach-good { background: rgba(34,197,94,0.08); border-color: rgba(34,197,94,0.35); }
+.coach-info { background: var(--bg-well); color: var(--text-muted); }
 </style>

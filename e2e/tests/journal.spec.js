@@ -44,6 +44,37 @@ test('交易日誌 records a trade, closes it, computes R and stats', async ({ p
   await expect(page.locator('.analytics-grid')).toContainText('突破')
 })
 
+test('交易日誌 複盤教練 gives rule-based coaching insights (E15)', async ({ page }) => {
+  const mk = (exit, tag) => ({
+    id: 'e15-' + Math.random().toString(36).slice(2),
+    symbol: '2330', name: '台積電', side: 'long', entry: 100, stop: 90, target: null,
+    lots: 1, tag, openDate: '2026-06-01', status: 'closed', exit, exitDate: '2026-06-10',
+  })
+  const journal = [
+    // 4 連續大虧（衝動單，R=-3.0）觸發：連續虧損 + 拖累型態
+    mk(70, '衝動單'), mk(70, '衝動單'), mk(70, '衝動單'), mk(70, '衝動單'),
+    // 1 小賺（R=+0.3）跟上面湊出「賺一點就跑、賠了拗單」的整體不對稱
+    mk(103, '衝動單'),
+    // 3 筆突破型態穩定小賺（R=+0.5，勝率100%）觸發「表現最好的型態」——
+    // 刻意用小賺而非大賺，避免拉高整體平均獲利、蓋掉上面的不對稱訊號
+    mk(105, '突破'), mk(105, '突破'), mk(105, '突破'),
+  ]
+
+  await page.goto('/journal')
+  await page.evaluate((j) => localStorage.setItem('finlab_trade_journal', JSON.stringify(j)), journal)
+  await page.reload()
+
+  const coach = page.locator('.coach-list')
+  await expect(page.getByRole('heading', { name: '🎓 複盤教練' })).toBeVisible()
+  await expect(coach).toContainText('賺一點就跑')
+  await expect(coach).toContainText('報復性下單')
+  await expect(coach).toContainText('衝動單')
+  await expect(coach).toContainText('突破')
+  await expect(coach).toContainText('只有 8 筆')
+  await expect(page.locator('.coach-item.coach-bad').first()).toBeVisible()
+  await expect(page.locator('.coach-item.coach-good').first()).toBeVisible()
+})
+
 test('交易日誌 匯出 CSV', async ({ page }) => {
   await page.goto('/journal')
   await page.evaluate(() => localStorage.setItem('finlab_trade_journal', JSON.stringify([
