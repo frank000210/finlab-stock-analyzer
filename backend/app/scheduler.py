@@ -78,25 +78,59 @@ async def _loop(run_hour: int, run_minute: int) -> None:
             await asyncio.sleep(300)  # 出錯後短暫退避再繼續
 
 
+async def _brief_loop(run_hour: int, run_minute: int) -> None:
+    """C9 收盤後自動掃描＋推播：每個平日產生盤後日報並發 Telegram。"""
+    while True:
+        delay = _seconds_until_next(run_hour, run_minute)
+        logger.info("daily-brief: next run in %.1f h", delay / 3600)
+        try:
+            await asyncio.sleep(delay)
+            from .api.risk import send_daily_brief
+
+            result = await send_daily_brief()
+            logger.info("daily-brief: sent=%s error=%s count=%s", result.get("sent"), result.get("error", ""), result.get("count"))
+        except asyncio.CancelledError:
+            break
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("daily-brief loop error: %s", exc)
+            await asyncio.sleep(300)
+
+
+_brief_task: asyncio.Task | None = None
+
+
 def start_scheduler() -> None:
     """在 FastAPI lifespan 啟動時呼叫。"""
+    global _task, _brief_task
     if os.getenv("AUTO_INGEST_ENABLED", "true").lower() in ("0", "false", "no", "off"):
         logger.info("auto-ingest scheduler disabled by AUTO_INGEST_ENABLED")
-        return
-    global _task
-    if _task is not None:
-        return
-    try:
-        hour = int(os.getenv("AUTO_INGEST_HOUR", "15"))
-        minute = int(os.getenv("AUTO_INGEST_MINUTE", "0"))
-    except ValueError:
-        hour, minute = 15, 0
-    _task = asyncio.create_task(_loop(hour, minute))
-    logger.info("auto-ingest scheduler started (daily %02d:%02d TW, weekdays)", hour, minute)
+    elif _task is None:
+        try:
+            hour = int(os.getenv("AUTO_INGEST_HOUR", "15"))
+            minute = int(os.getenv("AUTO_INGEST_MINUTE", "0"))
+        except ValueError:
+            hour, minute = 15, 0
+        _task = asyncio.create_task(_loop(hour, minute))
+        logger.info("auto-ingest scheduler started (daily %02d:%02d TW, weekdays)", hour, minute)
+
+    # C9：收盤後日報推播（預設 15:35 台灣時間，平日；AUTO_BRIEF_ENABLED=false 關閉）
+    if os.getenv("AUTO_BRIEF_ENABLED", "true").lower() in ("0", "false", "no", "off"):
+        logger.info("daily-brief scheduler disabled by AUTO_BRIEF_ENABLED")
+    elif _brief_task is None:
+        try:
+            b_hour = int(os.getenv("AUTO_BRIEF_HOUR", "15"))
+            b_minute = int(os.getenv("AUTO_BRIEF_MINUTE", "35"))
+        except ValueError:
+            b_hour, b_minute = 15, 35
+        _brief_task = asyncio.create_task(_brief_loop(b_hour, b_minute))
+        logger.info("daily-brief scheduler started (daily %02d:%02d TW, weekdays)", b_hour, b_minute)
 
 
 def stop_scheduler() -> None:
-    global _task
+    global _task, _brief_task
     if _task is not None:
         _task.cancel()
         _task = None
+    if _brief_task is not None:
+        _brief_task.cancel()
+        _brief_task = None

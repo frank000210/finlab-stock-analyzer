@@ -97,6 +97,105 @@ async def market_regime():
     return {"success": True, "data": data}
 
 
+class SyncWatchlistReq(BaseModel):
+    symbols: list[str]
+
+
+@router.post("/sync-watchlist")
+async def sync_watchlist(req: SyncWatchlistReq):
+    """把前端觀察清單同步到後端（C9）：收盤排程掃描/推播需要知道要掃哪些。"""
+    from ..db.cache import set_setting
+
+    seen: set[str] = set()
+    syms = []
+    for s in req.symbols:
+        u = str(s or "").strip().upper()
+        if u and u not in seen:
+            seen.add(u)
+            syms.append(u)
+    syms = syms[:30]
+    await set_setting("alert_symbols", syms)
+    return {"success": True, "data": {"count": len(syms)}}
+
+
+async def build_daily_brief() -> dict:
+    """盤後日報（C9/E14 共用）：市場體制 + 觀察清單 Top 設定 + 警示 tag。"""
+    from ..db.cache import get_setting
+
+    syms = await get_setting("alert_symbols", []) or []
+    if not syms:
+        return {"text": "", "count": 0, "note": "尚未同步觀察清單（開一次作戰台即會自動同步）"}
+
+    regime_data = None
+    try:
+        regime_data = (await market_regime())["data"]
+    except Exception:
+        pass
+
+    resp = await watchlist_signals(symbols=",".join(syms), lookback_days=120)
+    items = [i for i in resp["data"]["items"] if i.get("ok")]
+    as_of = resp["data"].get("as_of", "")
+
+    lines = [f"📋 盤後日報 {as_of}"]
+    if regime_data:
+        lines.append(f"市場體制：{regime_data['label']}（風險係數 ×{regime_data['risk_mult']}，0050 {regime_data['close']} vs 年線 {regime_data['ma200']}）")
+    top = [i for i in items if i.get("setup_total") is not None][:3]
+    if top:
+        lines.append("今日最佳設定：")
+        for rank, i in enumerate(top, 1):
+            nm = f" {i['name']}" if i.get("name") else ""
+            lines.append(f"{rank}. {i['symbol']}{nm} {i['setup_total']}分 {i.get('trend', '')} {i['chg_pct']:+}%")
+    warn_lines = []
+    for i in items:
+        hot = [t["t"] for t in i.get("tags", []) if t.get("tone") in ("warn", "down")]
+        if hot:
+            nm = f" {i['name']}" if i.get("name") else ""
+            warn_lines.append(f"⚠ {i['symbol']}{nm}：{'、'.join(hot[:3])}")
+    if warn_lines:
+        lines.append("注意：")
+        lines.extend(warn_lines[:8])
+    lines.append("（僅為訊號摘要，非投資建議）")
+    return {"text": "\n".join(lines)[:3500], "count": len(items), "as_of": as_of}
+
+
+async def send_daily_brief() -> dict:
+    """產生日報並推播 Telegram（scheduler 與手動端點共用）。"""
+    from ..config.settings import get_settings
+    from ..notify.telegram import send_telegram
+
+    brief = await build_daily_brief()
+    if not brief.get("text"):
+        return {"sent": False, "error": brief.get("note", "無內容"), **brief}
+    s = get_settings()
+    token = (s.telegram_bot_token or "").strip()
+    chat = (s.telegram_chat_id or "").strip()
+    if not token or not chat:
+        return {"sent": False, "error": "未設定 TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID", **brief}
+    try:
+        ok = await send_telegram(brief["text"], token, chat)
+        return {"sent": bool(ok), "error": "" if ok else "Telegram 回應非 200", **brief}
+    except Exception as exc:  # noqa: BLE001
+        return {"sent": False, "error": str(exc)[:200], **brief}
+
+
+@router.get("/daily-brief")
+async def daily_brief():
+    """盤後日報（隨叫隨到版；排程版由 scheduler 於收盤後自動推播）。"""
+    try:
+        return {"success": True, "data": await build_daily_brief()}
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail=f"日報產生失敗：{exc}")
+
+
+@router.post("/daily-brief/send")
+async def daily_brief_send():
+    """手動觸發：產生日報並推播 Telegram。"""
+    try:
+        return {"success": True, "data": await send_daily_brief()}
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail=f"日報推播失敗：{exc}")
+
+
 @router.get("/status")
 async def get_risk_status():
     try:

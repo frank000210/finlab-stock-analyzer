@@ -231,6 +231,11 @@ async function scan() {
     rows.value = payload.data?.items || []
     asOf.value = payload.data?.as_of || ''
     analyzeCorr()
+    // C9：把掃描清單同步到後端，收盤排程才知道要掃誰（fire-and-forget）
+    fetch(`${API_BASE}/api/v1/risk/sync-watchlist`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ symbols: syms }),
+    }).catch(() => {})
   } catch (e) {
     rows.value = []
     errorMessage.value = e?.message || '掃描失敗'
