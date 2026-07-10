@@ -84,6 +84,7 @@
                   <i class="legend-dot chandelier"></i>ATR 移動停利
                 </label>
                 <span v-if="setup" class="setup-badge" :class="setupCls(setup.total)" :title="setup.verdict + '（趨勢/風報比/量能/RSI）'">進場評分 {{ setup.total }}</span>
+                <DataLineage :as-of="priceLineage.asOf" :source="priceLineage.source" />
               </span>
             </div>
             <div class="chart-wrapper">
@@ -308,6 +309,7 @@
 
 <script setup>
 import PageFocusBanner from '../components/PageFocusBanner.vue'
+import DataLineage from '../components/DataLineage.vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { createChart } from 'lightweight-charts'
@@ -366,6 +368,7 @@ let majorCostLine = null
 const majorCost = ref(null)
 const showChandelier = ref(true)
 const setup = ref(null)
+const priceLineage = ref({ asOf: '', source: '' })
 
 async function fetchSetup(sym) {
   setup.value = null
@@ -670,7 +673,10 @@ async function loadAnalysis() {
   if (token !== requestToken) return
 
   if (infoRes.status === 'fulfilled') stockInfo.value = infoRes.value || {}
-  if (priceRes.status === 'fulfilled') priceItems.value = normalizePriceRows(priceRes.value?.items || priceRes.value?.prices || [])
+  if (priceRes.status === 'fulfilled') {
+    priceItems.value = normalizePriceRows(priceRes.value?.items || priceRes.value?.prices || [])
+    priceLineage.value = { asOf: priceRes.value?.as_of || '', source: priceRes.value?.source || '' }
+  }
   // 週/月線：伺服器技術指標是日線算的，硬套會錯位 → 丟棄，讓
   // mergePriceWithTechnical 的前端 fallback 依當前框架的 bar 重算。
   if (technicalRes.status === 'fulfilled') {

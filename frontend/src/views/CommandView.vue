@@ -41,7 +41,7 @@
       </div>
 
       <div v-if="rows.length" class="summary">
-        <span>掃描 {{ okRows.length }} 檔 · 資料日 {{ asOf }}</span>
+        <span>掃描 {{ okRows.length }} 檔 <DataLineage :as-of="asOf" /></span>
         <span :class="totalHeat > 6 ? 'warn' : 'ok'">若全數各下 1 注，總風險熱度 {{ totalHeat.toFixed(1) }}%（建議 ≤ 6%）</span>
       </div>
 
@@ -76,6 +76,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import DataLineage from '../components/DataLineage.vue'
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 

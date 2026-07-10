@@ -26,7 +26,7 @@
         <div class="mcard">
           <span class="mlabel">{{ market.symbol }} {{ market.name }} 現價</span>
           <strong class="mval">{{ fmt(market.price) }}</strong>
-          <span class="mhint">資料日 {{ market.as_of }}</span>
+          <DataLineage :as-of="market.as_of" :source="market.source" />
         </div>
         <div class="mcard">
           <span class="mlabel">ATR({{ market.atr_period }}) 每日波動</span>
@@ -159,6 +159,7 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
+import DataLineage from '../components/DataLineage.vue'
 
 const route = useRoute()
 

@@ -11,15 +11,22 @@ logger = logging.getLogger(__name__)
 
 
 class StockPriceCrawler:
-    """Fetches stock price data with fallback mechanism."""
+    """Fetches stock price data with fallback mechanism.
+
+    資料血統（A2）：`last_source` 記錄最近一次 get_price 實際使用的來源
+    （'finmind' 主源 / 'yfinance' 備援 / None 無資料），API 層可回傳給前端
+    標示。crawler 實例為 per-request，無共享狀態問題。
+    """
 
     def __init__(self, finmind_token: Optional[str] = None):
         self.finmind = FinMindClient(token=finmind_token)
+        self.last_source: Optional[str] = None
 
     async def get_price(
         self, symbol: str, start: str, end: str, period: str = "1d"
     ) -> pd.DataFrame:
         """Get OHLCV data. Tries FinMind first, falls back to yfinance."""
+        self.last_source = None
         try:
             df = await self.finmind.get_stock_price(symbol, start, end)
             if not df.empty:
@@ -27,12 +34,16 @@ class StockPriceCrawler:
                     df = self._resample(df, "W")
                 elif period == "1mo":
                     df = self._resample(df, "ME")
+                self.last_source = "finmind"
                 return df
         except Exception as e:
             logger.warning("FinMind price fetch failed for %s (%s~%s): %s", symbol, start, end, e)
 
         # Fallback to yfinance
-        return self._fetch_yfinance(symbol, start, end, period)
+        df = self._fetch_yfinance(symbol, start, end, period)
+        if not df.empty:
+            self.last_source = "yfinance"
+        return df
 
     def _fetch_yfinance(
         self, symbol: str, start: str, end: str, period: str

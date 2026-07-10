@@ -31,6 +31,14 @@ test('分析 K 線顯示進場評分徽章', async ({ page }) => {
   await expect(page.locator('.setup-badge')).toContainText('進場評分')
 })
 
+test('分析 K 線顯示資料血統徽章 (A2)', async ({ page }) => {
+  await page.goto('/stocks/2330')
+  const badge = page.locator('.lineage')
+  await expect(badge).toBeVisible({ timeout: 60_000 })
+  await expect(badge).toContainText('📅')
+  await expect(badge).toContainText('FinMind') // 主源正常時應標 FinMind
+})
+
 test('分析 K 線可切換 日/週/月 時間框架', async ({ page }) => {
   const errors = []
   page.on('pageerror', (e) => errors.push(e.message))

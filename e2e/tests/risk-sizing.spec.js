@@ -77,6 +77,32 @@ test('凱利 從交易日誌帶入 uses real journal stats', async ({ page }) =>
   await expect(kellyInputs.nth(1)).toHaveValue('2')
 })
 
+test('資料血統：過期資料顯示警示徽章 (A2)', async ({ page }) => {
+  // 10 天前的資料 + yfinance 備援 → 必須亮黃色警示並標示來源
+  const staleDate = new Date(Date.now() - 10 * 86400000).toISOString().slice(0, 10)
+  await page.route('**/api/v1/risk/sizing/*', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        success: true,
+        data: {
+          symbol: '2330', name: '台積電', industry: '半導體業', price: 2440,
+          atr: 65, atr_period: 14, atr_pct: 2.66, as_of: staleDate, source: 'yfinance',
+          suggested_stops: [{ label: '穩健', mult: 2, stop_price: 2310, distance: 130, distance_pct: 5.33 }],
+        },
+      }),
+    })
+  })
+  await page.goto('/risk-sizing')
+
+  const badge = page.locator('.lineage')
+  await expect(badge).toBeVisible({ timeout: 30_000 })
+  await expect(badge).toHaveClass(/warn/)
+  await expect(badge).toContainText('可能未更新')
+  await expect(badge).toContainText('Yahoo備援')
+})
+
 test('部位風控 accepts ?symbol= query (deep link from decision panel)', async ({ page }) => {
   await page.goto('/risk-sizing?symbol=2454')
   await expect(page.locator('.symbol-box input')).toHaveValue('2454')

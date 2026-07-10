@@ -156,7 +156,8 @@ async def position_sizing(
     start = end - timedelta(days=lookback_days)
 
     try:
-        df = await StockPriceCrawler().get_price(symbol, start.isoformat(), end.isoformat(), "1d")
+        crawler = StockPriceCrawler()
+        df = await crawler.get_price(symbol, start.isoformat(), end.isoformat(), "1d")
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"價格資料取得失敗：{exc}")
 
@@ -216,6 +217,7 @@ async def position_sizing(
             "suggested_stops": suggested_stops,
             "setup": setup,
             "as_of": str(df["date"].iloc[-1])[:10],
+            "source": crawler.last_source,
         },
     }
 

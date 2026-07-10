@@ -99,7 +99,14 @@ async def get_stock_price(
 
         return {
             "success": True,
-            "data": {"symbol": symbol, "period": period, "items": items},
+            "data": {
+                "symbol": symbol,
+                "period": period,
+                "items": items,
+                # 資料血統（A2）：實際來源與最後一筆資料日，供前端標示新鮮度
+                "source": crawler.last_source,
+                "as_of": items[-1]["date"] if items else None,
+            },
         }
     except HTTPException:
         raise
