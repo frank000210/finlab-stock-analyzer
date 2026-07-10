@@ -95,7 +95,7 @@
 
 <script setup>
 import PageFocusBanner from '../components/PageFocusBanner.vue'
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useStockStore } from '../stores/stock.js'
 
@@ -142,6 +142,15 @@ function rollingBarStyle(lag) {
 }
 
 onMounted(fetchData)
+
+// 側欄搜尋／路由換股（同一子頁面重用元件實例時 onMounted 不會重跑）：
+// 重新取代號並重抓，讓內容連動顯示新股票。
+watch(() => route.params.symbol, (sym) => {
+  if (sym && sym !== symbol.value) {
+    symbol.value = sym
+    fetchData()
+  }
+})
 </script>
 
 <style scoped>

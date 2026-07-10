@@ -110,7 +110,16 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* 左側收合選單（AppSidebar）+ 右側內容欄，取代原本的頂部選單列。 */
 #app-root {
+  display: flex;
+  flex-direction: row;
+  min-height: 100vh;
+}
+
+.app-body {
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   min-height: 100vh;
@@ -130,124 +139,6 @@ p { line-height: 1.65; color: var(--text-secondary); }
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--accent-blue);
-}
-
-/* ===== NAVIGATION ===== */
-.top-nav {
-  display: flex;
-  align-items: center;
-  gap: var(--space-4);
-  padding: 0 var(--space-4);
-  background: var(--bg-secondary);
-  border-bottom: 1px solid var(--border-color);
-  height: 48px;
-  position: sticky;
-  top: 0;
-  z-index: 100;
-  backdrop-filter: blur(12px);
-}
-
-.logo {
-  font-size: 1.15rem;
-  font-weight: 800;
-  color: var(--text-primary);
-  text-decoration: none;
-  white-space: nowrap;
-}
-
-.search-bar {
-  flex: 1;
-  max-width: 420px;
-  position: relative;
-}
-
-.search-input {
-  width: 100%;
-  padding: 8px 14px;
-  border-radius: var(--radius);
-  border: 1px solid var(--border-color);
-  background: var(--bg-primary);
-  color: var(--text-primary);
-  font-size: 0.85rem;
-  outline: none;
-  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
-}
-
-.search-input:focus {
-  border-color: var(--accent-blue);
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
-}
-
-.search-input::placeholder {
-  color: var(--text-muted);
-}
-
-.search-dropdown {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
-  right: 0;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius);
-  list-style: none;
-  max-height: 280px;
-  overflow-y: auto;
-  z-index: 200;
-  box-shadow: var(--shadow-lg);
-}
-
-.search-dropdown li {
-  padding: 10px 14px;
-  cursor: pointer;
-  font-size: 0.85rem;
-  transition: background var(--transition-fast);
-}
-
-.search-dropdown li:hover {
-  background: var(--bg-hover);
-}
-
-.nav-links {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.nav-links a {
-  color: var(--text-muted);
-  text-decoration: none;
-  font-size: 0.82rem;
-  font-weight: 500;
-  padding: 6px 10px;
-  border-radius: var(--radius-sm);
-  transition: color var(--transition-fast), background var(--transition-fast);
-}
-
-.nav-links a:hover {
-  color: var(--text-primary);
-  background: var(--bg-hover);
-}
-
-.nav-links a.router-link-active {
-  color: var(--accent-blue);
-  background: rgba(59, 130, 246, 0.1);
-}
-
-.nav-cta {
-  background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
-  color: white !important;
-  padding: 6px 14px;
-  border-radius: var(--radius);
-  font-weight: 600;
-  font-size: 0.82rem;
-  text-decoration: none;
-  transition: opacity var(--transition-fast), transform var(--transition-fast);
-}
-
-.nav-cta:hover {
-  opacity: 0.9;
-  transform: translateY(-1px);
 }
 
 /* ===== MAIN CONTENT ===== */
@@ -589,14 +480,6 @@ tr:hover td {
 }
 
 @media (max-width: 768px) {
-  .top-nav {
-    height: auto;
-    min-height: 56px;
-    flex-wrap: wrap;
-    padding: var(--space-3) var(--space-4);
-    gap: var(--space-3);
-  }
-  .search-bar { max-width: 100%; order: 10; flex-basis: 100%; }
   .grid-4, .grid-3, .grid-2 { grid-template-columns: 1fr; }
   .main-content { padding: var(--space-4); }
 
@@ -630,10 +513,6 @@ tr:hover td {
 /* Mobile phone (6.8" ~ 390px viewport) */
 @media (max-width: 420px) {
   body { font-size: 13px; }
-  .top-nav {
-    padding: var(--space-2) var(--space-3);
-    gap: var(--space-2);
-  }
   .main-content { padding: var(--space-2); }
   .card { padding: var(--space-3); border-radius: var(--radius); }
   h1 { font-size: 1.25rem; }

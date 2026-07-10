@@ -27,14 +27,15 @@ class StockPriceCrawler:
     ) -> pd.DataFrame:
         """Get OHLCV data.
 
-        台股（純數字代號）：FinMind 主源 → yfinance(.TW/.TWO) 備援。
+        台股（純數字代號）：FinMind 主源 → yfinance(.TW/.TWO) 備援。使用者
+        自己打 .TW／.TWO 尾碼也視為同一檔（normalize_symbol 先剝除）。
         美股/指數（字母或 ^ 開頭，如 AAPL、^GSPC）：FinMind 沒有資料，
         直接走 yfinance 原始代號。
         """
-        from ..data.us_symbols import is_tw_symbol
+        from ..data.us_symbols import is_tw_symbol, normalize_symbol
 
         self.last_source = None
-        symbol = (symbol or "").strip().upper()
+        symbol = normalize_symbol(symbol)
 
         if is_tw_symbol(symbol):
             try:

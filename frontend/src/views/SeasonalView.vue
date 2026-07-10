@@ -223,6 +223,13 @@ function renderBoxPlot() {
 
 watch(data, () => nextTick(renderBoxPlot))
 
+watch(() => route.params.symbol, (sym) => {
+  if (sym && sym !== symbol.value) {
+    symbol.value = sym
+    fetchData()
+  }
+})
+
 let resizeHandler = null
 onMounted(() => {
   resizeHandler = () => renderBoxPlot()

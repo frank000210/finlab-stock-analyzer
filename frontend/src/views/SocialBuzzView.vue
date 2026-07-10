@@ -161,7 +161,7 @@
 
 <script setup>
 import PageFocusBanner from '../components/PageFocusBanner.vue'
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useStockStore } from '../stores/stock.js'
 import { useChartTheme } from '../composables/useChartTheme'
@@ -217,6 +217,13 @@ function verdictClass(verdict) {
 }
 
 onMounted(fetchData)
+
+watch(() => route.params.symbol, (sym) => {
+  if (sym && sym !== symbol.value) {
+    symbol.value = sym
+    fetchData()
+  }
+})
 </script>
 
 <style scoped>

@@ -35,6 +35,22 @@ test('美股可算部位風控（ATR 停損）', async ({ request }) => {
   expect(data.suggested_stops.length).toBe(3)
 })
 
+test('台股代號自己加 .TW／.TWO 尾碼一樣查得到', async ({ request }) => {
+  test.setTimeout(120_000)
+
+  const bare = await request.get('/api/v1/stocks/2330/info')
+  const withTw = await request.get('/api/v1/stocks/2330.TW/info')
+  const withTwo = await request.get('/api/v1/stocks/2330.TWO/info')
+  const bareData = (await bare.json()).data
+  expect(bareData.symbol).toBe('2330')
+  expect((await withTw.json()).data).toEqual(bareData)
+  expect((await withTwo.json()).data).toEqual(bareData)
+
+  const search = await request.get('/api/v1/stocks/search?q=2330.TW')
+  const items = (await search.json()).data.items
+  expect(items.some((i) => i.symbol === '2330')).toBeTruthy()
+})
+
 test('Ctrl+K 搜美股龍頭並跳分析頁', async ({ page }) => {
   await page.goto('/journal')
   await page.keyboard.press('Control+k')

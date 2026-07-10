@@ -9,8 +9,16 @@ router = APIRouter(prefix="/api/v1/stocks", tags=["stocks"])
 
 @router.get("/search")
 async def search_stocks(q: str = Query(..., min_length=1)):
-    """Search stocks by symbol or name（台股 FinMind + 內建美股指數/龍頭）。"""
-    from ..data.us_symbols import US_SYMBOLS
+    """Search stocks by symbol or name（台股 FinMind + 內建美股指數/龍頭）。
+
+    使用者自己打 2330.TW / 2330.TWO 尾碼一樣查得到（先 normalize 再比對）。
+    """
+    from ..data.us_symbols import US_SYMBOLS, normalize_symbol
+
+    normalized = normalize_symbol(q)
+    if normalized != q.strip().upper():
+        # 命中 2330.TW / 2330.TWO 這類明確尾碼樣式 -> 用剝除後的乾淨代號查
+        q = normalized
 
     # 美股/指數：內建字典比對（代號前綴或名稱包含），放在最前面
     us_items = []
@@ -57,10 +65,13 @@ async def search_stocks(q: str = Query(..., min_length=1)):
 
 @router.get("/{symbol}/info")
 async def get_stock_info(symbol: str):
-    """Get stock basic info（台股 FinMind；美股/指數用內建字典）。"""
-    from ..data.us_symbols import US_SYMBOLS, is_tw_symbol
+    """Get stock basic info（台股 FinMind；美股/指數用內建字典）。
 
-    sym_u = (symbol or "").strip().upper()
+    使用者自己打 2330.TW / 2330.TWO 尾碼一樣查得到（先 normalize 再查）。
+    """
+    from ..data.us_symbols import US_SYMBOLS, is_tw_symbol, normalize_symbol
+
+    sym_u = normalize_symbol(symbol)
     if not is_tw_symbol(sym_u):
         meta = US_SYMBOLS.get(sym_u)
         return {
@@ -79,15 +90,15 @@ async def get_stock_info(symbol: str):
         if df.empty:
             raise HTTPException(status_code=404, detail="Stock not found")
 
-        row = df[df["stock_id"] == symbol]
+        row = df[df["stock_id"] == sym_u]
         if row.empty:
-            raise HTTPException(status_code=404, detail=f"Stock {symbol} not found")
+            raise HTTPException(status_code=404, detail=f"Stock {sym_u} not found")
 
         row = row.iloc[0]
         return {
             "success": True,
             "data": {
-                "symbol": symbol,
+                "symbol": sym_u,
                 "name_zh": row.get("stock_name", ""),
                 "market": row.get("type", "TWSE"),
                 "industry": row.get("industry_category", row.get("Industry_category", "")),
@@ -106,7 +117,10 @@ async def get_stock_price(
     end: date = Query(default=None),
     period: str = Query(default="1d", pattern="^(1d|1w|1mo)$"),
 ):
-    """Get historical OHLCV data."""
+    """Get historical OHLCV data。使用者自己打 .TW／.TWO 尾碼一樣查得到。"""
+    from ..data.us_symbols import normalize_symbol
+
+    symbol = normalize_symbol(symbol)
     if not end:
         end = date.today()
     if not start:

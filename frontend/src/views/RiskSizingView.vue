@@ -159,13 +159,15 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
+import { useStockStore } from '../stores/stock.js'
 import DataLineage from '../components/DataLineage.vue'
 
 const route = useRoute()
+const stockStore = useStockStore()
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 
-const symbolInput = ref('2330')
+const symbolInput = ref(stockStore.symbol || '2330')
 const market = ref(null)
 const loading = ref(false)
 const errorMessage = ref('')
@@ -300,6 +302,15 @@ async function loadMarket() {
 watch([account, riskPct], () => {
   if (account.value > 0) localStorage.setItem('portfolio_heat_account', String(account.value))
   if (riskPct.value > 0) localStorage.setItem('finlab_risk_pct', String(riskPct.value))
+})
+
+// 側欄搜尋切換全站目前個股時，這頁的代號欄位跟著換並重新查詢
+// （「頁面內容也連動顯示股票 A」）。
+watch(() => stockStore.symbol, (sym) => {
+  if (sym && sym !== symbolInput.value) {
+    symbolInput.value = sym
+    loadMarket()
+  }
 })
 
 onMounted(() => {

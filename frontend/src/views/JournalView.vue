@@ -143,13 +143,22 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
+import { useStockStore } from '../stores/stock.js'
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 const LS_KEY = 'finlab_trade_journal'
+const stockStore = useStockStore()
 
 const trades = ref([])
-const form = reactive({ symbol: '', side: 'long', entry: null, stop: null, target: null, lots: 1, tag: '' })
+const form = reactive({ symbol: stockStore.symbol || '', side: 'long', entry: null, stop: null, target: null, lots: 1, tag: '' })
+
+// 側欄搜尋切換全站目前個股時，新增交易表單的代號欄位跟著換
+// （只在使用者還沒動過欄位、或欄位仍是上一個全站個股時才更新，避免蓋掉
+// 使用者正在手動輸入的其他代號）。
+watch(() => stockStore.symbol, (sym, prevGlobalSym) => {
+  if (sym && (!form.symbol || form.symbol === prevGlobalSym)) form.symbol = sym
+})
 const formError = ref('')
 const importMsg = ref('')
 

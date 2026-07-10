@@ -104,12 +104,13 @@ class SyncWatchlistReq(BaseModel):
 @router.post("/sync-watchlist")
 async def sync_watchlist(req: SyncWatchlistReq):
     """把前端觀察清單同步到後端（C9）：收盤排程掃描/推播需要知道要掃哪些。"""
+    from ..data.us_symbols import normalize_symbol
     from ..db.cache import set_setting
 
     seen: set[str] = set()
     syms = []
     for s in req.symbols:
-        u = str(s or "").strip().upper()
+        u = normalize_symbol(s)
         if u and u not in seen:
             seen.add(u)
             syms.append(u)
@@ -249,8 +250,9 @@ async def position_sizing(
 
     from ..crawler.finmind_client import FinMindClient
     from ..crawler.stock_price import StockPriceCrawler
+    from ..data.us_symbols import normalize_symbol
 
-    symbol = symbol.strip().upper()
+    symbol = normalize_symbol(symbol)
     end = date.today()
     start = end - timedelta(days=lookback_days)
 
@@ -406,12 +408,13 @@ async def portfolio_correlation(
     import pandas as pd
 
     from ..crawler.stock_price import StockPriceCrawler
+    from ..data.us_symbols import normalize_symbol
 
     seen: set[str] = set()
     syms = [
-        s.strip().upper()
+        normalize_symbol(s)
         for s in symbols.split(",")
-        if s.strip() and not (s.strip().upper() in seen or seen.add(s.strip().upper()))
+        if s.strip() and not (normalize_symbol(s) in seen or seen.add(normalize_symbol(s)))
     ]
     if len(syms) < 2:
         raise HTTPException(status_code=400, detail="至少需要 2 檔股票才能計算相關性")
@@ -484,12 +487,13 @@ async def watchlist_signals(
     import pandas as pd
 
     from ..crawler.stock_price import StockPriceCrawler
+    from ..data.us_symbols import normalize_symbol
 
     seen: set[str] = set()
     syms = [
-        s.strip().upper()
+        normalize_symbol(s)
         for s in symbols.split(",")
-        if s.strip() and not (s.strip().upper() in seen or seen.add(s.strip().upper()))
+        if s.strip() and not (normalize_symbol(s) in seen or seen.add(normalize_symbol(s)))
     ]
     if not syms:
         raise HTTPException(status_code=400, detail="請提供至少 1 檔股票")

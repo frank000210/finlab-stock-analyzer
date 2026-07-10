@@ -63,11 +63,28 @@ US_SYMBOLS: dict[str, dict[str, str]] = {
 }
 
 
+import re
+
+_TW_CODE_RE = re.compile(r"\d{4,6}[A-Z]?")
+_TW_SUFFIX_RE = re.compile(r"^(\d{4,6}[A-Z]?)\.(TW|TWO)$", re.IGNORECASE)
+
+
+def normalize_symbol(symbol: str) -> str:
+    """使用者可以自己打 Yahoo 尾碼（2330.TW / 2330.TWO），系統自動視為同一檔。
+
+    只在「數字代號＋.TW／.TWO」這個明確樣式才剝除尾碼；美股代號（AAPL、
+    ^GSPC、BRK-B…）一律原樣通過，不受影響——沒有歧義風險。呼叫端應一律先
+    normalize 再判斷 is_tw_symbol / 查表，這樣「2330」「2330.TW」「2330.TWO」
+    三種輸入殊途同歸。
+    """
+    s = (symbol or "").strip().upper()
+    m = _TW_SUFFIX_RE.match(s)
+    return m.group(1) if m else s
+
+
 def is_tw_symbol(symbol: str) -> bool:
     """台股代號：4~6 位數字，可帶一位英文尾碼（如 00878B）。"""
-    import re
-
-    return bool(re.fullmatch(r"\d{4,6}[A-Z]?", (symbol or "").strip().upper()))
+    return bool(_TW_CODE_RE.fullmatch(normalize_symbol(symbol)))
 
 
 def us_name(symbol: str) -> str:

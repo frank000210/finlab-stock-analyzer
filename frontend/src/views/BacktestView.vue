@@ -155,14 +155,16 @@
 
 <script setup>
 import PageFocusBanner from '../components/PageFocusBanner.vue'
-import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { ref, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import axios from 'axios'
 import { createChart } from 'lightweight-charts'
 import { useChartTheme } from '../composables/useChartTheme'
+import { useStockStore } from '../stores/stock.js'
 
 const theme = useChartTheme()
 const route = useRoute()
+const stockStore = useStockStore()
 const strategies = ref([])
 const selectedStrategy = ref(null)
 const running = ref(false)
@@ -171,7 +173,7 @@ const trades = ref([])
 const equityChart = ref(null)
 
 const form = ref({
-  symbol: route.params.symbol || '2330',
+  symbol: route.params.symbol || stockStore.symbol || '2330',
   strategy_id: 'ma_crossover',
   start: '2021-01-01',
   end: new Date().toISOString().split('T')[0],
@@ -187,6 +189,12 @@ onMounted(async () => {
     strategies.value = resp.data?.data?.strategies || []
     onStrategyChange()
   } catch { /* ignore */ }
+})
+
+// 側欄搜尋在這頁（/stocks/:symbol/backtest）換股：換代號欄位，讓下一次
+// 「執行回測」用新的股票（結果本身仍是使用者按按鈕才觸發，不自動重跑）。
+watch(() => route.params.symbol, (sym) => {
+  if (sym) form.value.symbol = sym
 })
 
 function onStrategyChange() {
