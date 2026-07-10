@@ -25,7 +25,7 @@
         <div v-for="it in items" :key="it.symbol" class="scard" :class="{ err: !it.ok }">
           <div class="row1">
             <span v-if="it.ok && it.setup_total != null" class="score" :class="scoreClass(it.setup_total)" :title="it.setup_verdict">{{ it.setup_total }}</span>
-            <span class="sym">{{ it.symbol }}</span>
+            <span class="sym">{{ it.symbol }}<small class="nm" v-if="it.name"> {{ it.name }}</small></span>
             <template v-if="it.ok">
               <span class="price">{{ fmt(it.price) }}</span>
               <span class="chg" :class="it.chg_pct >= 0 ? 'up' : 'down'">{{ it.chg_pct >= 0 ? '+' : '' }}{{ it.chg_pct }}%</span>
@@ -116,6 +116,7 @@ onMounted(() => {
 .score.mid { background: rgba(245,158,11,0.18); color: #f59e0b; }
 .score.bad { background: rgba(239,68,68,0.18); color: #ef4444; }
 .sym { font-size: 1.15rem; font-weight: 700; }
+.sym .nm { font-size: 0.78rem; font-weight: 400; color: var(--text-muted); }
 .price { font-size: 1.05rem; }
 .chg { font-weight: 700; }
 .tags { display: flex; flex-wrap: wrap; gap: 6px; }

@@ -12,8 +12,8 @@ test('觀察清單訊號 shows signal cards with tags', async ({ page }) => {
         data: {
           as_of: '2026-07-07',
           items: [
-            { symbol: '2330', ok: true, price: 2440, chg_pct: -0.8, trend: '多頭排列', rsi: 55.2, stop_dist_pct: 5.3, vol_ratio: 1.8, range_pos_pct: 88, setup_total: 78, setup_verdict: '進場條件佳', tags: [{ t: '多頭排列', tone: 'up' }, { t: '爆量 1.8×', tone: 'warn' }] },
-            { symbol: '2454', ok: true, price: 1400, chg_pct: 1.2, trend: '盤整', rsi: 48, stop_dist_pct: 6.1, vol_ratio: 0.9, range_pos_pct: 50, setup_total: 42, setup_verdict: '條件不佳，觀望', tags: [{ t: '盤整', tone: 'flat' }] },
+            { symbol: '2330', name: '台積電', ok: true, price: 2440, chg_pct: -0.8, trend: '多頭排列', rsi: 55.2, stop_dist_pct: 5.3, vol_ratio: 1.8, range_pos_pct: 88, setup_total: 78, setup_verdict: '進場條件佳', tags: [{ t: '多頭排列', tone: 'up' }, { t: '爆量 1.8×', tone: 'warn' }] },
+            { symbol: '2454', name: '聯發科', ok: true, price: 1400, chg_pct: 1.2, trend: '盤整', rsi: 48, stop_dist_pct: 6.1, vol_ratio: 0.9, range_pos_pct: 50, setup_total: 42, setup_verdict: '條件不佳，觀望', tags: [{ t: '盤整', tone: 'flat' }] },
           ],
         },
       }),
@@ -31,4 +31,8 @@ test('觀察清單訊號 shows signal cards with tags', async ({ page }) => {
   // Setup-score badges rendered (one per card).
   await expect(page.locator('.cards .score')).toHaveCount(2)
   await expect(page.locator('.cards .score.good').first()).toContainText('78')
+
+  // 代號伴隨股票名稱
+  await expect(page.locator('.cards')).toContainText('台積電')
+  await expect(page.locator('.cards')).toContainText('聯發科')
 })

@@ -25,7 +25,7 @@
       <p v-if="logMsg" class="log-msg">{{ logMsg }}</p>
 
       <div v-if="pendingTrade" class="trade-gate" role="alertdialog" aria-label="交易紀律檢查">
-        <strong>紀律檢查 — {{ pendingTrade.symbol }} {{ lots(pendingTrade) }} 張</strong>
+        <strong>紀律檢查 — {{ pendingTrade.symbol }}{{ pendingTrade.name ? ' ' + pendingTrade.name : '' }} {{ lots(pendingTrade) }} 張</strong>
         <ul class="gate-list">
           <li v-for="(c, i) in gateChecks" :key="i" :class="c.ok ? 'ok' : 'bad'">{{ c.ok ? '✓' : '✗' }} {{ c.text }}</li>
         </ul>
@@ -64,7 +64,7 @@
           <tbody>
             <tr v-for="r in rows" :key="r.symbol" :class="{ dim: !r.ok }">
               <td><span v-if="r.ok && r.setup_total != null" class="score" :class="scoreClass(r.setup_total)" :title="r.setup_verdict">{{ r.setup_total }}</span><span v-else>—</span></td>
-              <td class="sym">{{ r.symbol }}</td>
+              <td class="sym">{{ r.symbol }}<small class="nm" v-if="r.name">{{ r.name }}</small></td>
               <td>{{ r.ok ? fmt(r.price) : '—' }}</td>
               <td v-if="r.ok" :class="r.chg_pct >= 0 ? 'up' : 'down'">{{ r.chg_pct >= 0 ? '+' : '' }}{{ r.chg_pct }}%</td>
               <td v-else class="muted">{{ r.error }}</td>
@@ -202,7 +202,7 @@ function commitTrade() {
   try { const raw = JSON.parse(localStorage.getItem('finlab_trade_journal') || '[]'); if (Array.isArray(raw)) journal = raw } catch { /* ignore */ }
   journal.unshift({
     id: Date.now() + '-' + Math.random().toString(36).slice(2, 7),
-    symbol: r.symbol, name: r.symbol, side: 'long', entry, stop, target: null,
+    symbol: r.symbol, name: r.name || r.symbol, side: 'long', entry, stop, target: null,
     lots: l, tag: r.trend || '', openDate: new Date().toISOString().slice(0, 10),
     status: 'open', exit: null, exitDate: null,
   })
@@ -305,6 +305,7 @@ onMounted(() => {
 .cmd-table th { color: var(--text-muted); font-weight: 500; font-size: 0.74rem; }
 .tr.dim, tr.dim { opacity: 0.55; }
 .sym { font-weight: 700; }
+.sym .nm { display: block; font-weight: 400; color: var(--text-muted); font-size: 0.72rem; line-height: 1.2; }
 .score { font-weight: 800; min-width: 32px; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; padding: 2px 6px; }
 .score.good { background: rgba(34,197,94,0.18); color: #22c55e; }
 .score.mid { background: rgba(245,158,11,0.18); color: #f59e0b; }

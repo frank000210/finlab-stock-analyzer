@@ -3,6 +3,14 @@ const { test, expect } = require('@playwright/test')
 
 // Trade Journal: record a trade, close it, verify realized R and stats.
 test('交易日誌 records a trade, closes it, computes R and stats', async ({ page }) => {
+  // 手動新增只填代號 → 名稱由搜尋 API 自動補上（mock）
+  await page.route('**/api/v1/stocks/search*', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ success: true, data: { items: [{ symbol: '2330', name_zh: '台積電', market: 'twse', industry: '半導體業' }] } }),
+    })
+  })
   await page.goto('/journal')
   await page.evaluate(() => localStorage.clear())
   await page.reload()
@@ -19,6 +27,8 @@ test('交易日誌 records a trade, closes it, computes R and stats', async ({ p
   await page.getByRole('button', { name: '加入' }).click()
 
   await expect(page.getByRole('heading', { name: /進行中/ })).toBeVisible()
+  // 代號伴隨股票名稱（背景解析）
+  await expect(page.locator('.j-table').first()).toContainText('台積電')
 
   // Close at 120 -> R = (120-100)/(100-90) = 2.00
   await page.locator('.j-table input[type="number"]').first().fill('120')

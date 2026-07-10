@@ -393,13 +393,39 @@ async def watchlist_signals(
     start = end - timedelta(days=lookback_days)
     crawler = StockPriceCrawler()
 
+    # 代號→名稱 批次查表：FinMind 全市場 info（模組層 5 分快取，僅 1 次呼叫）；
+    # 失敗時退 Mongo raw_industry（關聯圖 ingest 累積的名稱），再不行就只給代號。
+    name_map: dict[str, str] = {}
+    try:
+        from ..crawler.finmind_client import FinMindClient
+
+        info = await FinMindClient().get_stock_info()
+        if info is not None and not info.empty:
+            for _, row in info.iterrows():
+                sid = str(row.get("stock_id", "")).strip().upper()
+                nm = str(row.get("stock_name", "") or "").strip()
+                if sid and nm:
+                    name_map[sid] = nm
+    except Exception:
+        pass
+    if not name_map:
+        try:
+            from ..db.mongodb import get_mongodb
+
+            mongo = await get_mongodb()
+            async for doc in mongo.raw_industry.find({"symbol": {"$in": syms}}, {"_id": 0}):
+                if doc.get("name_zh"):
+                    name_map[doc["symbol"]] = doc["name_zh"]
+        except Exception:
+            pass
+
     async def _one(sym: str):
         try:
             df = await crawler.get_price(sym, start.isoformat(), end.isoformat(), "1d")
         except Exception:
-            return {"symbol": sym, "ok": False, "error": "資料取得失敗"}
+            return {"symbol": sym, "name": name_map.get(sym, ""), "ok": False, "error": "資料取得失敗"}
         if df is None or df.empty or len(df) < 30:
-            return {"symbol": sym, "ok": False, "error": "資料不足"}
+            return {"symbol": sym, "name": name_map.get(sym, ""), "ok": False, "error": "資料不足"}
         df = df.sort_values("date").reset_index(drop=True)
         close = df["close"].astype(float)
         high = df["high"].astype(float)
@@ -457,7 +483,7 @@ async def watchlist_signals(
             setup_total, setup_verdict = None, ""
 
         return {
-            "symbol": sym, "ok": True, "price": round(price, 2), "chg_pct": chg_pct,
+            "symbol": sym, "name": name_map.get(sym, ""), "ok": True, "price": round(price, 2), "chg_pct": chg_pct,
             "trend": trend, "rsi": round(rsi, 1), "stop_dist_pct": stop_dist_pct,
             "vol_ratio": vol_ratio, "range_pos_pct": pos_pct, "tags": tags,
             "setup_total": setup_total, "setup_verdict": setup_verdict,

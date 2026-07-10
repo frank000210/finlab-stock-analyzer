@@ -91,7 +91,7 @@
           <thead><tr><th>代碼</th><th>方向</th><th>進場</th><th>停損</th><th>出場</th><th>張</th><th>R 倍數</th><th>損益</th><th></th></tr></thead>
           <tbody>
             <tr v-for="t in closedTrades" :key="t.id">
-              <td class="sym">{{ t.symbol }}</td>
+              <td class="sym">{{ t.symbol }}<small>{{ t.name && t.name !== t.symbol ? ' ' + t.name : '' }}</small></td>
               <td :class="t.side === 'long' ? 'up' : 'down'">{{ t.side === 'long' ? '多' : '空' }}</td>
               <td>{{ fmt(t.entry) }}</td>
               <td>{{ fmt(t.stop) }}</td>
@@ -262,8 +262,9 @@ function addTrade() {
     formError.value = '請填代碼、有效的進場/停損價（不可相等）與至少 1 張。'
     return
   }
+  const id = Date.now() + '-' + Math.random().toString(36).slice(2, 7)
   trades.value.unshift({
-    id: Date.now() + '-' + Math.random().toString(36).slice(2, 7),
+    id,
     symbol, name: symbol, side: form.side, entry, stop,
     target: Number(form.target) > 0 ? Number(form.target) : null,
     lots, tag: String(form.tag || '').trim(),
@@ -271,7 +272,22 @@ function addTrade() {
     exit: null, exitDate: null,
   })
   save()
+  resolveName(id, symbol) // 補上股票名稱（背景，代號伴隨名稱）
   form.symbol = ''; form.entry = null; form.stop = null; form.target = null; form.lots = 1; form.tag = ''
+}
+
+// 手動輸入只有代號 → 用搜尋 API 補中文名（best-effort，不阻塞新增）
+async function resolveName(id, symbol) {
+  try {
+    const resp = await fetch(`${API_BASE}/api/v1/stocks/search?q=${encodeURIComponent(symbol)}`)
+    const payload = await resp.json().catch(() => ({}))
+    const items = payload?.data?.items || []
+    const hit = items.find(i => String(i.symbol).toUpperCase() === symbol)
+    if (hit?.name_zh) {
+      const t = trades.value.find(x => x.id === id)
+      if (t) { t.name = hit.name_zh; save() }
+    }
+  } catch { /* 查不到就維持代號 */ }
 }
 
 function closeTrade(t) {
