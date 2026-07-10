@@ -599,6 +599,25 @@ tr:hover td {
   .search-bar { max-width: 100%; order: 10; flex-basis: 100%; }
   .grid-4, .grid-3, .grid-2 { grid-template-columns: 1fr; }
   .main-content { padding: var(--space-4); }
+
+  /* D13 行動端寬表：首欄（代號）黏住，右緣漸層提示還有內容可捲 */
+  .table-wrap { position: relative; }
+  .table-wrap::after {
+    content: '';
+    position: absolute;
+    top: 0; right: 0; bottom: 0;
+    width: 18px;
+    pointer-events: none;
+    background: linear-gradient(to left, var(--bg-primary), transparent);
+    opacity: 0.85;
+  }
+  .table-wrap table th:first-child,
+  .table-wrap table td:first-child {
+    position: sticky;
+    left: 0;
+    z-index: 2;
+    background: var(--bg-secondary);
+  }
 }
 
 @media (max-width: 480px) {

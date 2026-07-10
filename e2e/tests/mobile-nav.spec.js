@@ -20,3 +20,18 @@ test('mobile: 更多 menu exposes the secondary nav pages', async ({ page }) => 
   await expect(page).toHaveURL(/\/journal/)
   await expect(page.locator('.secondary-nav')).toBeHidden()
 })
+
+test('mobile: 寬表首欄黏性固定 (D13)', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('/journal')
+  await page.evaluate(() => {
+    localStorage.setItem('finlab_trade_journal', JSON.stringify([
+      { id: 'm1', symbol: '2330', name: '台積電', side: 'long', entry: 100, stop: 90, target: null, lots: 1, tag: '', openDate: '2026-07-01', status: 'open', exit: null, exitDate: null },
+    ]))
+  })
+  await page.reload()
+
+  const firstCell = page.locator('.j-table td.sym').first()
+  await expect(firstCell).toBeVisible()
+  expect(await firstCell.evaluate((el) => getComputedStyle(el).position)).toBe('sticky')
+})
