@@ -106,9 +106,9 @@ import * as d3 from 'd3'
 import { useChartTheme } from '../composables/useChartTheme'
 import { useJournalRisk } from '../composables/useJournalRisk'
 import { tradePnl } from '../lib/tradeMath'
+import { fetchLivePrices } from '../lib/livePriceCache'
 
 const theme = useChartTheme()
-const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 const loading = ref(false)
 const chartEl = ref(null)
 const histEl = ref(null)
@@ -128,17 +128,10 @@ async function refreshUnrealized() {
   const open = openTrades.value
   if (!open.length) { unrealizedInfo.value = null; return }
   const symbols = [...new Set(open.map(t => t.symbol))]
-  const prices = {}
-  await Promise.all(symbols.map(async (sym) => {
-    try {
-      const resp = await fetch(`${API_BASE}/api/v1/risk/sizing/${encodeURIComponent(sym)}`)
-      const payload = await resp.json().catch(() => ({}))
-      if (resp.ok && payload?.data?.price > 0) prices[sym] = payload.data.price
-    } catch { /* best-effort */ }
-  }))
-  const priced = open.filter(t => prices[t.symbol] != null)
+  const results = await fetchLivePrices(symbols)
+  const priced = open.filter(t => results[t.symbol]?.price > 0)
   if (!priced.length) { unrealizedInfo.value = null; unrealizedPnl.value = null; return }
-  const total = priced.reduce((a, t) => a + tradePnl(t, prices[t.symbol]), 0)
+  const total = priced.reduce((a, t) => a + tradePnl(t, results[t.symbol].price), 0)
   unrealizedPnl.value = total
   unrealizedInfo.value = { priced: priced.length, total }
 }

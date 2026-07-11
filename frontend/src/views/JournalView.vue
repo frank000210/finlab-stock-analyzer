@@ -55,7 +55,7 @@
     <section class="section-block" v-reveal v-if="openTrades.length">
       <div class="head-row">
         <h3>進行中（{{ openTrades.length }}）<span class="muted small paper-tag">🧾 紙上交易 — 沒有真的下單，練習盯盤與停損紀律</span></h3>
-        <button class="btn" :disabled="pricesLoading" @click="fetchLivePrices">
+        <button class="btn" :disabled="pricesLoading" @click="fetchLivePricesForOpenTrades">
           <span v-if="pricesLoading" class="loading-spinner btn-spinner" aria-hidden="true"></span>🔄 更新現價
         </button>
       </div>
@@ -175,6 +175,7 @@
 import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useStockStore } from '../stores/stock.js'
 import { riskPerShare, profitPerShare, realizedR, tradePnl as pnl, riskAmount, loadJournal, saveJournal } from '../lib/tradeMath'
+import { fetchLivePrices } from '../lib/livePriceCache'
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 const stockStore = useStockStore()
@@ -200,23 +201,18 @@ const livePrices = ref({}) // symbol -> { price, as_of, loading, error }
 const pricesLoading = ref(false)
 
 // 進行中交易的代號組合一變（新增/帶入/刪除），就重新查一次現價。
-watch(openSymbols, () => { fetchLivePrices() })
+watch(openSymbols, () => { fetchLivePricesForOpenTrades() })
 
-async function fetchLivePrices() {
+async function fetchLivePricesForOpenTrades() {
   const symbols = [...new Set(openTrades.value.map(t => t.symbol))]
   if (!symbols.length) return
   pricesLoading.value = true
-  await Promise.all(symbols.map(async (sym) => {
-    livePrices.value[sym] = { ...(livePrices.value[sym] || {}), loading: true, error: '' }
-    try {
-      const resp = await fetch(`${API_BASE}/api/v1/risk/sizing/${encodeURIComponent(sym)}`)
-      const payload = await resp.json().catch(() => ({}))
-      if (!resp.ok || !payload?.data) throw new Error(payload?.detail || '查價失敗')
-      livePrices.value[sym] = { price: payload.data.price, as_of: payload.data.as_of, loading: false, error: '' }
-    } catch (e) {
-      livePrices.value[sym] = { ...(livePrices.value[sym] || {}), loading: false, error: e?.message || '查價失敗' }
-    }
-  }))
+  for (const sym of symbols) livePrices.value[sym] = { ...(livePrices.value[sym] || {}), loading: true, error: '' }
+  const results = await fetchLivePrices(symbols)
+  for (const sym of symbols) {
+    const r = results[sym]
+    livePrices.value[sym] = { price: r.price, as_of: r.as_of, loading: false, error: r.error }
+  }
   pricesLoading.value = false
 }
 
