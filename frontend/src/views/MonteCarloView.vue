@@ -15,8 +15,13 @@
         <label class="field"><span>交易筆數</span><input v-model.number="trades" type="number" min="10" max="1000" step="10" class="inp" /></label>
         <label class="field"><span>破產門檻（資金回撤 %）</span><input v-model.number="ruinPct" type="number" min="10" max="90" step="5" class="inp" /></label>
         <label class="field"><span>模擬次數</span><input v-model.number="sims" type="number" min="200" max="5000" step="200" class="inp" /></label>
-        <button class="btn btn-primary" @click="run">執行模擬</button>
+        <div class="btn-row">
+          <button class="btn btn-primary" @click="run">執行模擬</button>
+          <button class="btn" @click="loadFromJournal" title="用你交易日誌的實戰勝率／賺賠比">從交易日誌帶入</button>
+        </div>
         <p class="edge muted" v-if="edgeText">{{ edgeText }}</p>
+        <p class="error-text" v-if="journalError">{{ journalError }}</p>
+        <p class="muted small" v-if="journalMsg">{{ journalMsg }}</p>
       </div>
 
       <div class="results">
@@ -63,6 +68,41 @@ const trades = ref(100)
 const ruinPct = ref(50)
 const sims = ref(1000)
 const result = ref(null)
+const journalError = ref('')
+const journalMsg = ref('')
+
+// F7：用你交易日誌的實戰勝率／賺賠比，而不是憑感覺猜一個數字。用 R 倍數
+// 直接算（跟日誌本身的統計口徑一致），比用金額算出的獲利因子更貼近這個
+// 模擬工具本身「每筆固定賺 r 倍或賠 1 倍」的假設。
+function loadFromJournal() {
+  journalError.value = ''
+  journalMsg.value = ''
+  let trades = []
+  try { const raw = JSON.parse(localStorage.getItem('finlab_trade_journal') || '[]'); if (Array.isArray(raw)) trades = raw } catch { /* ignore */ }
+  const closed = trades.filter(t => t.status === 'closed')
+  if (!closed.length) { journalError.value = '交易日誌尚無已平倉紀錄，先去記錄幾筆交易。'; return }
+  const riskPerShare = (t) => Math.abs((Number(t.entry) || 0) - (Number(t.stop) || 0))
+  const realizedR = (t) => {
+    const rps = riskPerShare(t)
+    if (rps <= 0) return 0
+    const diff = (Number(t.exit) || 0) - (Number(t.entry) || 0)
+    return (t.side === 'short' ? -diff : diff) / rps
+  }
+  const Rs = closed.map(realizedR)
+  const wins = Rs.filter(r => r > 0)
+  const losses = Rs.filter(r => r <= 0)
+  if (!wins.length || !losses.length) {
+    journalError.value = '已平倉紀錄中缺少獲利或虧損交易，無法估算賺賠比。'
+    return
+  }
+  const avgWinR = wins.reduce((a, b) => a + b, 0) / wins.length
+  const avgLossR = losses.reduce((a, b) => a + b, 0) / losses.length
+  winRate.value = Math.round(wins.length / closed.length * 100)
+  payoff.value = Math.round((avgWinR / Math.abs(avgLossR)) * 100) / 100
+  journalMsg.value = closed.length < 20
+    ? `已帶入你 ${closed.length} 筆實戰統計（勝率 ${winRate.value}%、賺賠比 ${payoff.value}）；樣本 <20 筆，模擬僅供參考。`
+    : `已帶入你 ${closed.length} 筆實戰統計：勝率 ${winRate.value}%、賺賠比 ${payoff.value}。`
+}
 
 const edgeText = computed(() => {
   const w = winRate.value / 100, r = payoff.value
@@ -161,6 +201,7 @@ function run() {
 .field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; font-size: 0.82rem; color: var(--text-muted); }
 .inp { background: var(--bg-well); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 10px; padding: 8px 12px; font-size: 0.9rem; }
 .edge { margin-top: 10px; font-size: 0.82rem; }
+.btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
 
 .rgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
 .rcard { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; }
