@@ -196,8 +196,8 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
-import { loadJournal, riskAmount } from '../lib/tradeMath'
+import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue'
+import { loadJournal, riskAmount, JOURNAL_KEY } from '../lib/tradeMath'
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 const LS_POS = 'portfolio_heat_positions'
@@ -250,7 +250,15 @@ function posUnreal(p) { return p.price ? posShares(p) * (Number(p.price) - Numbe
 // E1：交易日誌的進行中部位若跟這頁手動記的不是同一批，總熱度只算手動部位
 // 會低估真實曝險。用代碼去重（手動部位優先，視為同一檔的權威記錄），只把
 // 日誌裡「這頁沒有」的代碼之風險金額併入總熱度。
+// F3：loadJournal() 讀 localStorage 不是 reactive 的，日誌在別的分頁變動
+// 時這頁不會自動跟上——用一個純計數的 ref 建立依賴，storage 事件觸發時
+// 遞增它，讓 computed 重新求值（沿用風控監控頁 B2 的同一套模式）。
+const journalVersion = ref(0)
+function onJournalStorage(e) {
+  if (!e.key || e.key === JOURNAL_KEY) journalVersion.value++
+}
 const journalOnlyPositions = computed(() => {
+  journalVersion.value // eslint-disable-line no-unused-expressions
   const tracked = new Set(positions.value.map(p => String(p.symbol || '').trim().toUpperCase()))
   return loadJournal().filter(t => t.status === 'open' && !tracked.has(String(t.symbol || '').trim().toUpperCase()))
 })
@@ -435,7 +443,9 @@ async function analyzeCorrelation() {
 onMounted(() => {
   load()
   if (positions.value.length >= 2) analyzeCorrelation()
+  window.addEventListener('storage', onJournalStorage)
 })
+onBeforeUnmount(() => window.removeEventListener('storage', onJournalStorage))
 </script>
 
 <style scoped>

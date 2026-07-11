@@ -161,11 +161,11 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useStockStore } from '../stores/stock.js'
 import DataLineage from '../components/DataLineage.vue'
-import { loadJournal, journalWinStats, riskAmount as journalRiskAmount } from '../lib/tradeMath'
+import { loadJournal, journalWinStats, riskAmount as journalRiskAmount, kellyFraction, JOURNAL_KEY } from '../lib/tradeMath'
 import { tvChartUrl } from '../lib/tradingview'
 
 const route = useRoute()
@@ -223,7 +223,15 @@ function loadExistingPositions() {
 // E1：投組風險頁只顯示手動記的部位，交易日誌裡的進行中部位（同代碼沒有
 // 重複記在投組風險頁時）也是真實曝險，一併算進「加上這筆後」的預覽，避免
 // 低估。用代碼去重：投組風險頁的手動記錄視為權威版本，日誌只補它沒有的。
+// F3：loadJournal() 讀 localStorage 不是 reactive 的，日誌在別的分頁變動
+// 時這頁不會自動跟上——用一個純計數的 ref 建立依賴，storage 事件觸發時
+// 遞增它（沿用風控監控頁 B2 的同一套模式）。
+const journalVersion = ref(0)
+function onJournalStorage(e) {
+  if (!e.key || e.key === JOURNAL_KEY) journalVersion.value++
+}
 const journalOnlyForHeat = computed(() => {
+  journalVersion.value // eslint-disable-line no-unused-expressions
   const sym = String(symbolInput.value || '').trim().toUpperCase()
   const manualSymbols = new Set(existingPositions.value.map(p => String(p.symbol || '').trim().toUpperCase()))
   return loadJournal()
@@ -248,12 +256,7 @@ const directionLabel = computed(() => {
 const rrClass = computed(() => (rr.value >= 2 ? 'up' : rr.value > 0 ? 'warn' : ''))
 
 // Kelly: f* = W*(PF-1)/PF, derived from win rate + profit factor.
-const kelly = computed(() => {
-  const w = (winRate.value || 0) / 100
-  const pf = profitFactor.value || 0
-  if (w <= 0 || w >= 1 || pf <= 1) return 0
-  return Math.max(0, w * (pf - 1) / pf)
-})
+const kelly = computed(() => kellyFraction((winRate.value || 0) / 100, profitFactor.value || 0))
 const suggestedRiskPct = computed(() => Math.min(kelly.value * 0.5 * 100, 10))
 
 function applyKelly() {
@@ -352,7 +355,9 @@ onMounted(() => {
   if (q) symbolInput.value = String(q).trim().toUpperCase()
   loadExistingPositions()
   loadMarket()
+  window.addEventListener('storage', onJournalStorage)
 })
+onBeforeUnmount(() => window.removeEventListener('storage', onJournalStorage))
 </script>
 
 <style scoped>
