@@ -66,4 +66,11 @@ onBeforeUnmount(() => { host.value?.querySelectorAll('.tv-widget').forEach(n => 
 .tv-host :deep(.tradingview-widget-container),
 .tv-host :deep(iframe) { width: 100%; height: 100%; }
 .tv-fallback { color: var(--text-muted); padding: 16px; font-size: 0.85rem; }
+
+@media (max-width: 640px) {
+  .tv-host { height: 420px; }
+}
+@media (max-width: 420px) {
+  .tv-host { height: 340px; }
+}
 </style>
