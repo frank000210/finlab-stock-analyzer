@@ -92,6 +92,40 @@
       <p class="disclaimer">※ 風險金額＝張數×1000×|進場−停損|。本工具僅為風險試算，非投資建議。</p>
     </section>
 
+    <section class="section-block" v-reveal v-if="positions.length">
+      <h3>情境壓測（Stress Test）</h3>
+      <p class="muted">停損單是「正常盤況」下的防線；重挫或跳空時常常來不及成交。這裡試算幾種極端情境下投組會虧多少，抓的是最壞情況，不是日常波動。</p>
+      <div class="scenario-tabs">
+        <button
+          v-for="s in scenarios" :key="s.key" class="btn scenario-btn"
+          :class="{ active: selectedScenario === s.key }"
+          @click="selectedScenario = s.key"
+        >{{ s.label }}</button>
+      </div>
+      <div class="summary-cards">
+        <div class="scard"><span class="slabel">情境總虧損</span><strong class="sval down">{{ fmtInt(stressResult.totalLoss) }}</strong><span class="shint">佔部位市值 {{ stressResult.lossPctValue.toFixed(1) }}%</span></div>
+        <div class="scard"><span class="slabel">佔帳戶資金</span><strong class="sval" :class="Math.abs(stressResult.lossPctAccount) > 10 ? 'down' : ''">{{ stressResult.lossPctAccount.toFixed(1) }}%</strong></div>
+        <div class="scard"><span class="slabel">正常停損預期虧損</span><strong class="sval">{{ fmtInt(stressResult.totalRiskAmount) }}</strong><span class="shint">若停損都正常成交</span></div>
+      </div>
+      <div class="table-wrap">
+        <table class="stress-table">
+          <thead><tr><th>代碼</th><th>現值</th><th>情境價</th><th>情境虧損</th></tr></thead>
+          <tbody>
+            <tr v-for="r in stressResult.rows" :key="r.symbol">
+              <td class="sym">{{ r.symbol }}</td>
+              <td>{{ fmtInt(r.curValue) }}</td>
+              <td>{{ fmt(r.shockedPrice) }}</td>
+              <td class="down">{{ fmtInt(r.loss) }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="stress-insight" v-if="stressResult.gapRatio > 1.5">
+        ⚠ 這個情境的虧損（{{ fmtInt(Math.abs(stressResult.totalLoss)) }}）是你正常停損預期虧損（{{ fmtInt(stressResult.totalRiskAmount) }}）的 {{ stressResult.gapRatio.toFixed(1) }} 倍——代表重挫/跳空時，停損很可能來不及擋在設定價位，實際虧損會比你以為的「最多賠多少」更慘。
+      </p>
+      <p class="disclaimer">※ 情境為假設性試算（假設全投組同步下跌，未考慮實際 beta 差異），非市場預測，非投資建議。</p>
+    </section>
+
     <section class="section-block" v-reveal v-if="positions.length >= 2">
       <div class="head-row">
         <div>
@@ -209,6 +243,39 @@ const sectorHeat = computed(() => {
     .sort((a, b) => b.pct - a.pct)
 })
 const maxSectorPct = computed(() => (sectorHeat.value.length ? sectorHeat.value[0].pct : 0))
+
+// B8：情境壓測——假設整體市場（或個股）瞬間下跌，投組會虧多少。用現價（沒有
+// 現價時退回進場價）套用情境跌幅；「停損全數跳空觸發」則直接以各自停損價
+// 計算，模擬跳空導致停損沒能在設定價位成交、直接跌破的最壞情況。
+const SCENARIOS = [
+  { key: 'mkt10', label: '大盤重挫 -10%', shockPct: -10 },
+  { key: 'mkt20', label: '大盤重挫 -20%（熊市）', shockPct: -20 },
+  { key: 'crash30', label: '個股閃崩 -30%（地雷股）', shockPct: -30 },
+  { key: 'stopAll', label: '停損全數跳空觸發', shockPct: null },
+]
+const scenarios = SCENARIOS
+const selectedScenario = ref('mkt10')
+
+const stressResult = computed(() => {
+  const sc = SCENARIOS.find(s => s.key === selectedScenario.value) || SCENARIOS[0]
+  const rows = positions.value.map(p => {
+    const shares = posShares(p)
+    const curPrice = Number(p.price) || Number(p.entry) || 0
+    const shockedPrice = sc.key === 'stopAll'
+      ? (Number(p.stop) || curPrice)
+      : curPrice * (1 + sc.shockPct / 100)
+    const curValue = shares * curPrice
+    const loss = shares * (shockedPrice - curPrice)
+    return { symbol: p.symbol, curValue, shockedPrice, loss }
+  })
+  const totalLoss = rows.reduce((a, r) => a + r.loss, 0)
+  const totalCurValue = rows.reduce((a, r) => a + r.curValue, 0)
+  const totalRiskAmount = positions.value.reduce((a, p) => a + posRisk(p), 0)
+  const lossPctValue = totalCurValue > 0 ? totalLoss / totalCurValue * 100 : 0
+  const lossPctAccount = account.value > 0 ? totalLoss / account.value * 100 : 0
+  const gapRatio = totalRiskAmount > 0 ? Math.abs(totalLoss) / totalRiskAmount : 0
+  return { rows, totalLoss, totalRiskAmount, lossPctValue, lossPctAccount, gapRatio }
+})
 
 function fmt(v) { return (v == null || isNaN(v)) ? '—' : Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }
 function fmtInt(v) { return (v == null || isNaN(v)) ? '—' : Math.round(v).toLocaleString('en-US') }
@@ -360,10 +427,11 @@ onMounted(() => {
 .add-form .inp { width: 130px; }
 
 .table-wrap { overflow-x: auto; margin-top: 14px; }
-.pos-table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
-.pos-table th, .pos-table td { text-align: right; padding: 8px 10px; border-bottom: 1px solid var(--border-color); white-space: nowrap; }
-.pos-table th:first-child, .pos-table td:first-child, .pos-table th:nth-child(2), .pos-table td:nth-child(2) { text-align: left; }
-.pos-table th { color: var(--text-muted); font-weight: 500; font-size: 0.76rem; }
+.pos-table, .stress-table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+.pos-table th, .pos-table td, .stress-table th, .stress-table td { text-align: right; padding: 8px 10px; border-bottom: 1px solid var(--border-color); white-space: nowrap; }
+.pos-table th:first-child, .pos-table td:first-child, .pos-table th:nth-child(2), .pos-table td:nth-child(2),
+.stress-table th:first-child, .stress-table td:first-child { text-align: left; }
+.pos-table th, .stress-table th { color: var(--text-muted); font-weight: 500; font-size: 0.76rem; }
 .sym small { color: var(--text-muted); }
 .del { background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.9rem; }
 .del:hover { color: #ef4444; }
@@ -397,4 +465,8 @@ strong.warn { color: #f59e0b; }
 .corr-matrix table { border-collapse: collapse; font-size: 0.82rem; }
 .corr-matrix th, .corr-matrix td { padding: 8px 12px; text-align: center; border: 1px solid var(--border-color); min-width: 56px; }
 .corr-matrix thead th, .corr-matrix tbody th { color: var(--text-muted); font-weight: 500; background: var(--bg-well); }
+
+.scenario-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.scenario-btn.active { background: var(--accent-blue); color: #fff; border-color: var(--accent-blue); }
+.stress-insight { background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.4); color: #f87171; border-radius: 10px; padding: 10px 12px; font-size: 0.86rem; margin-top: 12px; }
 </style>
