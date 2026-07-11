@@ -27,6 +27,7 @@
           <span class="mlabel">{{ market.symbol }} {{ market.name }} 現價</span>
           <strong class="mval">{{ fmt(market.price) }}</strong>
           <DataLineage :as-of="market.as_of" :source="market.source" />
+          <a class="tv-link" :href="tvChartUrl(market.symbol)" target="_blank" rel="noopener nofollow">在 TradingView 開啟 ↗</a>
         </div>
         <div class="mcard">
           <span class="mlabel">ATR({{ market.atr_period }}) 每日波動</span>
@@ -164,6 +165,8 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useStockStore } from '../stores/stock.js'
 import DataLineage from '../components/DataLineage.vue'
+import { loadJournal, journalWinStats } from '../lib/tradeMath'
+import { tvChartUrl } from '../lib/tradingview'
 
 const route = useRoute()
 const stockStore = useStockStore()
@@ -246,18 +249,11 @@ function applyKelly() {
 // Use YOUR real stats from the trade journal, not a backtest.
 function loadFromJournal() {
   btError.value = ''
-  let trades = []
-  try { const raw = JSON.parse(localStorage.getItem('finlab_trade_journal') || '[]'); if (Array.isArray(raw)) trades = raw } catch { /* ignore */ }
-  const closed = trades.filter(t => t.status === 'closed')
+  const closed = loadJournal().filter(t => t.status === 'closed')
   if (!closed.length) { btError.value = '交易日誌尚無已平倉紀錄，先去記錄幾筆交易。'; return }
-  const pps = (t) => { const d = Number(t.exit) - Number(t.entry); return t.side === 'short' ? -d : d }
-  const pnl = (t) => (Number(t.lots) || 0) * 1000 * pps(t)
-  const pnls = closed.map(pnl)
-  const wins = pnls.filter(p => p > 0).length
-  const grossWin = pnls.filter(p => p > 0).reduce((a, b) => a + b, 0)
-  const grossLoss = Math.abs(pnls.filter(p => p < 0).reduce((a, b) => a + b, 0))
-  winRate.value = Math.round(wins / closed.length * 100)
-  profitFactor.value = grossLoss > 0 ? Math.round((grossWin / grossLoss) * 100) / 100 : 99.99
+  const stats = journalWinStats(closed)
+  winRate.value = Math.round(stats.winRate * 100)
+  profitFactor.value = Math.round(stats.profitFactor * 100) / 100
   if (closed.length < 20) btError.value = `已帶入你 ${closed.length} 筆實戰統計；樣本 <20 筆，凱利僅供參考。`
 }
 
@@ -360,6 +356,8 @@ onMounted(() => {
 .mlabel { font-size: 0.78rem; color: var(--text-muted); }
 .mval { font-size: 1.5rem; }
 .mhint { font-size: 0.74rem; color: var(--text-muted); }
+.tv-link { color: var(--accent-blue); font-size: 0.74rem; text-decoration: none; }
+.tv-link:hover { text-decoration: underline; }
 .stop-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .chip { background: var(--bg-hover); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 999px; padding: 4px 10px; font-size: 0.78rem; cursor: pointer; }
 .chip small { color: var(--text-muted); margin-left: 4px; }
