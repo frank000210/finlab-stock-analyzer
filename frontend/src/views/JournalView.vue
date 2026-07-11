@@ -372,6 +372,31 @@ const expectancyTrend = computed(() => {
   return { recentR: avg(recent), earlierR: avg(earlier), recentN: recent.length, earlierN: earlier.length }
 })
 
+// F4 過度交易偵測：把所有交易（不分已平倉/進行中）按進場日分組，算出「有
+// 交易的那些天」典型一天做幾筆，再看有沒有哪天筆數暴增。不管那天賺賠，
+// 單日筆數突然暴增本身就是衝動/報復性下單的訊號，跟結果無關。
+const overtradingDay = computed(() => {
+  const byDay = {}
+  for (const t of trades.value) {
+    if (!t.openDate) continue
+    byDay[t.openDate] = (byDay[t.openDate] || 0) + 1
+  }
+  const counts = Object.values(byDay)
+  if (counts.length < 5) return null
+  const sorted = [...counts].sort((a, b) => a - b)
+  const mid = Math.floor(sorted.length / 2)
+  const median = sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2
+  if (median <= 0) return null
+  let maxDay = null, maxCount = 0
+  for (const [day, c] of Object.entries(byDay)) {
+    if (c > maxCount) { maxCount = c; maxDay = day }
+  }
+  if (maxCount >= Math.max(4, median * 3)) {
+    return { day: maxDay, count: maxCount, median }
+  }
+  return null
+})
+
 // E15 複盤教練：純用既有統計（stats/byTag）產生規則式建議，不打任何 API。
 // tone 排序 bad > warn > good > info；最多顯示 6 條，避免資訊過載。
 const coachInsights = computed(() => {
@@ -440,7 +465,16 @@ const coachInsights = computed(() => {
     })
   }
 
-  // 8. 樣本數不足：統計還不太可靠
+  // 8. 過度交易：某天筆數暴增，不管賺賠都是衝動下單的訊號
+  const ot = overtradingDay.value
+  if (ot) {
+    out.push({
+      tone: 'warn', icon: '🌀',
+      text: `${ot.day} 那天做了 ${ot.count} 筆交易，是你平常一天（中位數 ${ot.median} 筆）的 ${(ot.count / ot.median).toFixed(1)} 倍——單日爆量下單常是衝動/報復性交易的訊號，不管那天賺賠，都建議設下每日交易筆數上限。`,
+    })
+  }
+
+  // 9. 樣本數不足：統計還不太可靠
   if (s.count < 15) {
     out.push({
       tone: 'info', icon: 'ℹ️',
@@ -448,7 +482,7 @@ const coachInsights = computed(() => {
     })
   }
 
-  // 9. 沒有任何警訊時的正向回饋
+  // 10. 沒有任何警訊時的正向回饋
   if (!out.some(x => x.tone === 'bad' || x.tone === 'warn') && s.count >= 10 && s.expectancyR > 0 && s.profitFactor >= 1.5) {
     out.push({
       tone: 'good', icon: '✅',
