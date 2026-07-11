@@ -158,7 +158,6 @@ function run() {
 .mc-grid { display: grid; grid-template-columns: 300px 1fr; gap: 20px; }
 @media (max-width: 900px) { .mc-grid { grid-template-columns: 1fr; } }
 .inputs h2 { margin: 0 0 4px; } .results h3 { margin-top: 0; }
-.muted { color: var(--text-muted); }
 .field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; font-size: 0.82rem; color: var(--text-muted); }
 .inp { background: var(--bg-well); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 10px; padding: 8px 12px; font-size: 0.9rem; }
 .edge { margin-top: 10px; font-size: 0.82rem; }
@@ -169,8 +168,7 @@ function run() {
 .rcard strong { font-size: 1.2rem; }
 .rcard.danger { border-color: #ef4444; } .rcard.danger strong { color: #ef4444; }
 .rcard.ok-card { border-color: #22c55e; }
-.up { color: #ef4444; } .down { color: #22c55e; } .warn, strong.warn { color: #f59e0b; }
-.empty { padding: 20px 0; }
+.warn, strong.warn { color: #f59e0b; }
 
 .hist { margin-top: 16px; display: flex; flex-direction: column; gap: 6px; }
 .slabel { font-size: 0.76rem; color: var(--text-muted); }
@@ -178,7 +176,4 @@ function run() {
 .bar-up { fill: rgba(239, 68, 68, 0.75); } .bar-down { fill: rgba(34, 197, 94, 0.75); }
 .hist-zero { stroke: var(--text-muted); stroke-width: 1; vector-effect: non-scaling-stroke; stroke-dasharray: 3 3; }
 .hist-axis { display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--text-muted); }
-.checklist { list-style: none; padding: 0; margin: 12px 0 0; }
-.checklist li { font-size: 0.86rem; } .checklist li.ok { color: #22c55e; } .checklist li.bad { color: #f59e0b; }
-.disclaimer { font-size: 0.74rem; color: var(--text-muted); margin-top: 12px; }
 </style>

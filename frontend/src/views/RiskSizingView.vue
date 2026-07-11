@@ -326,13 +326,11 @@ onMounted(() => {
 .risk-sizing-view { display: flex; flex-direction: column; gap: 16px; }
 .head-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
 .head-row h2 { margin: 0 0 4px; }
-.muted { color: var(--text-muted); }
 .symbol-box { display: flex; gap: 8px; }
 .inp {
   background: var(--bg-well); border: 1px solid var(--border-color); color: var(--text-primary);
   border-radius: 10px; padding: 8px 12px; font-size: 0.9rem; width: 100%;
 }
-.error-text { color: #ef4444; margin-top: 10px; }
 
 .market-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-top: 16px; }
 .mcard { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; }
@@ -356,16 +354,7 @@ onMounted(() => {
 .rcard.hl { border-color: var(--accent-blue); }
 .rcard.hl strong { font-size: 1.5rem; color: var(--accent-blue); }
 .rcard .warn, strong.warn { color: #f59e0b; }
-.up { color: var(--up-color, #ef4444); }
 .warn.up { color: #f59e0b; }
-.empty { padding: 20px 0; }
-
-.checklist { list-style: none; padding: 0; margin: 8px 0 0; display: flex; flex-direction: column; gap: 6px; }
-.checklist li { font-size: 0.86rem; }
-.checklist li.ok { color: #22c55e; }
-.checklist li.bad { color: #f59e0b; }
-.disclaimer { font-size: 0.74rem; color: var(--text-muted); margin-top: 14px; }
-.btn-spinner { width: 14px; height: 14px; border-width: 2px; vertical-align: -2px; margin-right: 6px; }
 .kelly-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin: 12px 0; max-width: 520px; }
 .bt-import { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .apply-cell { align-items: center; justify-content: center; }

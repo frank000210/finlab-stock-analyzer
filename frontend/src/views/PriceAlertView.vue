@@ -40,7 +40,7 @@
               <td>{{ a.direction === 'above' ? '漲破' : '跌破' }}</td>
               <td>{{ fmt(a.target_price) }}</td>
               <td>{{ a.last_price != null ? fmt(a.last_price) : '—' }}</td>
-              <td><span :class="a.triggered ? 'up' : 'muted'">{{ statusLabel(a) }}</span></td>
+              <td><span :class="a.triggered ? 'ok-text' : 'muted'">{{ statusLabel(a) }}</span></td>
               <td class="muted">{{ a.note || '—' }}</td>
               <td><button class="del" @click="remove(a.id)" title="刪除">✕</button></td>
             </tr>
@@ -135,10 +135,7 @@ onMounted(loadAlerts)
 .price-alert-view { display: flex; flex-direction: column; gap: 16px; }
 .head-row { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
 .head-row h3 { margin: 0; }
-.muted { color: var(--text-muted); }
-.small { font-size: 0.8rem; }
 .inp { background: var(--bg-well); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 10px; padding: 8px 12px; font-size: 0.9rem; }
-.error-text { color: #ef4444; margin-top: 8px; }
 
 .add-form { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .add-form .inp { width: 130px; }
@@ -152,8 +149,4 @@ onMounted(loadAlerts)
 .sym { font-weight: 600; }
 .del { background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.9rem; }
 .del:hover { color: #ef4444; }
-.empty { padding: 16px 0; }
-.up { color: #22c55e; }
-.disclaimer { font-size: 0.74rem; color: var(--text-muted); margin-top: 12px; }
-.btn-spinner { width: 14px; height: 14px; border-width: 2px; vertical-align: -2px; margin-right: 6px; }
 </style>
