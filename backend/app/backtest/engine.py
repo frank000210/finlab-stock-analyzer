@@ -54,6 +54,10 @@ class BacktestEngine:
             df_with_indicators, signals, capital, commission, tax, slippage
         )
 
+        # MFE/MAE（B7）：每筆交易持有期間內，價格曾經比出場價更有利/更不利
+        # 多少（相對進場價的 %）——出場價只是「最後」結果，MFE/MAE 顯示「過程」。
+        mfe_mae_summary = self._compute_mfe_mae(df_with_indicators, trades)
+
         # Build equity curve (cash-flow based, so all costs are reflected)
         equity_curve = self._build_equity_curve(df_with_indicators, trades, capital)
 
@@ -76,6 +80,58 @@ class BacktestEngine:
                 "tax": tax,
                 "slippage": slippage,
             },
+            "mfe_mae": mfe_mae_summary,
+        }
+
+    def _compute_mfe_mae(self, df: pd.DataFrame, trades: list[dict]) -> dict:
+        """幫每筆交易補上 mfe_pct / mae_pct / capture_pct，並回傳整體摘要。
+
+        MFE（Maximum Favorable Excursion）：持有期間內價格對你最有利時，相對
+        進場價的漲幅 %——「本來可以賺到的最多」。
+        MAE（Maximum Adverse Excursion）：持有期間內價格對你最不利時，相對
+        進場價的跌幅 %（負值）——「中途最深套過多少」。
+        capture_pct：實際報酬 ÷ MFE，衡量到手的獲利佔「曾經有過的最大獲利」
+        多少比例——太低代表出場太保守／賺一點就跑，把獲利留在桌上。
+        只適用多方交易（本引擎目前只做多）。
+        """
+        if not trades:
+            return {"available": False}
+
+        bars = [
+            {"date": str(r["date"].date()) if hasattr(r["date"], "date") else str(r["date"]),
+             "high": float(r["high"]), "low": float(r["low"])}
+            for _, r in df.iterrows()
+        ]
+        bars.sort(key=lambda b: b["date"])
+
+        mfe_list, mae_list, capture_list = [], [], []
+        for t in trades:
+            window = [b for b in bars if t["entry_date"] <= b["date"] <= t["exit_date"]]
+            if not window:
+                t["mfe_pct"], t["mae_pct"], t["capture_pct"] = None, None, None
+                continue
+            entry = t["entry_price"]
+            highest = max(b["high"] for b in window)
+            lowest = min(b["low"] for b in window)
+            mfe_pct = round((highest - entry) / entry * 100, 2)
+            mae_pct = round((lowest - entry) / entry * 100, 2)
+            realized_pct = t["return"] * 100
+            capture_pct = round(realized_pct / mfe_pct * 100, 1) if mfe_pct > 0 else None
+            t["mfe_pct"], t["mae_pct"], t["capture_pct"] = mfe_pct, mae_pct, capture_pct
+            mfe_list.append(mfe_pct)
+            mae_list.append(mae_pct)
+            if capture_pct is not None:
+                capture_list.append(capture_pct)
+
+        if not mfe_list:
+            return {"available": False}
+
+        return {
+            "available": True,
+            "avg_mfe_pct": round(sum(mfe_list) / len(mfe_list), 2),
+            "avg_mae_pct": round(sum(mae_list) / len(mae_list), 2),
+            "worst_mae_pct": round(min(mae_list), 2),
+            "avg_capture_pct": round(sum(capture_list) / len(capture_list), 1) if capture_list else None,
         }
 
     def _simulate_trades(
@@ -227,4 +283,5 @@ class BacktestEngine:
             "trades": [],
             "monthly_returns": [],
             "costs": {"total_costs": 0, "cost_pct_of_capital": 0},
+            "mfe_mae": {"available": False},
         }

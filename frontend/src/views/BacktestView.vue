@@ -150,6 +150,24 @@
           <p v-else-if="!result.overfit_check.low_trade_count || result.overfit_check.note" class="of-note">{{ result.overfit_check.note }}</p>
         </div>
 
+        <!-- B7 MFE/MAE：出場價只是「結果」，這裡看持有期間的「過程」 -->
+        <div v-if="result.mfe_mae && result.mfe_mae.available" class="card mfe-card">
+          <h4>📐 MFE / MAE 分析</h4>
+          <p class="mfe-intro">MFE＝持有期間內最有利時比進場價高多少；MAE＝最不利時比進場價低多少（負值）。擷取率＝實際報酬佔 MFE 的比例，太低代表出場太早、獲利留在桌上。</p>
+          <div class="mfe-grid">
+            <div class="mfe-stat"><span>平均 MFE</span><strong class="up">+{{ result.mfe_mae.avg_mfe_pct }}%</strong></div>
+            <div class="mfe-stat"><span>平均 MAE</span><strong class="down">{{ result.mfe_mae.avg_mae_pct }}%</strong></div>
+            <div class="mfe-stat"><span>最深 MAE（單筆最痛）</span><strong class="down">{{ result.mfe_mae.worst_mae_pct }}%</strong></div>
+            <div class="mfe-stat" v-if="result.mfe_mae.avg_capture_pct != null"><span>平均擷取率</span><strong :class="result.mfe_mae.avg_capture_pct >= 50 ? 'up' : 'down'">{{ result.mfe_mae.avg_capture_pct }}%</strong></div>
+          </div>
+          <p class="mfe-insight" v-if="result.mfe_mae.avg_capture_pct != null && result.mfe_mae.avg_capture_pct < 40">
+            💡 平均只擷取了 MFE 的 {{ result.mfe_mae.avg_capture_pct }}%——可能出場太保守，考慮用移動停利讓獲利多留一點（參考分析頁的 ATR 移動停利）。
+          </p>
+          <p class="mfe-insight" v-else-if="Math.abs(result.mfe_mae.worst_mae_pct) > 2 * Math.abs(result.mfe_mae.avg_mae_pct)">
+            💡 最深 MAE（{{ result.mfe_mae.worst_mae_pct }}%）遠比平均 MAE 深很多——代表偶爾會有單筆重壓套很深，檢查停損是否確實執行。
+          </p>
+        </div>
+
         <!-- Equity Curve Chart -->
         <div class="card" style="margin-bottom: 16px;">
           <h4>權益曲線</h4>
@@ -166,7 +184,7 @@
           <div class="data-table">
             <table>
               <thead>
-                <tr><th>進場日</th><th>出場日</th><th>進場價</th><th>出場價</th><th>報酬%</th><th>持有天數</th></tr>
+                <tr><th>進場日</th><th>出場日</th><th>進場價</th><th>出場價</th><th>報酬%</th><th>持有天數</th><th>MFE%</th><th>MAE%</th></tr>
               </thead>
               <tbody>
                 <tr v-for="(t, i) in trades" :key="i">
@@ -176,6 +194,8 @@
                   <td>{{ t.exit_price }}</td>
                   <td :class="t.return >= 0 ? 'up' : 'down'">{{ (t.return * 100).toFixed(2) }}%</td>
                   <td>{{ t.holding_days }}</td>
+                  <td class="up">{{ t.mfe_pct != null ? '+' + t.mfe_pct + '%' : '—' }}</td>
+                  <td class="down">{{ t.mae_pct != null ? t.mae_pct + '%' : '—' }}</td>
                 </tr>
               </tbody>
             </table>
@@ -406,6 +426,15 @@ function renderEquityCurve() {
 .overfit-card h4 { margin: 0 0 10px; }
 .of-warn { color: #f59e0b; font-size: 0.82rem; margin: 0 0 10px; }
 .of-note { color: var(--text-muted); font-size: 0.84rem; }
+
+.mfe-card { margin-bottom: 16px; }
+.mfe-card h4 { margin: 0 0 6px; }
+.mfe-intro { font-size: 0.8rem; color: var(--text-muted); margin: 0 0 12px; line-height: 1.6; }
+.mfe-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.mfe-stat { border: 1px solid var(--border-color); border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; }
+.mfe-stat span { font-size: 0.74rem; color: var(--text-muted); }
+.mfe-stat strong { font-size: 1.1rem; }
+.mfe-insight { margin: 12px 0 0; font-size: 0.82rem; color: #f59e0b; background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.3); border-radius: 8px; padding: 8px 12px; }
 .of-verdict {
   font-weight: 700;
   font-size: 0.9rem;

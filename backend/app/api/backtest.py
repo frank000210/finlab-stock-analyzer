@@ -166,6 +166,7 @@ async def run_backtest(req: BacktestRequest):
                 "monthly_returns": result["monthly_returns"],
                 "costs": result.get("costs", {}),
                 "overfit_check": overfit_check,
+                "mfe_mae": result.get("mfe_mae", {}),
             },
         }
     except HTTPException:
