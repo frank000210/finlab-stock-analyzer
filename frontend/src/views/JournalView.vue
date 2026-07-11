@@ -53,12 +53,17 @@
 
     <!-- 進行中 -->
     <section class="section-block" v-reveal v-if="openTrades.length">
-      <h3>進行中（{{ openTrades.length }}）</h3>
+      <div class="head-row">
+        <h3>進行中（{{ openTrades.length }}）<span class="muted small paper-tag">🧾 紙上交易 — 沒有真的下單，練習盯盤與停損紀律</span></h3>
+        <button class="btn" :disabled="pricesLoading" @click="fetchLivePrices">
+          <span v-if="pricesLoading" class="loading-spinner btn-spinner" aria-hidden="true"></span>🔄 更新現價
+        </button>
+      </div>
       <div class="table-wrap">
         <table class="j-table">
-          <thead><tr><th>代碼</th><th>方向</th><th>進場</th><th>停損</th><th>目標</th><th>張</th><th>風險(1R)</th><th>平倉價</th><th>動作</th></tr></thead>
+          <thead><tr><th>代碼</th><th>方向</th><th>進場</th><th>停損</th><th>目標</th><th>張</th><th>風險(1R)</th><th>現價</th><th>未實現R</th><th>未實現損益</th><th>平倉價</th><th>動作</th></tr></thead>
           <tbody>
-            <tr v-for="t in openTrades" :key="t.id">
+            <tr v-for="t in openTrades" :key="t.id" :class="{ 'row-breach': stopBreached(t) }">
               <td class="sym">{{ t.symbol }}<small>{{ t.name && t.name !== t.symbol ? ' ' + t.name : '' }}</small></td>
               <td :class="t.side === 'long' ? 'up' : 'down'">{{ t.side === 'long' ? '多' : '空' }}</td>
               <td>{{ fmt(t.entry) }}</td>
@@ -66,8 +71,16 @@
               <td>{{ t.target ? fmt(t.target) : '—' }}</td>
               <td>{{ t.lots }}</td>
               <td>{{ fmtInt(riskAmount(t)) }}</td>
+              <td>
+                {{ livePrice(t) != null ? fmt(livePrice(t)) : '—' }}
+                <span v-if="stopBreached(t)" class="breach-tag" title="現價已觸及停損">⚠已觸停損</span>
+              </td>
+              <td v-if="unrealizedR(t) != null"><strong :class="unrealizedR(t) >= 0 ? 'up' : 'down'">{{ unrealizedR(t) >= 0 ? '+' : '' }}{{ unrealizedR(t).toFixed(2) }}R</strong></td>
+              <td v-else>—</td>
+              <td :class="unrealizedPnl(t) != null ? (unrealizedPnl(t) >= 0 ? 'up' : 'down') : ''">{{ unrealizedPnl(t) != null ? fmtInt(unrealizedPnl(t)) : '—' }}</td>
               <td><input v-model.number="t._exitInput" type="number" class="inp w90" step="0.05" placeholder="價格" /></td>
               <td class="actions">
+                <button class="btn xs" :disabled="livePrice(t) == null" title="用目前市價直接平倉" @click="closeAtMarket(t)">現價平倉</button>
                 <button class="btn xs" @click="closeTrade(t)">平倉</button>
                 <button class="del" @click="removeTrade(t.id)" title="刪除">✕</button>
               </td>
@@ -75,6 +88,7 @@
           </tbody>
         </table>
       </div>
+      <p class="disclaimer">※ 紙上交易：未實現損益以最新市價估算，僅供練習與紀律訓練，非實際成交結果。</p>
     </section>
 
     <!-- 已平倉 -->
@@ -175,6 +189,62 @@ const formError = ref('')
 const importMsg = ref('')
 
 const openTrades = computed(() => trades.value.filter(t => t.status === 'open'))
+const openSymbols = computed(() => [...new Set(openTrades.value.map(t => t.symbol))].sort().join(','))
+
+// E16 紙上交易：進行中的部位是「紙上」的（沒有真的下單），但用即時市價算
+// 未實現損益，讓使用者練習盯盤/停損紀律，而不用真的冒風險。
+const livePrices = ref({}) // symbol -> { price, as_of, loading, error }
+const pricesLoading = ref(false)
+
+// 進行中交易的代號組合一變（新增/帶入/刪除），就重新查一次現價。
+watch(openSymbols, () => { fetchLivePrices() })
+
+async function fetchLivePrices() {
+  const symbols = [...new Set(openTrades.value.map(t => t.symbol))]
+  if (!symbols.length) return
+  pricesLoading.value = true
+  await Promise.all(symbols.map(async (sym) => {
+    livePrices.value[sym] = { ...(livePrices.value[sym] || {}), loading: true, error: '' }
+    try {
+      const resp = await fetch(`${API_BASE}/api/v1/risk/sizing/${encodeURIComponent(sym)}`)
+      const payload = await resp.json().catch(() => ({}))
+      if (!resp.ok || !payload?.data) throw new Error(payload?.detail || '查價失敗')
+      livePrices.value[sym] = { price: payload.data.price, as_of: payload.data.as_of, loading: false, error: '' }
+    } catch (e) {
+      livePrices.value[sym] = { ...(livePrices.value[sym] || {}), loading: false, error: e?.message || '查價失敗' }
+    }
+  }))
+  pricesLoading.value = false
+}
+
+function livePrice(t) { return livePrices.value[t.symbol]?.price ?? null }
+function unrealizedProfitPerShare(t) {
+  const price = livePrice(t)
+  if (price == null) return null
+  const diff = price - (Number(t.entry) || 0)
+  return t.side === 'short' ? -diff : diff
+}
+function unrealizedR(t) {
+  const pps = unrealizedProfitPerShare(t)
+  if (pps == null) return null
+  const risk = riskPerShare(t)
+  return risk > 0 ? pps / risk : null
+}
+function unrealizedPnl(t) {
+  const pps = unrealizedProfitPerShare(t)
+  return pps == null ? null : (Number(t.lots) || 0) * 1000 * pps
+}
+function stopBreached(t) {
+  const price = livePrice(t)
+  if (price == null) return false
+  return t.side === 'short' ? price >= Number(t.stop) : price <= Number(t.stop)
+}
+function closeAtMarket(t) {
+  const price = livePrice(t)
+  if (price == null) return
+  t._exitInput = price
+  closeTrade(t)
+}
 const closedTrades = computed(() => trades.value.filter(t => t.status === 'closed'))
 
 function riskPerShare(t) { return Math.abs((Number(t.entry) || 0) - (Number(t.stop) || 0)) }
@@ -476,6 +546,10 @@ onMounted(load)
 .up { color: #ef4444; } .down { color: #22c55e; }
 .empty { padding: 14px 0; }
 .disclaimer { font-size: 0.74rem; color: var(--text-muted); margin-top: 12px; }
+.btn-spinner { width: 14px; height: 14px; border-width: 2px; vertical-align: -2px; margin-right: 6px; }
+.paper-tag { display: inline-block; margin-left: 10px; font-size: 0.74rem; font-weight: 400; vertical-align: middle; }
+.row-breach { background: rgba(239, 68, 68, 0.06); }
+.breach-tag { display: inline-block; margin-left: 4px; font-size: 0.7rem; color: #ef4444; white-space: nowrap; }
 
 .analytics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 8px; }
 @media (max-width: 900px) { .analytics-grid { grid-template-columns: 1fr; } }

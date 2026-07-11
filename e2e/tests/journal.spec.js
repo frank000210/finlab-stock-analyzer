@@ -32,7 +32,7 @@ test('交易日誌 records a trade, closes it, computes R and stats', async ({ p
 
   // Close at 120 -> R = (120-100)/(100-90) = 2.00
   await page.locator('.j-table input[type="number"]').first().fill('120')
-  await page.getByRole('button', { name: '平倉' }).click()
+  await page.getByRole('button', { name: '平倉', exact: true }).click()
 
   // Realized R in the closed table, and cumulative-R stat card.
   await expect(page.locator('.j-table').first()).toContainText('+2.00R')
@@ -73,6 +73,67 @@ test('交易日誌 複盤教練 gives rule-based coaching insights (E15)', async
   await expect(coach).toContainText('只有 8 筆')
   await expect(page.locator('.coach-item.coach-bad').first()).toBeVisible()
   await expect(page.locator('.coach-item.coach-good').first()).toBeVisible()
+})
+
+test('交易日誌 紙上交易：現價、未實現損益、現價平倉 (E16)', async ({ page }) => {
+  await page.route('**/api/v1/risk/sizing/*', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        success: true,
+        data: {
+          symbol: '2330', name: '台積電', industry: '半導體業', price: 105, atr: 5, atr_period: 14, atr_pct: 4.76,
+          suggested_stops: [{ label: '穩健', mult: 2, stop_price: 95, distance: 10, distance_pct: 9.5 }],
+          as_of: '2026-07-11', source: 'finmind',
+        },
+      }),
+    })
+  })
+  await page.goto('/journal')
+  await page.evaluate(() => localStorage.setItem('finlab_trade_journal', JSON.stringify([
+    { id: 'e16-1', symbol: '2330', name: '台積電', side: 'long', entry: 100, stop: 90, target: null, lots: 1, tag: '', openDate: '2026-07-01', status: 'open', exit: null, exitDate: null },
+  ])))
+  await page.reload()
+
+  const row = page.locator('.j-table tbody tr', { hasText: '2330' })
+  // 現價 105、進場 100、停損 90 -> 未實現 R = (105-100)/(100-90) = +0.50R，未實現損益 = 1000*5 = 5,000
+  await expect(row).toContainText('105.00', { timeout: 20_000 })
+  await expect(row).toContainText('+0.50R')
+  await expect(row).toContainText('5,000')
+  await expect(row.locator('.breach-tag')).toHaveCount(0) // 105 > 90，未觸停損
+
+  // 現價平倉：用市價 105 直接平倉，移到已平倉表並算出對應 R
+  await row.getByRole('button', { name: '現價平倉' }).click()
+  await expect(page.getByRole('heading', { name: /進行中/ })).toBeHidden()
+  const closedRow = page.locator('.j-table tbody tr', { hasText: '2330' })
+  await expect(closedRow).toContainText('+0.50R')
+})
+
+test('交易日誌 紙上交易：現價觸及停損時顯示警示 (E16)', async ({ page }) => {
+  await page.route('**/api/v1/risk/sizing/*', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        success: true,
+        data: {
+          symbol: '2330', name: '台積電', industry: '半導體業', price: 85, atr: 5, atr_period: 14, atr_pct: 5.9,
+          suggested_stops: [{ label: '穩健', mult: 2, stop_price: 75, distance: 10, distance_pct: 11.8 }],
+          as_of: '2026-07-11', source: 'finmind',
+        },
+      }),
+    })
+  })
+  await page.goto('/journal')
+  await page.evaluate(() => localStorage.setItem('finlab_trade_journal', JSON.stringify([
+    { id: 'e16-2', symbol: '2330', name: '台積電', side: 'long', entry: 100, stop: 90, target: null, lots: 1, tag: '', openDate: '2026-07-01', status: 'open', exit: null, exitDate: null },
+  ])))
+  await page.reload()
+
+  const row = page.locator('.j-table tbody tr', { hasText: '2330' })
+  await expect(row.locator('.breach-tag')).toBeVisible({ timeout: 20_000 }) // 85 <= 90 停損
+  await expect(row).toHaveClass(/row-breach/)
 })
 
 test('交易日誌 匯出 CSV', async ({ page }) => {
