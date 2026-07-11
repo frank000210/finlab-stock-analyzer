@@ -27,3 +27,12 @@ app.use(createPinia())
 app.use(router)
 app.directive('reveal', reveal)
 app.mount('#app')
+
+// E18 PWA：只在正式 build 註冊（dev server 的 HMR 跟 SW 快取會互相打架）。
+if ('serviceWorker' in navigator && import.meta.env.PROD) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch((err) => {
+      console.warn('[finlab] service worker registration failed:', err)
+    })
+  })
+}
