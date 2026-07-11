@@ -17,7 +17,7 @@
         <div class="section-header">
           <div>
             <h2>MDD 風險儀表</h2>
-            <p>綠色 &lt; 2%，黃色 2-3%，紅色 &gt; 3%</p>
+            <p>綠色 &lt; {{ mddWarnPct }}%，黃色 {{ mddWarnPct }}-{{ mddPausePct }}%，紅色 ≥ {{ mddPausePct }}%</p>
           </div>
         </div>
         <div class="gauge-wrap">
@@ -40,6 +40,11 @@
         <div class="state-body">
           <span class="status-pill" :class="statusClass(circuitStatus)">{{ circuitStatus }}</span>
           <p>{{ statusDescription }}</p>
+          <div class="threshold-cfg">
+            <label>警戒 MDD<input v-model.number="mddWarnPct" type="number" min="0.5" step="0.5" class="cfg-inp" @change="saveThresholds" />%</label>
+            <label>熔斷 MDD<input v-model.number="mddPausePct" type="number" min="1" step="0.5" class="cfg-inp" @change="saveThresholds" />%</label>
+            <label>當日上限<input v-model.number="dailyTradeLimit" type="number" min="1" step="1" class="cfg-inp" @change="saveThresholds" />筆</label>
+          </div>
         </div>
       </article>
 
@@ -47,7 +52,7 @@
         <div class="section-header">
           <div>
             <h2>當日交易次數</h2>
-            <p>風控限制上限 15 筆</p>
+            <p>達 {{ warnTrades }} 筆警戒、{{ dailyTradeLimit }} 筆熔斷</p>
           </div>
         </div>
         <div class="trade-counter">
@@ -66,6 +71,7 @@
           <h2>權益曲線</h2>
           <p>依「交易日誌」已平倉紀錄按日彙總，起始為投組風險頁設定的帳戶資金</p>
         </div>
+        <span v-if="unrealizedInfo" class="badge-estimated badge-unrealized">含 {{ unrealizedInfo.priced }} 筆未實現損益</span>
         <span v-if="hasJournalData" class="badge-estimated">資料來源：交易日誌</span>
       </div>
       <div v-if="equitySeries.length" class="chart-wrapper">
@@ -99,20 +105,53 @@ import { createChart } from 'lightweight-charts'
 import * as d3 from 'd3'
 import { useChartTheme } from '../composables/useChartTheme'
 import { useJournalRisk } from '../composables/useJournalRisk'
+import { tradePnl } from '../lib/tradeMath'
 
 const theme = useChartTheme()
+const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 const loading = ref(false)
 const chartEl = ref(null)
 const histEl = ref(null)
 let chart = null
 
-const { hasJournalData, equitySeries, mddPercent, dailyTrades, dailyTradeLimit, circuitBreaker, reload } = useJournalRisk()
+const {
+  hasJournalData, equitySeries, mddPercent, dailyTrades, dailyTradeLimit,
+  mddWarnPct, mddPausePct, warnTrades, circuitBreaker, reload, saveRiskConfig,
+  openTrades, unrealizedPnl,
+} = useJournalRisk()
+
+// C2 未實現回撤：抓進行中部位的現價（與交易日誌同一個 sizing API），把
+// 浮動損益灌回權益曲線，讓 MDD/熔斷即時反映凹單中的風險。best-effort：
+// 抓不到價的部位就跳過，全都抓不到則維持只看已實現。
+const unrealizedInfo = ref(null) // { priced, total } 供 UI 標示
+async function refreshUnrealized() {
+  const open = openTrades.value
+  if (!open.length) { unrealizedInfo.value = null; return }
+  const symbols = [...new Set(open.map(t => t.symbol))]
+  const prices = {}
+  await Promise.all(symbols.map(async (sym) => {
+    try {
+      const resp = await fetch(`${API_BASE}/api/v1/risk/sizing/${encodeURIComponent(sym)}`)
+      const payload = await resp.json().catch(() => ({}))
+      if (resp.ok && payload?.data?.price > 0) prices[sym] = payload.data.price
+    } catch { /* best-effort */ }
+  }))
+  const priced = open.filter(t => prices[t.symbol] != null)
+  if (!priced.length) { unrealizedInfo.value = null; unrealizedPnl.value = null; return }
+  const total = priced.reduce((a, t) => a + tradePnl(t, prices[t.symbol]), 0)
+  unrealizedPnl.value = total
+  unrealizedInfo.value = { priced: priced.length, total }
+}
 
 const returnSeries = computed(() => computeReturns(equitySeries.value))
 
 const mddValue = computed(() => mddPercent.value / 100)
 const circuitStatus = circuitBreaker
-const tradePercent = computed(() => Math.min(100, Math.round((dailyTrades.value / Math.max(1, dailyTradeLimit)) * 100)))
+const tradePercent = computed(() => Math.min(100, Math.round((dailyTrades.value / Math.max(1, dailyTradeLimit.value)) * 100)))
+
+function saveThresholds() {
+  saveRiskConfig()
+}
 const statusDescription = computed(() => {
   if (!hasJournalData.value) return '尚無已平倉交易紀錄，請先在「交易日誌」記錄並平倉交易。'
   if (circuitStatus.value === 'ACTIVE') return '回撤與當日交易次數都在安全範圍內。'
@@ -121,12 +160,14 @@ const statusDescription = computed(() => {
   return '尚未取得狀態說明。'
 })
 const gaugeColor = computed(() => {
-  if (mddValue.value > 0.03) return theme.down
-  if (mddValue.value >= 0.02) return theme.warn
+  if (mddPercent.value >= mddPausePct.value) return theme.down
+  if (mddPercent.value >= mddWarnPct.value) return theme.warn
   return theme.up
 })
 const gaugeStyle = computed(() => {
-  const percent = Math.min(100, Math.round((mddValue.value / 0.05) * 100))
+  // 滿刻度取熔斷門檻的 1.2 倍，讓達門檻時圓環明顯接近全滿。
+  const fullScale = Math.max(1, mddPausePct.value * 1.2)
+  const percent = Math.min(100, Math.round((mddPercent.value / fullScale) * 100))
   return { background: `conic-gradient(${gaugeColor.value} ${percent}%, ${theme.border} ${percent}% 100%)` }
 })
 
@@ -145,11 +186,18 @@ onBeforeUnmount(() => {
 async function loadRiskData() {
   loading.value = true
   reload()
+  await refreshUnrealized()
   await nextTick()
   renderChart()
   renderHistogram()
   loading.value = false
 }
+
+// B2 跨分頁同步觸發 reload 後（unrealizedPnl 會被清空），重抓現價。
+watch(openTrades, (now, prev) => {
+  const key = (arr) => arr.map(t => t.id).join(',')
+  if (key(now) !== key(prev || [])) refreshUnrealized()
+})
 
 function computeReturns(series) {
   const rets = []
@@ -223,6 +271,8 @@ function renderHistogram() {
 }
 
 watch(returnSeries, () => nextTick(renderHistogram))
+// B2 跨分頁同步：storage 事件觸發 reload 後，權益曲線圖跟著重畫。
+watch(equitySeries, () => nextTick(renderChart))
 
 function renderChart() {
   if (!chartEl.value || !equitySeries.value.length) return
@@ -328,6 +378,30 @@ function statusClass(status) {
   padding: 6px 12px;
   border-radius: 999px;
   font-weight: 700;
+}
+
+.threshold-cfg {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.threshold-cfg label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.cfg-inp {
+  width: 58px;
+  background: var(--bg-well);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  border-radius: 8px;
+  padding: 4px 8px;
+  font-size: 0.82rem;
 }
 
 .is-active {
