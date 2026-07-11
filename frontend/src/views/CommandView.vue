@@ -45,6 +45,16 @@
         </label>
       </div>
 
+      <div class="loss-limit-strip" :class="'ll-' + lossLimitStatus">
+        <strong>虧損上限熔斷：</strong>
+        <span class="rg-detail">
+          今日 {{ todayR >= 0 ? '+' : '' }}{{ todayR.toFixed(1) }}R / 上限 <input v-model.number="dailyLimitR" type="number" max="0" step="0.5" class="inp ll-input" @change="saveCfg" />R
+          · 本週 {{ weekR >= 0 ? '+' : '' }}{{ weekR.toFixed(1) }}R / 上限 <input v-model.number="weeklyLimitR" type="number" max="0" step="0.5" class="inp ll-input" @change="saveCfg" />R
+        </span>
+        <span v-if="lossLimitStatus === 'danger'" class="ll-tag">🛑 已達停手門檻</span>
+        <span v-else-if="lossLimitStatus === 'warn'" class="ll-tag">⚠ 接近上限</span>
+      </div>
+
       <div v-if="corr && corr.high_pairs && corr.high_pairs.length" class="corr-warn">
         <div v-for="hp in corr.high_pairs" :key="hp.a + '-' + hp.b">
           ⚠ {{ hp.a }} × {{ hp.b }} 相關 {{ hp.corr.toFixed(2) }} — 這兩檔實質同一注，別各下滿倉、重複曝險
@@ -93,6 +103,8 @@ const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 
 const account = ref(1000000)
 const riskPct = ref(1)
+const dailyLimitR = ref(-3)
+const weeklyLimitR = ref(-6)
 const symbolsInput = ref('')
 const rows = ref([])
 const asOf = ref('')
@@ -138,6 +150,40 @@ function applyKellyRisk() {
   if (kellyRisk.value?.pct) { riskPct.value = Math.round(kellyRisk.value.pct * 10) / 10; saveCfg() }
 }
 
+// F1 每日/每週虧損上限熔斷：從交易日誌的已平倉紀錄算「今天/本週已經賠了幾個
+// R」，達到門檻就在紀律檢查裡硬性標示——連虧到位就是要停手，不是看看就好。
+function tradeRealizedR(t) {
+  const risk = Math.abs((Number(t.entry) || 0) - (Number(t.stop) || 0))
+  if (risk <= 0) return 0
+  const diff = (Number(t.exit) || 0) - (Number(t.entry) || 0)
+  const pps = t.side === 'short' ? -diff : diff
+  return pps / risk
+}
+function mondayOfThisWeek() {
+  const now = new Date()
+  const day = (now.getDay() + 6) % 7 // Mon=0..Sun=6
+  const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - day)
+  return monday
+}
+const todayStr = new Date().toISOString().slice(0, 10)
+const closedToday = computed(() => journalTrades.value.filter(t => t.status === 'closed' && t.exitDate === todayStr))
+const closedThisWeek = computed(() => {
+  const monday = mondayOfThisWeek()
+  return journalTrades.value.filter((t) => {
+    if (t.status !== 'closed' || !t.exitDate) return false
+    return new Date(t.exitDate) >= monday
+  })
+})
+const todayR = computed(() => closedToday.value.reduce((a, t) => a + tradeRealizedR(t), 0))
+const weekR = computed(() => closedThisWeek.value.reduce((a, t) => a + tradeRealizedR(t), 0))
+const dayBreached = computed(() => todayR.value <= dailyLimitR.value)
+const weekBreached = computed(() => weekR.value <= weeklyLimitR.value)
+const lossLimitStatus = computed(() => {
+  if (dayBreached.value || weekBreached.value) return 'danger'
+  if (todayR.value <= dailyLimitR.value * 0.66 || weekR.value <= weeklyLimitR.value * 0.66) return 'warn'
+  return 'safe'
+})
+
 function riskPerShare(r) { return (Number(r.price) || 0) * (Number(r.stop_dist_pct) || 0) / 100 }
 function budget() { return (Number(account.value) || 0) * effRiskPct.value / 100 }
 function rawShares(r) { const rps = riskPerShare(r); return rps > 0 ? budget() / rps : 0 }
@@ -158,6 +204,8 @@ function saveCfg() {
   localStorage.setItem('portfolio_heat_account', String(account.value))
   localStorage.setItem('finlab_risk_pct', String(riskPct.value))
   localStorage.setItem('finlab_apply_regime', applyRegime.value ? '1' : '0')
+  localStorage.setItem('finlab_daily_loss_limit_r', String(dailyLimitR.value))
+  localStorage.setItem('finlab_weekly_loss_limit_r', String(weeklyLimitR.value))
 }
 
 // E17 決策防呆閘門：按「記錄」先開紀律檢查，確認後才寫入日誌。
@@ -180,6 +228,14 @@ const gateChecks = computed(() => {
   if (regime.value) {
     checks.push({ ok: regime.value.regime !== 'defense', text: `市場體制：${regime.value.label}${regime.value.regime === 'defense' ? '——逆風環境，確定要進場？' : ''}` })
   }
+  checks.push({
+    ok: !dayBreached.value,
+    text: `今日已實現 ${todayR.value >= 0 ? '+' : ''}${todayR.value.toFixed(1)}R（單日虧損上限 ${dailyLimitR.value}R）${dayBreached.value ? '——已達今日停手門檻，不該再開新倉' : ''}`,
+  })
+  checks.push({
+    ok: !weekBreached.value,
+    text: `本週已實現 ${weekR.value >= 0 ? '+' : ''}${weekR.value.toFixed(1)}R（單週虧損上限 ${weeklyLimitR.value}R）${weekBreached.value ? '——已達本週停手門檻，考慮先休息' : ''}`,
+  })
   return checks
 })
 
@@ -260,6 +316,8 @@ onMounted(() => {
   const a = Number(localStorage.getItem('portfolio_heat_account')); if (a > 0) account.value = a
   const rp = Number(localStorage.getItem('finlab_risk_pct')); if (rp > 0) riskPct.value = rp
   applyRegime.value = localStorage.getItem('finlab_apply_regime') !== '0'
+  const dl = Number(localStorage.getItem('finlab_daily_loss_limit_r')); if (dl < 0) dailyLimitR.value = dl
+  const wkl = Number(localStorage.getItem('finlab_weekly_loss_limit_r')); if (wkl < 0) weeklyLimitR.value = wkl
   const wl = readWatchlist()
   symbolsInput.value = wl.length ? wl.join(',') : '2330,2454,2317'
   loadRegime()
@@ -296,6 +354,25 @@ onMounted(() => {
 .rg-detail { color: var(--text-muted); }
 .rg-apply { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; margin-left: auto; }
 .rg-apply em { font-style: normal; color: var(--text-primary); font-weight: 600; }
+
+.loss-limit-strip {
+  margin-top: 10px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 0.84rem;
+}
+.loss-limit-strip .ll-input { width: 60px; margin: 0 2px; }
+.ll-safe { border-color: rgba(34,197,94,0.4); background: rgba(34,197,94,0.06); }
+.ll-warn { border-color: rgba(245,158,11,0.45); background: rgba(245,158,11,0.08); }
+.ll-danger { border-color: rgba(239,68,68,0.5); background: rgba(239,68,68,0.1); }
+.ll-tag { font-weight: 700; margin-left: auto; }
+.ll-warn .ll-tag { color: #f59e0b; }
+.ll-danger .ll-tag { color: #ef4444; }
 
 .summary { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 14px 0 6px; font-size: 0.84rem; color: var(--text-muted); }
 .summary .warn { color: #f59e0b; } .summary .ok { color: #22c55e; }
