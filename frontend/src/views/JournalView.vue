@@ -355,6 +355,23 @@ const sizeConsistency = computed(() => {
   return { count: oversized.length, oversizedR: avg(oversized.map(realizedR)), normalR: avg(normal.map(realizedR)) }
 })
 
+// F3 期望值趨勢（邊際衰退偵測）：把已平倉交易按出場日排序，比較「最近 N
+// 筆」跟「更早之前」的期望值。以前有正期望值、最近卻明顯轉差，代表策略
+// 邊際可能在衰退、市場體制變了，或是執行紀律開始鬆動——不是單純的運氣
+// 波動，值得先降部位、重新檢視最近的交易，而不是照常加大力度想拗回來。
+const RECENT_TREND_N = 10
+const expectancyTrend = computed(() => {
+  const cl = closedTrades.value
+  const n = cl.length
+  if (n < 20) return null
+  const chrono = [...cl].sort((a, b) => new Date(a.exitDate || 0) - new Date(b.exitDate || 0))
+  const recent = chrono.slice(-RECENT_TREND_N)
+  const earlier = chrono.slice(0, n - RECENT_TREND_N)
+  if (!earlier.length) return null
+  const avg = (arr) => arr.reduce((a, t) => a + realizedR(t), 0) / arr.length
+  return { recentR: avg(recent), earlierR: avg(earlier), recentN: recent.length, earlierN: earlier.length }
+})
+
 // E15 複盤教練：純用既有統計（stats/byTag）產生規則式建議，不打任何 API。
 // tone 排序 bad > warn > good > info；最多顯示 6 條，避免資訊過載。
 const coachInsights = computed(() => {
@@ -414,7 +431,16 @@ const coachInsights = computed(() => {
     })
   }
 
-  // 7. 樣本數不足：統計還不太可靠
+  // 7. 期望值趨勢：最近表現比先前基準明顯轉差（邊際衰退）
+  const et = expectancyTrend.value
+  if (et && et.earlierR > 0.1 && et.recentR < et.earlierR - 0.4) {
+    out.push({
+      tone: 'warn', icon: '🕰️',
+      text: `最近 ${et.recentN} 筆期望值 ${et.recentR.toFixed(2)}R，比先前 ${et.earlierN} 筆的 ${et.earlierR.toFixed(2)}R 明顯轉差——留意是策略邊際真的在衰退、市場體制變了，還是自己執行紀律開始鬆動（提早出場、追高進場）。建議先降低部位到有把握的水準，重新檢視最近的交易。`,
+    })
+  }
+
+  // 8. 樣本數不足：統計還不太可靠
   if (s.count < 15) {
     out.push({
       tone: 'info', icon: 'ℹ️',
@@ -422,7 +448,7 @@ const coachInsights = computed(() => {
     })
   }
 
-  // 8. 沒有任何警訊時的正向回饋
+  // 9. 沒有任何警訊時的正向回饋
   if (!out.some(x => x.tone === 'bad' || x.tone === 'warn') && s.count >= 10 && s.expectancyR > 0 && s.profitFactor >= 1.5) {
     out.push({
       tone: 'good', icon: '✅',
