@@ -337,6 +337,24 @@ const byTag = computed(() => {
   }).sort((a, b) => b.totalR - a.totalR)
 })
 
+// F2 部位大小一致性：抓「哪幾筆押注明顯比平常大」（風險金額 ≥ 該交易者
+// 自己歷史中位數的 1.5 倍），再看這些押得比較重的交易表現是不是反而比較
+// 差——常是報復性下單/情緒化加碼的訊號，而非真的更有信心的紀律決策。
+const sizeConsistency = computed(() => {
+  const cl = closedTrades.value
+  if (cl.length < 8) return null
+  const amounts = cl.map(riskAmount).filter(a => a > 0).sort((a, b) => a - b)
+  if (amounts.length < 8) return null
+  const mid = Math.floor(amounts.length / 2)
+  const median = amounts.length % 2 ? amounts[mid] : (amounts[mid - 1] + amounts[mid]) / 2
+  if (median <= 0) return null
+  const oversized = cl.filter(t => riskAmount(t) >= median * 1.5)
+  const normal = cl.filter(t => riskAmount(t) < median * 1.5)
+  if (oversized.length < 3 || normal.length < 3) return null
+  const avg = (arr) => arr.reduce((a, b) => a + b, 0) / arr.length
+  return { count: oversized.length, oversizedR: avg(oversized.map(realizedR)), normalR: avg(normal.map(realizedR)) }
+})
+
 // E15 複盤教練：純用既有統計（stats/byTag）產生規則式建議，不打任何 API。
 // tone 排序 bad > warn > good > info；最多顯示 6 條，避免資訊過載。
 const coachInsights = computed(() => {
@@ -387,7 +405,16 @@ const coachInsights = computed(() => {
     })
   }
 
-  // 6. 樣本數不足：統計還不太可靠
+  // 6. 部位大小一致性：押得比平常大的那些單，表現反而更差
+  const sc = sizeConsistency.value
+  if (sc && sc.oversizedR < sc.normalR - 0.3) {
+    out.push({
+      tone: 'warn', icon: '⚖️',
+      text: `押注明顯偏大（風險金額 ≥ 平時 1.5 倍）的 ${sc.count} 筆，平均 ${sc.oversizedR.toFixed(2)}R，比一般大小的 ${sc.normalR.toFixed(2)}R 還差——加碼的那幾筆常是情緒化決策而非紀律決策，建議把單筆風險金額固定下來，別憑感覺放大。`,
+    })
+  }
+
+  // 7. 樣本數不足：統計還不太可靠
   if (s.count < 15) {
     out.push({
       tone: 'info', icon: 'ℹ️',
@@ -395,7 +422,7 @@ const coachInsights = computed(() => {
     })
   }
 
-  // 7. 沒有任何警訊時的正向回饋
+  // 8. 沒有任何警訊時的正向回饋
   if (!out.some(x => x.tone === 'bad' || x.tone === 'warn') && s.count >= 10 && s.expectancyR > 0 && s.profitFactor >= 1.5) {
     out.push({
       tone: 'good', icon: '✅',
