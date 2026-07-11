@@ -144,6 +144,7 @@ const navGroups = [
       { key: 'decision', icon: '🎯', label: '決策面板', cta: true, to: () => '/decision' },
       { key: 'command', icon: '⚡', label: '作戰台', to: () => '/command' },
       { key: 'signals', icon: '📡', label: '訊號', to: () => '/signals' },
+      { key: 'daily-brief', icon: '📋', label: '盤後日報', to: () => '/daily-brief' },
       { key: 'overview', icon: '📊', label: '總覽', to: () => '/overview' },
     ],
   },

@@ -102,6 +102,11 @@ const routes = [
     component: () => import('./views/SignalsView.vue'),
   },
   {
+    path: '/daily-brief',
+    name: 'daily-brief',
+    component: () => import('./views/DailyBriefView.vue'),
+  },
+  {
     path: '/command',
     name: 'command',
     component: () => import('./views/CommandView.vue'),

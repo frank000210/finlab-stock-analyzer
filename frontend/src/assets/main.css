@@ -184,7 +184,7 @@ p { line-height: 1.65; color: var(--text-secondary); }
 .risk-sizing-view .section-block, .portfolio-heat-view .section-block,
 .journal-view .section-block, .mc-view .section-block,
 .signals-view .section-block, .command-view .section-block,
-.price-alert-view .section-block {
+.price-alert-view .section-block, .daily-brief-view .section-block {
   background: var(--bg-card);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
@@ -213,32 +213,38 @@ p { line-height: 1.65; color: var(--text-secondary); }
    數值，之後同一批頁面新增樣式改這裡就好，不用每頁各補一次。 */
 .risk-sizing-view .muted, .portfolio-heat-view .muted, .journal-view .muted,
 .mc-view .muted, .signals-view .muted, .command-view .muted, .price-alert-view .muted,
+.daily-brief-view .muted,
 .risk-sizing-view .small, .portfolio-heat-view .small, .journal-view .small,
-.mc-view .small, .signals-view .small, .command-view .small, .price-alert-view .small {
+.mc-view .small, .signals-view .small, .command-view .small, .price-alert-view .small,
+.daily-brief-view .small {
   color: var(--text-muted);
 }
-.signals-view .small, .price-alert-view .small, .journal-view .small { font-size: 0.8rem; }
+.signals-view .small, .price-alert-view .small, .journal-view .small, .daily-brief-view .small { font-size: 0.8rem; }
 
 .risk-sizing-view .error-text, .portfolio-heat-view .error-text, .journal-view .error-text,
-.mc-view .error-text, .signals-view .error-text, .command-view .error-text, .price-alert-view .error-text {
+.mc-view .error-text, .signals-view .error-text, .command-view .error-text, .price-alert-view .error-text,
+.daily-brief-view .error-text {
   color: var(--color-up);
   margin-top: 8px;
 }
 
 .risk-sizing-view .empty, .portfolio-heat-view .empty, .journal-view .empty,
-.mc-view .empty, .signals-view .empty, .command-view .empty, .price-alert-view .empty {
+.mc-view .empty, .signals-view .empty, .command-view .empty, .price-alert-view .empty,
+.daily-brief-view .empty {
   padding: 16px 0;
 }
 
 .risk-sizing-view .disclaimer, .portfolio-heat-view .disclaimer, .journal-view .disclaimer,
-.mc-view .disclaimer, .signals-view .disclaimer, .command-view .disclaimer, .price-alert-view .disclaimer {
+.mc-view .disclaimer, .signals-view .disclaimer, .command-view .disclaimer, .price-alert-view .disclaimer,
+.daily-brief-view .disclaimer {
   font-size: 0.74rem;
   color: var(--text-muted);
   margin-top: 12px;
 }
 
 .risk-sizing-view .btn-spinner, .portfolio-heat-view .btn-spinner, .journal-view .btn-spinner,
-.signals-view .btn-spinner, .command-view .btn-spinner, .price-alert-view .btn-spinner {
+.signals-view .btn-spinner, .command-view .btn-spinner, .price-alert-view .btn-spinner,
+.daily-brief-view .btn-spinner {
   width: 14px; height: 14px; border-width: 2px; vertical-align: -2px; margin-right: 6px;
 }
 
