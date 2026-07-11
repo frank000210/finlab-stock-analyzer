@@ -112,8 +112,8 @@
             <li :class="riskPct <= 2 ? 'ok' : 'bad'">{{ riskPct <= 2 ? '✓' : '✗' }} 單筆風險 {{ riskPct }}%（建議 ≤ 2%）</li>
             <li v-if="target" :class="rr >= 2 ? 'ok' : 'bad'">{{ rr >= 2 ? '✓' : '✗' }} 風報比 1:{{ rr.toFixed(2) }}（建議 ≥ 1:2）</li>
             <li :class="pctOfAccount <= 30 ? 'ok' : 'bad'">{{ pctOfAccount <= 30 ? '✓' : '✗' }} 單一部位佔資金 {{ pctOfAccount.toFixed(1) }}%（避免過度集中，建議 ≤ 30%）</li>
-            <li v-if="existingPositions.length" :class="projectedHeatPct <= 6 ? 'ok' : 'bad'">
-              {{ projectedHeatPct <= 6 ? '✓' : '✗' }} 加上這筆後投組總風險熱度 {{ projectedHeatPct.toFixed(1) }}%（含投組風險頁 {{ existingPositions.length }} 筆既有部位，建議 ≤ 6%）
+            <li v-if="existingPositions.length || journalOnlyCount" :class="projectedHeatPct <= 6 ? 'ok' : 'bad'">
+              {{ projectedHeatPct <= 6 ? '✓' : '✗' }} 加上這筆後投組總風險熱度 {{ projectedHeatPct.toFixed(1) }}%（含投組風險頁 {{ existingPositions.length }} 筆既有部位{{ journalOnlyCount ? `、交易日誌 ${journalOnlyCount} 筆進行中部位` : '' }}，建議 ≤ 6%）
             </li>
           </ul>
           <p class="disclaimer">※ 本工具僅為風險試算，非投資建議；停損/目標請自行判斷。</p>
@@ -165,7 +165,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useStockStore } from '../stores/stock.js'
 import DataLineage from '../components/DataLineage.vue'
-import { loadJournal, journalWinStats } from '../lib/tradeMath'
+import { loadJournal, journalWinStats, riskAmount as journalRiskAmount } from '../lib/tradeMath'
 import { tvChartUrl } from '../lib/tradingview'
 
 const route = useRoute()
@@ -220,11 +220,25 @@ function loadExistingPositions() {
     if (Array.isArray(raw)) existingPositions.value = raw
   } catch { /* ignore */ }
 }
+// E1：投組風險頁只顯示手動記的部位，交易日誌裡的進行中部位（同代碼沒有
+// 重複記在投組風險頁時）也是真實曝險，一併算進「加上這筆後」的預覽，避免
+// 低估。用代碼去重：投組風險頁的手動記錄視為權威版本，日誌只補它沒有的。
+const journalOnlyForHeat = computed(() => {
+  const sym = String(symbolInput.value || '').trim().toUpperCase()
+  const manualSymbols = new Set(existingPositions.value.map(p => String(p.symbol || '').trim().toUpperCase()))
+  return loadJournal()
+    .filter(t => t.status === 'open')
+    .filter(t => String(t.symbol || '').trim().toUpperCase() !== sym)
+    .filter(t => !manualSymbols.has(String(t.symbol || '').trim().toUpperCase()))
+})
+const journalOnlyCount = computed(() => journalOnlyForHeat.value.length)
 const existingRiskAmount = computed(() => {
   const sym = String(symbolInput.value || '').trim().toUpperCase()
-  return existingPositions.value
+  const manualRisk = existingPositions.value
     .filter(p => String(p.symbol || '').trim().toUpperCase() !== sym)
     .reduce((a, p) => a + (Number(p.lots) || 0) * 1000 * Math.abs((Number(p.entry) || 0) - (Number(p.stop) || 0)), 0)
+  const journalRisk = journalOnlyForHeat.value.reduce((a, t) => a + journalRiskAmount(t), 0)
+  return manualRisk + journalRisk
 })
 const projectedHeatPct = computed(() => (account.value > 0 ? (existingRiskAmount.value + capitalAtRisk.value) / account.value * 100 : 0))
 const directionLabel = computed(() => {

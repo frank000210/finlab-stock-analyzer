@@ -22,6 +22,9 @@
           <span class="slabel">總風險熱度</span>
           <strong class="sval">{{ totalHeat.toFixed(2) }}%</strong>
           <span class="shint">{{ heatText }}</span>
+          <span v-if="journalOnlyPositions.length" class="shint">
+            含交易日誌 {{ journalOnlyPositions.length }} 檔進行中部位（{{ journalHeatPct.toFixed(2) }}%）
+          </span>
         </div>
         <div class="scard"><span class="slabel">部位數</span><strong class="sval">{{ positions.length }}</strong></div>
         <div class="scard"><span class="slabel">總部位金額</span><strong class="sval">{{ fmtInt(totalValue) }}</strong><span class="shint">佔資金 {{ deployedPct.toFixed(1) }}%</span></div>
@@ -74,6 +77,28 @@
         </table>
       </div>
       <p v-else class="muted empty">尚無部位。加入幾檔持股，看看你的總熱度與產業集中度。</p>
+
+      <!-- E1：交易日誌進行中部位（唯讀）——避免同一檔部位分別記在兩處時，
+           總風險熱度只看得到手動加的這半、低估真實曝險。這裡的部位不能在
+           本頁編輯/刪除，請到「交易日誌」調整；也不參與情境壓測/相關性
+           (缺現價與產業資料)，只計入總風險熱度，維持頁面其餘功能不變。 -->
+      <div v-if="journalOnlyPositions.length" class="table-wrap journal-positions">
+        <p class="muted small">交易日誌進行中部位（唯讀，已計入總風險熱度；如與上方手動部位重複，請以手動部位為準並到交易日誌調整）</p>
+        <table class="pos-table">
+          <thead><tr><th>代碼</th><th>方向</th><th>進場</th><th>停損</th><th>張數</th><th>風險金額</th><th>風險%</th></tr></thead>
+          <tbody>
+            <tr v-for="p in journalOnlyPositions" :key="p.symbol + '-' + p.id">
+              <td class="sym">{{ p.symbol }}<small>{{ p.name && p.name !== p.symbol ? ' ' + p.name : '' }}</small></td>
+              <td :class="p.side === 'long' ? 'up' : 'down'">{{ p.side === 'long' ? '多' : '空' }}</td>
+              <td>{{ fmt(p.entry) }}</td>
+              <td>{{ fmt(p.stop) }}</td>
+              <td>{{ p.lots }}</td>
+              <td>{{ fmtInt(riskAmount(p)) }}</td>
+              <td>{{ (account > 0 ? riskAmount(p) / account * 100 : 0).toFixed(2) }}%</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </section>
 
     <section class="section-block" v-reveal v-if="sectorHeat.length">
@@ -172,6 +197,7 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
+import { loadJournal, riskAmount } from '../lib/tradeMath'
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 const LS_POS = 'portfolio_heat_positions'
@@ -221,7 +247,17 @@ function posRisk(p) { return posShares(p) * Math.abs((Number(p.entry) || 0) - (N
 function posRiskPct(p) { return account.value > 0 ? posRisk(p) / account.value * 100 : 0 }
 function posUnreal(p) { return p.price ? posShares(p) * (Number(p.price) - Number(p.entry)) : 0 }
 
-const totalHeat = computed(() => positions.value.reduce((a, p) => a + posRiskPct(p), 0))
+// E1：交易日誌的進行中部位若跟這頁手動記的不是同一批，總熱度只算手動部位
+// 會低估真實曝險。用代碼去重（手動部位優先，視為同一檔的權威記錄），只把
+// 日誌裡「這頁沒有」的代碼之風險金額併入總熱度。
+const journalOnlyPositions = computed(() => {
+  const tracked = new Set(positions.value.map(p => String(p.symbol || '').trim().toUpperCase()))
+  return loadJournal().filter(t => t.status === 'open' && !tracked.has(String(t.symbol || '').trim().toUpperCase()))
+})
+const journalRiskAmount = computed(() => journalOnlyPositions.value.reduce((a, t) => a + riskAmount(t), 0))
+const journalHeatPct = computed(() => (account.value > 0 ? journalRiskAmount.value / account.value * 100 : 0))
+
+const totalHeat = computed(() => positions.value.reduce((a, p) => a + posRiskPct(p), 0) + journalHeatPct.value)
 const totalValue = computed(() => positions.value.reduce((a, p) => a + posValue(p), 0))
 const deployedPct = computed(() => (account.value > 0 ? totalValue.value / account.value * 100 : 0))
 const totalUnrealized = computed(() => positions.value.reduce((a, p) => a + posUnreal(p), 0))
@@ -444,6 +480,8 @@ strong.warn { color: #f59e0b; }
 .spct { font-size: 0.8rem; text-align: right; color: var(--text-muted); }
 
 .import-msg { margin-top: 8px; font-size: 0.82rem; }
+.journal-positions { margin-top: 18px; }
+.journal-positions .small { font-size: 0.8rem; margin-bottom: 6px; }
 .notify-row { margin-top: 12px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .high-pairs { display: flex; flex-direction: column; gap: 6px; margin: 12px 0; }
 .hp-warn { background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.4); color: #f87171; border-radius: 10px; padding: 8px 12px; font-size: 0.86rem; }

@@ -50,3 +50,24 @@ test('部位風控 沒有投組部位時不顯示投組總風險熱度提示 (F6
   await expect(page.locator('.mval').first()).toBeVisible({ timeout: 30_000 })
   await expect(page.locator('.checklist li', { hasText: '投組總風險熱度' })).toHaveCount(0)
 })
+
+// E1: 交易日誌的進行中部位（沒有重複記錄在投組風險頁時）也是真實曝險，
+// 沒有手動部位時過去完全不顯示這個提示，會漏看日誌裡的曝險。
+test('部位風控 只有交易日誌部位、沒有手動投組部位時也顯示投組總風險熱度 (E1)', async ({ page }) => {
+  await page.goto('/risk-sizing')
+  await page.evaluate(() => {
+    localStorage.removeItem('portfolio_heat_positions')
+    localStorage.setItem('finlab_trade_journal', JSON.stringify([
+      { id: 'j1', symbol: '2454', name: '聯發科', side: 'long', entry: 100, stop: 90, target: null, lots: 1000, tag: '', openDate: '2026-07-01', status: 'open', exit: null, exitDate: null },
+    ]))
+  })
+  await page.reload()
+
+  await page.getByRole('spinbutton').first().fill('50000000')
+  await expect(page.locator('.rcard.hl strong')).not.toContainText('0 張')
+
+  const projected = page.locator('.checklist li', { hasText: '投組總風險熱度' })
+  await expect(projected).toBeVisible()
+  await expect(projected).toContainText('0 筆既有部位')
+  await expect(projected).toContainText('交易日誌 1 筆進行中部位')
+})
