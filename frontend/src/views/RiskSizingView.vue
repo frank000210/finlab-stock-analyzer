@@ -111,6 +111,9 @@
             <li :class="riskPct <= 2 ? 'ok' : 'bad'">{{ riskPct <= 2 ? '✓' : '✗' }} 單筆風險 {{ riskPct }}%（建議 ≤ 2%）</li>
             <li v-if="target" :class="rr >= 2 ? 'ok' : 'bad'">{{ rr >= 2 ? '✓' : '✗' }} 風報比 1:{{ rr.toFixed(2) }}（建議 ≥ 1:2）</li>
             <li :class="pctOfAccount <= 30 ? 'ok' : 'bad'">{{ pctOfAccount <= 30 ? '✓' : '✗' }} 單一部位佔資金 {{ pctOfAccount.toFixed(1) }}%（避免過度集中，建議 ≤ 30%）</li>
+            <li v-if="existingPositions.length" :class="projectedHeatPct <= 6 ? 'ok' : 'bad'">
+              {{ projectedHeatPct <= 6 ? '✓' : '✗' }} 加上這筆後投組總風險熱度 {{ projectedHeatPct.toFixed(1) }}%（含投組風險頁 {{ existingPositions.length }} 筆既有部位，建議 ≤ 6%）
+            </li>
           </ul>
           <p class="disclaimer">※ 本工具僅為風險試算，非投資建議；停損/目標請自行判斷。</p>
         </template>
@@ -202,6 +205,25 @@ const expectancyR = computed(() => {
   return p * rr.value - (1 - p) * 1
 })
 const expectancyMoney = computed(() => (expectancyR.value === null ? 0 : expectancyR.value * capitalAtRisk.value))
+
+// F6 加碼後總風險熱度預覽：部位風控頁只算單一部位，看不到「這筆若真的
+// 加進投組，總曝險會變成多少」——常常是單筆算得漂漂亮亮，加總後才發現
+// 投組已經超過建議上限。讀取投組風險頁（Portfolio Heat）既有部位，排除
+// 同代碼舊部位（假設是換單，不是疊加），算出加上這筆後的投組總風險熱度。
+const existingPositions = ref([])
+function loadExistingPositions() {
+  try {
+    const raw = JSON.parse(localStorage.getItem('portfolio_heat_positions') || '[]')
+    if (Array.isArray(raw)) existingPositions.value = raw
+  } catch { /* ignore */ }
+}
+const existingRiskAmount = computed(() => {
+  const sym = String(symbolInput.value || '').trim().toUpperCase()
+  return existingPositions.value
+    .filter(p => String(p.symbol || '').trim().toUpperCase() !== sym)
+    .reduce((a, p) => a + (Number(p.lots) || 0) * 1000 * Math.abs((Number(p.entry) || 0) - (Number(p.stop) || 0)), 0)
+})
+const projectedHeatPct = computed(() => (account.value > 0 ? (existingRiskAmount.value + capitalAtRisk.value) / account.value * 100 : 0))
 const directionLabel = computed(() => {
   if (!valid.value) return ''
   return (entry.value > stop.value) ? '做多情境' : '做空情境'
@@ -318,6 +340,7 @@ onMounted(() => {
   const rp = Number(localStorage.getItem('finlab_risk_pct')); if (rp > 0) riskPct.value = rp
   const q = route.query.symbol
   if (q) symbolInput.value = String(q).trim().toUpperCase()
+  loadExistingPositions()
   loadMarket()
 })
 </script>
