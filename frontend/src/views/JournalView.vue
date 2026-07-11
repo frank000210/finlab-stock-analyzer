@@ -397,6 +397,25 @@ const overtradingDay = computed(() => {
   return null
 })
 
+// F5 停損執行紀律：虧損交易的實際出場價，有沒有真的在停損價附近出場，還是
+// 凹單讓虧損超過原本設定的停損（尤其做多不設停損就跑，虧更深）。這是「執行
+// 有沒有照計畫」的問題，跟賺賠不對稱、部位大小、頻率都是不同角度。
+const stopAdherence = computed(() => {
+  const losers = closedTrades.value.filter(t => realizedR(t) < 0)
+  if (losers.length < 5) return null
+  const blownThrough = losers.filter((t) => {
+    const risk = riskPerShare(t)
+    if (risk <= 0) return false
+    const diff = t.side === 'short' ? (Number(t.exit) || 0) - (Number(t.stop) || 0) : (Number(t.stop) || 0) - (Number(t.exit) || 0)
+    return diff > risk * 0.1
+  })
+  if (blownThrough.length < 3) return null
+  const ratio = blownThrough.length / losers.length
+  if (ratio < 0.4) return null
+  const avgBlownR = blownThrough.reduce((a, t) => a + realizedR(t), 0) / blownThrough.length
+  return { count: blownThrough.length, total: losers.length, ratio, avgBlownR }
+})
+
 // E15 複盤教練：純用既有統計（stats/byTag）產生規則式建議，不打任何 API。
 // tone 排序 bad > warn > good > info；最多顯示 6 條，避免資訊過載。
 const coachInsights = computed(() => {
@@ -412,7 +431,16 @@ const coachInsights = computed(() => {
     })
   }
 
-  // 2. 連續虧損過多：情緒最容易在此時被放大成報復性下單
+  // 2. 停損執行紀律：虧損交易常常凹單超過原本設定的停損
+  const sa = stopAdherence.value
+  if (sa) {
+    out.push({
+      tone: 'bad', icon: '⛔',
+      text: `近 ${sa.total} 筆虧損交易中，有 ${sa.count} 筆（${(sa.ratio * 100).toFixed(0)}%）實際出場價比原本設定的停損還差——代表停損常常沒有照計畫執行、放任虧損擴大（凹單）。這些凹過頭的交易平均 ${sa.avgBlownR.toFixed(2)}R，通常比乾脆照停損出場更慘。停損要嘛照設定執行、要嘛出場前先改單，別盤中臨時凹單。`,
+    })
+  }
+
+  // 3. 連續虧損過多：情緒最容易在此時被放大成報復性下單
   if (s.maxConsecLoss >= 4) {
     out.push({
       tone: 'warn', icon: '🔥',
@@ -420,7 +448,7 @@ const coachInsights = computed(() => {
     })
   }
 
-  // 3. 整體期望值為負且樣本夠大：目前做法長期是虧錢的
+  // 4. 整體期望值為負且樣本夠大：目前做法長期是虧錢的
   if (s.count >= 10 && s.expectancyR < 0) {
     out.push({
       tone: 'bad', icon: '📉',
@@ -428,7 +456,7 @@ const coachInsights = computed(() => {
     })
   }
 
-  // 4. 最拖累績效的型態：筆數夠多、期望值為負
+  // 5. 最拖累績效的型態：筆數夠多、期望值為負
   const tags = byTag.value
   const worstTag = tags.find(g => g.count >= 5 && g.expectancyR < 0)
   if (worstTag) {
@@ -438,7 +466,7 @@ const coachInsights = computed(() => {
     })
   }
 
-  // 5. 表現最好的型態：值得集中火力
+  // 6. 表現最好的型態：值得集中火力
   const bestTag = tags.find(g => g.count >= 3 && g.expectancyR >= 0.3)
   if (bestTag) {
     out.push({
@@ -447,7 +475,7 @@ const coachInsights = computed(() => {
     })
   }
 
-  // 6. 部位大小一致性：押得比平常大的那些單，表現反而更差
+  // 7. 部位大小一致性：押得比平常大的那些單，表現反而更差
   const sc = sizeConsistency.value
   if (sc && sc.oversizedR < sc.normalR - 0.3) {
     out.push({
@@ -456,7 +484,7 @@ const coachInsights = computed(() => {
     })
   }
 
-  // 7. 期望值趨勢：最近表現比先前基準明顯轉差（邊際衰退）
+  // 8. 期望值趨勢：最近表現比先前基準明顯轉差（邊際衰退）
   const et = expectancyTrend.value
   if (et && et.earlierR > 0.1 && et.recentR < et.earlierR - 0.4) {
     out.push({
@@ -465,7 +493,7 @@ const coachInsights = computed(() => {
     })
   }
 
-  // 8. 過度交易：某天筆數暴增，不管賺賠都是衝動下單的訊號
+  // 9. 過度交易：某天筆數暴增，不管賺賠都是衝動下單的訊號
   const ot = overtradingDay.value
   if (ot) {
     out.push({
@@ -474,7 +502,7 @@ const coachInsights = computed(() => {
     })
   }
 
-  // 9. 樣本數不足：統計還不太可靠
+  // 10. 樣本數不足：統計還不太可靠
   if (s.count < 15) {
     out.push({
       tone: 'info', icon: 'ℹ️',
@@ -482,7 +510,7 @@ const coachInsights = computed(() => {
     })
   }
 
-  // 10. 沒有任何警訊時的正向回饋
+  // 11. 沒有任何警訊時的正向回饋
   if (!out.some(x => x.tone === 'bad' || x.tone === 'warn') && s.count >= 10 && s.expectancyR > 0 && s.profitFactor >= 1.5) {
     out.push({
       tone: 'good', icon: '✅',
