@@ -92,6 +92,11 @@ const routes = [
     component: () => import('./views/MonteCarloView.vue'),
   },
   {
+    path: '/price-alerts',
+    name: 'price-alerts',
+    component: () => import('./views/PriceAlertView.vue'),
+  },
+  {
     path: '/signals',
     name: 'signals',
     component: () => import('./views/SignalsView.vue'),

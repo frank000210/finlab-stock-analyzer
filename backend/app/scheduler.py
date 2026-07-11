@@ -16,7 +16,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
 
 logger = logging.getLogger(__name__)
 
@@ -98,6 +98,35 @@ async def _brief_loop(run_hour: int, run_minute: int) -> None:
 
 _brief_task: asyncio.Task | None = None
 
+_TW_MARKET_OPEN = time(9, 0)
+_TW_MARKET_CLOSE = time(13, 35)
+
+
+async def _alert_loop(interval_minutes: int) -> None:
+    """C10 價格警報：只在台股盤中（週一~五 09:00-13:35）才實際檢查，避免
+    收盤後浪費資料源額度做無意義的輪詢。"""
+    while True:
+        try:
+            await asyncio.sleep(interval_minutes * 60)
+            now = datetime.now(_TW)
+            if now.weekday() < 5 and _TW_MARKET_OPEN <= now.time() <= _TW_MARKET_CLOSE:
+                from .api.risk import run_alert_check
+
+                result = await run_alert_check()
+                if result.get("checked"):
+                    logger.info(
+                        "price-alert: checked=%s triggered=%s",
+                        result.get("checked"), result.get("triggered"),
+                    )
+        except asyncio.CancelledError:
+            break
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("price-alert loop error: %s", exc)
+            await asyncio.sleep(300)
+
+
+_alert_task: asyncio.Task | None = None
+
 
 def start_scheduler() -> None:
     """在 FastAPI lifespan 啟動時呼叫。"""
@@ -125,12 +154,26 @@ def start_scheduler() -> None:
         _brief_task = asyncio.create_task(_brief_loop(b_hour, b_minute))
         logger.info("daily-brief scheduler started (daily %02d:%02d TW, weekdays)", b_hour, b_minute)
 
+    # C10：價格警報，盤中每 N 分鐘檢查一次（預設 20 分鐘；PRICE_ALERT_ENABLED=false 關閉）
+    if os.getenv("PRICE_ALERT_ENABLED", "true").lower() in ("0", "false", "no", "off"):
+        logger.info("price-alert scheduler disabled by PRICE_ALERT_ENABLED")
+    elif _alert_task is None:
+        try:
+            interval = int(os.getenv("PRICE_ALERT_INTERVAL_MIN", "20"))
+        except ValueError:
+            interval = 20
+        _alert_task = asyncio.create_task(_alert_loop(interval))
+        logger.info("price-alert scheduler started (every %d min, market hours TW weekdays)", interval)
+
 
 def stop_scheduler() -> None:
-    global _task, _brief_task
+    global _task, _brief_task, _alert_task
     if _task is not None:
         _task.cancel()
         _task = None
     if _brief_task is not None:
         _brief_task.cancel()
         _brief_task = None
+    if _alert_task is not None:
+        _alert_task.cancel()
+        _alert_task = None

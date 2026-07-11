@@ -175,6 +175,7 @@ const navGroups = [
       { key: 'portfolio-heat', icon: '🔥', label: '投組風險', to: () => '/portfolio-heat' },
       { key: 'journal', icon: '📓', label: '交易日誌', to: () => '/journal' },
       { key: 'monte-carlo', icon: '🎲', label: '風險模擬', to: () => '/monte-carlo' },
+      { key: 'price-alerts', icon: '🔔', label: '價格警報', to: () => '/price-alerts' },
     ],
   },
   {

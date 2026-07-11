@@ -197,6 +197,153 @@ async def daily_brief_send():
         raise HTTPException(status_code=502, detail=f"日報推播失敗：{exc}")
 
 
+_MAX_PRICE_ALERTS = 50
+
+
+class PriceAlertReq(BaseModel):
+    symbol: str
+    direction: str  # "above" | "below"
+    target_price: float
+    note: str = ""
+
+
+async def run_alert_check() -> dict:
+    """檢查所有啟用中的價格警報（C10）：現價觸及設定門檻就推播 Telegram 並標記
+    已觸發（一次性，不會每次檢查都重複推播）。排程與手動端點共用同一份邏輯。
+    """
+    from datetime import date, datetime, timedelta
+
+    from ..config.settings import get_settings
+    from ..crawler.stock_price import StockPriceCrawler
+    from ..data.us_symbols import normalize_symbol
+    from ..db.cache import get_setting, set_setting
+    from ..notify.telegram import send_telegram
+
+    alerts = await get_setting("price_alerts", []) or []
+    active = [a for a in alerts if a.get("active") and not a.get("triggered")]
+    if not active:
+        return {"checked": 0, "triggered": 0}
+
+    symbols = sorted(set(normalize_symbol(a["symbol"]) for a in active))
+    crawler = StockPriceCrawler()
+    end = date.today()
+    start = end - timedelta(days=10)
+
+    prices: dict[str, float] = {}
+    for sym in symbols:
+        try:
+            df = await crawler.get_price(sym, start.isoformat(), end.isoformat(), "1d")
+            if df is not None and not df.empty:
+                prices[sym] = float(df.sort_values("date")["close"].iloc[-1])
+        except Exception:
+            continue
+
+    s = get_settings()
+    token = (s.telegram_bot_token or "").strip()
+    chat = (s.telegram_chat_id or "").strip()
+
+    now_iso = datetime.utcnow().isoformat()
+    triggered_count = 0
+    for a in alerts:
+        if not a.get("active") or a.get("triggered"):
+            continue
+        price = prices.get(normalize_symbol(a["symbol"]))
+        if price is None:
+            continue
+        a["last_price"] = price
+        a["last_checked_at"] = now_iso
+        hit = (
+            (a["direction"] == "above" and price >= a["target_price"])
+            or (a["direction"] == "below" and price <= a["target_price"])
+        )
+        if hit:
+            a["triggered"] = True
+            a["triggered_at"] = now_iso
+            triggered_count += 1
+            if token and chat:
+                dir_label = "漲破" if a["direction"] == "above" else "跌破"
+                msg = f"🔔 價格警報：{a['symbol']} 已{dir_label} {a['target_price']}（現價 {price}）"
+                if a.get("note"):
+                    msg += f"\n備註：{a['note']}"
+                try:
+                    await send_telegram(msg, token, chat)
+                except Exception:
+                    pass
+    await set_setting("price_alerts", alerts)
+    return {"checked": len(symbols), "triggered": triggered_count}
+
+
+@router.get("/alerts")
+async def list_alerts():
+    """列出所有價格警報（含最後檢查價格與觸發狀態）。"""
+    from ..db.cache import get_setting
+
+    alerts = await get_setting("price_alerts", []) or []
+    return {"success": True, "data": {"items": alerts}}
+
+
+@router.post("/alerts")
+async def create_alert(req: PriceAlertReq):
+    """新增一筆價格警報：漲破/跌破指定價位就推播 Telegram。"""
+    import uuid
+    from datetime import datetime
+
+    from ..data.us_symbols import normalize_symbol
+    from ..db.cache import get_setting, set_setting
+
+    direction = req.direction.strip().lower()
+    if direction not in ("above", "below"):
+        raise HTTPException(status_code=400, detail="direction 必須是 above 或 below")
+    if req.target_price <= 0:
+        raise HTTPException(status_code=400, detail="目標價必須大於 0")
+    symbol = normalize_symbol(req.symbol)
+    if not symbol:
+        raise HTTPException(status_code=400, detail="請提供股票代碼")
+
+    alerts = await get_setting("price_alerts", []) or []
+    if len(alerts) >= _MAX_PRICE_ALERTS:
+        raise HTTPException(status_code=400, detail=f"警報數量已達上限（{_MAX_PRICE_ALERTS} 筆），請先刪除不需要的警報")
+
+    alert = {
+        "id": uuid.uuid4().hex[:12],
+        "symbol": symbol,
+        "direction": direction,
+        "target_price": req.target_price,
+        "note": req.note.strip()[:200],
+        "created_at": datetime.utcnow().isoformat(),
+        "active": True,
+        "triggered": False,
+        "triggered_at": None,
+        "last_price": None,
+        "last_checked_at": None,
+    }
+    alerts.append(alert)
+    await set_setting("price_alerts", alerts)
+    return {"success": True, "data": alert}
+
+
+@router.delete("/alerts/{alert_id}")
+async def delete_alert(alert_id: str):
+    """刪除一筆價格警報。"""
+    from ..db.cache import get_setting, set_setting
+
+    alerts = await get_setting("price_alerts", []) or []
+    remaining = [a for a in alerts if a.get("id") != alert_id]
+    if len(remaining) == len(alerts):
+        raise HTTPException(status_code=404, detail="警報不存在")
+    await set_setting("price_alerts", remaining)
+    return {"success": True}
+
+
+@router.post("/alerts/check")
+async def check_alerts_now():
+    """手動立即檢查所有警報（排程也是呼叫同一份邏輯，預設每 20 分鐘於盤中執行）。"""
+    try:
+        return {"success": True, "data": await run_alert_check()}
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail=f"警報檢查失敗：{exc}")
+
+
 @router.get("/status")
 async def get_risk_status():
     try:

@@ -183,7 +183,8 @@ p { line-height: 1.65; color: var(--text-secondary); }
    避免影響 HomeView 等已有各自 scoped .section-block 樣式的頁面。 */
 .risk-sizing-view .section-block, .portfolio-heat-view .section-block,
 .journal-view .section-block, .mc-view .section-block,
-.signals-view .section-block, .command-view .section-block {
+.signals-view .section-block, .command-view .section-block,
+.price-alert-view .section-block {
   background: var(--bg-card);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
