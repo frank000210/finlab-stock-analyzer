@@ -69,7 +69,7 @@
 <script setup>
 import PageFocusBanner from '../components/PageFocusBanner.vue'
 import { onMounted, ref, watch } from 'vue'
-import { loadJournal, saveJournal } from '../lib/tradeMath'
+import { loadJournal, saveJournal, localDateStr } from '../lib/tradeMath'
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 const statuses = ['ALL', 'PENDING', 'APPROVED', 'REJECTED']
@@ -120,11 +120,14 @@ async function logToJournal(trade) {
   }
   const side = trade.type === 'SELL' ? 'short' : 'long'
   // 停損比照作戰台/部位風控的「穩健」慣例：2×ATR；查不到 ATR 退 5%。
+  // F5：這支 API 順便回傳中文名，日誌不用再多打一次名稱查詢 API。
   let dist = entry * 0.05
+  let name = trade.symbol
   try {
     const payload = await apiRequest(`/api/v1/risk/sizing/${encodeURIComponent(trade.symbol)}`)
     if (Number(payload?.atr) > 0) dist = 2 * Number(payload.atr)
-  } catch { /* 用 5% fallback */ }
+    if (payload?.name) name = payload.name
+  } catch { /* 用 5% fallback、代號當名稱 */ }
   const stop = Math.round((side === 'short' ? entry + dist : entry - dist) * 100) / 100
   const journal = loadJournal()
   if (journal.some(t => t.status === 'open' && t.symbol === trade.symbol && t.side === side)) {
@@ -133,9 +136,9 @@ async function logToJournal(trade) {
   }
   journal.unshift({
     id: Date.now() + '-' + Math.random().toString(36).slice(2, 7),
-    symbol: trade.symbol, name: trade.symbol, side, entry, stop, target: null,
+    symbol: trade.symbol, name, side, entry, stop, target: null,
     lots: Math.max(1, Math.floor((Number(trade.rawQuantity) || 0) / 1000)),
-    tag: 'AI核准', openDate: new Date().toISOString().slice(0, 10),
+    tag: 'AI核准', openDate: localDateStr(),
     status: 'open', exit: null, exitDate: null,
   })
   saveJournal(journal)

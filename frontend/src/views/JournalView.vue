@@ -174,10 +174,10 @@
 <script setup>
 import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useStockStore } from '../stores/stock.js'
-import { riskPerShare, profitPerShare, realizedR, tradePnl as pnl, riskAmount, loadJournal, saveJournal } from '../lib/tradeMath'
+import { riskPerShare, profitPerShare, realizedR, tradePnl as pnl, riskAmount, loadJournal, saveJournal, localDateStr } from '../lib/tradeMath'
 import { fetchLivePrices } from '../lib/livePriceCache'
+import { resolveStockName } from '../lib/stockSearch'
 
-const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 const stockStore = useStockStore()
 
 const trades = ref([])
@@ -530,7 +530,7 @@ function addTrade() {
     symbol, name: symbol, side: form.side, entry, stop,
     target: Number(form.target) > 0 ? Number(form.target) : null,
     lots, tag: String(form.tag || '').trim(),
-    openDate: new Date().toISOString().slice(0, 10), status: 'open',
+    openDate: localDateStr(), status: 'open',
     exit: null, exitDate: null,
   })
   save()
@@ -540,16 +540,10 @@ function addTrade() {
 
 // 手動輸入只有代號 → 用搜尋 API 補中文名（best-effort，不阻塞新增）
 async function resolveName(id, symbol) {
-  try {
-    const resp = await fetch(`${API_BASE}/api/v1/stocks/search?q=${encodeURIComponent(symbol)}`)
-    const payload = await resp.json().catch(() => ({}))
-    const items = payload?.data?.items || []
-    const hit = items.find(i => String(i.symbol).toUpperCase() === symbol)
-    if (hit?.name_zh) {
-      const t = trades.value.find(x => x.id === id)
-      if (t) { t.name = hit.name_zh; save() }
-    }
-  } catch { /* 查不到就維持代號 */ }
+  const name = await resolveStockName(symbol)
+  if (!name) return
+  const t = trades.value.find(x => x.id === id)
+  if (t) { t.name = name; save() }
 }
 
 function closeTrade(t) {
@@ -557,7 +551,7 @@ function closeTrade(t) {
   if (!(exit > 0)) { formError.value = '請在該筆輸入有效的平倉價。'; return }
   formError.value = ''
   t.exit = exit
-  t.exitDate = new Date().toISOString().slice(0, 10)
+  t.exitDate = localDateStr()
   t.status = 'closed'
   delete t._exitInput
   save()
@@ -571,6 +565,7 @@ function clearAll() { trades.value = []; save() }
 // 的同一種格式（欄位名相同即可，欄位順序不限），R/pnl 欄為衍生值直接忽略。
 const csvFileInput = ref(null)
 const csvMsg = ref('')
+const CSV_MAX_BYTES = 5 * 1024 * 1024 // F5：一筆交易頂多百來個字元，5MB 已遠超正常日誌大小，超過視為誤選檔案，避免把大檔讀進來卡住畫面。
 
 function triggerImport() { csvFileInput.value?.click() }
 
@@ -578,6 +573,10 @@ function importCsv(event) {
   const file = event.target.files?.[0]
   event.target.value = '' // 允許重選同一個檔案
   if (!file) return
+  if (file.size > CSV_MAX_BYTES) {
+    csvMsg.value = `匯入失敗：檔案 ${(file.size / 1024 / 1024).toFixed(1)}MB 超過上限 ${CSV_MAX_BYTES / 1024 / 1024}MB，請確認選對檔案。`
+    return
+  }
   const reader = new FileReader()
   reader.onload = () => {
     try { applyCsvImport(String(reader.result || '')) } catch (e) { csvMsg.value = '匯入失敗：' + (e?.message || '格式錯誤') }
@@ -638,7 +637,7 @@ function applyCsvImport(text) {
       invalid += 1
       continue
     }
-    const openDate = String(get(row, 'openDate')).slice(0, 10) || new Date().toISOString().slice(0, 10)
+    const openDate = String(get(row, 'openDate')).slice(0, 10) || localDateStr()
     const exitDate = String(get(row, 'exitDate')).slice(0, 10)
     const t = {
       id: Date.now() + '-' + Math.random().toString(36).slice(2, 7),
@@ -693,7 +692,7 @@ async function importOpenPositions() {
       symbol, name: p.name || symbol, side: (Number(p.entry) >= Number(p.stop)) ? 'long' : 'short',
       entry: Number(p.entry), stop: Number(p.stop), target: null,
       lots: Math.max(1, Math.floor(Number(p.lots) || 1)),
-      openDate: new Date().toISOString().slice(0, 10), status: 'open', exit: null, exitDate: null,
+      openDate: localDateStr(), status: 'open', exit: null, exitDate: null,
     })
     added += 1
   }

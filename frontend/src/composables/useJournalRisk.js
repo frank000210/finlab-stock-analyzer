@@ -2,7 +2,7 @@
 // 改用「交易日誌」(localStorage finlab_trade_journal，與 F1-F6/複盤教練
 // 同一份資料) 的已平倉紀錄，算出實際回撤(MDD)、實際當日交易筆數與熔斷狀態。
 import { computed, getCurrentInstance, onBeforeUnmount, onMounted, ref } from 'vue'
-import { JOURNAL_KEY, loadJournal, riskPerShare, tradePnl } from '../lib/tradeMath'
+import { JOURNAL_KEY, loadJournal, riskPerShare, tradePnl, localDateStr } from '../lib/tradeMath'
 
 const ACCOUNT_KEY = 'portfolio_heat_account'
 const DEFAULT_ACCOUNT = 1_000_000
@@ -18,9 +18,6 @@ const CFG_KEYS = {
 }
 const DEFAULTS = { mddWarn: 6, mddPause: 10, dailyLimit: 15 }
 
-function todayStr() {
-  return new Date().toISOString().slice(0, 10)
-}
 function shiftDay(iso, deltaDays) {
   const d = new Date(iso)
   d.setDate(d.getDate() + deltaDays)
@@ -84,7 +81,7 @@ export function useJournalRisk() {
     }
     const extra = unrealizedPnl.value
     if (extra != null && openTrades.value.length) {
-      const today = todayStr()
+      const today = localDateStr()
       const base = points.length ? points[points.length - 1].value : accountValue.value
       const liveValue = Math.round((base + extra) * 100) / 100
       if (!points.length) {
@@ -116,7 +113,7 @@ export function useJournalRisk() {
   })
 
   const dailyTrades = computed(() => {
-    const today = todayStr()
+    const today = localDateStr()
     return journalTrades.value.filter((t) => t.openDate === today).length
   })
 

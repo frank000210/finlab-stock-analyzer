@@ -88,7 +88,10 @@ test('風控監控 實際回撤達 10% 以上時顯示 PAUSED (F7)', async ({ pa
 test('風控監控 當日交易數達 12 筆時顯示 WARNING，與回撤無關 (F7)', async ({ page }) => {
   await page.goto('/risk-monitor')
   await page.evaluate(() => {
-    const today = new Date().toISOString().slice(0, 10)
+    // F1: 本地日曆日（跟 tradeMath.js 的 localDateStr() 同邏輯），不是
+    // toISOString() 的 UTC 日期。
+    const now = new Date()
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
     const trades = Array.from({ length: 12 }, (_, i) => ({
       id: 'ot-' + i, symbol: '2330', name: '台積電', side: 'long', entry: 100, stop: 90, target: null,
       lots: 1, tag: '', openDate: today, status: 'open', exit: null, exitDate: null,
@@ -106,7 +109,10 @@ test('風控監控 當日交易數達 12 筆時顯示 WARNING，與回撤無關 
 test('風控監控 自訂當日上限 5 筆時第 5 筆即 PAUSED，圖例隨設定變動 (A2)', async ({ page }) => {
   await page.goto('/risk-monitor')
   await page.evaluate(() => {
-    const today = new Date().toISOString().slice(0, 10)
+    // F1: 本地日曆日（跟 tradeMath.js 的 localDateStr() 同邏輯），不是
+    // toISOString() 的 UTC 日期。
+    const now = new Date()
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
     localStorage.setItem('finlab_daily_trade_limit', '5')
     localStorage.setItem('finlab_mdd_warn_pct', '4')
     localStorage.setItem('finlab_mdd_pause_pct', '8')

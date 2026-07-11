@@ -98,7 +98,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import DataLineage from '../components/DataLineage.vue'
-import { realizedR, journalWinStats, loadJournal, saveJournal } from '../lib/tradeMath'
+import { realizedR, journalWinStats, halfKellyRiskPct, loadJournal, saveJournal, localDateStr } from '../lib/tradeMath'
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 
@@ -137,9 +137,8 @@ const kellyRisk = computed(() => {
   const closed = journalTrades.value.filter(t => t.status === 'closed')
   if (closed.length < 3) return null
   const { winRate: w, profitFactor: pf } = journalWinStats(closed)
-  if (w <= 0 || pf <= 1) return { pct: null, count: closed.length }
-  const kelly = w * (pf - 1) / pf
-  return { pct: Math.min(kelly * 0.5 * 100, 10), count: closed.length }
+  const pct = halfKellyRiskPct(w, pf)
+  return { pct: pct > 0 ? pct : null, count: closed.length }
 })
 function applyKellyRisk() {
   if (kellyRisk.value?.pct) { riskPct.value = Math.round(kellyRisk.value.pct * 10) / 10; saveCfg() }
@@ -153,7 +152,7 @@ function mondayOfThisWeek() {
   const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - day)
   return monday
 }
-const todayStr = new Date().toISOString().slice(0, 10)
+const todayStr = localDateStr()
 const closedToday = computed(() => journalTrades.value.filter(t => t.status === 'closed' && t.exitDate === todayStr))
 const closedThisWeek = computed(() => {
   const monday = mondayOfThisWeek()
@@ -246,7 +245,7 @@ function commitTrade() {
   journal.unshift({
     id: Date.now() + '-' + Math.random().toString(36).slice(2, 7),
     symbol: r.symbol, name: r.name || r.symbol, side: 'long', entry, stop, target: null,
-    lots: l, tag: r.trend || '', openDate: new Date().toISOString().slice(0, 10),
+    lots: l, tag: r.trend || '', openDate: localDateStr(),
     status: 'open', exit: null, exitDate: null,
   })
   saveJournal(journal)
