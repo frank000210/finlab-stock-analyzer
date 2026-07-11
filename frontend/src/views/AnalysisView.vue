@@ -303,6 +303,29 @@
           <div v-if="!recentChipRows.length" class="empty-state">尚未取得籌碼資料</div>
         </div>
       </article>
+
+      <!-- A4 個股行事曆：營收/財報/除息，避免在公告前後被突襲 -->
+      <article class="card detail-card" v-if="eventCalendar.length">
+        <div class="section-head compact">
+          <div><h2>📅 重要日期</h2></div>
+        </div>
+        <div class="cal-section" v-if="upcomingEvents.length">
+          <span class="cal-subhead">即將到來</span>
+          <div v-for="e in upcomingEvents" :key="e.date + e.type" class="cal-row">
+            <span class="cal-icon">{{ calTypeIcon(e.type) }}</span>
+            <span class="cal-date">{{ e.date }}</span>
+            <span class="cal-label">{{ e.label }}<em v-if="e.estimated" class="cal-est">預估</em></span>
+          </div>
+        </div>
+        <div class="cal-section" v-if="recentEvents.length">
+          <span class="cal-subhead">近期歷史</span>
+          <div v-for="e in recentEvents" :key="e.date + e.type" class="cal-row">
+            <span class="cal-icon">{{ calTypeIcon(e.type) }}</span>
+            <span class="cal-date">{{ e.date }}</span>
+            <span class="cal-label">{{ e.label }}<span v-if="e.detail" class="cal-detail"> · {{ e.detail }}</span></span>
+          </div>
+        </div>
+      </article>
     </section>
   </div>
 </template>
@@ -380,6 +403,16 @@ async function fetchSetup(sym) {
 }
 function setupCls(total) { return total >= 70 ? 'good' : total >= 45 ? 'mid' : 'bad' }
 const chipHealth = ref(null)
+const eventCalendar = ref([]) // A4：個股行事曆（營收/財報/除息）
+const upcomingEvents = computed(() => {
+  const today = new Date().toISOString().slice(0, 10)
+  return eventCalendar.value.filter(e => e.date >= today).slice(0, 4)
+})
+const recentEvents = computed(() => {
+  const today = new Date().toISOString().slice(0, 10)
+  return eventCalendar.value.filter(e => e.date < today).slice(-4).reverse()
+})
+function calTypeIcon(type) { return type === 'revenue' ? '💰' : type === 'financials' ? '📄' : '🎁' }
 
 const symbol = computed(() => String(route.params.symbol || '').toUpperCase())
 const stockName = computed(() => stockInfo.value?.name_zh || '')
@@ -641,6 +674,7 @@ async function loadAnalysis() {
   errorMessage.value = ''
   majorCost.value = null
   chipHealth.value = null
+  eventCalendar.value = []
   const token = ++requestToken
 
   // 中文名（含漢字）才需要解析成代號轉址；美股字母代號（AAPL、^GSPC）
@@ -698,6 +732,17 @@ async function loadAnalysis() {
   loading.value = false
   loadMajorCost(sym, token)
   loadChipScore(sym, token)
+  loadEventCalendar(sym, token)
+}
+
+async function loadEventCalendar(sym, token) {
+  try {
+    const payload = await apiGet(`/api/v1/analysis/${sym}/calendar`)
+    if (token !== requestToken) return
+    eventCalendar.value = Array.isArray(payload?.events) ? payload.events : []
+  } catch {
+    /* 行事曆為加值資訊，失敗時靜默忽略 */
+  }
 }
 
 async function loadChipScore(sym, token) {
@@ -2084,6 +2129,17 @@ function valueTone(value) {
   color: var(--text-secondary);
   padding: 6px 0 0;
 }
+
+.cal-section { margin-top: 10px; }
+.cal-section:first-of-type { margin-top: 0; }
+.cal-subhead { display: block; font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 4px; }
+.cal-row { display: flex; align-items: baseline; gap: 8px; padding: 6px 0; border-top: 1px solid rgba(51, 65, 85, 0.35); font-size: 0.84rem; }
+.cal-section .cal-row:first-of-type { border-top: none; }
+.cal-icon { flex-shrink: 0; }
+.cal-date { flex-shrink: 0; font-variant-numeric: tabular-nums; color: var(--text-secondary); }
+.cal-label { flex: 1; }
+.cal-est { margin-left: 6px; font-size: 0.68rem; font-style: normal; color: var(--accent-blue); background: rgba(59,130,246,0.14); padding: 1px 6px; border-radius: 999px; }
+.cal-detail { color: var(--text-muted); }
 
 .up {
   color: var(--color-up);
