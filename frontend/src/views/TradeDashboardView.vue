@@ -18,7 +18,7 @@
       <article class="card metric-card">
         <div class="label">投資組合價值</div>
         <div class="value">{{ formatCurrency(portfolioValue) }}</div>
-        <div class="meta">模擬帳戶總資產</div>
+        <div class="meta">{{ hasJournalData ? '帳戶資金 + 交易日誌已實現損益' : '帳戶起始資金（尚無已平倉交易紀錄）' }}</div>
       </article>
       <article class="card metric-card">
         <div class="label">2330 最新股價</div>
@@ -115,7 +115,7 @@
       <div v-if="signals.length" ref="sankeyEl" class="chart-host sankey-host"></div>
       <div v-else class="empty-state">目前沒有 AI 信號</div>
       <p class="chart-caption">
-        參考：D3 gallery - Sankey diagram；本圖以 AI 訊號信心度為權重，示意訊號從「買入／賣出／觀望」分流至個股的相對比重，並非真實持倉或資金流向（本頁資產與部位均為模擬資料）。
+        參考：D3 gallery - Sankey diagram；本圖以 AI 訊號信心度為權重，示意訊號從「買入／賣出／觀望」分流至個股的相對比重，並非真實持倉或資金流向。
       </p>
     </section>
   </div>
@@ -127,34 +127,34 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { createChart } from 'lightweight-charts'
 import * as d3 from 'd3'
 import { useChartTheme } from '../composables/useChartTheme'
+import { useJournalRisk } from '../composables/useJournalRisk'
 
 const theme = useChartTheme()
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
-const portfolioValue = 5000000
 const loading = ref(false)
 const errorMessage = ref('')
 const signals = ref([])
-const riskStatus = ref({})
 const priceSeries = ref([])
 const chartEl = ref(null)
 const sankeyEl = ref(null)
 let chart = null
+
+const { hasJournalData, portfolioValue, mddPercent, dailyTrades, dailyTradeLimit, circuitBreaker, reload: reloadJournalRisk } = useJournalRisk()
 
 const topSignals = computed(() => signals.value.slice(0, 4))
 const latestPriceDisplay = computed(() => {
   const last = priceSeries.value[priceSeries.value.length - 1]
   return last ? formatNumber(last.value) : '--'
 })
-const circuitStatus = computed(() => normalizeCircuitStatus(riskStatus.value))
+const circuitStatus = circuitBreaker
 const circuitStatusDescription = computed(() => {
+  if (!hasJournalData.value) return '尚無已平倉交易紀錄'
   if (circuitStatus.value === 'ACTIVE') return '風控允許正常交易'
   if (circuitStatus.value === 'WARNING') return '接近限制，請留意風險'
-  if (circuitStatus.value === 'PAUSED') return '交易已暫停，待人工處理'
+  if (circuitStatus.value === 'PAUSED') return '回撤或交易頻率已超限，建議暫停新倉'
   return '尚未取得狀態'
 })
-const mddValue = computed(() => toUnitValue(riskStatus.value?.mdd ?? riskStatus.value?.max_drawdown ?? riskStatus.value?.drawdown))
-const dailyTrades = computed(() => Number(riskStatus.value?.daily_trades ?? riskStatus.value?.dailyTrades ?? riskStatus.value?.trades_today ?? 0))
-const dailyTradeLimit = computed(() => Number(riskStatus.value?.daily_trade_limit ?? riskStatus.value?.dailyTradeLimit ?? 15))
+const mddValue = computed(() => mddPercent.value / 100)
 const averageConfidence = computed(() => {
   if (!signals.value.length) return 0
   const total = signals.value.reduce((sum, item) => sum + item.confidence, 0)
@@ -186,24 +186,21 @@ onBeforeUnmount(() => {
 async function loadDashboard() {
   loading.value = true
   errorMessage.value = ''
+  reloadJournalRisk()
 
-  const [signalsResp, riskResp, priceResp] = await Promise.allSettled([
+  const [signalsResp, priceResp] = await Promise.allSettled([
     apiGet('/api/v1/agent/signals'),
-    apiGet('/api/v1/risk/status'),
     apiGet('/api/v1/stocks/2330/price'),
   ])
 
   if (signalsResp.status === 'fulfilled') {
     signals.value = normalizeSignals(signalsResp.value)
   }
-  if (riskResp.status === 'fulfilled') {
-    riskStatus.value = riskResp.value || {}
-  }
   if (priceResp.status === 'fulfilled') {
     priceSeries.value = normalizePriceSeries(priceResp.value)
   }
 
-  if ([signalsResp, riskResp, priceResp].every(item => item.status === 'rejected')) {
+  if ([signalsResp, priceResp].every(item => item.status === 'rejected')) {
     errorMessage.value = '資料載入失敗，請稍後再試。'
   }
 
@@ -442,16 +439,6 @@ function normalizePercent(value) {
   return Math.max(0, Math.min(100, Math.round(numeric <= 1 ? numeric * 100 : numeric)))
 }
 
-function toUnitValue(value) {
-  const numeric = Number(value ?? 0)
-  if (!Number.isFinite(numeric)) return 0
-  return numeric > 1 ? numeric / 100 : numeric
-}
-
-function normalizeCircuitStatus(payload) {
-  return String(payload?.circuit_breaker_status || payload?.circuitBreakerStatus || payload?.status || 'UNKNOWN').toUpperCase()
-}
-
 function formatCurrency(value) {
   return `NT$ ${formatNumber(value)}`
 }
@@ -460,8 +447,8 @@ function formatNumber(value) {
   return new Intl.NumberFormat('zh-TW', { maximumFractionDigits: 0 }).format(Number(value || 0))
 }
 
-function formatPercent(value) {
-  return `${(toUnitValue(value) * 100).toFixed(2)}%`
+function formatPercent(unitValue) {
+  return `${(unitValue * 100).toFixed(2)}%`
 }
 
 function badgeClass(type) {

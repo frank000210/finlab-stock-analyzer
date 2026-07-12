@@ -33,7 +33,10 @@ test.beforeEach(async ({ page }) => {
 test('作戰台 單日虧損達上限時顯示熔斷並擋在紀律檢查裡 (F1)', async ({ page }) => {
   await page.goto('/command')
   await page.evaluate(() => {
-    const today = new Date().toISOString().slice(0, 10)
+    // F1: 用本地日曆日（跟 tradeMath.js 的 localDateStr() 同邏輯），不是
+    // toISOString() 的 UTC 日期——兩者在日期邊界附近的時區會不一致。
+    const now = new Date()
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
     localStorage.setItem('finlab_watchlist', JSON.stringify(['2882']))
     localStorage.setItem('portfolio_heat_account', '1000000')
     localStorage.setItem('finlab_risk_pct', '1')

@@ -41,7 +41,12 @@
           <div>
             <h2>多因子技術圖表</h2>
           </div>
-          <div class="range-selector">
+          <div class="chart-mode-toggle" role="tablist" aria-label="圖表模式">
+            <button class="range-button" :class="{ active: chartMode === 'builtin' }" @click="setChartMode('builtin')">內建圖表</button>
+            <button class="range-button" :class="{ active: chartMode === 'tradingview' }" @click="setChartMode('tradingview')">TradingView</button>
+            <a class="tv-link" :href="tvExternalUrl" target="_blank" rel="noopener nofollow">在 TradingView 開啟 ↗</a>
+          </div>
+          <div class="range-selector" v-show="chartMode === 'builtin'">
             <span class="tf-group" role="tablist" aria-label="時間框架">
               <button
                 v-for="tf in timeframes"
@@ -65,7 +70,12 @@
           </div>
         </div>
 
-        <div class="chart-stack">
+        <TradingViewChart v-if="chartMode === 'tradingview'" :symbol="symbol" />
+        <p v-if="chartMode === 'tradingview'" class="chart-caption">
+          TradingView 進階圖表（官方嵌入）：指標與畫線工具齊全、不耗 FinMind 額度；上櫃股票若無法解析，請用「在 TradingView 開啟」。離線模式請切回內建圖表。
+        </p>
+
+        <div class="chart-stack" v-show="chartMode === 'builtin'">
           <div class="chart-block">
             <div class="chart-label-row">
               <span>Price + MA5 / MA20 / MA60</span>
@@ -333,11 +343,13 @@
 <script setup>
 import PageFocusBanner from '../components/PageFocusBanner.vue'
 import DataLineage from '../components/DataLineage.vue'
+import TradingViewChart from '../components/TradingViewChart.vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { createChart } from 'lightweight-charts'
 import * as d3 from 'd3'
 import { useChartTheme } from '../composables/useChartTheme'
+import { tvChartUrl } from '../lib/tradingview'
 
 const theme = useChartTheme()
 const calendarEl = ref(null)
@@ -415,6 +427,18 @@ const recentEvents = computed(() => {
 function calTypeIcon(type) { return type === 'revenue' ? '💰' : type === 'financials' ? '📄' : '🎁' }
 
 const symbol = computed(() => String(route.params.symbol || '').toUpperCase())
+
+// D1 圖表模式：內建 lightweight-charts（預設、離線可用、指標自算）
+// vs TradingView 官方嵌入（指標/畫線齊全、不耗 FinMind 額度、需連線）。
+const CHART_MODE_KEY = 'finlab_chart_mode'
+const chartMode = ref(localStorage.getItem(CHART_MODE_KEY) === 'tradingview' ? 'tradingview' : 'builtin')
+function setChartMode(mode) {
+  chartMode.value = mode
+  localStorage.setItem(CHART_MODE_KEY, mode)
+  // 切回內建時，圖表可能是在隱藏（寬度 0）狀態下初始化的，觸發 resize 讓它重新量寬。
+  if (mode === 'builtin') nextTick(() => window.dispatchEvent(new Event('resize')))
+}
+const tvExternalUrl = computed(() => tvChartUrl(symbol.value))
 const stockName = computed(() => stockInfo.value?.name_zh || '')
 const stockIndustry = computed(() => stockInfo.value?.industry || '')
 const mergedSeries = computed(() => mergePriceWithTechnical(priceItems.value, technicalPayload.value))
@@ -1807,6 +1831,21 @@ function valueTone(value) {
   flex-wrap: wrap;
   gap: 8px;
 }
+
+.chart-mode-toggle {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tv-link {
+  color: var(--accent-blue);
+  font-size: 0.78rem;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.tv-link:hover { text-decoration: underline; }
 
 .range-button {
   border: 1px solid var(--border-color);

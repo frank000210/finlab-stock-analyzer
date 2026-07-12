@@ -55,7 +55,7 @@
     <section class="section-block" v-reveal v-if="openTrades.length">
       <div class="head-row">
         <h3>進行中（{{ openTrades.length }}）<span class="muted small paper-tag">🧾 紙上交易 — 沒有真的下單，練習盯盤與停損紀律</span></h3>
-        <button class="btn" :disabled="pricesLoading" @click="fetchLivePrices">
+        <button class="btn" :disabled="pricesLoading" @click="fetchLivePricesForOpenTrades">
           <span v-if="pricesLoading" class="loading-spinner btn-spinner" aria-hidden="true"></span>🔄 更新現價
         </button>
       </div>
@@ -96,10 +96,13 @@
       <div class="head-row">
         <h3>已平倉（{{ closedTrades.length }}）</h3>
         <div class="head-actions">
+          <button class="btn" @click="triggerImport">匯入 CSV</button>
+          <input ref="csvFileInput" type="file" accept=".csv,text/csv" class="hidden-file" @change="importCsv" />
           <button v-if="trades.length" class="btn" @click="exportCsv">匯出 CSV</button>
           <button v-if="trades.length" class="btn" @click="clearAll">清空全部</button>
         </div>
       </div>
+      <p v-if="csvMsg" class="muted small csv-msg">{{ csvMsg }}</p>
       <div v-if="closedTrades.length" class="table-wrap">
         <table class="j-table">
           <thead><tr><th>代碼</th><th>方向</th><th>進場</th><th>停損</th><th>出場</th><th>張</th><th>R 倍數</th><th>損益</th><th></th></tr></thead>
@@ -171,9 +174,10 @@
 <script setup>
 import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useStockStore } from '../stores/stock.js'
+import { riskPerShare, profitPerShare, realizedR, tradePnl as pnl, riskAmount, loadJournal, saveJournal, localDateStr } from '../lib/tradeMath'
+import { fetchLivePrices } from '../lib/livePriceCache'
+import { resolveStockName } from '../lib/stockSearch'
 
-const API_BASE = import.meta.env.VITE_API_BASE ?? ''
-const LS_KEY = 'finlab_trade_journal'
 const stockStore = useStockStore()
 
 const trades = ref([])
@@ -197,32 +201,25 @@ const livePrices = ref({}) // symbol -> { price, as_of, loading, error }
 const pricesLoading = ref(false)
 
 // 進行中交易的代號組合一變（新增/帶入/刪除），就重新查一次現價。
-watch(openSymbols, () => { fetchLivePrices() })
+watch(openSymbols, () => { fetchLivePricesForOpenTrades() })
 
-async function fetchLivePrices() {
+async function fetchLivePricesForOpenTrades() {
   const symbols = [...new Set(openTrades.value.map(t => t.symbol))]
   if (!symbols.length) return
   pricesLoading.value = true
-  await Promise.all(symbols.map(async (sym) => {
-    livePrices.value[sym] = { ...(livePrices.value[sym] || {}), loading: true, error: '' }
-    try {
-      const resp = await fetch(`${API_BASE}/api/v1/risk/sizing/${encodeURIComponent(sym)}`)
-      const payload = await resp.json().catch(() => ({}))
-      if (!resp.ok || !payload?.data) throw new Error(payload?.detail || '查價失敗')
-      livePrices.value[sym] = { price: payload.data.price, as_of: payload.data.as_of, loading: false, error: '' }
-    } catch (e) {
-      livePrices.value[sym] = { ...(livePrices.value[sym] || {}), loading: false, error: e?.message || '查價失敗' }
-    }
-  }))
+  for (const sym of symbols) livePrices.value[sym] = { ...(livePrices.value[sym] || {}), loading: true, error: '' }
+  const results = await fetchLivePrices(symbols)
+  for (const sym of symbols) {
+    const r = results[sym]
+    livePrices.value[sym] = { price: r.price, as_of: r.as_of, loading: false, error: r.error }
+  }
   pricesLoading.value = false
 }
 
 function livePrice(t) { return livePrices.value[t.symbol]?.price ?? null }
 function unrealizedProfitPerShare(t) {
   const price = livePrice(t)
-  if (price == null) return null
-  const diff = price - (Number(t.entry) || 0)
-  return t.side === 'short' ? -diff : diff
+  return price == null ? null : profitPerShare(t, price)
 }
 function unrealizedR(t) {
   const pps = unrealizedProfitPerShare(t)
@@ -246,15 +243,6 @@ function closeAtMarket(t) {
   closeTrade(t)
 }
 const closedTrades = computed(() => trades.value.filter(t => t.status === 'closed'))
-
-function riskPerShare(t) { return Math.abs((Number(t.entry) || 0) - (Number(t.stop) || 0)) }
-function riskAmount(t) { return (Number(t.lots) || 0) * 1000 * riskPerShare(t) }
-function profitPerShare(t) {
-  const diff = (Number(t.exit) || 0) - (Number(t.entry) || 0)
-  return t.side === 'short' ? -diff : diff
-}
-function realizedR(t) { return riskPerShare(t) > 0 ? profitPerShare(t) / riskPerShare(t) : 0 }
-function pnl(t) { return (Number(t.lots) || 0) * 1000 * profitPerShare(t) }
 
 const stats = computed(() => {
   const cl = closedTrades.value
@@ -525,10 +513,8 @@ const coachInsights = computed(() => {
 function fmt(v) { return (v == null || isNaN(v)) ? '—' : Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }
 function fmtInt(v) { return (v == null || isNaN(v)) ? '—' : Math.round(v).toLocaleString('en-US') }
 
-function save() { localStorage.setItem(LS_KEY, JSON.stringify(trades.value)) }
-function load() {
-  try { const raw = JSON.parse(localStorage.getItem(LS_KEY) || '[]'); if (Array.isArray(raw)) trades.value = raw } catch { /* ignore */ }
-}
+function save() { saveJournal(trades.value) }
+function load() { trades.value = loadJournal() }
 
 function addTrade() {
   formError.value = ''
@@ -544,7 +530,7 @@ function addTrade() {
     symbol, name: symbol, side: form.side, entry, stop,
     target: Number(form.target) > 0 ? Number(form.target) : null,
     lots, tag: String(form.tag || '').trim(),
-    openDate: new Date().toISOString().slice(0, 10), status: 'open',
+    openDate: localDateStr(), status: 'open',
     exit: null, exitDate: null,
   })
   save()
@@ -554,16 +540,10 @@ function addTrade() {
 
 // 手動輸入只有代號 → 用搜尋 API 補中文名（best-effort，不阻塞新增）
 async function resolveName(id, symbol) {
-  try {
-    const resp = await fetch(`${API_BASE}/api/v1/stocks/search?q=${encodeURIComponent(symbol)}`)
-    const payload = await resp.json().catch(() => ({}))
-    const items = payload?.data?.items || []
-    const hit = items.find(i => String(i.symbol).toUpperCase() === symbol)
-    if (hit?.name_zh) {
-      const t = trades.value.find(x => x.id === id)
-      if (t) { t.name = hit.name_zh; save() }
-    }
-  } catch { /* 查不到就維持代號 */ }
+  const name = await resolveStockName(symbol)
+  if (!name) return
+  const t = trades.value.find(x => x.id === id)
+  if (t) { t.name = name; save() }
 }
 
 function closeTrade(t) {
@@ -571,7 +551,7 @@ function closeTrade(t) {
   if (!(exit > 0)) { formError.value = '請在該筆輸入有效的平倉價。'; return }
   formError.value = ''
   t.exit = exit
-  t.exitDate = new Date().toISOString().slice(0, 10)
+  t.exitDate = localDateStr()
   t.status = 'closed'
   delete t._exitInput
   save()
@@ -579,6 +559,105 @@ function closeTrade(t) {
 
 function removeTrade(id) { trades.value = trades.value.filter(t => t.id !== id); save() }
 function clearAll() { trades.value = []; save() }
+
+// A3 CSV 匯入：localStorage 是這份日誌唯一的儲存位置，瀏覽器清資料就全沒
+// 了。既有的匯出 CSV 因此也是備份手段——但少了匯入就還原不了。這裡吃匯出
+// 的同一種格式（欄位名相同即可，欄位順序不限），R/pnl 欄為衍生值直接忽略。
+const csvFileInput = ref(null)
+const csvMsg = ref('')
+const CSV_MAX_BYTES = 5 * 1024 * 1024 // F5：一筆交易頂多百來個字元，5MB 已遠超正常日誌大小，超過視為誤選檔案，避免把大檔讀進來卡住畫面。
+
+function triggerImport() { csvFileInput.value?.click() }
+
+function importCsv(event) {
+  const file = event.target.files?.[0]
+  event.target.value = '' // 允許重選同一個檔案
+  if (!file) return
+  if (file.size > CSV_MAX_BYTES) {
+    csvMsg.value = `匯入失敗：檔案 ${(file.size / 1024 / 1024).toFixed(1)}MB 超過上限 ${CSV_MAX_BYTES / 1024 / 1024}MB，請確認選對檔案。`
+    return
+  }
+  const reader = new FileReader()
+  reader.onload = () => {
+    try { applyCsvImport(String(reader.result || '')) } catch (e) { csvMsg.value = '匯入失敗：' + (e?.message || '格式錯誤') }
+  }
+  reader.onerror = () => { csvMsg.value = '匯入失敗：讀取檔案錯誤。' }
+  reader.readAsText(file)
+}
+
+function parseCsvText(text) {
+  const s = String(text).replace(/^﻿/, '')
+  const rows = []
+  let row = [], cell = '', inQuotes = false
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i]
+    if (inQuotes) {
+      if (c === '"') {
+        if (s[i + 1] === '"') { cell += '"'; i++ } else inQuotes = false
+      } else cell += c
+    } else if (c === '"') {
+      inQuotes = true
+    } else if (c === ',') {
+      row.push(cell); cell = ''
+    } else if (c === '\n' || c === '\r') {
+      if (c === '\r' && s[i + 1] === '\n') i++
+      row.push(cell); cell = ''
+      if (row.some(v => v !== '')) rows.push(row)
+      row = []
+    } else {
+      cell += c
+    }
+  }
+  row.push(cell)
+  if (row.some(v => v !== '')) rows.push(row)
+  return rows
+}
+
+function applyCsvImport(text) {
+  const rows = parseCsvText(text)
+  if (rows.length < 2) { csvMsg.value = '匯入失敗：CSV 沒有資料列。'; return }
+  const header = rows[0].map(h => h.trim())
+  const idx = (name) => header.indexOf(name)
+  for (const col of ['symbol', 'side', 'entry', 'stop', 'lots', 'openDate', 'status']) {
+    if (idx(col) === -1) { csvMsg.value = `匯入失敗：缺少欄位 ${col}。`; return }
+  }
+  const get = (row, name) => { const i = idx(name); return i === -1 ? '' : (row[i] ?? '') }
+  const dupKey = (t) => [t.symbol, t.side, t.entry, t.stop, t.lots, t.openDate, t.status, t.exit ?? '', t.exitDate ?? ''].join('|')
+  const existing = new Set(trades.value.map(dupKey))
+  let added = 0, skippedDup = 0, invalid = 0
+  for (const row of rows.slice(1)) {
+    const symbol = String(get(row, 'symbol')).trim().toUpperCase()
+    const side = String(get(row, 'side')).trim() === 'short' ? 'short' : 'long'
+    const entry = Number(get(row, 'entry'))
+    const stop = Number(get(row, 'stop'))
+    const lots = Math.floor(Number(get(row, 'lots')) || 0)
+    const status = String(get(row, 'status')).trim() === 'closed' ? 'closed' : 'open'
+    const exit = Number(get(row, 'exit'))
+    if (!symbol || !(entry > 0) || !(stop > 0) || !(lots >= 1) || entry === stop || (status === 'closed' && !(exit > 0))) {
+      invalid += 1
+      continue
+    }
+    const openDate = String(get(row, 'openDate')).slice(0, 10) || localDateStr()
+    const exitDate = String(get(row, 'exitDate')).slice(0, 10)
+    const t = {
+      id: Date.now() + '-' + Math.random().toString(36).slice(2, 7),
+      symbol, name: symbol, side, entry, stop,
+      target: Number(get(row, 'target')) > 0 ? Number(get(row, 'target')) : null,
+      lots, tag: String(get(row, 'tag') || '').trim(),
+      openDate, status,
+      exit: status === 'closed' ? exit : null,
+      exitDate: status === 'closed' ? (exitDate || openDate) : null,
+    }
+    if (existing.has(dupKey(t))) { skippedDup += 1; continue }
+    existing.add(dupKey(t))
+    trades.value.push(t)
+    added += 1
+  }
+  save()
+  csvMsg.value = `已匯入 ${added} 筆`
+    + (skippedDup ? `、略過重複 ${skippedDup} 筆` : '')
+    + (invalid ? `、忽略無效 ${invalid} 筆` : '') + '。'
+}
 
 function csvCell(v) { const s = String(v ?? ''); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s }
 function exportCsv() {
@@ -613,7 +692,7 @@ async function importOpenPositions() {
       symbol, name: p.name || symbol, side: (Number(p.entry) >= Number(p.stop)) ? 'long' : 'short',
       entry: Number(p.entry), stop: Number(p.stop), target: null,
       lots: Math.max(1, Math.floor(Number(p.lots) || 1)),
-      openDate: new Date().toISOString().slice(0, 10), status: 'open', exit: null, exitDate: null,
+      openDate: localDateStr(), status: 'open', exit: null, exitDate: null,
     })
     added += 1
   }
@@ -629,6 +708,8 @@ onMounted(load)
 .head-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
 .head-row h2, .head-row h3 { margin: 0; }
 .head-actions { display: flex; gap: 8px; }
+.hidden-file { display: none; }
+.csv-msg { margin: 4px 0 0; }
 .inp { background: var(--bg-well); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 10px; padding: 8px 12px; font-size: 0.9rem; }
 .w110 { width: 110px; } .w90 { width: 90px; }
 

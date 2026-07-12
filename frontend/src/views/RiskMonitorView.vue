@@ -17,7 +17,7 @@
         <div class="section-header">
           <div>
             <h2>MDD 風險儀表</h2>
-            <p>綠色 &lt; 2%，黃色 2-3%，紅色 &gt; 3%</p>
+            <p>綠色 &lt; {{ mddWarnPct }}%，黃色 {{ mddWarnPct }}-{{ mddPausePct }}%，紅色 ≥ {{ mddPausePct }}%</p>
           </div>
         </div>
         <div class="gauge-wrap">
@@ -34,15 +34,17 @@
         <div class="section-header">
           <div>
             <h2>熔斷機制狀態</h2>
-            <p>風控引擎目前的交易狀態</p>
+            <p>依交易日誌實際回撤與當日交易數判定</p>
           </div>
         </div>
         <div class="state-body">
           <span class="status-pill" :class="statusClass(circuitStatus)">{{ circuitStatus }}</span>
           <p>{{ statusDescription }}</p>
-          <button class="btn btn-secondary" @click="resetCircuitBreaker" :disabled="resetting">
-            {{ resetting ? '重置中...' : '重置熔斷機制' }}
-          </button>
+          <div class="threshold-cfg">
+            <label>警戒 MDD<input v-model.number="mddWarnPct" type="number" min="0.5" step="0.5" class="cfg-inp" @change="saveThresholds" />%</label>
+            <label>熔斷 MDD<input v-model.number="mddPausePct" type="number" min="1" step="0.5" class="cfg-inp" @change="saveThresholds" />%</label>
+            <label>當日上限<input v-model.number="dailyTradeLimit" type="number" min="1" step="1" class="cfg-inp" @change="saveThresholds" />筆</label>
+          </div>
         </div>
       </article>
 
@@ -50,7 +52,7 @@
         <div class="section-header">
           <div>
             <h2>當日交易次數</h2>
-            <p>風控限制上限 15 筆</p>
+            <p>達 {{ warnTrades }} 筆警戒、{{ dailyTradeLimit }} 筆熔斷</p>
           </div>
         </div>
         <div class="trade-counter">
@@ -67,16 +69,17 @@
       <div class="section-header">
         <div>
           <h2>權益曲線</h2>
-          <p>最近 30 個資料點</p>
+          <p>依「交易日誌」已平倉紀錄按日彙總，起始為投組風險頁設定的帳戶資金</p>
         </div>
-        <span v-if="riskDataIsMock" class="badge-estimated">模擬帳戶</span>
+        <span v-if="unrealizedInfo" class="badge-estimated badge-unrealized">含 {{ unrealizedInfo.priced }} 筆未實現損益</span>
+        <span v-if="hasJournalData" class="badge-estimated">資料來源：交易日誌</span>
       </div>
       <div v-if="equitySeries.length" class="chart-wrapper">
         <span class="y-axis-label">新台幣(元)</span>
         <div ref="chartEl" class="chart-area"></div>
       </div>
+      <div v-if="!equitySeries.length" class="empty-state">尚無已平倉交易紀錄，請先在「交易日誌」記錄並平倉交易後再回來查看權益曲線。</div>
       <div class="x-axis-label" v-if="equitySeries.length">日期</div>
-      <div v-if="!equitySeries.length" class="empty-state">目前沒有權益曲線資料</div>
     </section>
 
     <section class="card chart-card">
@@ -85,12 +88,11 @@
           <h2>權益日變動分布</h2>
           <p>直方圖 + 核密度估計，觀察報酬是否過度偏態或有厚尾風險</p>
         </div>
-        <span v-if="riskDataIsMock" class="badge-estimated">模擬帳戶</span>
+        <span v-if="hasJournalData" class="badge-estimated">資料來源：交易日誌</span>
       </div>
       <div ref="histEl" class="chart-host"></div>
       <p class="chart-caption">
-        參考：D3 gallery - Histogram / Kernel density estimation；資料取自權益曲線期間變動率
-        <span v-if="riskDataIsMock">（目前為模擬帳戶資料，串接實盤交易後會自動改用真實報酬）</span>。
+        參考：D3 gallery - Histogram / Kernel density estimation；資料取自權益曲線期間日變動率（需至少 8 個平倉交易日才會繪製）。
       </p>
     </section>
   </div>
@@ -102,38 +104,63 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { createChart } from 'lightweight-charts'
 import * as d3 from 'd3'
 import { useChartTheme } from '../composables/useChartTheme'
+import { useJournalRisk } from '../composables/useJournalRisk'
+import { tradePnl } from '../lib/tradeMath'
+import { fetchLivePrices } from '../lib/livePriceCache'
 
 const theme = useChartTheme()
-const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 const loading = ref(false)
-const resetting = ref(false)
-const riskStatus = ref({})
-const equitySeries = ref([])
-const returnSeries = ref([])
 const chartEl = ref(null)
 const histEl = ref(null)
-// 目前風控帳戶資料為模擬（見「標註 risk/trade 模擬資料」的既有調整），此分布圖同樣沿用該資料源。
-const riskDataIsMock = ref(true)
 let chart = null
 
-const mddValue = computed(() => toUnitValue(riskStatus.value?.mdd_percent ?? riskStatus.value?.mdd ?? riskStatus.value?.max_drawdown ?? riskStatus.value?.drawdown))
-const circuitStatus = computed(() => String((riskStatus.value?.circuit_breaker ?? riskStatus.value?.circuit_breaker_status) || riskStatus.value?.circuitBreakerStatus || riskStatus.value?.status || 'UNKNOWN').toUpperCase())
-const dailyTrades = computed(() => Number(riskStatus.value?.daily_trades ?? riskStatus.value?.dailyTrades ?? riskStatus.value?.trades_today ?? 0))
-const dailyTradeLimit = computed(() => Number(riskStatus.value?.daily_trade_limit ?? riskStatus.value?.dailyTradeLimit ?? 15))
+const {
+  hasJournalData, equitySeries, mddPercent, dailyTrades, dailyTradeLimit,
+  mddWarnPct, mddPausePct, warnTrades, circuitBreaker, reload, saveRiskConfig,
+  openTrades, unrealizedPnl,
+} = useJournalRisk()
+
+// C2 未實現回撤：抓進行中部位的現價（與交易日誌同一個 sizing API），把
+// 浮動損益灌回權益曲線，讓 MDD/熔斷即時反映凹單中的風險。best-effort：
+// 抓不到價的部位就跳過，全都抓不到則維持只看已實現。
+const unrealizedInfo = ref(null) // { priced, total } 供 UI 標示
+async function refreshUnrealized() {
+  const open = openTrades.value
+  if (!open.length) { unrealizedInfo.value = null; return }
+  const symbols = [...new Set(open.map(t => t.symbol))]
+  const results = await fetchLivePrices(symbols)
+  const priced = open.filter(t => results[t.symbol]?.price > 0)
+  if (!priced.length) { unrealizedInfo.value = null; unrealizedPnl.value = null; return }
+  const total = priced.reduce((a, t) => a + tradePnl(t, results[t.symbol].price), 0)
+  unrealizedPnl.value = total
+  unrealizedInfo.value = { priced: priced.length, total }
+}
+
+const returnSeries = computed(() => computeReturns(equitySeries.value))
+
+const mddValue = computed(() => mddPercent.value / 100)
+const circuitStatus = circuitBreaker
 const tradePercent = computed(() => Math.min(100, Math.round((dailyTrades.value / Math.max(1, dailyTradeLimit.value)) * 100)))
+
+function saveThresholds() {
+  saveRiskConfig()
+}
 const statusDescription = computed(() => {
-  if (circuitStatus.value === 'ACTIVE') return '系統允許自動交易正常進行。'
-  if (circuitStatus.value === 'WARNING') return '接近風控限制，建議人工關注。'
-  if (circuitStatus.value === 'PAUSED') return '交易已被暫停，需重置後才可恢復。'
+  if (!hasJournalData.value) return '尚無已平倉交易紀錄，請先在「交易日誌」記錄並平倉交易。'
+  if (circuitStatus.value === 'ACTIVE') return '回撤與當日交易次數都在安全範圍內。'
+  if (circuitStatus.value === 'WARNING') return '回撤或當日交易次數接近風控上限，建議降低部位或暫緩加碼。'
+  if (circuitStatus.value === 'PAUSED') return '回撤或當日交易次數已超過風控上限，建議停止新倉並先複盤交易日誌。'
   return '尚未取得狀態說明。'
 })
 const gaugeColor = computed(() => {
-  if (mddValue.value > 0.03) return theme.down
-  if (mddValue.value >= 0.02) return theme.warn
+  if (mddPercent.value >= mddPausePct.value) return theme.down
+  if (mddPercent.value >= mddWarnPct.value) return theme.warn
   return theme.up
 })
 const gaugeStyle = computed(() => {
-  const percent = Math.min(100, Math.round((mddValue.value / 0.05) * 100))
+  // 滿刻度取熔斷門檻的 1.2 倍，讓達門檻時圓環明顯接近全滿。
+  const fullScale = Math.max(1, mddPausePct.value * 1.2)
+  const percent = Math.min(100, Math.round((mddPercent.value / fullScale) * 100))
   return { background: `conic-gradient(${gaugeColor.value} ${percent}%, ${theme.border} ${percent}% 100%)` }
 })
 
@@ -151,24 +178,19 @@ onBeforeUnmount(() => {
 
 async function loadRiskData() {
   loading.value = true
-  const [statusResp, curveResp, longCurveResp] = await Promise.allSettled([
-    apiGet('/api/v1/risk/status'),
-    apiGet('/api/v1/risk/equity-curve?hours=30'),
-    apiGet('/api/v1/risk/equity-curve?hours=720'),
-  ])
-
-  if (statusResp.status === 'fulfilled') riskStatus.value = statusResp.value || {}
-  if (curveResp.status === 'fulfilled') equitySeries.value = normalizeEquitySeries(curveResp.value)
-  if (longCurveResp.status === 'fulfilled') {
-    const longSeries = normalizeEquitySeries(longCurveResp.value, 5000)
-    returnSeries.value = computeReturns(longSeries)
-  }
-
+  reload()
+  await refreshUnrealized()
   await nextTick()
   renderChart()
   renderHistogram()
   loading.value = false
 }
+
+// B2 跨分頁同步觸發 reload 後（unrealizedPnl 會被清空），重抓現價。
+watch(openTrades, (now, prev) => {
+  const key = (arr) => arr.map(t => t.id).join(',')
+  if (key(now) !== key(prev || [])) refreshUnrealized()
+})
 
 function computeReturns(series) {
   const rets = []
@@ -242,49 +264,8 @@ function renderHistogram() {
 }
 
 watch(returnSeries, () => nextTick(renderHistogram))
-
-async function resetCircuitBreaker() {
-  if (!window.confirm('確定要重置熔斷機制嗎？')) return
-  resetting.value = true
-  try {
-    await apiRequest('/api/v1/risk/circuit-breaker/reset', { method: 'POST' })
-    await loadRiskData()
-  } catch (error) {
-    window.alert(error.message || '重置失敗')
-  }
-  resetting.value = false
-}
-
-async function apiGet(path) {
-  return apiRequest(path)
-}
-
-async function apiRequest(path, options = {}) {
-  const response = await fetch(`${API_BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
-    ...options,
-  })
-  const payload = await response.json().catch(() => ({}))
-  if (!response.ok) throw new Error(payload?.detail || 'API 請求失敗')
-  return payload?.data ?? payload
-}
-
-function normalizeEquitySeries(payload, limit = 30) {
-  const list = Array.isArray(payload)
-    ? payload
-    : Array.isArray(payload?.items)
-      ? payload.items
-      : Array.isArray(payload?.equity_curve)
-        ? payload.equity_curve
-        : []
-  return list
-    .slice(-limit)
-    .map(item => ({
-      time: normalizeDate(item.date || item.time || item.timestamp),
-      value: Number(item.portfolio_value ?? item.value ?? item.equity ?? 0),
-    }))
-    .filter(item => item.time && Number.isFinite(item.value))
-}
+// B2 跨分頁同步：storage 事件觸發 reload 後，權益曲線圖跟著重畫。
+watch(equitySeries, () => nextTick(renderChart))
 
 function renderChart() {
   if (!chartEl.value || !equitySeries.value.length) return
@@ -302,19 +283,8 @@ function renderChart() {
   chart.timeScale().fitContent()
 }
 
-function normalizeDate(value) {
-  if (!value) return ''
-  return String(value).includes('T') ? String(value).split('T')[0] : String(value).slice(0, 10)
-}
-
-function toUnitValue(value) {
-  const numeric = Number(value ?? 0)
-  if (!Number.isFinite(numeric)) return 0
-  return numeric > 1 ? numeric / 100 : numeric
-}
-
-function formatPercent(value) {
-  return `${(toUnitValue(value) * 100).toFixed(2)}%`
+function formatPercent(unitValue) {
+  return `${(unitValue * 100).toFixed(2)}%`
 }
 
 function statusClass(status) {
@@ -401,6 +371,30 @@ function statusClass(status) {
   padding: 6px 12px;
   border-radius: 999px;
   font-weight: 700;
+}
+
+.threshold-cfg {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.threshold-cfg label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.cfg-inp {
+  width: 58px;
+  background: var(--bg-well);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  border-radius: 8px;
+  padding: 4px 8px;
+  font-size: 0.82rem;
 }
 
 .is-active {
@@ -495,12 +489,6 @@ function statusClass(status) {
 .chart-host :deep(.axis line) { stroke: var(--border-color); }
 .chart-caption { font-size: 0.72rem; color: var(--text-muted); margin-top: 6px; }
 .chart-empty { color: var(--text-muted); font-style: italic; font-size: 0.85rem; }
-
-.btn-secondary {
-  background: rgba(148, 163, 184, 0.16);
-  color: var(--text-primary);
-  border: 1px solid rgba(148, 163, 184, 0.18);
-}
 
 @media (max-width: 1100px) {
   .top-grid {

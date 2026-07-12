@@ -98,6 +98,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import DataLineage from '../components/DataLineage.vue'
+import { realizedR, journalWinStats, halfKellyRiskPct, loadJournal, saveJournal, localDateStr } from '../lib/tradeMath'
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 
@@ -135,16 +136,9 @@ const journalTrades = ref([])
 const kellyRisk = computed(() => {
   const closed = journalTrades.value.filter(t => t.status === 'closed')
   if (closed.length < 3) return null
-  const pps = (t) => { const d = Number(t.exit) - Number(t.entry); return t.side === 'short' ? -d : d }
-  const pnl = (t) => (Number(t.lots) || 0) * 1000 * pps(t)
-  const pnls = closed.map(pnl)
-  const gw = pnls.filter(p => p > 0).reduce((a, b) => a + b, 0)
-  const gl = Math.abs(pnls.filter(p => p < 0).reduce((a, b) => a + b, 0))
-  const w = pnls.filter(p => p > 0).length / closed.length
-  const pf = gl > 0 ? gw / gl : 99.99
-  if (w <= 0 || pf <= 1) return { pct: null, count: closed.length }
-  const kelly = w * (pf - 1) / pf
-  return { pct: Math.min(kelly * 0.5 * 100, 10), count: closed.length }
+  const { winRate: w, profitFactor: pf } = journalWinStats(closed)
+  const pct = halfKellyRiskPct(w, pf)
+  return { pct: pct > 0 ? pct : null, count: closed.length }
 })
 function applyKellyRisk() {
   if (kellyRisk.value?.pct) { riskPct.value = Math.round(kellyRisk.value.pct * 10) / 10; saveCfg() }
@@ -152,20 +146,13 @@ function applyKellyRisk() {
 
 // F1 每日/每週虧損上限熔斷：從交易日誌的已平倉紀錄算「今天/本週已經賠了幾個
 // R」，達到門檻就在紀律檢查裡硬性標示——連虧到位就是要停手，不是看看就好。
-function tradeRealizedR(t) {
-  const risk = Math.abs((Number(t.entry) || 0) - (Number(t.stop) || 0))
-  if (risk <= 0) return 0
-  const diff = (Number(t.exit) || 0) - (Number(t.entry) || 0)
-  const pps = t.side === 'short' ? -diff : diff
-  return pps / risk
-}
 function mondayOfThisWeek() {
   const now = new Date()
   const day = (now.getDay() + 6) % 7 // Mon=0..Sun=6
   const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - day)
   return monday
 }
-const todayStr = new Date().toISOString().slice(0, 10)
+const todayStr = localDateStr()
 const closedToday = computed(() => journalTrades.value.filter(t => t.status === 'closed' && t.exitDate === todayStr))
 const closedThisWeek = computed(() => {
   const monday = mondayOfThisWeek()
@@ -174,8 +161,8 @@ const closedThisWeek = computed(() => {
     return new Date(t.exitDate) >= monday
   })
 })
-const todayR = computed(() => closedToday.value.reduce((a, t) => a + tradeRealizedR(t), 0))
-const weekR = computed(() => closedThisWeek.value.reduce((a, t) => a + tradeRealizedR(t), 0))
+const todayR = computed(() => closedToday.value.reduce((a, t) => a + realizedR(t), 0))
+const weekR = computed(() => closedThisWeek.value.reduce((a, t) => a + realizedR(t), 0))
 const dayBreached = computed(() => todayR.value <= dailyLimitR.value)
 const weekBreached = computed(() => weekR.value <= weeklyLimitR.value)
 const lossLimitStatus = computed(() => {
@@ -254,15 +241,14 @@ function commitTrade() {
   if (!(l >= 1)) { pendingTrade.value = null; return }
   const entry = Number(r.price)
   const stop = Math.round(entry * (1 - (Number(r.stop_dist_pct) || 0) / 100) * 100) / 100
-  let journal = []
-  try { const raw = JSON.parse(localStorage.getItem('finlab_trade_journal') || '[]'); if (Array.isArray(raw)) journal = raw } catch { /* ignore */ }
+  const journal = loadJournal()
   journal.unshift({
     id: Date.now() + '-' + Math.random().toString(36).slice(2, 7),
     symbol: r.symbol, name: r.name || r.symbol, side: 'long', entry, stop, target: null,
-    lots: l, tag: r.trend || '', openDate: new Date().toISOString().slice(0, 10),
+    lots: l, tag: r.trend || '', openDate: localDateStr(),
     status: 'open', exit: null, exitDate: null,
   })
-  localStorage.setItem('finlab_trade_journal', JSON.stringify(journal))
+  saveJournal(journal)
   logMsg.value = `已記錄 ${r.symbol} ${l} 張到交易日誌（進場 ${entry}、停損 ${stop}），到「交易日誌」平倉即納入統計。`
   pendingTrade.value = null
 }
@@ -312,7 +298,7 @@ async function analyzeCorr() {
 }
 
 onMounted(() => {
-  try { const raw = JSON.parse(localStorage.getItem('finlab_trade_journal') || '[]'); if (Array.isArray(raw)) journalTrades.value = raw } catch { /* ignore */ }
+  journalTrades.value = loadJournal()
   const a = Number(localStorage.getItem('portfolio_heat_account')); if (a > 0) account.value = a
   const rp = Number(localStorage.getItem('finlab_risk_pct')); if (rp > 0) riskPct.value = rp
   applyRegime.value = localStorage.getItem('finlab_apply_regime') !== '0'

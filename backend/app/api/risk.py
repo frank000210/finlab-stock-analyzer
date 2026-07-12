@@ -5,8 +5,6 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
-from ..risk import risk_manager
-
 router = APIRouter(prefix="/api/v1/risk", tags=["risk"])
 
 
@@ -342,40 +340,6 @@ async def check_alerts_now():
         return {"success": True, "data": await run_alert_check()}
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=502, detail=f"警報檢查失敗：{exc}")
-
-
-@router.get("/status")
-async def get_risk_status():
-    try:
-        return {"success": True, "data": risk_manager.get_status().model_dump()}
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
-
-
-@router.get("/equity-curve")
-async def get_equity_curve(hours: int = Query(default=30, ge=1, le=720)):
-    try:
-        points = risk_manager.get_equity_curve(hours=hours)
-        return {
-            "success": True,
-            "data": {
-                "items": [point.model_dump() for point in points],
-                # See risk/manager.py module docstring: this curve is a
-                # simulated pseudo-random walk, not a real equity history.
-                "is_simulated": True,
-            },
-        }
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
-
-
-@router.post("/circuit-breaker/reset")
-async def reset_circuit_breaker():
-    try:
-        status = risk_manager.reset_circuit_breaker()
-        return {"success": True, "data": status.model_dump()}
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
 
 
 @router.get("/sizing/{symbol}")

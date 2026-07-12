@@ -27,6 +27,7 @@
           <span class="mlabel">{{ market.symbol }} {{ market.name }} 現價</span>
           <strong class="mval">{{ fmt(market.price) }}</strong>
           <DataLineage :as-of="market.as_of" :source="market.source" />
+          <a class="tv-link" :href="tvChartUrl(market.symbol)" target="_blank" rel="noopener nofollow">在 TradingView 開啟 ↗</a>
         </div>
         <div class="mcard">
           <span class="mlabel">ATR({{ market.atr_period }}) 每日波動</span>
@@ -111,8 +112,8 @@
             <li :class="riskPct <= 2 ? 'ok' : 'bad'">{{ riskPct <= 2 ? '✓' : '✗' }} 單筆風險 {{ riskPct }}%（建議 ≤ 2%）</li>
             <li v-if="target" :class="rr >= 2 ? 'ok' : 'bad'">{{ rr >= 2 ? '✓' : '✗' }} 風報比 1:{{ rr.toFixed(2) }}（建議 ≥ 1:2）</li>
             <li :class="pctOfAccount <= 30 ? 'ok' : 'bad'">{{ pctOfAccount <= 30 ? '✓' : '✗' }} 單一部位佔資金 {{ pctOfAccount.toFixed(1) }}%（避免過度集中，建議 ≤ 30%）</li>
-            <li v-if="existingPositions.length" :class="projectedHeatPct <= 6 ? 'ok' : 'bad'">
-              {{ projectedHeatPct <= 6 ? '✓' : '✗' }} 加上這筆後投組總風險熱度 {{ projectedHeatPct.toFixed(1) }}%（含投組風險頁 {{ existingPositions.length }} 筆既有部位，建議 ≤ 6%）
+            <li v-if="existingPositions.length || journalOnlyCount" :class="projectedHeatPct <= 6 ? 'ok' : 'bad'">
+              {{ projectedHeatPct <= 6 ? '✓' : '✗' }} 加上這筆後投組總風險熱度 {{ projectedHeatPct.toFixed(1) }}%（含投組風險頁 {{ existingPositions.length }} 筆既有部位{{ journalOnlyCount ? `、交易日誌 ${journalOnlyCount} 筆進行中部位` : '' }}，建議 ≤ 6%）
             </li>
           </ul>
           <p class="disclaimer">※ 本工具僅為風險試算，非投資建議；停損/目標請自行判斷。</p>
@@ -160,10 +161,12 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useStockStore } from '../stores/stock.js'
 import DataLineage from '../components/DataLineage.vue'
+import { loadJournal, journalWinStats, riskAmount as journalRiskAmount, kellyFraction, JOURNAL_KEY } from '../lib/tradeMath'
+import { tvChartUrl } from '../lib/tradingview'
 
 const route = useRoute()
 const stockStore = useStockStore()
@@ -217,11 +220,33 @@ function loadExistingPositions() {
     if (Array.isArray(raw)) existingPositions.value = raw
   } catch { /* ignore */ }
 }
+// E1：投組風險頁只顯示手動記的部位，交易日誌裡的進行中部位（同代碼沒有
+// 重複記在投組風險頁時）也是真實曝險，一併算進「加上這筆後」的預覽，避免
+// 低估。用代碼去重：投組風險頁的手動記錄視為權威版本，日誌只補它沒有的。
+// F3：loadJournal() 讀 localStorage 不是 reactive 的，日誌在別的分頁變動
+// 時這頁不會自動跟上——用一個純計數的 ref 建立依賴，storage 事件觸發時
+// 遞增它（沿用風控監控頁 B2 的同一套模式）。
+const journalVersion = ref(0)
+function onJournalStorage(e) {
+  if (!e.key || e.key === JOURNAL_KEY) journalVersion.value++
+}
+const journalOnlyForHeat = computed(() => {
+  journalVersion.value // eslint-disable-line no-unused-expressions
+  const sym = String(symbolInput.value || '').trim().toUpperCase()
+  const manualSymbols = new Set(existingPositions.value.map(p => String(p.symbol || '').trim().toUpperCase()))
+  return loadJournal()
+    .filter(t => t.status === 'open')
+    .filter(t => String(t.symbol || '').trim().toUpperCase() !== sym)
+    .filter(t => !manualSymbols.has(String(t.symbol || '').trim().toUpperCase()))
+})
+const journalOnlyCount = computed(() => journalOnlyForHeat.value.length)
 const existingRiskAmount = computed(() => {
   const sym = String(symbolInput.value || '').trim().toUpperCase()
-  return existingPositions.value
+  const manualRisk = existingPositions.value
     .filter(p => String(p.symbol || '').trim().toUpperCase() !== sym)
     .reduce((a, p) => a + (Number(p.lots) || 0) * 1000 * Math.abs((Number(p.entry) || 0) - (Number(p.stop) || 0)), 0)
+  const journalRisk = journalOnlyForHeat.value.reduce((a, t) => a + journalRiskAmount(t), 0)
+  return manualRisk + journalRisk
 })
 const projectedHeatPct = computed(() => (account.value > 0 ? (existingRiskAmount.value + capitalAtRisk.value) / account.value * 100 : 0))
 const directionLabel = computed(() => {
@@ -231,12 +256,7 @@ const directionLabel = computed(() => {
 const rrClass = computed(() => (rr.value >= 2 ? 'up' : rr.value > 0 ? 'warn' : ''))
 
 // Kelly: f* = W*(PF-1)/PF, derived from win rate + profit factor.
-const kelly = computed(() => {
-  const w = (winRate.value || 0) / 100
-  const pf = profitFactor.value || 0
-  if (w <= 0 || w >= 1 || pf <= 1) return 0
-  return Math.max(0, w * (pf - 1) / pf)
-})
+const kelly = computed(() => kellyFraction((winRate.value || 0) / 100, profitFactor.value || 0))
 const suggestedRiskPct = computed(() => Math.min(kelly.value * 0.5 * 100, 10))
 
 function applyKelly() {
@@ -246,18 +266,11 @@ function applyKelly() {
 // Use YOUR real stats from the trade journal, not a backtest.
 function loadFromJournal() {
   btError.value = ''
-  let trades = []
-  try { const raw = JSON.parse(localStorage.getItem('finlab_trade_journal') || '[]'); if (Array.isArray(raw)) trades = raw } catch { /* ignore */ }
-  const closed = trades.filter(t => t.status === 'closed')
+  const closed = loadJournal().filter(t => t.status === 'closed')
   if (!closed.length) { btError.value = '交易日誌尚無已平倉紀錄，先去記錄幾筆交易。'; return }
-  const pps = (t) => { const d = Number(t.exit) - Number(t.entry); return t.side === 'short' ? -d : d }
-  const pnl = (t) => (Number(t.lots) || 0) * 1000 * pps(t)
-  const pnls = closed.map(pnl)
-  const wins = pnls.filter(p => p > 0).length
-  const grossWin = pnls.filter(p => p > 0).reduce((a, b) => a + b, 0)
-  const grossLoss = Math.abs(pnls.filter(p => p < 0).reduce((a, b) => a + b, 0))
-  winRate.value = Math.round(wins / closed.length * 100)
-  profitFactor.value = grossLoss > 0 ? Math.round((grossWin / grossLoss) * 100) / 100 : 99.99
+  const stats = journalWinStats(closed)
+  winRate.value = Math.round(stats.winRate * 100)
+  profitFactor.value = Math.round(stats.profitFactor * 100) / 100
   if (closed.length < 20) btError.value = `已帶入你 ${closed.length} 筆實戰統計；樣本 <20 筆，凱利僅供參考。`
 }
 
@@ -342,7 +355,9 @@ onMounted(() => {
   if (q) symbolInput.value = String(q).trim().toUpperCase()
   loadExistingPositions()
   loadMarket()
+  window.addEventListener('storage', onJournalStorage)
 })
+onBeforeUnmount(() => window.removeEventListener('storage', onJournalStorage))
 </script>
 
 <style scoped>
@@ -360,6 +375,8 @@ onMounted(() => {
 .mlabel { font-size: 0.78rem; color: var(--text-muted); }
 .mval { font-size: 1.5rem; }
 .mhint { font-size: 0.74rem; color: var(--text-muted); }
+.tv-link { color: var(--accent-blue); font-size: 0.74rem; text-decoration: none; }
+.tv-link:hover { text-decoration: underline; }
 .stop-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .chip { background: var(--bg-hover); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 999px; padding: 4px 10px; font-size: 0.78rem; cursor: pointer; }
 .chip small { color: var(--text-muted); margin-left: 4px; }

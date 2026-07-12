@@ -1,15 +1,18 @@
 """Human-in-the-loop trade approval service.
 
-SIMULATED, NOT LIVE: there is no broker/exchange integration behind this
-service. Pending trades are proposals synthesized from
+PAPER TRADING, NOT LIVE: there is no broker/exchange integration behind
+this service. Pending trades are proposals synthesized from
 `generate_signals()`, held only in this process's memory (`self._trades`
 is a plain dict), and are lost on every restart -- nothing is persisted
-to a database. `approve_or_reject()` only flips a local status field and
-calls `risk_manager.record_trade()` to bump the (also simulated) risk
-counter; approving a trade here does **not** place, confirm, or route any
-real order. Do not build automated execution on top of "APPROVED" status
-until this is wired to an actual broker API. Every `PendingTrade` carries
-an `is_simulated: true` field for exactly this reason.
+to a database. `approve_or_reject()` only flips a local status field;
+approving a trade here does **not** place, confirm, or route any real
+order. The frontend treats an approval as a *paper trade*: it writes an
+open position into the browser-side trade journal (localStorage
+`finlab_trade_journal`), which is what the risk-monitoring pages compute
+real drawdown/circuit-breaker state from. Do not build automated
+execution on top of "APPROVED" status until this is wired to an actual
+broker API. Every `PendingTrade` carries an `is_simulated: true` field
+for exactly this reason.
 """
 
 from __future__ import annotations
@@ -21,7 +24,6 @@ from uuid import uuid4
 from pydantic import BaseModel, Field
 
 from ..ai_agent.signal_generator import SignalItem, generate_signals
-from ..risk.manager import risk_manager
 
 
 class PendingTrade(BaseModel):
@@ -90,8 +92,6 @@ class TradeApprovalService:
             raise ValueError(f"Trade task {action.task_id} not found")
         trade.status = "APPROVED" if action.action == "APPROVE" else "REJECTED"
         self._trades[action.task_id] = trade
-        if trade.status == "APPROVED":
-            risk_manager.record_trade()
         return trade
 
     def _existing_open_trade(self, signal: SignalItem) -> bool:
