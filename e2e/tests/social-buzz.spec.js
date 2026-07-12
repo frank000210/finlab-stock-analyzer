@@ -53,3 +53,27 @@ test('社群熱度分析頁 顯示 PTT/新聞/財經媒體/事實查核區塊與
   // 趨勢基準說明：有歷史資料時顯示均值，沒有時顯示「尚無足夠歷史資料」
   await expect(page.locator('.trend-baseline')).toContainText(/基準：近 \d+ 天|尚無足夠歷史資料/)
 })
+
+test('社群熱度分析頁 日期排序可切換由近至遠/由遠至近 (K1)', async ({ page }) => {
+  test.setTimeout(60_000)
+  await page.goto('/stocks/2317/social-buzz')
+
+  const newsCard = page.locator('.card', { hasText: '新聞曝光' })
+  await expect(newsCard).toBeVisible({ timeout: 30_000 })
+  const dates = newsCard.locator('.news-date')
+  await expect(dates.first()).toBeVisible()
+
+  const readDates = async () => {
+    const count = await dates.count()
+    const values = []
+    for (let i = 0; i < count; i++) values.push(await dates.nth(i).textContent())
+    return values.filter(Boolean)
+  }
+
+  const descDates = await readDates()
+  expect([...descDates].sort().reverse()).toEqual(descDates)
+
+  await page.locator('.sort-select').selectOption('asc')
+  const ascDates = await readDates()
+  expect([...ascDates].sort()).toEqual(ascDates)
+})

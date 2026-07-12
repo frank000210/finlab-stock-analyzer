@@ -12,6 +12,10 @@
         <button class="btn btn-primary" @click="fetchData" :disabled="loading">
           {{ loading ? '搜尋中...' : '查詢熱度' }}
         </button>
+        <select v-model="sortOrder" class="sort-select" title="日期排序">
+          <option value="desc">日期：由近至遠</option>
+          <option value="asc">日期：由遠至近</option>
+        </select>
       </div>
     </header>
 
@@ -109,10 +113,10 @@
           <span>看多: <strong class="positive">{{ data.ptt.bullish_count }}</strong></span>
           <span>看空: <strong class="negative">{{ data.ptt.bearish_count }}</strong></span>
         </div>
-        <div class="posts-list" v-if="data.ptt.posts.length">
+        <div class="posts-list" v-if="sortedPttPosts.length">
           <component
             :is="p.url ? 'a' : 'div'"
-            v-for="(p, i) in data.ptt.posts"
+            v-for="(p, i) in sortedPttPosts"
             :key="i"
             class="post-item"
             :href="p.url || undefined"
@@ -134,10 +138,10 @@
         <div class="source-meta">
           <span>新聞篇數: <strong>{{ data.news.article_count }}</strong></span>
         </div>
-        <div class="news-list" v-if="data.news.articles.length">
+        <div class="news-list" v-if="sortedNewsArticles.length">
           <component
             :is="a.url ? 'a' : 'div'"
-            v-for="(a, i) in data.news.articles"
+            v-for="(a, i) in sortedNewsArticles"
             :key="i"
             class="news-item"
             :href="a.url || undefined"
@@ -159,10 +163,10 @@
         <div class="source-meta">
           <span>報導篇數: <strong>{{ data.finance_news.article_count }}</strong></span>
         </div>
-        <div class="news-list" v-if="data.finance_news.articles.length">
+        <div class="news-list" v-if="sortedFinanceArticles.length">
           <component
             :is="a.url ? 'a' : 'div'"
-            v-for="(a, i) in data.finance_news.articles"
+            v-for="(a, i) in sortedFinanceArticles"
             :key="i"
             class="news-item"
             :href="a.url || undefined"
@@ -185,9 +189,9 @@
           <span>相關查核/文章: <strong>{{ data.fact_check.check_count }}</strong></span>
           <a class="tfc-link" :href="data.fact_check.source_url" target="_blank" rel="noopener noreferrer">前往查核中心 ↗</a>
         </div>
-        <div class="news-list" v-if="data.fact_check.items && data.fact_check.items.length">
+        <div class="news-list" v-if="sortedFactCheckItems.length">
           <a
-            v-for="(f, i) in data.fact_check.items"
+            v-for="(f, i) in sortedFactCheckItems"
             :key="i"
             class="news-item"
             :href="f.url"
@@ -221,6 +225,7 @@ const loading = ref(false)
 const error = ref('')
 const data = ref(null)
 const history = ref([])
+const sortOrder = ref('desc') // 'desc' = 由近至遠, 'asc' = 由遠至近
 
 const gaugeColor = computed(() => {
   if (!data.value) return 'var(--text-muted)'
@@ -274,6 +279,24 @@ const sparkPoints = computed(() => {
   return scores.map((s, i) => `${i * stepX},${sparkH - ((s - min) / range) * sparkH}`).join(' ')
 })
 
+// 日期字串皆為 YYYY-MM-DD（或空字串），可直接用字串比較排序；沒有日期
+// 的項目一律排到最後，不管目前是由近至遠還是由遠至近。
+function sortByDate(list, key) {
+  return [...list].sort((a, b) => {
+    const da = a[key] || ''
+    const db = b[key] || ''
+    if (!da && !db) return 0
+    if (!da) return 1
+    if (!db) return -1
+    return sortOrder.value === 'asc' ? da.localeCompare(db) : db.localeCompare(da)
+  })
+}
+
+const sortedPttPosts = computed(() => data.value ? sortByDate(data.value.ptt.posts, 'date') : [])
+const sortedNewsArticles = computed(() => data.value ? sortByDate(data.value.news.articles, 'published') : [])
+const sortedFinanceArticles = computed(() => data.value?.finance_news ? sortByDate(data.value.finance_news.articles, 'published') : [])
+const sortedFactCheckItems = computed(() => data.value?.fact_check?.items ? sortByDate(data.value.fact_check.items, 'published') : [])
+
 function formatVol(v) {
   if (!v) return '0'
   if (v >= 1000000) return (v / 1000000).toFixed(1) + 'M'
@@ -304,6 +327,7 @@ watch(() => route.params.symbol, (sym) => {
 .subtitle { color: var(--text-muted); font-size: 0.85rem; margin-top: 4px; }
 .controls { display: flex; gap: 8px; align-items: center; }
 .input-symbol { width: 90px; padding: 8px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-primary); font-weight: 700; text-align: center; }
+.sort-select { padding: 8px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-primary); font-size: 0.82rem; }
 .error-card { color: var(--color-down); background: var(--down-soft); border: 1px solid rgba(239, 68, 68, 0.3); }
 
 .score-section { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); }
