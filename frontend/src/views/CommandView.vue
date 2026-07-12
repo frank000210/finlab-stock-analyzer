@@ -96,9 +96,9 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import DataLineage from '../components/DataLineage.vue'
-import { realizedR, journalWinStats, halfKellyRiskPct, loadJournal, saveJournal, localDateStr } from '../lib/tradeMath'
+import { realizedR, journalWinStats, halfKellyRiskPct, loadJournal, saveJournal, localDateStr, JOURNAL_KEY } from '../lib/tradeMath'
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 
@@ -249,6 +249,7 @@ function commitTrade() {
     status: 'open', exit: null, exitDate: null,
   })
   saveJournal(journal)
+  journalTrades.value = journal // 同分頁寫入不會觸發 storage 事件，這裡手動同步
   logMsg.value = `已記錄 ${r.symbol} ${l} 張到交易日誌（進場 ${entry}、停損 ${stop}），到「交易日誌」平倉即納入統計。`
   pendingTrade.value = null
 }
@@ -297,6 +298,14 @@ async function analyzeCorr() {
   } catch { /* best-effort */ }
 }
 
+// G1：journalTrades 過去只在載入當下讀一次，交易日誌在別的分頁變動時（例如
+// 平倉）這頁的半凱利建議與虧損上限熔斷都不會更新，直到手動重新整理——熔斷
+// 條可能顯示過時的安全狀態。補上跟風控監控頁 B2/投組風險頁 F3 同一套
+// storage 事件監聽。
+function onJournalStorage(e) {
+  if (!e.key || e.key === JOURNAL_KEY) journalTrades.value = loadJournal()
+}
+
 onMounted(() => {
   journalTrades.value = loadJournal()
   const a = Number(localStorage.getItem('portfolio_heat_account')); if (a > 0) account.value = a
@@ -308,7 +317,9 @@ onMounted(() => {
   symbolsInput.value = wl.length ? wl.join(',') : '2330,2454,2317'
   loadRegime()
   scan()
+  window.addEventListener('storage', onJournalStorage)
 })
+onBeforeUnmount(() => window.removeEventListener('storage', onJournalStorage))
 </script>
 
 <style scoped>
