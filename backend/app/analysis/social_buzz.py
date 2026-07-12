@@ -9,10 +9,11 @@ Measures discussion volume and sentiment for a stock across:
 import re
 import time
 import hashlib
+import urllib.parse
 import httpx
 import pandas as pd
 import numpy as np
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from email.utils import parsedate_to_datetime
 from typing import Optional
 from ..crawler import StockPriceCrawler
@@ -84,6 +85,75 @@ def _set_social_cached(key: str, data: dict) -> None:
         del _social_cache[oldest]
 
 
+# 每日快照持久化：讓熱度分數不再只是「這一刻」的瞬時值，之後可以畫趨勢圖，
+# 也讓 trend 判斷能跟這檔股票自己的歷史基準比較，而不是套一個對所有股票
+# 都一樣的絕對門檻。寫入失敗（Mongo 不可用）不能讓整個分析跟著失敗，比照
+# 本檔案其他資料來源一律 try/except 吞掉。
+_BASELINE_LOOKBACK_DAYS = 14
+_BASELINE_MIN_SAMPLES = 3
+
+
+async def _record_snapshot(symbol: str, post_count: int, article_count: int, buzz_score: int) -> None:
+    try:
+        from ..db.mongodb import get_mongodb
+        db = await get_mongodb()
+        await db.social_buzz_history.update_one(
+            {"symbol": symbol, "date": str(date.today())},
+            {"$set": {
+                "symbol": symbol,
+                "date": str(date.today()),
+                "post_count": post_count,
+                "article_count": article_count,
+                "buzz_score": buzz_score,
+                "updated_at": datetime.utcnow(),
+            }},
+            upsert=True,
+        )
+    except Exception:
+        pass
+
+
+async def _get_trend_baseline(symbol: str) -> Optional[dict]:
+    """近 N 天的 PTT/新聞則數平均，作為判斷「相對上升/下降」的基準。
+    樣本不足（新股票或剛上線）回傳 None，呼叫端會退回絕對門檻判斷。
+    """
+    try:
+        from ..db.mongodb import get_mongodb
+        db = await get_mongodb()
+        cutoff = str(date.today() - timedelta(days=_BASELINE_LOOKBACK_DAYS))
+        rows = [
+            row async for row in
+            db.social_buzz_history.find(
+                {"symbol": symbol, "date": {"$gte": cutoff}},
+                {"_id": 0, "post_count": 1, "article_count": 1},
+            )
+        ]
+        if len(rows) < _BASELINE_MIN_SAMPLES:
+            return None
+        return {
+            "avg_posts": sum(r.get("post_count", 0) for r in rows) / len(rows),
+            "avg_articles": sum(r.get("article_count", 0) for r in rows) / len(rows),
+            "sample_days": len(rows),
+        }
+    except Exception:
+        return None
+
+
+async def get_buzz_history(symbol: str, days: int = 30) -> list[dict]:
+    """近 N 天的每日熱度快照，供前端畫趨勢走勢用。"""
+    try:
+        from ..db.mongodb import get_mongodb
+        db = await get_mongodb()
+        cutoff = str(date.today() - timedelta(days=days))
+        cursor = db.social_buzz_history.find(
+            {"symbol": symbol, "date": {"$gte": cutoff}},
+            {"_id": 0, "date": 1, "post_count": 1, "article_count": 1, "buzz_score": 1},
+        ).sort("date", 1)
+        return [row async for row in cursor]
+    except Exception:
+        return []
+
+
 async def analyze_social_buzz(symbol: str, stock_name: str = "") -> dict:
     """Analyze social media and news buzz for a stock.
 
@@ -129,15 +199,33 @@ async def analyze_social_buzz(symbol: str, stock_name: str = "") -> dict:
     except Exception:
         factcheck_result = {"check_count": 0, "items": [], "source": "台灣事實查核中心", "source_url": "https://tfc-taiwan.org.tw/"}
 
+    try:
+        finance_news_result = await _scrape_finance_news(search_terms)
+    except Exception:
+        finance_news_result = {"article_count": 0, "articles": [], "trend": "stable", "source": "台灣財經媒體（鉅亨網／MoneyDJ／CMoney）"}
+
     # Compute composite buzz score (0-100)
     ptt_score = min(100, ptt_result["post_count"] * 5)  # 20 posts = 100
     news_score = min(100, news_result["article_count"] * 10)  # 10 articles = 100
+    finance_score = min(100, finance_news_result["article_count"] * 10)
     vol_score = volume_result.get("attention_score", 0)
 
-    buzz_score = int(ptt_score * 0.35 + news_score * 0.35 + vol_score * 0.30)
+    buzz_score = int(ptt_score * 0.30 + news_score * 0.25 + finance_score * 0.15 + vol_score * 0.30)
 
-    # Determine trend
-    if ptt_result.get("trend") == "rising" or news_result.get("trend") == "rising":
+    # 趨勢判斷：有足夠的歷史快照時，改用「相對於這檔股票自己近14天均值」的比例
+    # 判斷（避免權值股天生比小型股容易被判定成"熱度上升"），沒有歷史資料時
+    # （功能剛上線或冷門股第一次查）才退回原本的絕對門檻判斷。
+    baseline = await _get_trend_baseline(symbol)
+    if baseline:
+        post_ratio = (ptt_result["post_count"] / baseline["avg_posts"]) if baseline["avg_posts"] > 0 else (2.0 if ptt_result["post_count"] > 0 else 1.0)
+        article_ratio = (news_result["article_count"] / baseline["avg_articles"]) if baseline["avg_articles"] > 0 else (2.0 if news_result["article_count"] > 0 else 1.0)
+        if post_ratio >= 1.5 or article_ratio >= 1.5:
+            trend, trend_label = "rising", "討論度上升中"
+        elif post_ratio <= 0.6 and article_ratio <= 0.6:
+            trend, trend_label = "falling", "討論度下降中"
+        else:
+            trend, trend_label = "stable", "討論度穩定"
+    elif ptt_result.get("trend") == "rising" or news_result.get("trend") == "rising":
         trend = "rising"
         trend_label = "討論度上升中"
     elif ptt_result.get("trend") == "falling" and news_result.get("trend") == "falling":
@@ -185,18 +273,40 @@ async def analyze_social_buzz(symbol: str, stock_name: str = "") -> dict:
         "sentiment_label": sentiment_label,
         "ptt": ptt_result,
         "news": news_result,
+        "finance_news": finance_news_result,
         "fact_check": factcheck_result,
         "volume_attention": volume_result,
+        "trend_baseline": baseline,
         "updated_at": str(date.today()),
     }
+
+    await _record_snapshot(symbol, ptt_result["post_count"], news_result["article_count"], buzz_score)
 
     _set_social_cached(cache_key, result)
     return result
 
 
+def _parse_push_count(raw: str) -> int:
+    """PTT 列表頁的推文數不是單純數字：'爆' 代表極熱門（視為 100），
+    'X1'~'X9'/'XX' 代表噓多於推（負值，'XX' 代表 -10 以上）。
+    """
+    raw = (raw or "").strip()
+    if raw == "爆":
+        return 100
+    if raw == "XX":
+        return -10
+    if raw.startswith("X") and raw[1:].isdigit():
+        return -int(raw[1:])
+    if raw.isdigit():
+        return int(raw)
+    return 0
+
+
 async def _scrape_ptt(search_terms: list[str]) -> dict:
     """Scrape PTT Stock board for discussion volume."""
     posts = []
+    bullish_weight = 0
+    bearish_weight = 0
     bullish_count = 0
     bearish_count = 0
 
@@ -214,30 +324,37 @@ async def _scrape_ptt(search_terms: list[str]) -> dict:
                     continue
 
                 html = resp.text
-                # Extract post titles, links and metadata
-                title_pattern = r'<div class="title">\s*<a href="([^"]+)"[^>]*>(.+?)</a>'
-                date_pattern = r'<div class="date">\s*(\d+/\d+)'
-                push_pattern = r'<span class="hl f\d">(\d+)</span>'
+                # 逐篇解析（而非分別用三個平行 regex 陣列配對），避免推文數
+                # 遇到非數字格式（'爆'／'X1'）時 findall 漏抓一筆，導致後面每篇
+                # 文章的推文數都對應錯欄位。
+                blocks = re.findall(r'<div class="r-ent">.*?<div class="mark">.*?</div>\s*</div>', html, re.DOTALL)
+                for block in blocks[:20]:
+                    title_match = re.search(r'<div class="title">\s*<a href="([^"]+)"[^>]*>(.+?)</a>', block, re.DOTALL)
+                    if not title_match:
+                        continue  # 已刪除的文章沒有連結
+                    href, title = title_match.group(1), title_match.group(2).strip()
+                    date_match = re.search(r'<div class="date">\s*(\d+/\d+)', block)
+                    push_match = re.search(r'<div class="nrec"><span class="hl f\d">(.*?)</span>', block)
+                    push_count = _parse_push_count(push_match.group(1) if push_match else "")
 
-                matches = re.findall(title_pattern, html)
-                dates = re.findall(date_pattern, html)
-                pushes = re.findall(push_pattern, html)
-
-                for i, (href, title) in enumerate(matches[:20]):
-                    post = {
-                        "title": title.strip(),
+                    posts.append({
+                        "title": title,
                         "url": f"https://www.ptt.cc{href}" if href.startswith("/") else href,
-                        "date": _ptt_date_with_year(dates[i]) if i < len(dates) else "",
-                        "push_count": int(pushes[i]) if i < len(pushes) else 0,
-                    }
-                    posts.append(post)
+                        "date": _ptt_date_with_year(date_match.group(1)) if date_match else "",
+                        "push_count": push_count,
+                    })
 
-                    # Simple sentiment from title keywords
+                    # 標題關鍵字判斷多空方向，用推文數（社群認同度）加權，而非
+                    # 每篇文章等權重計入——一篇被推爆的看多文，應該比一篇零星
+                    # 噓聲的看多文更能代表版上真實情緒。
+                    weight = push_count if push_count > 0 else 1
                     title_lower = title.lower()
                     if any(w in title_lower for w in ["多", "漲", "噴", "飛", "強", "利多", "看好", "加碼"]):
                         bullish_count += 1
+                        bullish_weight += weight
                     elif any(w in title_lower for w in ["空", "跌", "崩", "慘", "利空", "看壞", "減碼", "出"]):
                         bearish_count += 1
+                        bearish_weight += weight
 
     except Exception:
         pass
@@ -252,10 +369,10 @@ async def _scrape_ptt(search_terms: list[str]) -> dict:
 
     post_count = len(unique_posts)
 
-    # Sentiment
-    if bullish_count > bearish_count * 1.5:
+    # Sentiment（用推文數加權後的多空聲量比較，而非單純篇數）
+    if bullish_weight > bearish_weight * 1.5:
         sentiment = "bullish"
-    elif bearish_count > bullish_count * 1.5:
+    elif bearish_weight > bullish_weight * 1.5:
         sentiment = "bearish"
     else:
         sentiment = "neutral"
@@ -278,39 +395,41 @@ async def _scrape_ptt(search_terms: list[str]) -> dict:
     }
 
 
+async def _fetch_google_news_rss(query: str, limit: int = 10) -> list[dict]:
+    """Fetch + parse a Google News RSS search query into article dicts."""
+    articles: list[dict] = []
+    url = f"https://news.google.com/rss/search?q={urllib.parse.quote_plus(query)}&hl=zh-TW&gl=TW&ceid=TW:zh-Hant"
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+    async with httpx.AsyncClient(timeout=10, follow_redirects=True) as client:
+        resp = await client.get(url, headers=headers)
+        if resp.status_code != 200:
+            return articles
+        xml = resp.text
+        items = re.findall(r"<item>(.*?)</item>", xml, re.DOTALL)
+        for item in items[:limit]:
+            title_match = re.search(r"<title>(.*?)</title>", item)
+            link_match = re.search(r"<link>(.*?)</link>", item)
+            pub_match = re.search(r"<pubDate>(.*?)</pubDate>", item)
+            source_match = re.search(r"<source[^>]*>(.*?)</source>", item)
+            if title_match:
+                articles.append({
+                    "title": title_match.group(1).strip(),
+                    "url": link_match.group(1).strip() if link_match else "",
+                    "published": _format_pub_date(pub_match.group(1).strip() if pub_match else ""),
+                    "source": source_match.group(1).strip() if source_match else "Google News",
+                })
+    return articles
+
+
 async def _scrape_news(search_terms: list[str]) -> dict:
     """Scrape Google News for recent news articles."""
     articles = []
 
     try:
-        async with httpx.AsyncClient(timeout=10, follow_redirects=True) as client:
-            for term in search_terms[:2]:
-                # Use Google News RSS
-                url = f"https://news.google.com/rss/search?q={term}+stock&hl=zh-TW&gl=TW&ceid=TW:zh-Hant"
-                headers = {
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-                }
-                resp = await client.get(url, headers=headers)
-                if resp.status_code != 200:
-                    continue
-
-                # Parse RSS XML (simplified)
-                xml = resp.text
-                items = re.findall(r"<item>(.*?)</item>", xml, re.DOTALL)
-                for item in items[:10]:
-                    title_match = re.search(r"<title>(.*?)</title>", item)
-                    link_match = re.search(r"<link>(.*?)</link>", item)
-                    pub_match = re.search(r"<pubDate>(.*?)</pubDate>", item)
-                    source_match = re.search(r"<source[^>]*>(.*?)</source>", item)
-
-                    if title_match:
-                        articles.append({
-                            "title": title_match.group(1).strip(),
-                            "url": link_match.group(1).strip() if link_match else "",
-                            "published": _format_pub_date(pub_match.group(1).strip() if pub_match else ""),
-                            "source": source_match.group(1).strip() if source_match else "Google News",
-                        })
-
+        for term in search_terms[:2]:
+            # "stock" 是英文字，混在 zh-TW locale 查詢裡對純數字代號完全沒有
+            # 消歧效果；改用中文「股票」讓 Google News 用台股語境排序結果。
+            articles.extend(await _fetch_google_news_rss(f"{term} 股票"))
     except Exception:
         pass
 
@@ -336,6 +455,45 @@ async def _scrape_news(search_terms: list[str]) -> dict:
         "articles": unique_articles[:8],
         "trend": trend,
         "source": "Google News",
+    }
+
+
+# 台灣財經專門媒體：這幾家沒有可直接打的公開 RSS/搜尋 API（鉅亨網/MoneyDJ
+# 都是 404，Dcard 有 Cloudflare 擋爬蟲），改用 Google News 本身的 site:
+# 篩選子句間接取得結構化、有精確發布日期的財經媒體報導，避免自建脆弱的
+# per-站台 scraper。
+_FINANCE_SITES = "(site:cnyes.com OR site:moneydj.com OR site:cmoney.tw)"
+
+
+async def _scrape_finance_news(search_terms: list[str]) -> dict:
+    """Google News RSS 限定台灣財經媒體站台，補足純新聞搜尋以外的精確度來源。"""
+    articles = []
+
+    try:
+        for term in search_terms[:2]:
+            articles.extend(await _fetch_google_news_rss(f"{term} {_FINANCE_SITES}"))
+    except Exception:
+        pass
+
+    seen = set()
+    unique_articles = []
+    for a in articles:
+        if a["title"] not in seen:
+            seen.add(a["title"])
+            unique_articles.append(a)
+
+    article_count = len(unique_articles)
+    trend = "stable"
+    if article_count >= 5:
+        trend = "rising"
+    elif article_count <= 1:
+        trend = "falling"
+
+    return {
+        "article_count": article_count,
+        "articles": unique_articles[:8],
+        "trend": trend,
+        "source": "台灣財經媒體（鉅亨網／MoneyDJ／CMoney）",
     }
 
 

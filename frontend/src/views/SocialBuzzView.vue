@@ -51,6 +51,26 @@
               <div class="trend-value">{{ data.sentiment_label }}</div>
             </div>
           </div>
+          <p class="trend-baseline">
+            <template v-if="data.trend_baseline">
+              基準：近 {{ data.trend_baseline.sample_days }} 天 PTT 均 {{ data.trend_baseline.avg_posts.toFixed(1) }} 篇／新聞均 {{ data.trend_baseline.avg_articles.toFixed(1) }} 篇
+            </template>
+            <template v-else>
+              尚無足夠歷史資料建立基準，暫用當日絕對門檻判斷趨勢
+            </template>
+          </p>
+        </div>
+      </section>
+
+      <!-- Buzz history sparkline -->
+      <section class="card" v-if="history.length >= 2">
+        <h2>📈 熱度走勢（近 {{ history.length }} 天）</h2>
+        <svg class="spark-svg" :viewBox="`0 0 ${sparkW} ${sparkH}`" preserveAspectRatio="none">
+          <polyline :points="sparkPoints" fill="none" :stroke="theme.blue" stroke-width="2" />
+        </svg>
+        <div class="spark-axis">
+          <span>{{ history[0].date }}</span>
+          <span>{{ history[history.length - 1].date }}</span>
         </div>
       </section>
 
@@ -133,6 +153,31 @@
         <p v-else class="no-data">未搜尋到相關新聞</p>
       </section>
 
+      <!-- Finance-specific news -->
+      <section class="card" v-if="data.finance_news">
+        <h2>🏦 財經媒體（鉅亨網／MoneyDJ／CMoney）</h2>
+        <div class="source-meta">
+          <span>報導篇數: <strong>{{ data.finance_news.article_count }}</strong></span>
+        </div>
+        <div class="news-list" v-if="data.finance_news.articles.length">
+          <component
+            :is="a.url ? 'a' : 'div'"
+            v-for="(a, i) in data.finance_news.articles"
+            :key="i"
+            class="news-item"
+            :href="a.url || undefined"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <span class="news-title">{{ a.title }}</span>
+            <span class="news-date" v-if="a.published">{{ a.published }}</span>
+            <span class="news-source">{{ a.source }}</span>
+            <span class="ext-link" v-if="a.url">↗</span>
+          </component>
+        </div>
+        <p v-else class="no-data">未搜尋到相關財經媒體報導</p>
+      </section>
+
       <!-- Fact Check -->
       <section class="card" v-if="data.fact_check">
         <h2>🔍 事實查核（台灣事實查核中心）</h2>
@@ -175,6 +220,7 @@ const symbol = ref(route.params.symbol || stockStore.symbol)
 const loading = ref(false)
 const error = ref('')
 const data = ref(null)
+const history = ref([])
 
 const gaugeColor = computed(() => {
   if (!data.value) return 'var(--text-muted)'
@@ -202,7 +248,31 @@ async function fetchData() {
   } finally {
     loading.value = false
   }
+  fetchHistory()
 }
+
+async function fetchHistory() {
+  history.value = []
+  try {
+    const res = await fetch(`/api/v1/stocks/${symbol.value}/social-buzz/history?days=30`)
+    const json = await res.json()
+    if (json.success) history.value = json.data
+  } catch (e) {
+    // 走勢圖是附加資訊，抓不到就不顯示，不影響主要熱度分析
+  }
+}
+
+const sparkW = 600
+const sparkH = 80
+const sparkPoints = computed(() => {
+  if (history.value.length < 2) return ''
+  const scores = history.value.map(h => h.buzz_score)
+  const min = Math.min(...scores)
+  const max = Math.max(...scores)
+  const range = (max - min) || 1
+  const stepX = sparkW / (scores.length - 1)
+  return scores.map((s, i) => `${i * stepX},${sparkH - ((s - min) / range) * sparkH}`).join(' ')
+})
 
 function formatVol(v) {
   if (!v) return '0'
@@ -256,6 +326,10 @@ watch(() => route.params.symbol, (sym) => {
 .trend-icon { font-size: 1.5rem; }
 .trend-label { font-size: 0.72rem; color: var(--text-muted); }
 .trend-value { font-size: 0.9rem; font-weight: 600; }
+.trend-baseline { font-size: 0.72rem; color: var(--text-muted); margin: 0; }
+
+.spark-svg { width: 100%; height: 80px; background: var(--bg-well); border: 1px solid var(--border-color); border-radius: 12px; }
+.spark-axis { display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--text-muted); margin-top: 4px; }
 
 .vol-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--space-3); }
 .vol-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: var(--bg-tertiary); border-radius: var(--radius-sm); }
