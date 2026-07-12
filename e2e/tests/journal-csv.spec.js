@@ -48,3 +48,19 @@ test('交易日誌 匯入缺少必要欄位的 CSV 時報錯不寫入 (A3)', asy
   const stored = await page.evaluate(() => localStorage.getItem('finlab_trade_journal'))
   expect(stored).toBeNull()
 })
+
+// F5：CSV 匯入沒有檔案大小上限的話，誤選一個大檔會把整個內容讀進記憶體
+// 卡住畫面。超過 5MB 直接擋掉，不嘗試讀取。
+test('交易日誌 匯入超過大小上限的 CSV 時直接拒絕不讀取 (F5)', async ({ page }) => {
+  await page.goto('/journal')
+  await page.evaluate(() => localStorage.removeItem('finlab_trade_journal'))
+  await page.reload()
+
+  const oversized = Buffer.alloc(6 * 1024 * 1024, 'a')
+  await page.setInputFiles('input[type="file"]', {
+    name: 'huge.csv', mimeType: 'text/csv', buffer: oversized,
+  })
+  await expect(page.locator('.csv-msg')).toContainText('超過上限')
+  const stored = await page.evaluate(() => localStorage.getItem('finlab_trade_journal'))
+  expect(stored).toBeNull()
+})

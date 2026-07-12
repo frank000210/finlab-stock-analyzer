@@ -33,7 +33,7 @@ test.beforeEach(async ({ page }) => {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({ success: true, data: { symbol: '2330', price: 100, atr: 2.5, suggested_stops: [], setup: null } }),
+      body: JSON.stringify({ success: true, data: { symbol: '2330', name: '台積電', price: 100, atr: 2.5, suggested_stops: [], setup: null } }),
     })
   })
 })
@@ -52,7 +52,7 @@ test('交易核准中心 核准後寫入交易日誌成為紙上交易 (C1)', as
   const journal = await page.evaluate(() => JSON.parse(localStorage.getItem('finlab_trade_journal') || '[]'))
   expect(journal).toHaveLength(1)
   expect(journal[0]).toMatchObject({
-    symbol: '2330', side: 'long', entry: 100, stop: 95, lots: 2, status: 'open', tag: 'AI核准',
+    symbol: '2330', name: '台積電', side: 'long', entry: 100, stop: 95, lots: 2, status: 'open', tag: 'AI核准',
   })
 })
 
