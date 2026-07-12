@@ -6,7 +6,6 @@
       <div class="creed">
         <span>紀律先於方向</span><i>·</i><span>先想「賠得起多少」，再想「會不會漲」</span><i>·</i><span>讓你的實戰數據決定下單量</span>
       </div>
-      <img :src="disciplineCycleImg" alt="交易紀律循環：選股評分→部位試算→一鍵記錄→複盤回灌" class="hero-img" />
     </header>
 
     <section class="flow-strip" v-reveal>
@@ -23,7 +22,6 @@
           <div class="step-head"><span class="step-emoji">{{ s.emoji }}</span><h3>{{ s.title }}</h3></div>
           <p class="why"><b>為什麼：</b>{{ s.why }}</p>
           <p class="what"><b>這裡做：</b>{{ s.what }}</p>
-          <img v-if="s.img" :src="s.img" :alt="s.imgAlt" class="step-img" />
           <router-link v-if="s.to" class="step-go" :to="s.to">前往 {{ s.cta || s.title }} →</router-link>
           <span v-else class="step-note">{{ s.note }}</span>
         </div>
@@ -42,12 +40,6 @@
 </template>
 
 <script setup>
-import disciplineCycleImg from '../assets/onboarding/discipline-cycle.webp'
-import positionSizingImg from '../assets/onboarding/position-sizing-formula.webp'
-import halfKellyImg from '../assets/onboarding/half-kelly-formula.webp'
-import portfolioHeatImg from '../assets/onboarding/portfolio-heat.webp'
-import journalReviewImg from '../assets/onboarding/journal-review-cycle.webp'
-
 const flow = ['選股', '定量', '執行', '控組合', '出場', '複盤']
 
 const steps = [
@@ -56,26 +48,22 @@ const steps = [
     what: '掃觀察清單，看趨勢排列、RSI、量能、距波段高低與 0–100 進場評分。' },
   { emoji: '⚡', title: '作戰台：一站式', cta: '作戰台', to: '/command',
     why: '選股、定量、執行分散在多頁很累。作戰台把它們壓成一個畫面。',
-    what: '掃描→依評分排名→用你實戰半凱利建議風險%→算出每檔建議張數→一鍵「記錄」進日誌；並警告高相關的重複下注。',
-    img: halfKellyImg, imgAlt: '半凱利建議風險%：歷史戰績→凱利公式→打對折→建議風險%' },
+    what: '掃描→依評分排名→用你實戰半凱利建議風險%→算出每檔建議張數→一鍵「記錄」進日誌；並警告高相關的重複下注。' },
   { emoji: '🛡️', title: '定量：部位風控', cta: '部位風控', to: '/risk-sizing',
     why: '真正殺死帳戶的是「賠太多」。先定停損與單筆可承受風險，再回推張數。',
-    what: 'ATR 停損建議、依風險%算張數、凱利建議（可從回測或交易日誌帶入）、進場評分與紀律檢查。',
-    img: positionSizingImg, imgAlt: '部位風控公式：帳戶資金×風險%÷停損距離＝建議張數' },
+    what: 'ATR 停損建議、依風險%算張數、凱利建議（可從回測或交易日誌帶入）、進場評分與紀律檢查。' },
   { emoji: '🎲', title: '壓測：風險模擬', cta: '蒙地卡羅', to: '/monte-carlo',
     why: '同一套勝率，運氣好壞會走出天差地別的曲線。先確認你的風險%不會讓你在噪音裡先陣亡。',
     what: '用勝率/盈虧比/風險%/筆數做蒙地卡羅，看破產機率、報酬分布與最大回撤。' },
   { emoji: '🔥', title: '控組合：投組風險', cta: '投組風險', to: '/portfolio-heat',
     why: '單筆控好，還會被「同時壓太多、又高度相關」的部位殺死。',
-    what: '總風險熱度、產業集中度、相關矩陣（揪出不同產業卻同一注的隱性集中），可一鍵推播摘要。',
-    img: portfolioHeatImg, imgAlt: '投組風險熱度：各部位風險→相關性檢查→加總熱度→超標警示' },
+    what: '總風險熱度、產業集中度、相關矩陣（揪出不同產業卻同一注的隱性集中），可一鍵推播摘要。' },
   { emoji: '📈', title: '出場：ATR 移動停利', cta: '個股分析', to: '/stocks/2330',
     why: '進場有紀律，出場更要。趨勢單用吊燈出場線一路守住獲利。',
     what: '分析頁 K 線疊上 ATR 移動停利線與進場評分徽章，價格跌破就是離場訊號。' },
   { emoji: '📓', title: '複盤：交易日誌', cta: '交易日誌', to: '/journal',
     why: '系統要能從你的實戰學習。記錄每筆進出場，算出你「自己的」勝率、期望值與 R 分布。',
-    what: '平倉算 R 倍數、權益曲線、依型態統計哪種設定最會賺；統計回灌部位試算，可匯出 CSV。',
-    img: journalReviewImg, imgAlt: '交易日誌複盤循環：進場停損→平倉出場→R倍數換算→統計回灌' },
+    what: '平倉算 R 倍數、權益曲線、依型態統計哪種設定最會賺；統計回灌部位試算，可匯出 CSV。' },
   { emoji: '🔔', title: '告警：Telegram 推播',
     note: '在後端設定 TELEGRAM_BOT_TOKEN / CHAT_ID 後，投組頁可把風險摘要推到你的手機。',
     why: '離開螢幕也要能被提醒。把總曝險與高相關警告推到手機。',
@@ -91,16 +79,6 @@ const steps = [
 .creed { margin-top: 14px; display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; color: var(--accent-blue); font-size: 0.86rem; }
 .creed i { color: var(--text-muted); }
 
-.hero-img {
-  display: block;
-  width: 100%;
-  max-width: 720px;
-  margin: 20px auto 0;
-  border-radius: 16px;
-  border: 1px solid var(--border-color);
-  background: #f5f5f0;
-}
-
 .flow-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; justify-content: center; background: var(--bg-well); border: 1px solid var(--border-color); border-radius: 999px; padding: 10px 16px; }
 .flow-strip b { font-weight: 700; }
 .flow-strip em { color: var(--text-muted); margin: 0 4px; font-style: normal; }
@@ -115,15 +93,6 @@ const steps = [
 .step-head h3 { margin: 0; }
 .why, .what { margin: 4px 0; font-size: 0.9rem; line-height: 1.6; color: var(--text-secondary, var(--text-muted)); }
 .why b, .what b { color: var(--text-primary); }
-.step-img {
-  display: block;
-  width: 100%;
-  max-width: 480px;
-  margin: 12px 0;
-  border-radius: 12px;
-  border: 1px solid var(--border-color);
-  background: #f5f5f0;
-}
 .step-go { display: inline-block; margin-top: 10px; color: var(--accent-blue); font-weight: 600; text-decoration: none; }
 .step-go:hover { text-decoration: underline; }
 .step-note { display: inline-block; margin-top: 10px; font-size: 0.82rem; color: var(--text-muted); }
