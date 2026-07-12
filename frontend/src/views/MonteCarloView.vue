@@ -60,6 +60,7 @@
 
 <script setup>
 import { ref, computed } from 'vue'
+import { loadJournal, realizedR } from '../lib/tradeMath'
 
 const winRate = ref(50)
 const payoff = ref(2)
@@ -77,17 +78,8 @@ const journalMsg = ref('')
 function loadFromJournal() {
   journalError.value = ''
   journalMsg.value = ''
-  let trades = []
-  try { const raw = JSON.parse(localStorage.getItem('finlab_trade_journal') || '[]'); if (Array.isArray(raw)) trades = raw } catch { /* ignore */ }
-  const closed = trades.filter(t => t.status === 'closed')
+  const closed = loadJournal().filter(t => t.status === 'closed')
   if (!closed.length) { journalError.value = '交易日誌尚無已平倉紀錄，先去記錄幾筆交易。'; return }
-  const riskPerShare = (t) => Math.abs((Number(t.entry) || 0) - (Number(t.stop) || 0))
-  const realizedR = (t) => {
-    const rps = riskPerShare(t)
-    if (rps <= 0) return 0
-    const diff = (Number(t.exit) || 0) - (Number(t.entry) || 0)
-    return (t.side === 'short' ? -diff : diff) / rps
-  }
   const Rs = closed.map(realizedR)
   const wins = Rs.filter(r => r > 0)
   const losses = Rs.filter(r => r <= 0)
