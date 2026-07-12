@@ -13,8 +13,38 @@ import httpx
 import pandas as pd
 import numpy as np
 from datetime import date, timedelta
+from email.utils import parsedate_to_datetime
 from typing import Optional
 from ..crawler import StockPriceCrawler
+
+
+def _format_pub_date(raw: str) -> str:
+    """RSS pubDate (RFC 822，如 'Fri, 12 Jul 2026 08:00:00 GMT') 轉成 YYYY-MM-DD；
+    格式不明時原樣保留，避免顯示空白讓使用者以為完全沒有日期資訊。
+    """
+    if not raw:
+        return ""
+    try:
+        return parsedate_to_datetime(raw).strftime("%Y-%m-%d")
+    except (TypeError, ValueError):
+        return raw
+
+
+def _ptt_date_with_year(md: str) -> str:
+    """PTT 列表頁只給 'M/D'（無年份），推回完整日期：若這個月/日比今天晚，
+    代表是去年的貼文（列表本身是新到舊排序，不會出現更早的未來日期）。
+    """
+    if not md or "/" not in md:
+        return md
+    try:
+        month, day = (int(p) for p in md.split("/", 1))
+        today = date.today()
+        year = today.year
+        if (month, day) > (today.month, today.day):
+            year -= 1
+        return date(year, month, day).isoformat()
+    except (TypeError, ValueError):
+        return md
 
 
 # Module-level cache for social data (longer TTL since it's expensive)
@@ -197,7 +227,7 @@ async def _scrape_ptt(search_terms: list[str]) -> dict:
                     post = {
                         "title": title.strip(),
                         "url": f"https://www.ptt.cc{href}" if href.startswith("/") else href,
-                        "date": dates[i] if i < len(dates) else "",
+                        "date": _ptt_date_with_year(dates[i]) if i < len(dates) else "",
                         "push_count": int(pushes[i]) if i < len(pushes) else 0,
                     }
                     posts.append(post)
@@ -277,7 +307,7 @@ async def _scrape_news(search_terms: list[str]) -> dict:
                         articles.append({
                             "title": title_match.group(1).strip(),
                             "url": link_match.group(1).strip() if link_match else "",
-                            "published": pub_match.group(1).strip() if pub_match else "",
+                            "published": _format_pub_date(pub_match.group(1).strip() if pub_match else ""),
                             "source": source_match.group(1).strip() if source_match else "Google News",
                         })
 
@@ -335,7 +365,7 @@ async def _scrape_factcheck(search_terms: list[str]) -> dict:
                     items.append({
                         "title": title,
                         "url": link_match.group(1).strip(),
-                        "published": pub_match.group(1).strip() if pub_match else "",
+                        "published": _format_pub_date(pub_match.group(1).strip() if pub_match else ""),
                         "verdict": verdict_match.group(1) if verdict_match else "相關文章",
                     })
     except Exception:

@@ -125,6 +125,7 @@
             rel="noopener noreferrer"
           >
             <span class="news-title">{{ a.title }}</span>
+            <span class="news-date" v-if="a.published">{{ a.published }}</span>
             <span class="news-source">{{ a.source }}</span>
             <span class="ext-link" v-if="a.url">↗</span>
           </component>
@@ -150,6 +151,7 @@
           >
             <span class="fc-verdict" :class="verdictClass(f.verdict)">{{ f.verdict }}</span>
             <span class="news-title">{{ f.title }}</span>
+            <span class="news-date" v-if="f.published">{{ f.published }}</span>
             <span class="ext-link">↗</span>
           </a>
         </div>
@@ -278,6 +280,7 @@ a.post-item:hover .post-title, a.news-item:hover .news-title { color: var(--acce
 .post-push { background: var(--accent-blue); color: #fff; padding: 2px 8px; border-radius: 10px; font-size: 0.7rem; font-weight: 700; min-width: 28px; text-align: center; }
 .post-title, .news-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .post-date { font-size: 0.7rem; color: var(--text-muted); }
+.news-date { font-size: 0.7rem; color: var(--text-muted); white-space: nowrap; }
 .news-source { font-size: 0.7rem; color: var(--text-muted); white-space: nowrap; }
 .no-data { color: var(--text-muted); font-style: italic; font-size: 0.85rem; }
 
