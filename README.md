@@ -64,6 +64,17 @@ scripts\run-local.ps1 -Name shaw -Port 8001 -ProjPath /mnt/f/github/finlab-stock
 $env:BASE_URL = "http://localhost:8001"
 ```
 
+**WSL 在測試跑到一半自己斷線（container 秒斷、`wsl -l -v` 顯示 Stopped）**：這台機器上遇過的根因不是
+Windows 睡眠（`powercfg` 顯示的閒置睡眠計時器可以用 `SetThreadExecutionState`(ES_SYSTEM_REQUIRED) 擋掉，
+但擋住睡眠後 WSL 還是會斷），而是 **WSL 對單一 distro 的閒置關閉機制**：只要沒有一個 `wsl.exe`
+client 持續 attach 著該 distro，WSL 就會把它關掉，即使裡面的 dockerd 背景服務還在跑也一樣——`.wslconfig`
+的 `vmIdleTimeout` 對這個情況沒有幫助（那是控制「所有 distro 都停止後」整個共用工具 VM 多久關閉，跟單一
+distro 自己被關掉是兩回事）。解法是背景常駐一個持續 attach 著該 distro 的 client：
+```powershell
+Start-Process powershell.exe -WindowStyle Hidden -ArgumentList '-NoProfile','-Command','while ($true) { wsl -d Ubuntu -u root -- bash -c "while true; do sleep 20; done"; Start-Sleep -Seconds 1 }'
+```
+驗證過：套用後跑完整套 e2e（~4 分鐘）與閒置 8 分鐘都沒有再斷線。
+
 ## API 文件
 啟動後訪問 http://localhost:8000/api/docs (Swagger UI)
 
