@@ -24,10 +24,17 @@ test('graph page renders a non-empty network', async ({ page }) => {
   await expect(badge).not.toHaveText(/已載入節點\s*0\s*個/)
 })
 
-test('overview page renders sector treemap + radar', async ({ page }) => {
+test('overview page renders single-stock radar', async ({ page }) => {
   await page.goto('/overview')
+  await expect(page.getByText('綜合評分雷達圖')).toBeVisible({ timeout: 60_000 })
+})
+
+// L2: sector-wide heatmap moved out of the single-stock overview page and
+// into 類股輪動 (rotation), which already deals in sector/universe-level data.
+test('rotation page renders sector treemap + RRG', async ({ page }) => {
+  await page.goto('/rotation')
   await expect(page.getByText('每日類股漲跌熱力圖')).toBeVisible({ timeout: 60_000 })
-  await expect(page.getByText('綜合評分雷達圖')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'RRG 輪動時鐘' })).toBeVisible()
 })
 
 test('settings page loads', async ({ page }) => {

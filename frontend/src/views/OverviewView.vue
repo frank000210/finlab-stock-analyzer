@@ -12,18 +12,8 @@
       </button>
     </header>
 
-    <!-- Treemap + Radar side by side, matching the design's 1.2fr/0.8fr hero grid -->
+    <!-- Radar Chart -->
     <div class="overview-hero-grid">
-      <!-- Daily Sector Heatmap Treemap -->
-      <section class="card heatmap-section">
-        <h2>🔥 每日類股漲跌熱力圖</h2>
-        <div ref="heatmapEl" class="chart-host heatmap-host"></div>
-        <p class="chart-caption">
-          參考：D3 gallery - Treemap；方塊大小＝漲跌幅度、顏色＝漲跌方向。資料日期：{{ heatmapData?.date || '—' }}
-        </p>
-      </section>
-
-      <!-- Radar Chart -->
       <section class="card radar-section">
         <h2>🎯 綜合評分雷達圖</h2>
         <div class="radar-container">
@@ -149,18 +139,13 @@
 
 <script setup>
 import PageFocusBanner from '../components/PageFocusBanner.vue'
-import { ref, computed, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useStockStore } from '../stores/stock.js'
-import * as d3 from 'd3'
-import { useChartTheme } from '../composables/useChartTheme'
 
 const router = useRouter()
 const stockStore = useStockStore()
-const theme = useChartTheme()
 const loading = ref(false)
-const heatmapEl = ref(null)
-const heatmapData = ref(null)
 
 const seasonal = ref(null)
 const leadLag = ref(null)
@@ -283,90 +268,8 @@ async function loadAll() {
   loading.value = false
 }
 
-async function loadHeatmap() {
-  try {
-    const res = await fetch('/api/v1/rotation/heatmap?universe=twse')
-    const json = await res.json()
-    if (json.success) heatmapData.value = json.data
-  } catch (e) {
-    // 熱力圖失敗不影響其他總覽卡片
-  }
-}
-
-function renderHeatmap() {
-  const host = heatmapEl.value
-  if (!host) return
-  host.innerHTML = ''
-  const items = heatmapData.value?.items || []
-  if (!items.length) return
-
-  const width = host.clientWidth || 760
-  const height = 280
-
-  const root = d3
-    .hierarchy({ children: items })
-    .sum((d) => Math.max(0.05, Math.abs(d.pct_change || 0)))
-    .sort((a, b) => (b.value || 0) - (a.value || 0))
-
-  d3.treemap().size([width, height]).paddingInner(2)(root)
-
-  const maxAbs = d3.max(items, (d) => Math.abs(d.pct_change || 0)) || 1
-  const color = (pct) => {
-    const t = Math.min(1, Math.abs(pct) / maxAbs)
-    return pct >= 0
-      ? d3.interpolateRgb(d3.color(theme.up).copy({ opacity: 0.25 }).toString(), d3.color(theme.up).copy({ opacity: 0.95 }).toString())(t)
-      : d3.interpolateRgb(d3.color(theme.down).copy({ opacity: 0.25 }).toString(), d3.color(theme.down).copy({ opacity: 0.95 }).toString())(t)
-  }
-
-  const svg = d3.select(host).append('svg').attr('width', width).attr('height', height)
-  const cell = svg
-    .selectAll('g')
-    .data(root.leaves())
-    .join('g')
-    .attr('transform', (d) => `translate(${d.x0},${d.y0})`)
-
-  cell
-    .append('rect')
-    .attr('width', (d) => Math.max(0, d.x1 - d.x0))
-    .attr('height', (d) => Math.max(0, d.y1 - d.y0))
-    .attr('fill', (d) => color(d.data.pct_change || 0))
-    .attr('stroke', 'var(--bg-primary)')
-    .attr('rx', 3)
-
-  cell
-    .filter((d) => d.x1 - d.x0 > 46 && d.y1 - d.y0 > 26)
-    .append('text')
-    .attr('x', 6)
-    .attr('y', 16)
-    .attr('fill', theme.text)
-    .attr('font-size', 11)
-    .attr('font-weight', 700)
-    .text((d) => d.data.name)
-
-  cell
-    .filter((d) => d.x1 - d.x0 > 46 && d.y1 - d.y0 > 40)
-    .append('text')
-    .attr('x', 6)
-    .attr('y', 32)
-    .attr('fill', theme.text)
-    .attr('font-size', 12)
-    .attr('font-weight', 800)
-    .text((d) => `${d.data.pct_change >= 0 ? '+' : ''}${d.data.pct_change}%`)
-
-  cell.append('title').text((d) => `${d.data.name}：${d.data.pct_change >= 0 ? '+' : ''}${d.data.pct_change}%`)
-}
-
-watch(heatmapData, () => nextTick(renderHeatmap))
-
-let heatmapResizeHandler = null
 onMounted(() => {
   loadAll()
-  loadHeatmap()
-  heatmapResizeHandler = () => renderHeatmap()
-  window.addEventListener('resize', heatmapResizeHandler)
-})
-onBeforeUnmount(() => {
-  if (heatmapResizeHandler) window.removeEventListener('resize', heatmapResizeHandler)
 })
 </script>
 
@@ -376,24 +279,14 @@ onBeforeUnmount(() => {
 .subtitle { color: var(--text-muted); font-size: 0.85rem; margin-top: 4px; }
 
 .overview-hero-grid {
-  display: grid;
-  grid-template-columns: 1.2fr 0.8fr;
-  gap: var(--space-4);
+  display: flex;
+  justify-content: center;
   margin-bottom: var(--space-4);
 }
 
-.heatmap-section { display: flex; flex-direction: column; margin-bottom: 0; }
-.chart-host { width: 100%; min-height: 280px; }
-.heatmap-host :deep(svg) { display: block; width: 100%; height: auto; }
-.chart-caption { font-size: 0.72rem; color: var(--text-muted); margin-top: 6px; }
-
-.radar-section { display: flex; flex-direction: column; align-items: center; margin-bottom: 0; }
+.radar-section { display: flex; flex-direction: column; align-items: center; margin-bottom: 0; width: 100%; max-width: 480px; }
 .radar-container { width: 100%; max-width: 420px; }
 .radar-svg { width: 100%; height: auto; }
-
-@media (max-width: 900px) {
-  .overview-hero-grid { grid-template-columns: 1fr; }
-}
 
 .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: var(--space-4); }
 .summary-card { cursor: pointer; transition: transform 0.15s, box-shadow 0.15s; }

@@ -144,13 +144,15 @@ const navGroups = [
       { key: 'decision', icon: '🎯', label: '決策面板', cta: true, to: () => '/decision' },
       { key: 'command', icon: '⚡', label: '作戰台', to: () => '/command' },
       { key: 'signals', icon: '📡', label: '訊號', to: () => '/signals' },
+      { key: 'ai-signals', icon: '🤖', label: 'AI 交易信號', to: () => '/ai-signals' },
+      { key: 'trade-approval', icon: '✅', label: '交易核准中心', to: () => '/trade-approval' },
       { key: 'daily-brief', icon: '📋', label: '盤後日報', to: () => '/daily-brief' },
-      { key: 'overview', icon: '📊', label: '總覽', to: () => '/overview' },
     ],
   },
   {
-    title: '個股',
+    title: '個股分析',
     items: [
+      { key: 'overview', icon: '📊', label: '總覽', to: () => `/overview` },
       { key: 'analysis', icon: '📈', label: '分析', to: () => `/stocks/${stockStore.symbol}` },
       { key: 'seasonal', icon: '📅', label: '季節性', to: () => `/stocks/${stockStore.symbol}/seasonal` },
       { key: 'lead-lag', icon: '🔀', label: '領先落後', to: () => `/stocks/${stockStore.symbol}/lead-lag` },
@@ -174,6 +176,8 @@ const navGroups = [
     items: [
       { key: 'risk-sizing', icon: '🛡️', label: '部位風控', to: () => '/risk-sizing' },
       { key: 'portfolio-heat', icon: '🔥', label: '投組風險', to: () => '/portfolio-heat' },
+      { key: 'risk-monitor', icon: '🚨', label: '風控監控', to: () => '/risk-monitor' },
+      { key: 'trade-dashboard', icon: '🧮', label: '交易儀表板', to: () => '/trade-dashboard' },
       { key: 'journal', icon: '📓', label: '交易日誌', to: () => '/journal' },
       { key: 'monte-carlo', icon: '🎲', label: '風險模擬', to: () => '/monte-carlo' },
       { key: 'price-alerts', icon: '🔔', label: '價格警報', to: () => '/price-alerts' },
@@ -183,6 +187,8 @@ const navGroups = [
     title: '其他',
     items: [
       { key: 'guide', icon: '🚀', label: '新手上路', to: () => '/guide' },
+      { key: 'data-agent', icon: '📰', label: '資料爬蟲與新聞檢查', to: () => '/data-agent' },
+      { key: 'signal-rules', icon: '🧩', label: '信號規則編輯器', to: () => '/signal-rules' },
       { key: 'settings', icon: '⚙️', label: '設定', to: () => '/settings' },
       { key: 'admin', icon: '🔧', label: '後台', to: () => '/admin' },
     ],

@@ -21,7 +21,7 @@
         <div class="meta">{{ hasJournalData ? '帳戶資金 + 交易日誌已實現損益' : '帳戶起始資金（尚無已平倉交易紀錄）' }}</div>
       </article>
       <article class="card metric-card">
-        <div class="label">2330 最新股價</div>
+        <div class="label">{{ stockStore.symbol }} 最新股價</div>
         <div class="value">{{ latestPriceDisplay }}</div>
         <div class="meta">最近一筆收盤價</div>
       </article>
@@ -41,7 +41,7 @@
       <article class="card chart-card">
         <div class="section-header">
           <div>
-            <h2>2330 價格走勢</h2>
+            <h2>{{ stockStore.symbol }} 價格走勢</h2>
             <p>近端 API 回傳的收盤價折線圖</p>
           </div>
         </div>
@@ -123,13 +123,15 @@
 
 <script setup>
 import PageFocusBanner from '../components/PageFocusBanner.vue'
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { createChart } from 'lightweight-charts'
 import * as d3 from 'd3'
 import { useChartTheme } from '../composables/useChartTheme'
 import { useJournalRisk } from '../composables/useJournalRisk'
+import { useStockStore } from '../stores/stock.js'
 
 const theme = useChartTheme()
+const stockStore = useStockStore()
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 const loading = ref(false)
 const errorMessage = ref('')
@@ -177,6 +179,8 @@ onMounted(async () => {
   await loadDashboard()
 })
 
+watch(() => stockStore.symbol, loadDashboard)
+
 onBeforeUnmount(() => {
   window.removeEventListener('resize', renderChart)
   window.removeEventListener('resize', renderSankey)
@@ -190,7 +194,7 @@ async function loadDashboard() {
 
   const [signalsResp, priceResp] = await Promise.allSettled([
     apiGet('/api/v1/agent/signals'),
-    apiGet('/api/v1/stocks/2330/price'),
+    apiGet(`/api/v1/stocks/${stockStore.symbol}/price`),
   ])
 
   if (signalsResp.status === 'fulfilled') {

@@ -110,6 +110,14 @@
       <p v-if="errorMessage" class="error-text">{{ errorMessage }}</p>
     </section>
 
+    <section class="card heatmap-section" v-reveal>
+      <h2>🔥 每日類股漲跌熱力圖</h2>
+      <div ref="heatmapEl" class="chart-host heatmap-host"></div>
+      <p class="chart-caption">
+        參考：D3 gallery - Treemap；方塊大小＝漲跌幅度、顏色＝漲跌方向。資料日期：{{ heatmapData?.date || '—' }}
+      </p>
+    </section>
+
     <section class="section-block ranking-strip" v-reveal>
       <h3>輪動棒次（領先 → 轉弱 → 落後 → 轉強）</h3>
       <div class="rank-list" v-if="rankingItems.length">
@@ -264,6 +272,8 @@ const leadHost = ref(null)
 const horizonHost = ref(null)
 const chordHost = ref(null)
 const sankeyHost = ref(null)
+const heatmapEl = ref(null)
+const heatmapData = ref(null)
 
 const fullscreenTarget = ref(null) // null | 'rrg' | 'lead'
 
@@ -355,9 +365,13 @@ watch([snapshot], () => {
 })
 
 watch(timelineItems, () => nextTick(renderHorizon))
+watch(heatmapData, () => nextTick(renderHeatmap))
+
+let heatmapResizeHandler = null
 
 onMounted(async () => {
   await reloadTimeline()
+  loadHeatmap()
   if ('ResizeObserver' in window) {
     resizeObserver = new ResizeObserver(() => {
       renderRRG()
@@ -373,6 +387,8 @@ onMounted(async () => {
     if (sankeyHost.value) resizeObserver.observe(sankeyHost.value)
   }
   window.addEventListener('keydown', handleKeydown)
+  heatmapResizeHandler = () => renderHeatmap()
+  window.addEventListener('resize', heatmapResizeHandler)
 })
 
 onBeforeUnmount(() => {
@@ -380,7 +396,81 @@ onBeforeUnmount(() => {
   if (leadSimulation) leadSimulation.stop()
   if (resizeObserver) resizeObserver.disconnect()
   window.removeEventListener('keydown', handleKeydown)
+  if (heatmapResizeHandler) window.removeEventListener('resize', heatmapResizeHandler)
 })
+
+async function loadHeatmap() {
+  try {
+    const res = await fetch('/api/v1/rotation/heatmap?universe=twse')
+    const json = await res.json()
+    if (json.success) heatmapData.value = json.data
+  } catch (e) {
+    // 熱力圖失敗不影響頁面其他輪動圖表
+  }
+}
+
+function renderHeatmap() {
+  const host = heatmapEl.value
+  if (!host) return
+  host.innerHTML = ''
+  const items = heatmapData.value?.items || []
+  if (!items.length) return
+
+  const width = host.clientWidth || 760
+  const height = 280
+
+  const root = d3
+    .hierarchy({ children: items })
+    .sum((d) => Math.max(0.05, Math.abs(d.pct_change || 0)))
+    .sort((a, b) => (b.value || 0) - (a.value || 0))
+
+  d3.treemap().size([width, height]).paddingInner(2)(root)
+
+  const maxAbs = d3.max(items, (d) => Math.abs(d.pct_change || 0)) || 1
+  const color = (pct) => {
+    const t = Math.min(1, Math.abs(pct) / maxAbs)
+    return pct >= 0
+      ? d3.interpolateRgb(d3.color(theme.up).copy({ opacity: 0.25 }).toString(), d3.color(theme.up).copy({ opacity: 0.95 }).toString())(t)
+      : d3.interpolateRgb(d3.color(theme.down).copy({ opacity: 0.25 }).toString(), d3.color(theme.down).copy({ opacity: 0.95 }).toString())(t)
+  }
+
+  const svg = d3.select(host).append('svg').attr('width', width).attr('height', height)
+  const cell = svg
+    .selectAll('g')
+    .data(root.leaves())
+    .join('g')
+    .attr('transform', (d) => `translate(${d.x0},${d.y0})`)
+
+  cell
+    .append('rect')
+    .attr('width', (d) => Math.max(0, d.x1 - d.x0))
+    .attr('height', (d) => Math.max(0, d.y1 - d.y0))
+    .attr('fill', (d) => color(d.data.pct_change || 0))
+    .attr('stroke', 'var(--bg-primary)')
+    .attr('rx', 3)
+
+  cell
+    .filter((d) => d.x1 - d.x0 > 46 && d.y1 - d.y0 > 26)
+    .append('text')
+    .attr('x', 6)
+    .attr('y', 16)
+    .attr('fill', theme.text)
+    .attr('font-size', 11)
+    .attr('font-weight', 700)
+    .text((d) => d.data.name)
+
+  cell
+    .filter((d) => d.x1 - d.x0 > 46 && d.y1 - d.y0 > 40)
+    .append('text')
+    .attr('x', 6)
+    .attr('y', 32)
+    .attr('fill', theme.text)
+    .attr('font-size', 12)
+    .attr('font-weight', 800)
+    .text((d) => `${d.data.pct_change >= 0 ? '+' : ''}${d.data.pct_change}%`)
+
+  cell.append('title').text((d) => `${d.data.name}：${d.data.pct_change >= 0 ? '+' : ''}${d.data.pct_change}%`)
+}
 
 function handleKeydown(event) {
   if (event.key === 'Escape' && fullscreenTarget.value) {
@@ -1581,6 +1671,22 @@ function offsetISO(days) {
 
 .chart-host {
   height: 360px;
+}
+
+.heatmap-section {
+  display: flex;
+  flex-direction: column;
+}
+
+.heatmap-host {
+  height: auto;
+  min-height: 280px;
+}
+
+.heatmap-host :deep(svg) {
+  display: block;
+  width: 100%;
+  height: auto;
 }
 
 .horizon-section {
