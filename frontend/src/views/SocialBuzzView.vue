@@ -32,11 +32,18 @@
                 :stroke-dasharray="157" :stroke-dashoffset="157 - (data.buzz_score / 100) * 157"/>
             </svg>
             <div class="gauge-value">{{ data.buzz_score }}</div>
-            <div class="gauge-label">熱度分數</div>
+            <div class="gauge-label">熱度分數 <InfoTooltip label="熱度分數" text="由 PTT 討論篇數（35%）、新聞曝光篇數（35%）、成交量注意力（30%）加權組成的 0-100 分，分數越高代表市場關注度越高，但過熱（≥80）有時反而是短線過度追捧的警訊。" /></div>
           </div>
           <div class="buzz-info">
             <span class="buzz-level" :class="'level-' + data.buzz_level">{{ data.buzz_level }}</span>
             <p class="buzz-desc">{{ data.buzz_description }}</p>
+            <MetricScale
+              class="buzz-scale"
+              :min="0" :max="100" :value="data.buzz_score"
+              :zones="[{ to: 20, tone: 'good' }, { to: 60, tone: 'warn' }, { to: 100, tone: 'bad' }]"
+              :thresholds="[{ value: 20, label: '20 低' }, { value: 60, label: '60 高' }, { value: 80, label: '80 極高' }]"
+              left-label="0" right-label="100"
+            />
           </div>
         </div>
 
@@ -212,6 +219,8 @@
 
 <script setup>
 import PageFocusBanner from '../components/PageFocusBanner.vue'
+import InfoTooltip from '../components/InfoTooltip.vue'
+import MetricScale from '../components/MetricScale.vue'
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useStockStore } from '../stores/stock.js'
@@ -344,6 +353,7 @@ watch(() => route.params.symbol, (sym) => {
 .level-低 { background: var(--up-soft); color: #22c55e; }
 .level-極低 { background: rgba(156, 163, 175, 0.15); color: var(--text-muted); }
 .buzz-desc { font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5; }
+.buzz-scale { margin-top: 10px; max-width: 320px; }
 
 .trend-card { display: flex; flex-direction: column; gap: 16px; justify-content: center; }
 .trend-row { display: flex; align-items: center; gap: 12px; }

@@ -16,7 +16,7 @@
       <article class="card gauge-card">
         <div class="section-header">
           <div>
-            <h2>MDD 風險儀表</h2>
+            <h2>MDD 風險儀表 <InfoTooltip v-bind="metricGlossary.mdd" /></h2>
             <p>綠色 &lt; {{ mddWarnPct }}%，黃色 {{ mddWarnPct }}-{{ mddPausePct }}%，紅色 ≥ {{ mddPausePct }}%</p>
           </div>
         </div>
@@ -28,6 +28,14 @@
             </div>
           </div>
         </div>
+        <MetricScale
+          v-if="hasJournalData"
+          class="mdd-scale"
+          :min="0" :max="mddScaleMax" :value="mddPercent"
+          :zones="mddZones" :thresholds="mddThresholds"
+          left-label="0%" :decimals="1"
+        />
+        <p class="mdd-narrative" v-if="hasJournalData">{{ mddNarrative }}</p>
       </article>
 
       <article class="card state-card">
@@ -100,6 +108,9 @@
 
 <script setup>
 import PageFocusBanner from '../components/PageFocusBanner.vue'
+import InfoTooltip from '../components/InfoTooltip.vue'
+import MetricScale from '../components/MetricScale.vue'
+import { metricGlossary } from '../lib/metricGlossary'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { createChart } from 'lightweight-charts'
 import * as d3 from 'd3'
@@ -140,6 +151,24 @@ const returnSeries = computed(() => computeReturns(equitySeries.value))
 
 const mddValue = computed(() => mddPercent.value / 100)
 const circuitStatus = circuitBreaker
+
+// 尺標滿刻度跟圓環刻度用同一個「熔斷門檻 × 1.2」邏輯，兩個視覺化才會對得起來。
+const mddScaleMax = computed(() => Math.max(1, mddPausePct.value * 1.2))
+const mddZones = computed(() => [
+  { to: mddWarnPct.value, tone: 'good' },
+  { to: mddPausePct.value, tone: 'warn' },
+  { to: mddScaleMax.value, tone: 'bad' },
+])
+const mddThresholds = computed(() => [
+  { value: mddWarnPct.value, label: `${mddWarnPct.value}% 警戒` },
+  { value: mddPausePct.value, label: `${mddPausePct.value}% 熔斷` },
+])
+const mddNarrative = computed(() => {
+  const v = mddPercent.value
+  if (v >= mddPausePct.value) return `目前回撤 ${formatPercent(mddValue.value)}，已超過熔斷門檻 ${mddPausePct.value}%，系統會暫停新倉，建議先複盤交易日誌。`
+  if (v >= mddWarnPct.value) return `目前回撤 ${formatPercent(mddValue.value)}，已達警戒線 ${mddWarnPct.value}%，建議暫緩加碼並檢視部位。`
+  return `目前回撤 ${formatPercent(mddValue.value)}，低於警戒線 ${mddWarnPct.value}%，風險在可控範圍。`
+})
 const tradePercent = computed(() => Math.min(100, Math.round((dailyTrades.value / Math.max(1, dailyTradeLimit.value)) * 100)))
 
 function saveThresholds() {
@@ -333,6 +362,9 @@ function statusClass(status) {
   display: flex;
   justify-content: center;
 }
+
+.mdd-scale { margin-top: 16px; }
+.mdd-narrative { font-size: 0.78rem; color: var(--text-secondary); margin: 8px 0 0; line-height: 1.5; }
 
 .gauge {
   width: 180px;

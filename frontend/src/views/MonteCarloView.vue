@@ -7,10 +7,10 @@
 
     <section class="section-block mc-grid" v-reveal>
       <div class="inputs">
-        <h2>風險模擬（Monte Carlo）</h2>
+        <h2>風險模擬（Monte Carlo）<InfoTooltip label="蒙地卡羅模擬" text="用你設定的勝率／賺賠比，隨機模擬成千上百條可能的資金曲線（每次結果因運氣不同而不同），藉此觀察「同一套交易系統，運氣差時最壞會慘到什麼程度」，而不是只看單一條、運氣好的曲線。" /></h2>
         <p class="muted">固定比例下注，模擬多條資金路徑，看報酬分布、最大回撤與破產機率。</p>
         <label class="field"><span>勝率 %</span><input v-model.number="winRate" type="number" min="0" max="100" step="1" class="inp" /></label>
-        <label class="field"><span>盈虧比 R（賺賠比）</span><input v-model.number="payoff" type="number" min="0.1" step="0.1" class="inp" /></label>
+        <label class="field"><span>盈虧比 R（賺賠比） <InfoTooltip label="盈虧比 R" text="平均每筆獲利金額是平均每筆虧損金額的幾倍。例如 2 代表平均賺的時候賺 2 份，賠的時候賠 1 份——跟勝率一起決定這套系統長期是不是正期望值。" /></span><input v-model.number="payoff" type="number" min="0.1" step="0.1" class="inp" /></label>
         <label class="field"><span>單筆風險 %</span><input v-model.number="riskPct" type="number" min="0.1" max="100" step="0.1" class="inp" /></label>
         <label class="field"><span>交易筆數</span><input v-model.number="trades" type="number" min="10" max="1000" step="10" class="inp" /></label>
         <label class="field"><span>破產門檻（資金回撤 %）</span><input v-model.number="ruinPct" type="number" min="10" max="90" step="5" class="inp" /></label>
@@ -32,7 +32,7 @@
             <div class="rcard" :class="ruinClass"><span>破產機率（回撤≥{{ ruinPct }}%）</span><strong :class="ruinClass">{{ (result.ruinProb * 100).toFixed(1) }}%</strong></div>
             <div class="rcard"><span>獲利機率</span><strong :class="result.profitableProb >= 0.5 ? 'up' : 'down'">{{ (result.profitableProb * 100).toFixed(1) }}%</strong></div>
             <div class="rcard"><span>中位數報酬</span><strong :class="result.median >= 0 ? 'up' : 'down'">{{ pct(result.median) }}</strong></div>
-            <div class="rcard"><span>差路徑 (p5) / 好路徑 (p95)</span><strong><span :class="result.p5 >= 0 ? 'up' : 'down'">{{ pct(result.p5) }}</span> / <span class="up">{{ pct(result.p95) }}</span></strong></div>
+            <div class="rcard"><span>差路徑 (p5) / 好路徑 (p95) <InfoTooltip label="p5 / p95" text="把所有模擬路徑的最終報酬由差到好排序，p5 是最差的 5% 分位（100 條路徑裡第 5 差），p95 是最好的 5% 分位。兩者的落差越大，代表這套系統的結果越不穩定、運氣成分越重。" /></span><strong><span :class="result.p5 >= 0 ? 'up' : 'down'">{{ pct(result.p5) }}</span> / <span class="up">{{ pct(result.p95) }}</span></strong></div>
             <div class="rcard"><span>平均最大回撤</span><strong class="warn">{{ (result.avgMaxDD * 100).toFixed(1) }}%</strong></div>
             <div class="rcard"><span>最差單條回撤</span><strong class="warn">{{ (result.worstDD * 100).toFixed(1) }}%</strong></div>
           </div>
@@ -59,6 +59,7 @@
 </template>
 
 <script setup>
+import InfoTooltip from '../components/InfoTooltip.vue'
 import { ref, computed } from 'vue'
 import { loadJournal, realizedR } from '../lib/tradeMath'
 

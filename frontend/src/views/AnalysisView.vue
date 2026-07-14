@@ -106,7 +106,7 @@
 
           <div class="chart-block">
             <div class="chart-label-row">
-              <span>RSI (14)</span>
+              <span>RSI (14) <InfoTooltip v-bind="metricGlossary.rsi" /></span>
               <span class="muted-text">30 / 70 區間</span>
             </div>
             <div class="chart-wrapper">
@@ -117,7 +117,7 @@
 
           <div class="chart-block">
             <div class="chart-label-row">
-              <span>MACD</span>
+              <span>MACD <InfoTooltip v-bind="metricGlossary.macd" /></span>
               <span class="muted-text">DIF / Signal / Histogram</span>
             </div>
             <div class="chart-wrapper">
@@ -132,7 +132,7 @@
       <article class="card decision-card">
         <div class="section-head compact">
           <div>
-            <h2>AI 決策評分</h2>
+            <h2>AI 決策評分 <InfoTooltip label="AI 決策評分" text="技術面（35%）+ 基本面（25%）+ 籌碼面（20%）+ 情緒面（20%）加權組成的 0-100 分。≥68 分判定為 BUY、≤42 分判定為 SELL，中間區間判定為 HOLD——分數本身只是四個面向的綜合傾向，不是漲跌機率。" /></h2>
           </div>
         </div>
 
@@ -142,6 +142,13 @@
             <span>Overall</span>
           </div>
         </div>
+        <MetricScale
+          class="overall-scale"
+          :min="0" :max="100" :value="overallScore"
+          :zones="[{ to: 42, tone: 'bad' }, { to: 68, tone: 'warn' }, { to: 100, tone: 'good' }]"
+          :thresholds="[{ value: 42, label: '42 SELL' }, { value: 68, label: '68 BUY' }]"
+          left-label="0" right-label="100"
+        />
 
         <div class="score-list">
           <div v-for="item in scoreBreakdown" :key="item.key" class="score-item">
@@ -344,6 +351,9 @@
 import PageFocusBanner from '../components/PageFocusBanner.vue'
 import DataLineage from '../components/DataLineage.vue'
 import TradingViewChart from '../components/TradingViewChart.vue'
+import InfoTooltip from '../components/InfoTooltip.vue'
+import MetricScale from '../components/MetricScale.vue'
+import { metricGlossary } from '../lib/metricGlossary'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { createChart } from 'lightweight-charts'
@@ -2009,6 +2019,8 @@ function valueTone(value) {
   align-items: center;
   justify-content: center;
 }
+
+.overall-scale { margin: 0 auto 14px; max-width: 220px; }
 
 .score-ring-inner strong {
   font-size: 2rem;

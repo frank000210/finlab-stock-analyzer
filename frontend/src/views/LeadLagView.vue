@@ -48,7 +48,7 @@
         <div class="beta-row">
           <div class="beta-value">{{ data.beta.value }}</div>
           <div class="beta-desc">{{ data.beta.interpretation }}</div>
-          <div class="beta-r2">R² = {{ data.beta.r_squared }}</div>
+          <div class="beta-r2">R² = {{ data.beta.r_squared }} <InfoTooltip v-bind="metricGlossary.rSquared" /></div>
         </div>
       </section>
 
@@ -95,6 +95,8 @@
 
 <script setup>
 import PageFocusBanner from '../components/PageFocusBanner.vue'
+import InfoTooltip from '../components/InfoTooltip.vue'
+import { metricGlossary } from '../lib/metricGlossary'
 import { ref, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useStockStore } from '../stores/stock.js'

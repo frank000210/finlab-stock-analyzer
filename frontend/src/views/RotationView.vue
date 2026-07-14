@@ -192,9 +192,10 @@
             <p class="symbol">{{ selectedPoint.name }}</p>
             <p class="muted">ID：{{ selectedPoint.id }}</p>
             <div class="kv"><span>象限</span><strong>{{ quadrantLabel(selectedPoint.quadrant) }}</strong></div>
-            <div class="kv"><span>RS-Ratio</span><strong>{{ fixed(selectedPoint.rs_ratio, 3) }}</strong></div>
-            <div class="kv"><span>RS-Momentum</span><strong>{{ fixed(selectedPoint.rs_momentum, 3) }}</strong></div>
+            <div class="kv"><span>RS-Ratio <InfoTooltip v-bind="metricGlossary.rsRatio" /></span><strong>{{ fixed(selectedPoint.rs_ratio, 3) }}</strong></div>
+            <div class="kv"><span>RS-Momentum <InfoTooltip v-bind="metricGlossary.rsMomentum" /></span><strong>{{ fixed(selectedPoint.rs_momentum, 3) }}</strong></div>
             <div class="kv"><span>角度</span><strong>{{ fixed(selectedPoint.angle, 2) }}°</strong></div>
+            <p class="rs-narrative">{{ rsNarrative(selectedPoint) }}</p>
           </div>
           <div v-else class="detail-card muted">點選 RRG 節點或下方邊即可查看明細</div>
         </template>
@@ -237,6 +238,8 @@
 
 <script setup>
 import PageFocusBanner from '../components/PageFocusBanner.vue'
+import InfoTooltip from '../components/InfoTooltip.vue'
+import { metricGlossary } from '../lib/metricGlossary'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import * as d3 from 'd3'
 import { sankey as d3Sankey, sankeyLinkHorizontal } from 'd3-sankey'
@@ -1393,6 +1396,14 @@ function quadrantLabel(quad) {
   return '轉強'
 }
 
+function rsNarrative(point) {
+  const ratio = fixed(point.rs_ratio, 1)
+  const momentum = fixed(point.rs_momentum, 1)
+  const ratioDesc = point.rs_ratio >= 100 ? '相對大盤走勢較強' : '相對大盤走勢較弱'
+  const momentumDesc = point.rs_momentum >= 100 ? '動能持續加速' : '動能持續減速'
+  return `RS-Ratio ${ratio}（${ratioDesc}）、RS-Momentum ${momentum}（${momentumDesc}），目前處於${quadrantLabel(point.quadrant)}象限。`
+}
+
 function signClass(value) {
   const n = Number(value || 0)
   if (n > 0) return 'pos'
@@ -1865,6 +1876,15 @@ function offsetISO(days) {
 
 .detail-card .muted {
   margin: 0 0 8px;
+}
+
+.rs-narrative {
+  margin: 8px 0 0;
+  padding-top: 8px;
+  border-top: 1px solid rgba(148, 163, 184, 0.14);
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: var(--text-secondary, #cbd5e1);
 }
 
 .kv {

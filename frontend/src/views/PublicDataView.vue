@@ -16,7 +16,7 @@
 
     <!-- PE Band -->
     <section class="card">
-      <h2>💹 本益比河流圖</h2>
+      <h2>💹 本益比河流圖 <InfoTooltip v-bind="metricGlossary.peBand" /></h2>
       <div ref="peBandEl" class="chart-host"></div>
       <p class="chart-caption">
         參考：D3 gallery - Analysis（本益比河流圖為其延伸應用）；帶狀為歷史本益比 20/40/60/80 百分位 × 當期TTM EPS，黑線為實際股價。
@@ -65,7 +65,11 @@
         <h2>📊 最新財務摘要</h2>
         <div class="fin-grid">
           <div class="fin-item" v-for="(val, key) in data.financial_summary" :key="key">
-            <span class="fin-label">{{ formatLabel(key) }}</span>
+            <span class="fin-label">
+              {{ formatLabel(key) }}
+              <InfoTooltip v-if="key === 'roe'" v-bind="metricGlossary.roe" />
+              <InfoTooltip v-else-if="key === 'roa'" v-bind="metricGlossary.roa" />
+            </span>
             <span class="fin-value">{{ val }}</span>
           </div>
         </div>
@@ -76,6 +80,8 @@
 
 <script setup>
 import PageFocusBanner from '../components/PageFocusBanner.vue'
+import InfoTooltip from '../components/InfoTooltip.vue'
+import { metricGlossary } from '../lib/metricGlossary'
 import { ref, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useStockStore } from '../stores/stock.js'

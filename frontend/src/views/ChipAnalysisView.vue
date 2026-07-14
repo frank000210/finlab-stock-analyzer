@@ -36,13 +36,20 @@
             <span class="health-unit">/ 100</span>
           </div>
           <div class="health-meta">
-            <span class="health-title">籌碼健診 · 綜合研判</span>
+            <span class="health-title">籌碼健診 · 綜合研判 <InfoTooltip label="籌碼健診分數" text="集保結構、法人動向、外資投信同步、主力成本、融資維持率、短線投機籌碼等面向加權平均後，換算成 50 為中性的 0-100 分（偏多因子越多分數越高，偏空因子越多分數越低）。" /></span>
             <p class="health-verdict">{{ chipHealth.verdict }}</p>
             <div class="health-gauge">
               <div class="health-gauge-fill" :class="'tone-' + chipHealth.tone"
                    :style="{ width: chipHealth.scorePct + '%' }"></div>
               <span class="health-gauge-mid"></span>
             </div>
+            <MetricScale
+              class="health-scale"
+              :min="0" :max="100" :value="chipHealth.scorePct"
+              :zones="[{ to: 35, tone: 'bad' }, { to: 65, tone: 'warn' }, { to: 100, tone: 'good' }]"
+              :thresholds="[{ value: 35, label: '35 偏空' }, { value: 65, label: '65 偏多' }]"
+              left-label="0" right-label="100"
+            />
           </div>
         </div>
         <p v-if="synthesis" class="health-narrative">{{ synthesis.text }}</p>
@@ -84,7 +91,7 @@
         </div>
 
         <div class="card score-card" :class="scoreTone">
-          <span class="score-cap">籌碼分數</span>
+          <span class="score-cap">籌碼分數 <InfoTooltip label="籌碼分數" text="綜合集保股權分散資料判斷籌碼是集中在少數大戶手上（+100）還是分散在眾多散戶手上（−100）。籌碼集中不代表一定是好事，需搭配主力動向一起看是「大戶吃貨」還是「出貨前的鎖籌碼」。" /></span>
           <span class="score-num num">{{ dist.score > 0 ? '+' : '' }}{{ dist.score }}</span>
           <div class="score-track">
             <div class="score-mid"></div>
@@ -119,7 +126,7 @@
             </span>
           </div>
           <div class="cost-metric">
-            <span class="cm-key">籌碼集中度</span>
+            <span class="cm-key">籌碼集中度 <InfoTooltip label="籌碼集中度" text="法人區間累積淨買超金額佔區間總成交量的比例。±3% 以上視為高度集中（買方/賣方），代表法人進出對籌碼結構的影響明顯；接近 0% 代表以市場自然換手為主。" /></span>
             <span class="cm-val num" :class="changeTone(cost.concentration)">
               {{ cost.concentration > 0 ? '+' : '' }}{{ cost.concentration }}%
             </span>
@@ -175,7 +182,7 @@
         <!-- 融資維持率 -->
         <div v-if="marginRatio" class="card sig-card">
           <div class="card-head">
-            <h2>融資維持率估算</h2>
+            <h2>融資維持率估算 <InfoTooltip v-bind="metricGlossary.marginMaintenance" /></h2>
             <span class="verdict-tag sm" :class="marginTagClass">{{ marginRatio.risk }}</span>
           </div>
           <div class="maint-hero">
@@ -473,6 +480,9 @@
 
 <script setup>
 import PageFocusBanner from '../components/PageFocusBanner.vue'
+import InfoTooltip from '../components/InfoTooltip.vue'
+import MetricScale from '../components/MetricScale.vue'
+import { metricGlossary } from '../lib/metricGlossary'
 import { ref, computed, watch, onMounted, nextTick, onBeforeUnmount } from 'vue'
 import { useRoute } from 'vue-router'
 import { createChart } from 'lightweight-charts'
@@ -866,6 +876,7 @@ onMounted(fetchData)
 .health-gauge-fill.tone-down { background: linear-gradient(90deg, rgba(239,68,68,0.5), var(--accent-red)); }
 .health-gauge-fill.tone-flat { background: linear-gradient(90deg, rgba(234,179,8,0.5), #eab308); }
 .health-gauge-mid { position: absolute; left: 50%; top: -2px; width: 1px; height: 12px; background: var(--text-muted); opacity: 0.5; }
+.health-scale { margin-top: 10px; }
 .health-factors { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px 20px; }
 .health-factor { display: flex; flex-direction: column; gap: 5px; }
 .hf-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }

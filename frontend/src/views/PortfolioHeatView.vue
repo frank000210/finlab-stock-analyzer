@@ -154,7 +154,7 @@
     <section class="section-block" v-reveal v-if="positions.length >= 2">
       <div class="head-row">
         <div>
-          <h3>相關風險（Correlation）</h3>
+          <h3>相關風險（Correlation）<InfoTooltip v-bind="metricGlossary.correlation" /></h3>
           <p class="muted">產業分類看不出的「隱性同一注」：不同產業卻高度連動的部位，靠報酬相關矩陣才抓得到。</p>
         </div>
         <button class="btn btn-primary" :disabled="corrLoading" @click="analyzeCorrelation">
@@ -187,6 +187,17 @@
           </table>
         </div>
 
+        <MetricScale
+          class="corr-scale"
+          :min="0" :max="1" :value="maxPosCorr ?? 0"
+          :zones="[{ to: 0.5, tone: 'good' }, { to: 0.7, tone: 'warn' }, { to: 1, tone: 'bad' }]"
+          :thresholds="[{ value: 0.7, label: '0.7 高度相關' }]"
+          left-label="0" right-label="1" :decimals="2"
+        />
+        <p class="corr-narrative">
+          最高正相關組合{{ maxPosCorrPair ? `：${maxPosCorrPair}` : '' }} = {{ (maxPosCorr ?? 0).toFixed(2) }}，{{ (maxPosCorr ?? 0) >= 0.7 ? '超過 0.7 視為高度相關，同時持有難以分散風險。' : '低於 0.7，尚在可接受範圍。' }}
+        </p>
+
         <ul class="checklist">
           <li :class="(maxPosCorr ?? 0) < 0.7 ? 'ok' : 'bad'">{{ (maxPosCorr ?? 0) < 0.7 ? '✓' : '✗' }} 最高正相關 {{ (maxPosCorr ?? 0).toFixed(2) }}（建議 &lt; 0.7，避免隱性集中）</li>
         </ul>
@@ -198,6 +209,9 @@
 <script setup>
 import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue'
 import { loadJournal, riskAmount, JOURNAL_KEY } from '../lib/tradeMath'
+import InfoTooltip from '../components/InfoTooltip.vue'
+import MetricScale from '../components/MetricScale.vue'
+import { metricGlossary } from '../lib/metricGlossary'
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 const LS_POS = 'portfolio_heat_positions'
@@ -415,6 +429,11 @@ const maxPosCorr = computed(() => {
   if (!corr.value?.pairs?.length) return null
   return Math.max(...corr.value.pairs.map(p => p.corr))
 })
+const maxPosCorrPair = computed(() => {
+  if (!corr.value?.pairs?.length) return ''
+  const top = corr.value.pairs.reduce((a, b) => (b.corr > a.corr ? b : a))
+  return `${top.a} × ${top.b}`
+})
 
 function corrColor(v) {
   if (v == null || isNaN(v)) return 'transparent'
@@ -496,6 +515,8 @@ strong.warn { color: #f59e0b; }
 .high-pairs { display: flex; flex-direction: column; gap: 6px; margin: 12px 0; }
 .hp-warn { background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.4); color: #f87171; border-radius: 10px; padding: 8px 12px; font-size: 0.86rem; }
 .corr-matrix { overflow-x: auto; margin-top: 12px; }
+.corr-scale { margin-top: 14px; max-width: 360px; }
+.corr-narrative { font-size: 0.78rem; color: var(--text-secondary); margin: 8px 0 0; line-height: 1.5; }
 .corr-matrix table { border-collapse: collapse; font-size: 0.82rem; }
 .corr-matrix th, .corr-matrix td { padding: 8px 12px; text-align: center; border: 1px solid var(--border-color); min-width: 56px; }
 .corr-matrix thead th, .corr-matrix tbody th { color: var(--text-muted); font-weight: 500; background: var(--bg-well); }

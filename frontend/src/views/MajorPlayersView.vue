@@ -39,7 +39,7 @@
 
         <!-- Score gauge -->
         <div class="card score-card">
-          <div class="score-label">綜合分數</div>
+          <div class="score-label">綜合分數 <InfoTooltip label="主力綜合分數" text="彙整三大法人買賣超、融資融券變化、量價背離、券商分點集中度等信號加權計算，-100 代表訊號一致偏向出貨，+100 代表訊號一致偏向拉抬進場，越接近 0 代表訊號分歧或不明顯。" /></div>
           <div class="score-value" :class="data.score > 0 ? 'positive' : data.score < 0 ? 'negative' : ''">
             {{ data.score > 0 ? '+' : '' }}{{ data.score }}
           </div>
@@ -48,12 +48,20 @@
             <span>0 中性</span>
             <span>+100 拉抬</span>
           </div>
+          <MetricScale
+            class="mp-scale"
+            :min="-100" :max="100" :value="data.score"
+            :zones="[{ to: -20, tone: 'bad' }, { to: 20, tone: 'warn' }, { to: 100, tone: 'good' }]"
+            :thresholds="[]"
+            left-label="" right-label=""
+          />
         </div>
       </section>
 
       <!-- Signals -->
       <section class="card">
         <h2>📡 偵測信號</h2>
+        <p class="signal-hint muted">每個信號後面的數字是它對「綜合分數」的貢獻權重，正值偏多、負值偏空，數字越大代表這個信號的影響力越強。</p>
         <div class="signals-list" v-if="data.signals.length">
           <div v-for="(s, i) in data.signals" :key="i" class="signal-item" :class="'signal-' + s.direction">
             <span class="signal-icon">{{ dirIcon(s.direction) }}</span>
@@ -108,7 +116,9 @@
         <h2>📈 量價分析</h2>
         <div class="vp-table">
           <div class="vp-header">
-            <span>日期</span><span>收盤</span><span>成交量</span><span>量比</span><span>OBV</span>
+            <span>日期</span><span>收盤</span><span>成交量</span>
+            <span>量比 <InfoTooltip label="量比" text="當日成交量相對近期均量的倍數，大於 1 代表量能放大，數字越大代表市場關注度或換手意願越高。" /></span>
+            <span>OBV <InfoTooltip v-bind="metricGlossary.obv" /></span>
           </div>
           <div v-for="ind in data.volume_price.indicators.slice(-10)" :key="ind.date" class="vp-row">
             <span>{{ ind.date.slice(5) }}</span>
@@ -146,6 +156,9 @@
 
 <script setup>
 import PageFocusBanner from '../components/PageFocusBanner.vue'
+import InfoTooltip from '../components/InfoTooltip.vue'
+import MetricScale from '../components/MetricScale.vue'
+import { metricGlossary } from '../lib/metricGlossary'
 import { ref, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useStockStore } from '../stores/stock.js'
@@ -234,6 +247,8 @@ watch(() => route.params.symbol, (sym) => {
 .score-value.positive { color: var(--accent-green); }
 .score-value.negative { color: var(--accent-red); }
 .score-scale { display: flex; justify-content: space-between; width: 100%; font-size: 0.65rem; color: var(--text-muted); margin-top: 8px; }
+.mp-scale { width: 100%; margin-top: 6px; }
+.signal-hint { font-size: 0.78rem; margin: -4px 0 10px; }
 
 .signals-list { display: flex; flex-direction: column; gap: 8px; }
 .signal-item { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: var(--bg-tertiary); border-radius: var(--radius-sm); }

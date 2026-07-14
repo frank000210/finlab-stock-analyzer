@@ -81,7 +81,7 @@
           </div>
           <div class="metric-card card">
             <div class="value">{{ result.performance.sharpe_ratio }}</div>
-            <div class="label">夏普比率</div>
+            <div class="label">夏普比率 <InfoTooltip v-bind="metricGlossary.sharpe" /></div>
           </div>
           <div class="metric-card card">
             <div class="value">{{ (result.performance.win_rate * 100).toFixed(0) }}%</div>
@@ -92,7 +92,7 @@
         <div class="grid-4" style="margin-bottom: 16px;">
           <div class="metric-card card">
             <div class="value">{{ result.performance.profit_factor }}</div>
-            <div class="label">盈虧比</div>
+            <div class="label">盈虧比 <InfoTooltip v-bind="metricGlossary.profitFactor" /></div>
           </div>
           <div class="metric-card card">
             <div class="value">{{ result.performance.total_trades }}</div>
@@ -208,6 +208,8 @@
 
 <script setup>
 import PageFocusBanner from '../components/PageFocusBanner.vue'
+import InfoTooltip from '../components/InfoTooltip.vue'
+import { metricGlossary } from '../lib/metricGlossary'
 import { ref, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import axios from 'axios'

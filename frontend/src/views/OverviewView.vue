@@ -15,7 +15,7 @@
     <!-- Radar Chart -->
     <div class="overview-hero-grid">
       <section class="card radar-section">
-        <h2>🎯 綜合評分雷達圖</h2>
+        <h2>🎯 綜合評分雷達圖 <InfoTooltip label="綜合評分雷達圖" text="六個維度各自 0-100 分，分數是把該維度頁面（季節性/領先落後/主力動向/社群熱度/公開資訊/技術面）的原始指標換算而來，每個維度的換算公式不同，越靠外圍代表該維度越偏多／越健康，但不同維度之間的分數不宜直接相減比較，建議點進該維度卡片看詳細數據。" /></h2>
         <div class="radar-container">
           <svg viewBox="0 0 400 400" class="radar-svg">
             <!-- Background rings -->
@@ -139,6 +139,7 @@
 
 <script setup>
 import PageFocusBanner from '../components/PageFocusBanner.vue'
+import InfoTooltip from '../components/InfoTooltip.vue'
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useStockStore } from '../stores/stock.js'

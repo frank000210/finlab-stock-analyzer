@@ -30,9 +30,16 @@
           <a class="tv-link" :href="tvChartUrl(market.symbol)" target="_blank" rel="noopener nofollow">在 TradingView 開啟 ↗</a>
         </div>
         <div class="mcard">
-          <span class="mlabel">ATR({{ market.atr_period }}) 每日波動</span>
+          <span class="mlabel">ATR({{ market.atr_period }}) 每日波動 <InfoTooltip v-bind="metricGlossary.atr" /></span>
           <strong class="mval">{{ fmt(market.atr) }}</strong>
           <span class="mhint">≈ {{ market.atr_pct }}%／日</span>
+          <MetricScale
+            class="atr-scale"
+            :min="0" :max="atrScaleMax" :value="market.atr_pct"
+            :zones="atrZones" :thresholds="atrThresholds"
+            left-label="低" :decimals="1"
+          />
+          <p class="atr-narrative">{{ atrNarrative }}</p>
         </div>
         <div class="mcard">
           <span class="mlabel">ATR 停損建議（點擊套用）</span>
@@ -104,7 +111,7 @@
             <div class="rcard"><span>佔資金比重</span><strong :class="{ warn: pctOfAccount > 30 }">{{ pctOfAccount.toFixed(1) }}%</strong></div>
             <div class="rcard" v-if="target"><span>風報比 R:R</span><strong :class="rrClass">1 : {{ rr.toFixed(2) }}</strong></div>
             <div class="rcard" v-if="target"><span>達標獲利</span><strong class="up">{{ fmtInt(profitAtTarget) }}</strong></div>
-            <div class="rcard" v-if="expectancyR !== null"><span>期望值 / 筆</span><strong :class="expectancyR >= 0 ? 'up' : 'warn'">{{ expectancyR.toFixed(2) }} R（{{ fmtInt(expectancyMoney) }}）</strong></div>
+            <div class="rcard" v-if="expectancyR !== null"><span>期望值 / 筆 <InfoTooltip v-bind="metricGlossary.rMultiple" /></span><strong :class="expectancyR >= 0 ? 'up' : 'warn'">{{ expectancyR.toFixed(2) }} R（{{ fmtInt(expectancyMoney) }}）</strong></div>
           </div>
 
           <h4>紀律檢查</h4>
@@ -165,6 +172,9 @@ import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useStockStore } from '../stores/stock.js'
 import DataLineage from '../components/DataLineage.vue'
+import InfoTooltip from '../components/InfoTooltip.vue'
+import MetricScale from '../components/MetricScale.vue'
+import { metricGlossary } from '../lib/metricGlossary'
 import { loadJournal, journalWinStats, riskAmount as journalRiskAmount, kellyFraction, JOURNAL_KEY } from '../lib/tradeMath'
 import { tvChartUrl } from '../lib/tradingview'
 
@@ -175,6 +185,25 @@ const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 
 const symbolInput = ref(stockStore.symbol || '2330')
 const market = ref(null)
+
+// 中/高波動門檻抓業界常見的 2% / 5% 日波動概念，滿刻度依實際 ATR% 動態放大，
+// 避免波動特別大的股票被裁到尺標外面。
+const atrScaleMax = computed(() => Math.max(8, (market.value?.atr_pct || 0) * 1.2))
+const atrZones = computed(() => [
+  { to: 2, tone: 'good' },
+  { to: 5, tone: 'warn' },
+  { to: atrScaleMax.value, tone: 'bad' },
+])
+const atrThresholds = computed(() => [
+  { value: 2, label: '2% 中' },
+  { value: 5, label: '5% 高波動' },
+])
+const atrNarrative = computed(() => {
+  const pct = market.value?.atr_pct || 0
+  const level = pct < 2 ? '偏低' : pct < 5 ? '中等' : '偏高'
+  const twoAtr = market.value ? (market.value.atr * 2).toFixed(2) : '—'
+  return `近期日均波動約 ${pct}%，屬${level}波動；穩健停損建議抓 2×ATR ≈ ${twoAtr}，避免被正常價格擺動洗出。`
+})
 const loading = ref(false)
 const errorMessage = ref('')
 
@@ -375,6 +404,8 @@ onBeforeUnmount(() => window.removeEventListener('storage', onJournalStorage))
 .mlabel { font-size: 0.78rem; color: var(--text-muted); }
 .mval { font-size: 1.5rem; }
 .mhint { font-size: 0.74rem; color: var(--text-muted); }
+.atr-scale { margin-top: 4px; }
+.atr-narrative { font-size: 0.74rem; color: var(--text-secondary); margin: 4px 0 0; line-height: 1.5; }
 .tv-link { color: var(--accent-blue); font-size: 0.74rem; text-decoration: none; }
 .tv-link:hover { text-decoration: underline; }
 .stop-chips { display: flex; flex-wrap: wrap; gap: 6px; }
