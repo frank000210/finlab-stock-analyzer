@@ -122,6 +122,54 @@ test('作戰台 market regime scales suggested lots (B5)', async ({ page }) => {
   await expect(row2882).toContainText('3 張')
 })
 
+test('作戰台 標示今日精選（評分前段班且達門檻分數）(O4)', async ({ page }) => {
+  await page.route('**/api/v1/risk/watchlist-signals*', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        success: true,
+        data: {
+          as_of: '2026-07-14',
+          items: [
+            { symbol: '2330', name: '台積電', ok: true, price: 900, chg_pct: 1.0, trend: '多頭排列', rsi: 60, stop_dist_pct: 5, vol_ratio: 1.5, range_pos_pct: 80, setup_total: 85, setup_verdict: '進場條件佳', tags: [] },
+            { symbol: '2454', name: '聯發科', ok: true, price: 1200, chg_pct: 0.5, trend: '多頭排列', rsi: 58, stop_dist_pct: 5, vol_ratio: 1.3, range_pos_pct: 75, setup_total: 72, setup_verdict: '進場條件佳', tags: [] },
+            { symbol: '2882', name: '國泰金', ok: true, price: 65, chg_pct: -0.2, trend: '盤整', rsi: 50, stop_dist_pct: 5, vol_ratio: 0.8, range_pos_pct: 40, setup_total: 40, setup_verdict: '條件不佳，觀望', tags: [] },
+          ],
+        },
+      }),
+    })
+  })
+  await seed(page)
+
+  await expect(page.locator('.pick-summary')).toContainText('今日精選 2 檔')
+  await expect(page.locator('.cmd-table tbody tr', { hasText: '2330' })).toHaveClass(/today-pick/)
+  await expect(page.locator('.cmd-table tbody tr', { hasText: '2454' })).toHaveClass(/today-pick/)
+  await expect(page.locator('.cmd-table tbody tr', { hasText: '2882' })).not.toHaveClass(/today-pick/)
+})
+
+test('作戰台 沒有達門檻分數的設定時今日精選為空 (O4)', async ({ page }) => {
+  await page.route('**/api/v1/risk/watchlist-signals*', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        success: true,
+        data: {
+          as_of: '2026-07-14',
+          items: [
+            { symbol: '2882', name: '國泰金', ok: true, price: 65, chg_pct: -0.2, trend: '盤整', rsi: 50, stop_dist_pct: 5, vol_ratio: 0.8, range_pos_pct: 40, setup_total: 40, setup_verdict: '條件不佳，觀望', tags: [] },
+          ],
+        },
+      }),
+    })
+  })
+  await seed(page)
+
+  await expect(page.locator('.pick-summary')).toHaveCount(0)
+  await expect(page.locator('.cmd-table tbody tr', { hasText: '2882' })).not.toHaveClass(/today-pick/)
+})
+
 test('作戰台 warns when top picks are highly correlated', async ({ page }) => {
   await page.route('**/api/v1/risk/correlation*', async (route) => {
     await route.fulfill({

@@ -29,6 +29,9 @@
         <ul class="gate-list">
           <li v-for="(c, i) in gateChecks" :key="i" :class="c.ok ? 'ok' : 'bad'">{{ c.ok ? '✓' : '✗' }} {{ c.text }}</li>
         </ul>
+        <label class="field catalyst-field"><span>進場理由／催化劑（選填）</span>
+          <input v-model="pendingCatalyst" class="inp" placeholder="例如：季報優於預期、突破月線、法人連買" />
+        </label>
         <div class="gate-actions">
           <button class="btn btn-primary" @click="commitTrade">確認記錄</button>
           <button class="btn" @click="cancelGate">取消</button>
@@ -63,6 +66,8 @@
 
       <div v-if="rows.length" class="summary">
         <span>掃描 {{ okRows.length }} 檔 <DataLineage :as-of="asOf" /></span>
+        <span v-if="topPickSymbols.size" class="pick-summary">🏆 今日精選 {{ topPickSymbols.size }} 檔（評分前 {{ TOP_PICK_COUNT }}、≥{{ TOP_PICK_MIN_SCORE }} 分）</span>
+        <span v-else class="muted">今天沒有達到精選門檻（≥{{ TOP_PICK_MIN_SCORE }} 分）的設定，先觀望。</span>
         <span :class="totalHeat > 6 ? 'warn' : 'ok'">若全數各下 1 注，總風險熱度 {{ totalHeat.toFixed(1) }}%（建議 ≤ 6%）</span>
       </div>
 
@@ -72,9 +77,12 @@
             <tr><th>評分</th><th>代碼</th><th>現價</th><th>漲跌</th><th>訊號</th><th>停損距</th><th>建議張數</th><th>1R 風險</th><th>動作</th></tr>
           </thead>
           <tbody>
-            <tr v-for="r in rows" :key="r.symbol" :class="{ dim: !r.ok }">
+            <tr v-for="r in rows" :key="r.symbol" :class="{ dim: !r.ok, 'today-pick': isTopPick(r) }">
               <td><span v-if="r.ok && r.setup_total != null" class="score" :class="scoreClass(r.setup_total)" :title="r.setup_verdict">{{ r.setup_total }}</span><span v-else>—</span></td>
-              <td class="sym">{{ r.symbol }}<small class="nm" v-if="r.name">{{ r.name }}</small></td>
+              <td class="sym">
+                {{ r.symbol }}<small class="nm" v-if="r.name">{{ r.name }}</small>
+                <span v-if="isTopPick(r)" class="pick-badge" title="今日精選：進場評分排前段班且達到門檻分數">🏆</span>
+              </td>
               <td>{{ r.ok ? fmt(r.price) : '—' }}</td>
               <td v-if="r.ok" :class="r.chg_pct >= 0 ? 'up' : 'down'">{{ r.chg_pct >= 0 ? '+' : '' }}{{ r.chg_pct }}%</td>
               <td v-else class="muted">{{ r.error }}</td>
@@ -131,6 +139,21 @@ async function loadRegime() {
 }
 
 const okRows = computed(() => rows.value.filter(r => r.ok))
+
+// O4 今日精選：只挑「進場評分 ≥70（good 級）」裡分數最高的前 3 檔，不是硬挑滿
+// 3 檔湊數——今天若沒有夠格的設定，精選區就該是空的，避免製造假的進場急迫感。
+const TOP_PICK_COUNT = 3
+const TOP_PICK_MIN_SCORE = 70
+const topPickSymbols = computed(() => {
+  return new Set(
+    [...okRows.value]
+      .filter(r => (r.setup_total ?? 0) >= TOP_PICK_MIN_SCORE)
+      .sort((a, b) => (b.setup_total ?? 0) - (a.setup_total ?? 0))
+      .slice(0, TOP_PICK_COUNT)
+      .map(r => r.symbol)
+  )
+})
+function isTopPick(r) { return r.ok && topPickSymbols.value.has(r.symbol) }
 
 const journalTrades = ref([])
 const kellyRisk = computed(() => {
@@ -198,6 +221,7 @@ function saveCfg() {
 // E17 決策防呆閘門：按「記錄」先開紀律檢查，確認後才寫入日誌。
 // nudge 而非硬擋——可以確認通過，但必須「看過」再按一次。
 const pendingTrade = ref(null)
+const pendingCatalyst = ref('')
 
 const gateChecks = computed(() => {
   const r = pendingTrade.value
@@ -229,6 +253,7 @@ const gateChecks = computed(() => {
 function logTrade(r) {
   if (!(lots(r) >= 1)) return
   logMsg.value = ''
+  pendingCatalyst.value = ''
   pendingTrade.value = r
 }
 
@@ -245,7 +270,7 @@ function commitTrade() {
   journal.unshift({
     id: Date.now() + '-' + Math.random().toString(36).slice(2, 7),
     symbol: r.symbol, name: r.name || r.symbol, side: 'long', entry, stop, target: null,
-    lots: l, tag: r.trend || '', openDate: localDateStr(),
+    lots: l, tag: r.trend || '', catalyst: pendingCatalyst.value.trim(), openDate: localDateStr(),
     status: 'open', exit: null, exitDate: null,
   })
   saveJournal(journal)
@@ -373,6 +398,7 @@ onBeforeUnmount(() => window.removeEventListener('storage', onJournalStorage))
 
 .summary { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 14px 0 6px; font-size: 0.84rem; color: var(--text-muted); }
 .summary .warn { color: #f59e0b; } .summary .ok { color: #22c55e; }
+.pick-summary { color: #f59e0b; font-weight: 600; }
 
 .table-wrap { overflow-x: auto; }
 .cmd-table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
@@ -380,8 +406,10 @@ onBeforeUnmount(() => window.removeEventListener('storage', onJournalStorage))
 .cmd-table th:nth-child(2), .cmd-table td:nth-child(2), .cmd-table th:nth-child(5), .cmd-table td:nth-child(5) { text-align: left; }
 .cmd-table th { color: var(--text-muted); font-weight: 500; font-size: 0.74rem; }
 .tr.dim, tr.dim { opacity: 0.55; }
+tr.today-pick { background: rgba(245,158,11,0.07); box-shadow: inset 3px 0 0 #f59e0b; }
 .sym { font-weight: 700; }
 .sym .nm { display: block; font-weight: 400; color: var(--text-muted); font-size: 0.72rem; line-height: 1.2; }
+.pick-badge { margin-left: 4px; font-size: 0.82rem; }
 .score { font-weight: 800; min-width: 32px; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; padding: 2px 6px; }
 .score.good { background: rgba(34,197,94,0.18); color: #22c55e; }
 .score.mid { background: rgba(245,158,11,0.18); color: #f59e0b; }
@@ -402,6 +430,7 @@ onBeforeUnmount(() => window.removeEventListener('storage', onJournalStorage))
 .gate-list { list-style: none; padding: 0; margin: 8px 0; display: flex; flex-direction: column; gap: 4px; }
 .gate-list .ok { color: #22c55e; }
 .gate-list .bad { color: #f59e0b; }
+.catalyst-field { display: flex; flex-direction: column; gap: 4px; font-size: 0.82rem; color: var(--text-muted); margin-top: 4px; }
 .gate-actions { display: flex; gap: 8px; margin-top: 6px; }
 .corr-warn { margin: 12px 0 0; display: flex; flex-direction: column; gap: 6px; }
 .corr-warn div { background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.4); color: #f87171; border-radius: 10px; padding: 8px 12px; font-size: 0.84rem; }

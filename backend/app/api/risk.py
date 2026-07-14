@@ -400,6 +400,22 @@ async def position_sizing(
     above_ma200 = bool(price > ma200) if ma200 is not None else None
     ma200_rising = bool(ma200 > ma200_prev) if (ma200 is not None and ma200_prev is not None) else None
 
+    # O1：市值＝現價×已發行股數，只做一般參考資訊用（判斷這檔股票規模大小、
+    # 進而評估波動/流動性風險），不影響停損/部位試算本身。
+    from ..data.us_symbols import is_tw_symbol as _is_tw_symbol
+
+    market_cap = None
+    cap_tier = None
+    if _is_tw_symbol(symbol):
+        try:
+            sh = await FinMindClient().get_shares_outstanding(symbol, start.isoformat(), end.isoformat())
+            if sh is not None and not sh.empty and "NumberOfSharesIssued" in sh.columns:
+                shares = float(sh.sort_values("date")["NumberOfSharesIssued"].iloc[-1])
+                market_cap = price * shares
+                cap_tier = "大型/中型" if market_cap >= 1e10 else "小型"
+        except Exception:
+            pass
+
     stop_multiples = [("積極", 1.5), ("穩健", 2.0), ("保守", 3.0)]
     suggested_stops = [
         {
@@ -447,6 +463,8 @@ async def position_sizing(
             "ma200": round(ma200, 2) if ma200 is not None else None,
             "above_ma200": above_ma200,
             "ma200_rising": ma200_rising,
+            "market_cap": round(market_cap) if market_cap is not None else None,
+            "cap_tier": cap_tier,
             "as_of": str(df["date"].iloc[-1])[:10],
             "source": crawler.last_source,
         },
@@ -672,6 +690,27 @@ async def watchlist_signals(
         prev = float(close.iloc[-2])
         chg_pct = round((price - prev) / prev * 100, 2) if prev else 0.0
 
+        # O1：跳空缺口＝今天開盤價 vs 昨收，不是漲跌幅（收盤 vs 昨收）。
+        open_today = float(df["open"].iloc[-1])
+        gap_pct = round((open_today - prev) / prev * 100, 2) if prev else 0.0
+
+        # 市值分級：大型/中型股跳空門檻低（3%），小型股天生波動大、門檻要拉高
+        # （10%），不然雜訊會蓋過真訊號——直接套講者的美股門檻沒意義（她的
+        # 8-10億美元對台股規模來說是極小型股），改用台股慣例的百億分界。
+        market_cap = None
+        cap_tier = None
+        if is_tw_symbol(sym):
+            try:
+                from ..crawler.finmind_client import FinMindClient as _FinMindClient
+                sh = await _FinMindClient().get_shares_outstanding(sym, start.isoformat(), end.isoformat())
+                if sh is not None and not sh.empty and "NumberOfSharesIssued" in sh.columns:
+                    shares = float(sh.sort_values("date")["NumberOfSharesIssued"].iloc[-1])
+                    market_cap = price * shares
+                    cap_tier = "大型/中型" if market_cap >= 1e10 else "小型"
+            except Exception:
+                pass
+        gap_threshold = 3.0 if cap_tier != "小型" else 10.0
+
         ma20 = float(close.tail(20).mean())
         ma60 = float(close.tail(60).mean()) if len(close) >= 60 else float(close.mean())
 
@@ -712,6 +751,8 @@ async def watchlist_signals(
             tags.append({"t": "逼近波段高", "tone": "warn"})
         elif pos_pct <= 5:
             tags.append({"t": "逼近波段低", "tone": "warn"})
+        if abs(gap_pct) >= gap_threshold:
+            tags.append({"t": f"跳空 {gap_pct:+.1f}%", "tone": "warn"})
 
         try:
             _s = _setup_score(df, close, high, price, atr)
@@ -724,6 +765,8 @@ async def watchlist_signals(
             "trend": trend, "rsi": round(rsi, 1), "stop_dist_pct": stop_dist_pct,
             "vol_ratio": vol_ratio, "range_pos_pct": pos_pct, "tags": tags,
             "setup_total": setup_total, "setup_verdict": setup_verdict,
+            "gap_pct": gap_pct, "market_cap": round(market_cap) if market_cap is not None else None,
+            "cap_tier": cap_tier,
         }
 
     items = await asyncio.gather(*[_one(s) for s in syms])

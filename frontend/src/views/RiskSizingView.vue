@@ -66,6 +66,12 @@
           </div>
           <span class="mhint">年線 {{ fmt(market.ma200) }}，現價 {{ fmt(market.price) }}</span>
         </div>
+        <div class="mcard" v-if="market.market_cap != null">
+          <span class="mlabel">市值分級 <InfoTooltip v-bind="metricGlossary.marketCap" /></span>
+          <strong class="mval">{{ fmtMarketCap(market.market_cap) }}</strong>
+          <span class="ma200-badge" :class="market.cap_tier === '小型' ? 'flat' : 'good'">{{ market.cap_tier }}股</span>
+          <span class="mhint">{{ market.cap_tier === '小型' ? '籌碼少，消息面易劇烈波動' : '籌碼相對穩定' }}</span>
+        </div>
       </div>
 
       <div v-if="market && market.setup" class="setup-panel">
@@ -346,6 +352,11 @@ async function loadFromBacktest() {
 }
 
 function fmt(v) { return (v == null || isNaN(v)) ? '—' : Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }
+function fmtMarketCap(v) {
+  if (v == null || isNaN(v)) return '—'
+  if (v >= 1e12) return `${(v / 1e12).toFixed(2)} 兆`
+  return `${(v / 1e8).toFixed(1)} 億`
+}
 function fmtInt(v) { return (v == null || isNaN(v)) ? '—' : Math.round(v).toLocaleString('en-US') }
 function setupClass(total) { return total >= 70 ? 'good' : total >= 45 ? 'mid' : 'bad' }
 

@@ -93,6 +93,10 @@
                   <input type="checkbox" v-model="showChandelier" />
                   <i class="legend-dot chandelier"></i>ATR 移動停利
                 </label>
+                <label class="ch-toggle" title="近 20 日成交量加權均價：把每天(高+低+收)/3 依當天成交量加權平均，反映近期資金主要成交在哪個價位，可當波段動態支撐/壓力參考，不同於單純看收盤價的均線。">
+                  <input type="checkbox" v-model="showVwap" />
+                  <i class="legend-dot vwap"></i>VWAP(20)
+                </label>
                 <span v-if="setup" class="setup-badge" :class="setupCls(setup.total)" :title="setup.verdict + '（趨勢/風報比/量能/RSI）'">進場評分 {{ setup.total }}</span>
                 <DataLineage :as-of="priceLineage.asOf" :source="priceLineage.source" />
               </span>
@@ -412,6 +416,7 @@ let candleSeries = null
 let majorCostLine = null
 const majorCost = ref(null)
 const showChandelier = ref(true)
+const showVwap = ref(true)
 const setup = ref(null)
 const priceLineage = ref({ asOf: '', source: '' })
 
@@ -688,6 +693,10 @@ watch(showChandelier, () => {
   renderCharts()
 })
 
+watch(showVwap, () => {
+  renderCharts()
+})
+
 watch(selectedRange, async () => {
   await loadAnalysis()
 })
@@ -901,11 +910,32 @@ function mergePriceWithTechnical(prices, technical) {
   const serverSeries = normalizeTechnicalSeries(technical?.series)
   const selectedSeries = serverSeries.length ? serverSeries : fallback
   const technicalMap = new Map(selectedSeries.map(item => [item.date, item]))
+  // O3：VWAP 只需要 OHLCV，不是後端技術指標 API 回傳的欄位，所以獨立算、
+  // 不透過 technicalMap（避免伺服器有回 series 時被整批蓋掉、漏掉這欄）。
+  const vwap20 = rollingVwap(prices, 20)
 
-  return prices.map(item => ({
+  return prices.map((item, index) => ({
     ...item,
     ...(technicalMap.get(item.date) || {}),
+    vwap20: vwap20[index],
   }))
+}
+
+// O3：日K沒有真正的「當日成交均價」，改用「近 N 日成交量加權均價」——把每天
+// (高+低+收)/3 的代表價格按當天成交量加權平均，反映近期資金主要成交在哪個
+// 價位，波段留倉可以當作動態的支撐/壓力參考線，跟單純看收盤價的均線不同。
+function rollingVwap(prices, period) {
+  const typical = prices.map(p => (toNumber(p.high) + toNumber(p.low) + toNumber(p.close)) / 3)
+  const volumes = prices.map(p => toNumber(p.volume))
+  return prices.map((_, index) => {
+    if (index + 1 < period) return null
+    let pv = 0, v = 0
+    for (let i = index - period + 1; i <= index; i++) {
+      pv += typical[i] * volumes[i]
+      v += volumes[i]
+    }
+    return v > 0 ? roundTo(pv / v, 4) : null
+  })
 }
 
 function normalizeTechnicalSeries(series) {
@@ -1093,6 +1123,17 @@ function renderCharts() {
       lastValueVisible: false,
     })
     chSeries.setData(computeChandelier(mergedSeries.value))
+  }
+
+  if (showVwap.value) {
+    const vwapSeries = priceChart.addLineSeries({
+      color: theme.blue,
+      lineWidth: 2,
+      lineStyle: 2, // dashed
+      priceLineVisible: false,
+      lastValueVisible: false,
+    })
+    vwapSeries.setData(toLineData(mergedSeries.value, 'vwap20'))
   }
 
   const rsiSeries = rsiChart.addLineSeries({
@@ -1979,6 +2020,7 @@ function valueTone(value) {
 .legend-dot.ma60 { background: #a855f7; }
 .legend-dot.cost-line { width: 16px; height: 0; border-radius: 0; border-top: 2px dashed var(--color-warning); }
 .legend-dot.chandelier { width: 16px; height: 0; border-radius: 0; border-top: 2px dashed #e879f9; }
+.legend-dot.vwap { width: 16px; height: 0; border-radius: 0; border-top: 2px dashed #3b82f6; }
 .setup-badge { font-size: 0.72rem; font-weight: 700; padding: 2px 8px; border-radius: 999px; }
 .setup-badge.good { background: rgba(34,197,94,0.18); color: #22c55e; }
 .setup-badge.mid { background: rgba(245,158,11,0.18); color: #f59e0b; }

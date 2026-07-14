@@ -164,6 +164,20 @@ class FinMindClient:
             {"data_id": symbol, "start_date": start, "end_date": end},
         )
 
+    async def get_shares_outstanding(
+        self, symbol: str, start: str, end: str
+    ) -> pd.DataFrame:
+        """已發行股數（含外資持股比例），用來算市值＝現價×已發行股數。
+
+        跟 get_shareholding()（股權分散表 TaiwanStockHoldingSharesPer）是不同的
+        FinMind dataset：這支是 TaiwanStockShareholding，免費/現有付費等級都能
+        存取（跟需要額外升級的 TaiwanStockMarketValue 不同）。
+        """
+        return await self._fetch(
+            "TaiwanStockShareholding",
+            {"data_id": symbol, "start_date": start, "end_date": end},
+        )
+
     async def get_margin_trading(
         self, symbol: str, start: str, end: str
     ) -> pd.DataFrame:

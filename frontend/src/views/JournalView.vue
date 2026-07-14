@@ -44,6 +44,7 @@
         <input v-model.number="form.target" type="number" class="inp w110" placeholder="目標價(選填)" step="0.05" />
         <input v-model.number="form.lots" type="number" class="inp w90" placeholder="張數" min="1" step="1" />
         <input v-model="form.tag" class="inp w110" placeholder="型態(選填)" />
+        <input v-model="form.catalyst" class="inp w160" placeholder="進場理由/催化劑(選填)" />
         <button class="btn btn-primary" @click="addTrade">加入</button>
         <button class="btn" @click="importOpenPositions">從投組帶入</button>
       </div>
@@ -66,6 +67,7 @@
             <tr v-for="t in openTrades" :key="t.id" :class="{ 'row-breach': stopBreached(t) }">
               <td class="sym">
                 {{ t.symbol }}<small>{{ t.name && t.name !== t.symbol ? ' ' + t.name : '' }}</small>
+                <span v-if="t.catalyst" class="catalyst-tag" :title="`進場理由：${t.catalyst}`">📝</span>
                 <span
                   v-if="nextEvent(t)"
                   class="event-tag"
@@ -127,7 +129,10 @@
           <thead><tr><th>代碼</th><th>方向</th><th>進場</th><th>停損</th><th>出場</th><th>張</th><th>R 倍數</th><th>損益</th><th></th></tr></thead>
           <tbody>
             <tr v-for="t in closedTrades" :key="t.id">
-              <td class="sym">{{ t.symbol }}<small>{{ t.name && t.name !== t.symbol ? ' ' + t.name : '' }}</small></td>
+              <td class="sym">
+                {{ t.symbol }}<small>{{ t.name && t.name !== t.symbol ? ' ' + t.name : '' }}</small>
+                <span v-if="t.catalyst" class="catalyst-tag" :title="`進場理由：${t.catalyst}`">📝</span>
+              </td>
               <td :class="t.side === 'long' ? 'up' : 'down'">{{ t.side === 'long' ? '多' : '空' }}</td>
               <td>{{ fmt(t.entry) }}</td>
               <td>{{ fmt(t.stop) }}</td>
@@ -200,7 +205,7 @@ import { resolveStockName } from '../lib/stockSearch'
 const stockStore = useStockStore()
 
 const trades = ref([])
-const form = reactive({ symbol: stockStore.symbol || '', side: 'long', entry: null, stop: null, target: null, lots: 1, tag: '' })
+const form = reactive({ symbol: stockStore.symbol || '', side: 'long', entry: null, stop: null, target: null, lots: 1, tag: '', catalyst: '' })
 
 // 側欄搜尋切換全站目前個股時，新增交易表單的代號欄位跟著換
 // （只在使用者還沒動過欄位、或欄位仍是上一個全站個股時才更新，避免蓋掉
@@ -648,13 +653,13 @@ function addTrade() {
     id,
     symbol, name: symbol, side: form.side, entry, stop,
     target: Number(form.target) > 0 ? Number(form.target) : null,
-    lots, tag: String(form.tag || '').trim(),
+    lots, tag: String(form.tag || '').trim(), catalyst: String(form.catalyst || '').trim(),
     openDate: localDateStr(), status: 'open',
     exit: null, exitDate: null,
   })
   save()
   resolveName(id, symbol) // 補上股票名稱（背景，代號伴隨名稱）
-  form.symbol = ''; form.entry = null; form.stop = null; form.target = null; form.lots = 1; form.tag = ''
+  form.symbol = ''; form.entry = null; form.stop = null; form.target = null; form.lots = 1; form.tag = ''; form.catalyst = ''
 }
 
 // 手動輸入只有代號 → 用搜尋 API 補中文名（best-effort，不阻塞新增）
@@ -762,7 +767,7 @@ function applyCsvImport(text) {
       id: Date.now() + '-' + Math.random().toString(36).slice(2, 7),
       symbol, name: symbol, side, entry, stop,
       target: Number(get(row, 'target')) > 0 ? Number(get(row, 'target')) : null,
-      lots, tag: String(get(row, 'tag') || '').trim(),
+      lots, tag: String(get(row, 'tag') || '').trim(), catalyst: String(get(row, 'catalyst') || '').trim(),
       openDate, status,
       exit: status === 'closed' ? exit : null,
       exitDate: status === 'closed' ? (exitDate || openDate) : null,
@@ -781,11 +786,11 @@ function applyCsvImport(text) {
 function csvCell(v) { const s = String(v ?? ''); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s }
 function exportCsv() {
   if (!trades.value.length) return
-  const cols = ['symbol', 'side', 'entry', 'stop', 'target', 'lots', 'tag', 'openDate', 'status', 'exit', 'exitDate', 'R', 'pnl']
+  const cols = ['symbol', 'side', 'entry', 'stop', 'target', 'lots', 'tag', 'catalyst', 'openDate', 'status', 'exit', 'exitDate', 'R', 'pnl']
   const lines = trades.value.map((t) => {
     const R = t.status === 'closed' ? realizedR(t).toFixed(3) : ''
     const p = t.status === 'closed' ? Math.round(pnl(t)) : ''
-    return [t.symbol, t.side, t.entry, t.stop, t.target ?? '', t.lots, t.tag ?? '', t.openDate, t.status, t.exit ?? '', t.exitDate ?? '', R, p].map(csvCell).join(',')
+    return [t.symbol, t.side, t.entry, t.stop, t.target ?? '', t.lots, t.tag ?? '', t.catalyst ?? '', t.openDate, t.status, t.exit ?? '', t.exitDate ?? '', R, p].map(csvCell).join(',')
   })
   const csv = '﻿' + [cols.join(','), ...lines].join('\n')
   const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }))
@@ -830,7 +835,7 @@ onMounted(load)
 .hidden-file { display: none; }
 .csv-msg { margin: 4px 0 0; }
 .inp { background: var(--bg-well); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 10px; padding: 8px 12px; font-size: 0.9rem; }
-.w110 { width: 110px; } .w90 { width: 90px; }
+.w110 { width: 110px; } .w90 { width: 90px; } .w160 { width: 160px; }
 
 .stat-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-top: 16px; }
 .scard { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 14px; padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; }
@@ -859,6 +864,7 @@ onMounted(load)
 .row-breach { background: rgba(239, 68, 68, 0.06); }
 .breach-tag { display: inline-block; margin-left: 4px; font-size: 0.7rem; color: #ef4444; white-space: nowrap; }
 .event-tag { display: inline-block; margin-left: 4px; font-size: 0.68rem; color: #f59e0b; white-space: nowrap; cursor: help; }
+.catalyst-tag { display: inline-block; margin-left: 4px; font-size: 0.72rem; cursor: help; }
 .giveback-tag { display: inline-block; margin-left: 4px; font-size: 0.68rem; color: #f59e0b; white-space: nowrap; cursor: help; }
 .ema-tag { display: inline-block; margin-left: 4px; font-size: 0.68rem; color: #f59e0b; white-space: nowrap; cursor: help; }
 
