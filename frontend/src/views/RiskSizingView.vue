@@ -54,6 +54,18 @@
             >{{ s.label }} {{ fmt(s.stop_price) }}<small>(-{{ s.distance_pct }}%)</small></button>
           </div>
         </div>
+        <div class="mcard" v-if="market.above_ma200 != null">
+          <span class="mlabel">波段濾網（200 日均線／年線） <InfoTooltip label="200 日均線波段濾網" text="波段留倉（非當沖）只做站上年線的股票：年線之下通常代表長線趨勢偏弱、容易有套牢賣壓，就算短線反彈也建議降低持倉信心；年線是否上揚則反映這條長線本身的方向。" /></span>
+          <div class="ma200-badges">
+            <span class="ma200-badge" :class="market.above_ma200 ? 'good' : 'bad'">
+              {{ market.above_ma200 ? '✓ 站上年線' : '✗ 跌破年線' }}
+            </span>
+            <span class="ma200-badge" :class="market.ma200_rising ? 'good' : 'flat'" v-if="market.ma200_rising != null">
+              {{ market.ma200_rising ? '年線上揚' : '年線走平／向下' }}
+            </span>
+          </div>
+          <span class="mhint">年線 {{ fmt(market.ma200) }}，現價 {{ fmt(market.price) }}</span>
+        </div>
       </div>
 
       <div v-if="market && market.setup" class="setup-panel">
@@ -343,7 +355,7 @@ async function loadMarket() {
   loading.value = true
   errorMessage.value = ''
   try {
-    const resp = await fetch(`${API_BASE}/api/v1/risk/sizing/${sym}`)
+    const resp = await fetch(`${API_BASE}/api/v1/risk/sizing/${sym}?lookback_days=365`)
     const payload = await resp.json().catch(() => ({}))
     if (!resp.ok || payload?.success === false) {
       throw new Error(payload?.detail || '查詢失敗')
@@ -406,6 +418,11 @@ onBeforeUnmount(() => window.removeEventListener('storage', onJournalStorage))
 .mhint { font-size: 0.74rem; color: var(--text-muted); }
 .atr-scale { margin-top: 4px; }
 .atr-narrative { font-size: 0.74rem; color: var(--text-secondary); margin: 4px 0 0; line-height: 1.5; }
+.ma200-badges { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+.ma200-badge { font-size: 0.76rem; font-weight: 700; padding: 3px 10px; border-radius: 999px; }
+.ma200-badge.good { background: rgba(16,185,129,0.12); color: #10b981; }
+.ma200-badge.bad { background: rgba(239,68,68,0.12); color: #ef4444; }
+.ma200-badge.flat { background: rgba(245,158,11,0.12); color: #f59e0b; }
 .tv-link { color: var(--accent-blue); font-size: 0.74rem; text-decoration: none; }
 .tv-link:hover { text-decoration: underline; }
 .stop-chips { display: flex; flex-wrap: wrap; gap: 6px; }

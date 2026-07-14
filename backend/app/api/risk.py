@@ -391,6 +391,15 @@ async def position_sizing(
     # --- 進場評分 (Setup Score, 0-100) ---
     setup = _setup_score(df, close, high, price, atr)
 
+    # N3：波段濾網（200 日均線/年線）——當沖不用管這個，但波段留倉過夜，
+    # 只做站上年線的股票能過濾掉結構性弱勢、容易被套牢賣壓咬住的標的。
+    # 需要至少 200/220 個交易日資料，lookback_days 太短時就回傳 None，
+    # 不硬湊一個不可靠的數字。
+    ma200 = float(close.tail(200).mean()) if len(close) >= 200 else None
+    ma200_prev = float(close.iloc[-220:-20].mean()) if len(close) >= 220 else None
+    above_ma200 = bool(price > ma200) if ma200 is not None else None
+    ma200_rising = bool(ma200 > ma200_prev) if (ma200 is not None and ma200_prev is not None) else None
+
     stop_multiples = [("積極", 1.5), ("穩健", 2.0), ("保守", 3.0)]
     suggested_stops = [
         {
@@ -435,6 +444,9 @@ async def position_sizing(
             "atr_pct": round(atr / price * 100, 2),
             "suggested_stops": suggested_stops,
             "setup": setup,
+            "ma200": round(ma200, 2) if ma200 is not None else None,
+            "above_ma200": above_ma200,
+            "ma200_rising": ma200_rising,
             "as_of": str(df["date"].iloc[-1])[:10],
             "source": crawler.last_source,
         },

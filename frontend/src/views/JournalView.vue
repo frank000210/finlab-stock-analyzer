@@ -64,7 +64,14 @@
           <thead><tr><th>代碼</th><th>方向</th><th>進場</th><th>停損</th><th>目標</th><th>張</th><th>風險(1R)</th><th>現價</th><th>未實現R</th><th>未實現損益</th><th>平倉價</th><th>動作</th></tr></thead>
           <tbody>
             <tr v-for="t in openTrades" :key="t.id" :class="{ 'row-breach': stopBreached(t) }">
-              <td class="sym">{{ t.symbol }}<small>{{ t.name && t.name !== t.symbol ? ' ' + t.name : '' }}</small></td>
+              <td class="sym">
+                {{ t.symbol }}<small>{{ t.name && t.name !== t.symbol ? ' ' + t.name : '' }}</small>
+                <span
+                  v-if="nextEvent(t)"
+                  class="event-tag"
+                  :title="`${nextEvent(t).date} ${nextEvent(t).label}${nextEvent(t).estimated ? '（預估）' : ''} — 留倉過夜前留意這個地雷日`"
+                >📅 {{ nextEvent(t).date.slice(5) }}</span>
+              </td>
               <td :class="t.side === 'long' ? 'up' : 'down'">{{ t.side === 'long' ? '多' : '空' }}</td>
               <td>{{ fmt(t.entry) }}</td>
               <td>{{ fmt(t.stop) }}</td>
@@ -74,10 +81,22 @@
               <td>
                 {{ livePrice(t) != null ? fmt(livePrice(t)) : '—' }}
                 <span v-if="stopBreached(t)" class="breach-tag" title="現價已觸及停損">⚠已觸停損</span>
+                <span
+                  v-else-if="emaBroken(t)"
+                  class="ema-tag"
+                  :title="emaBrokenTitle(t)"
+                >📉 跌破8EMA</span>
               </td>
               <td v-if="unrealizedR(t) != null"><strong :class="unrealizedR(t) >= 0 ? 'up' : 'down'">{{ unrealizedR(t) >= 0 ? '+' : '' }}{{ unrealizedR(t).toFixed(2) }}R</strong></td>
               <td v-else>—</td>
-              <td :class="unrealizedPnl(t) != null ? (unrealizedPnl(t) >= 0 ? 'up' : 'down') : ''">{{ unrealizedPnl(t) != null ? fmtInt(unrealizedPnl(t)) : '—' }}</td>
+              <td :class="unrealizedPnl(t) != null ? (unrealizedPnl(t) >= 0 ? 'up' : 'down') : ''">
+                {{ unrealizedPnl(t) != null ? fmtInt(unrealizedPnl(t)) : '—' }}
+                <span
+                  v-if="profitGivebackPct(t) != null && profitGivebackPct(t) >= PROFIT_GIVEBACK_WARN_PCT"
+                  class="giveback-tag"
+                  :title="`這筆單未實現獲利曾經最高到 ${fmtInt(t.peakUnrealizedPnl)}，目前已回吐 ${profitGivebackPct(t).toFixed(0)}%，考慮分批停利或移動停損`"
+                >📉 回吐{{ profitGivebackPct(t).toFixed(0) }}%</span>
+              </td>
               <td><input v-model.number="t._exitInput" type="number" class="inp w90" step="0.05" placeholder="價格" /></td>
               <td class="actions">
                 <button class="btn xs" :disabled="livePrice(t) == null" title="用目前市價直接平倉" @click="closeAtMarket(t)">現價平倉</button>
@@ -203,6 +222,81 @@ const pricesLoading = ref(false)
 // 進行中交易的代號組合一變（新增/帶入/刪除），就重新查一次現價。
 watch(openSymbols, () => { fetchLivePricesForOpenTrades() })
 
+// N1：波段留倉最怕撞上財報/除息等「地雷日」——當沖不用管這個，因為當天就平倉了。
+// 進行中部位的代號一變就查一次行事曆，7 天內有事件就在該筆旁標警示。
+const EVENT_WARN_DAYS = 7
+const upcomingEvents = ref({}) // symbol -> [{date, type, label, estimated}]
+watch(openSymbols, () => { fetchUpcomingEventsForOpenTrades() })
+
+async function fetchUpcomingEventsForOpenTrades() {
+  const symbols = [...new Set(openTrades.value.map(t => t.symbol))]
+  if (!symbols.length) return
+  const today = new Date()
+  const cutoff = new Date(today.getTime() + EVENT_WARN_DAYS * 86400000)
+  await Promise.all(symbols.map(async (sym) => {
+    try {
+      const res = await fetch(`/api/v1/analysis/${sym}/calendar`)
+      const json = await res.json()
+      const events = json?.data?.events || []
+      upcomingEvents.value[sym] = events.filter((e) => {
+        const d = new Date(e.date + 'T00:00:00')
+        return d >= today && d <= cutoff
+      })
+    } catch {
+      upcomingEvents.value[sym] = []
+    }
+  }))
+}
+
+function nextEvent(t) {
+  const events = upcomingEvents.value[t.symbol]
+  return events && events.length ? events[0] : null
+}
+
+// N4：波段持倉的去留不看「抱了幾分鐘」，看「股價是否仍沿著 8 日均線走」——
+// 日K實體收盤跌破 8EMA（多單）或站上 8EMA（空單）就是趨勢轉弱的訊號。
+const EMA_PERIOD = 8
+const emaTrend = ref({}) // symbol -> { ema8, lastClose, broken }
+watch(openSymbols, () => { fetchEmaTrendForOpenTrades() })
+
+function computeEma(closes, period) {
+  if (closes.length < period) return null
+  const k = 2 / (period + 1)
+  let ema = closes.slice(0, period).reduce((a, b) => a + b, 0) / period
+  for (let i = period; i < closes.length; i++) ema = closes[i] * k + ema * (1 - k)
+  return ema
+}
+
+async function fetchEmaTrendForOpenTrades() {
+  const symbols = [...new Set(openTrades.value.map(t => t.symbol))]
+  if (!symbols.length) return
+  await Promise.all(symbols.map(async (sym) => {
+    try {
+      const res = await fetch(`/api/v1/stocks/${sym}/price`)
+      const json = await res.json()
+      const items = json?.data?.items || []
+      const closes = items.map(i => Number(i.close)).filter(Number.isFinite)
+      const ema8 = computeEma(closes, EMA_PERIOD)
+      const lastClose = closes.length ? closes[closes.length - 1] : null
+      emaTrend.value[sym] = (ema8 == null || lastClose == null) ? null : { ema8, lastClose }
+    } catch {
+      emaTrend.value[sym] = null
+    }
+  }))
+}
+
+function emaBroken(t) {
+  const info = emaTrend.value[t.symbol]
+  if (!info) return false
+  return t.side === 'long' ? info.lastClose < info.ema8 : info.lastClose > info.ema8
+}
+
+function emaBrokenTitle(t) {
+  const info = emaTrend.value[t.symbol]
+  if (!info) return ''
+  return `日K收盤 ${fmt(info.lastClose)} 已${t.side === 'long' ? '跌破' : '站上'} 8 日均線 ${fmt(info.ema8)}，波段趨勢轉弱訊號`
+}
+
 async function fetchLivePricesForOpenTrades() {
   const symbols = [...new Set(openTrades.value.map(t => t.symbol))]
   if (!symbols.length) return
@@ -214,6 +308,31 @@ async function fetchLivePricesForOpenTrades() {
     livePrices.value[sym] = { price: r.price, as_of: r.as_of, loading: false, error: r.error }
   }
   pricesLoading.value = false
+  updatePeakUnrealized()
+}
+
+// N2：波段停利看的是「這筆單曾經賺最多到多少，現在回吐了多少」，不是當沖的
+// 「當日總損益回吐 30%」——用高水位（峰值未實現損益）當基準才抓得到。
+function updatePeakUnrealized() {
+  let changed = false
+  for (const t of openTrades.value) {
+    const pnl = unrealizedPnl(t)
+    if (pnl == null) continue
+    if (t.peakUnrealizedPnl == null || pnl > t.peakUnrealizedPnl) {
+      t.peakUnrealizedPnl = pnl
+      changed = true
+    }
+  }
+  if (changed) save()
+}
+
+const PROFIT_GIVEBACK_WARN_PCT = 30
+
+function profitGivebackPct(t) {
+  const peak = t.peakUnrealizedPnl
+  const pnl = unrealizedPnl(t)
+  if (peak == null || pnl == null || peak <= 0) return null
+  return Math.max(0, (peak - pnl) / peak * 100)
 }
 
 function livePrice(t) { return livePrices.value[t.symbol]?.price ?? null }
@@ -739,6 +858,9 @@ onMounted(load)
 .paper-tag { display: inline-block; margin-left: 10px; font-size: 0.74rem; font-weight: 400; vertical-align: middle; }
 .row-breach { background: rgba(239, 68, 68, 0.06); }
 .breach-tag { display: inline-block; margin-left: 4px; font-size: 0.7rem; color: #ef4444; white-space: nowrap; }
+.event-tag { display: inline-block; margin-left: 4px; font-size: 0.68rem; color: #f59e0b; white-space: nowrap; cursor: help; }
+.giveback-tag { display: inline-block; margin-left: 4px; font-size: 0.68rem; color: #f59e0b; white-space: nowrap; cursor: help; }
+.ema-tag { display: inline-block; margin-left: 4px; font-size: 0.68rem; color: #f59e0b; white-space: nowrap; cursor: help; }
 
 .analytics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 8px; }
 @media (max-width: 900px) { .analytics-grid { grid-template-columns: 1fr; } }
