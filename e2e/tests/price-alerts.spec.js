@@ -60,6 +60,8 @@ test('價格警報頁：新增顯示於清單並可刪除', async ({ page }) => 
   await expect(page.locator('.alert-table')).toContainText('9,999.00')
   await expect(page.locator('.alert-table')).toContainText('監控中')
 
+  // P1: 刪除前會跳出 confirm() 二次確認，接受它才會真的刪除。
+  page.once('dialog', (d) => d.accept())
   await page.locator('.alert-table .del').click()
   await expect(page.locator('.alert-table tbody tr')).toHaveCount(0)
 })

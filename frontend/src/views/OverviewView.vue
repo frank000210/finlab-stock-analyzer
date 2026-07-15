@@ -51,7 +51,7 @@
     <!-- Summary Cards Grid -->
     <div class="summary-grid">
       <!-- Seasonal -->
-      <div class="card summary-card" @click="goTo('seasonal')">
+      <div class="card summary-card" role="link" tabindex="0" aria-label="季節性分析" @click="goTo('seasonal')" @keydown.enter="goTo('seasonal')" @keydown.space.prevent="goTo('seasonal')">
         <div class="card-head">
           <span class="card-icon">📅</span>
           <h3>季節性分析</h3>
@@ -65,7 +65,7 @@
       </div>
 
       <!-- Lead-Lag -->
-      <div class="card summary-card" @click="goTo('lead-lag')">
+      <div class="card summary-card" role="link" tabindex="0" aria-label="領先/落後" @click="goTo('lead-lag')" @keydown.enter="goTo('lead-lag')" @keydown.space.prevent="goTo('lead-lag')">
         <div class="card-head">
           <span class="card-icon">⏱️</span>
           <h3>領先/落後</h3>
@@ -79,7 +79,7 @@
       </div>
 
       <!-- Major Players -->
-      <div class="card summary-card" @click="goTo('major-players')">
+      <div class="card summary-card" role="link" tabindex="0" aria-label="主力動向" @click="goTo('major-players')" @keydown.enter="goTo('major-players')" @keydown.space.prevent="goTo('major-players')">
         <div class="card-head">
           <span class="card-icon">🐋</span>
           <h3>主力動向</h3>
@@ -93,7 +93,7 @@
       </div>
 
       <!-- Social Buzz -->
-      <div class="card summary-card" @click="goTo('social-buzz')">
+      <div class="card summary-card" role="link" tabindex="0" aria-label="社群熱度" @click="goTo('social-buzz')" @keydown.enter="goTo('social-buzz')" @keydown.space.prevent="goTo('social-buzz')">
         <div class="card-head">
           <span class="card-icon">🔥</span>
           <h3>社群熱度</h3>
@@ -107,7 +107,7 @@
       </div>
 
       <!-- Public Data -->
-      <div class="card summary-card" @click="goTo('public-data')">
+      <div class="card summary-card" role="link" tabindex="0" aria-label="公開資訊" @click="goTo('public-data')" @keydown.enter="goTo('public-data')" @keydown.space.prevent="goTo('public-data')">
         <div class="card-head">
           <span class="card-icon">📋</span>
           <h3>公開資訊</h3>
@@ -121,7 +121,7 @@
       </div>
 
       <!-- Technical Analysis -->
-      <div class="card summary-card" @click="goTo('analysis')">
+      <div class="card summary-card" role="link" tabindex="0" aria-label="技術分析" @click="goTo('analysis')" @keydown.enter="goTo('analysis')" @keydown.space.prevent="goTo('analysis')">
         <div class="card-head">
           <span class="card-icon">📈</span>
           <h3>技術分析</h3>
@@ -291,7 +291,10 @@ onMounted(() => {
 
 .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: var(--space-4); }
 .summary-card { cursor: pointer; transition: transform 0.15s, box-shadow 0.15s; }
-.summary-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.15); }
+.summary-card:hover, .summary-card:focus-visible {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+}
 .card-head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
 .card-icon { font-size: 1.3rem; }
 .card-head h3 { font-size: 0.9rem; margin: 0; }

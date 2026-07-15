@@ -93,11 +93,15 @@
               @keydown.enter.prevent="submitWatchInput"
             />
 
-            <ul v-if="watchSearchResults.length" class="watchlist-dropdown">
+            <ul v-if="watchSearchResults.length" class="watchlist-dropdown" role="listbox">
               <li
                 v-for="item in watchSearchResults"
                 :key="`${item.symbol}-${item.name}`"
+                role="option"
+                tabindex="0"
                 @click="addWatchSymbol(item.symbol)"
+                @keydown.enter.prevent="addWatchSymbol(item.symbol)"
+                @keydown.space.prevent="addWatchSymbol(item.symbol)"
               >
                 <strong>{{ item.symbol }}</strong>
                 <span>{{ item.name }}</span>
@@ -1308,7 +1312,8 @@ function toDateParam(value) {
   transition: background var(--transition-base), transform var(--transition-base);
 }
 
-.watchlist-dropdown li:hover {
+.watchlist-dropdown li:hover,
+.watchlist-dropdown li:focus-visible {
   background: rgba(59, 130, 246, 0.12);
   transform: translateX(2px);
 }

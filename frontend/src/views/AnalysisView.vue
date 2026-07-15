@@ -364,6 +364,7 @@ import { createChart } from 'lightweight-charts'
 import * as d3 from 'd3'
 import { useChartTheme } from '../composables/useChartTheme'
 import { tvChartUrl } from '../lib/tradingview'
+import { fetchSizingData } from '../lib/livePriceCache'
 
 const theme = useChartTheme()
 const calendarEl = ref(null)
@@ -423,9 +424,10 @@ const priceLineage = ref({ asOf: '', source: '' })
 async function fetchSetup(sym) {
   setup.value = null
   try {
-    const r = await fetch(`${API_BASE}/api/v1/risk/sizing/${sym}`)
-    const p = await r.json().catch(() => ({}))
-    if (r.ok && p?.data?.setup && symbol.value === sym) setup.value = p.data.setup
+    // P4：跟投組風險頁/交易日誌/風控監控共用同一份 /risk/sizing 快取，避免
+    // 同一檔股票在不同頁面之間重複打 FinMind。
+    const data = await fetchSizingData(sym)
+    if (data?.setup && symbol.value === sym) setup.value = data.setup
   } catch { /* best-effort */ }
 }
 function setupCls(total) { return total >= 70 ? 'good' : total >= 45 ? 'mid' : 'bad' }

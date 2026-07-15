@@ -181,7 +181,7 @@
         <!-- Trade History -->
         <div class="card">
           <h4>交易明細 ({{ trades.length }} 筆)</h4>
-          <div class="data-table">
+          <div class="data-table table-wrap">
             <table>
               <thead>
                 <tr><th>進場日</th><th>出場日</th><th>進場價</th><th>出場價</th><th>報酬%</th><th>持有天數</th><th>MFE%</th><th>MAE%</th></tr>

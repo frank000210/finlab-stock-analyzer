@@ -42,7 +42,7 @@
       <!-- Monthly Heatmap -->
       <section class="card">
         <h2>📊 月報酬率熱力圖</h2>
-        <div class="heatmap-container">
+        <div class="heatmap-container table-wrap">
           <table class="heatmap-table">
             <thead>
               <tr>

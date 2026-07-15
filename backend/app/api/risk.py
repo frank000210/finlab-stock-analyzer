@@ -209,6 +209,7 @@ async def run_alert_check() -> dict:
     """檢查所有啟用中的價格警報（C10）：現價觸及設定門檻就推播 Telegram 並標記
     已觸發（一次性，不會每次檢查都重複推播）。排程與手動端點共用同一份邏輯。
     """
+    import asyncio
     from datetime import date, datetime, timedelta
 
     from ..config.settings import get_settings
@@ -227,14 +228,19 @@ async def run_alert_check() -> dict:
     end = date.today()
     start = end - timedelta(days=10)
 
-    prices: dict[str, float] = {}
-    for sym in symbols:
+    # P3：跟 watchlist_signals/portfolio_correlation 一樣改併發抓取——最多 50
+    # 檔警報若序列抓取會拖到 10-30 秒，排程每 20 分鐘跑一次也拖累其他請求。
+    async def _fetch_price(sym: str):
         try:
             df = await crawler.get_price(sym, start.isoformat(), end.isoformat(), "1d")
             if df is not None and not df.empty:
-                prices[sym] = float(df.sort_values("date")["close"].iloc[-1])
+                return sym, float(df.sort_values("date")["close"].iloc[-1])
         except Exception:
-            continue
+            pass
+        return sym, None
+
+    results = await asyncio.gather(*[_fetch_price(sym) for sym in symbols])
+    prices: dict[str, float] = {sym: p for sym, p in results if p is not None}
 
     s = get_settings()
     token = (s.telegram_bot_token or "").strip()
@@ -342,6 +348,28 @@ async def check_alerts_now():
         raise HTTPException(status_code=502, detail=f"警報檢查失敗：{exc}")
 
 
+async def _market_cap_tier(symbol: str, price: float, start_iso: str, end_iso: str) -> tuple[float | None, str | None]:
+    """O1：市值＝現價×已發行股數，NT$100億分大/中型 vs 小型（P5：抽成共用
+    helper，原本在 position_sizing() 跟 watchlist_signals() 各寫一份幾乎逐字
+    重複的邏輯）。非台股或資料取不到時回傳 (None, None)，呼叫端不特別處理。
+    """
+    from ..crawler.finmind_client import FinMindClient
+    from ..data.us_symbols import is_tw_symbol
+
+    if not is_tw_symbol(symbol):
+        return None, None
+    try:
+        sh = await FinMindClient().get_shares_outstanding(symbol, start_iso, end_iso)
+        if sh is not None and not sh.empty and "NumberOfSharesIssued" in sh.columns:
+            shares = float(sh.sort_values("date")["NumberOfSharesIssued"].iloc[-1])
+            market_cap = price * shares
+            cap_tier = "大型/中型" if market_cap >= 1e10 else "小型"
+            return market_cap, cap_tier
+    except Exception:
+        pass
+    return None, None
+
+
 @router.get("/sizing/{symbol}")
 async def position_sizing(
     symbol: str,
@@ -402,19 +430,7 @@ async def position_sizing(
 
     # O1：市值＝現價×已發行股數，只做一般參考資訊用（判斷這檔股票規模大小、
     # 進而評估波動/流動性風險），不影響停損/部位試算本身。
-    from ..data.us_symbols import is_tw_symbol as _is_tw_symbol
-
-    market_cap = None
-    cap_tier = None
-    if _is_tw_symbol(symbol):
-        try:
-            sh = await FinMindClient().get_shares_outstanding(symbol, start.isoformat(), end.isoformat())
-            if sh is not None and not sh.empty and "NumberOfSharesIssued" in sh.columns:
-                shares = float(sh.sort_values("date")["NumberOfSharesIssued"].iloc[-1])
-                market_cap = price * shares
-                cap_tier = "大型/中型" if market_cap >= 1e10 else "小型"
-        except Exception:
-            pass
+    market_cap, cap_tier = await _market_cap_tier(symbol, price, start.isoformat(), end.isoformat())
 
     stop_multiples = [("積極", 1.5), ("穩健", 2.0), ("保守", 3.0)]
     suggested_stops = [
@@ -697,18 +713,7 @@ async def watchlist_signals(
         # 市值分級：大型/中型股跳空門檻低（3%），小型股天生波動大、門檻要拉高
         # （10%），不然雜訊會蓋過真訊號——直接套講者的美股門檻沒意義（她的
         # 8-10億美元對台股規模來說是極小型股），改用台股慣例的百億分界。
-        market_cap = None
-        cap_tier = None
-        if is_tw_symbol(sym):
-            try:
-                from ..crawler.finmind_client import FinMindClient as _FinMindClient
-                sh = await _FinMindClient().get_shares_outstanding(sym, start.isoformat(), end.isoformat())
-                if sh is not None and not sh.empty and "NumberOfSharesIssued" in sh.columns:
-                    shares = float(sh.sort_values("date")["NumberOfSharesIssued"].iloc[-1])
-                    market_cap = price * shares
-                    cap_tier = "大型/中型" if market_cap >= 1e10 else "小型"
-            except Exception:
-                pass
+        market_cap, cap_tier = await _market_cap_tier(sym, price, start.isoformat(), end.isoformat())
         gap_threshold = 3.0 if cap_tier != "小型" else 10.0
 
         ma20 = float(close.tail(20).mean())

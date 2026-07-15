@@ -681,8 +681,14 @@ function closeTrade(t) {
   save()
 }
 
-function removeTrade(id) { trades.value = trades.value.filter(t => t.id !== id); save() }
-function clearAll() { trades.value = []; save() }
+function removeTrade(id) {
+  if (!window.confirm('確定要刪除這筆交易紀錄嗎？')) return
+  trades.value = trades.value.filter(t => t.id !== id); save()
+}
+function clearAll() {
+  if (!window.confirm(`確定要清空全部 ${trades.value.length} 筆交易紀錄嗎？localStorage 是唯一儲存位置，清掉就救不回來了。`)) return
+  trades.value = []; save()
+}
 
 // A3 CSV 匯入：localStorage 是這份日誌唯一的儲存位置，瀏覽器清資料就全沒
 // 了。既有的匯出 CSV 因此也是備份手段——但少了匯入就還原不了。這裡吃匯出

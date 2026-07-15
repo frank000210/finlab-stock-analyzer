@@ -41,3 +41,26 @@ test('settings page loads', async ({ page }) => {
   await page.goto('/settings')
   await expect(page.getByRole('heading', { name: /設定/ })).toBeVisible()
 })
+
+// P10：以下 4 頁之前完全沒有 e2e 覆蓋。
+test('decision page renders dashboard shell', async ({ page }) => {
+  await page.goto('/decision')
+  await expect(page.getByRole('heading', { name: '今日決策面板' })).toBeVisible({ timeout: 60_000 })
+  await expect(page.getByRole('heading', { name: '市場脈動總覽' })).toBeVisible()
+})
+
+test('ai-signals page renders signal list', async ({ page }) => {
+  await page.goto('/ai-signals')
+  await expect(page.getByRole('heading', { name: 'AI 交易信號' })).toBeVisible({ timeout: 60_000 })
+})
+
+test('chip analysis page renders 2330 data', async ({ page }) => {
+  await page.goto('/stocks/2330/chip')
+  await expect(page.getByRole('heading', { name: '籌碼分析' })).toBeVisible({ timeout: 60_000 })
+})
+
+test('admin page shows login gate when not authenticated', async ({ page }) => {
+  await page.goto('/admin')
+  await expect(page.getByRole('heading', { name: '後台管理' })).toBeVisible({ timeout: 20_000 })
+  await expect(page.getByRole('button', { name: /使用 Google 登入/ })).toBeVisible()
+})

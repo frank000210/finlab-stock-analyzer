@@ -105,6 +105,25 @@ test('投組風險 從觀察清單匯入 adds watchlist symbols', async ({ page 
   await expect(page.locator('.pos-table')).toContainText('2454')
 })
 
+test('投組風險 補齊資料失敗時顯示警示，不悄悄留在現價 0 (P7)', async ({ page }) => {
+  await page.route('**/api/v1/risk/sizing/*', async (route) => {
+    await route.fulfill({ status: 502, contentType: 'application/json', body: JSON.stringify({ detail: '查詢失敗' }) })
+  })
+  await page.goto('/portfolio-heat')
+  await page.evaluate(() => localStorage.clear())
+  await page.reload()
+
+  await page.getByPlaceholder('代碼 2330').fill('2330')
+  await page.getByPlaceholder('進場價').fill('2440')
+  await page.getByPlaceholder('停損價').fill('2310')
+  await page.getByPlaceholder('張數').fill('1')
+  await page.getByRole('button', { name: '加入' }).click()
+
+  await expect(page.locator('.pos-table tbody tr')).toHaveCount(1)
+  await expect(page.locator('.enrich-warn')).toBeVisible()
+  await expect(page.locator('.error-text')).toContainText('補齊名稱/現價失敗')
+})
+
 test('投組風險 推播風險摘要 (mocked telegram relay)', async ({ page }) => {
   await page.route('**/api/v1/risk/notify', async (route) => {
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, sent: true, error: '' }) })

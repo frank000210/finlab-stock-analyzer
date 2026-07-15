@@ -62,7 +62,10 @@
           </thead>
           <tbody>
             <tr v-for="(p, i) in positions" :key="p.symbol + '-' + i">
-              <td class="sym">{{ p.symbol }}<small>{{ p.name && p.name !== p.symbol ? ' ' + p.name : '' }}</small></td>
+              <td class="sym">
+                {{ p.symbol }}<small>{{ p.name && p.name !== p.symbol ? ' ' + p.name : '' }}</small>
+                <span v-if="p.enrichFailed && !p.price" class="enrich-warn" title="查價失敗，現價暫時是 0，風險/相關性計算會低估這筆部位——建議重新整理頁面重試">⚠現價未知</span>
+              </td>
               <td class="muted">{{ p.industry || '—' }}</td>
               <td>{{ fmt(p.entry) }}</td>
               <td>{{ fmt(p.stop) }}</td>
@@ -212,6 +215,7 @@ import { loadJournal, riskAmount, JOURNAL_KEY } from '../lib/tradeMath'
 import InfoTooltip from '../components/InfoTooltip.vue'
 import MetricScale from '../components/MetricScale.vue'
 import { metricGlossary } from '../lib/metricGlossary'
+import { fetchSizingData } from '../lib/livePriceCache'
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 const LS_POS = 'portfolio_heat_positions'
@@ -362,25 +366,36 @@ async function addPosition() {
     formError.value = '請填入代碼、有效的進場/停損價（不可相等）與至少 1 張。'
     return
   }
-  const pos = reactive({ symbol, name: symbol, industry: '', entry, stop, lots, price: 0 })
+  const pos = reactive({ symbol, name: symbol, industry: '', entry, stop, lots, price: 0, enrichFailed: false })
   positions.value.push(pos)
   save()
   form.symbol = ''; form.entry = null; form.stop = null; form.lots = 1
   // best-effort enrichment (name / industry / current price)
-  try {
-    const resp = await fetch(`${API_BASE}/api/v1/risk/sizing/${symbol}`)
-    const payload = await resp.json().catch(() => ({}))
-    if (resp.ok && payload?.data) {
-      pos.name = payload.data.name || symbol
-      pos.industry = payload.data.industry || '未分類'
-      pos.price = payload.data.price || 0
-      save()
-    }
-  } catch { /* keep basic entry */ }
+  // P4：改走共用的 livePriceCache，跟交易日誌/風控監控/分析頁共用同一份
+  // /risk/sizing 快取，同一檔股票在不同頁面之間不用重複打 FinMind。
+  const data = await fetchSizingData(symbol)
+  if (data) {
+    pos.name = data.name || symbol
+    pos.industry = data.industry || '未分類'
+    pos.price = data.price || 0
+    save()
+  } else {
+    // P7：查價失敗時 price 會停在 0，若不提示，使用者可能誤把它當成真的
+    // 0 元部位，悄悄混進風險熱度/相關性計算。
+    pos.enrichFailed = true
+    formError.value = `${symbol} 補齊名稱/現價失敗，部位已加入但現價暫時顯示為 0，可稍後重新整理頁面重試。`
+  }
 }
 
-function remove(i) { positions.value.splice(i, 1); save(); if (positions.value.length < 2) corr.value = null }
-function clearAll() { positions.value = []; save(); corr.value = null }
+function remove(i) {
+  const p = positions.value[i]
+  if (!window.confirm(`確定要刪除部位「${p?.symbol || ''}」嗎？`)) return
+  positions.value.splice(i, 1); save(); if (positions.value.length < 2) corr.value = null
+}
+function clearAll() {
+  if (!window.confirm(`確定要清空全部 ${positions.value.length} 筆投組部位嗎？`)) return
+  positions.value = []; save(); corr.value = null
+}
 
 // One-click import: pull the shared watchlist (關聯圖／決策面板 use the same
 // 'finlab_watchlist' key), auto-fill entry=price and an ATR-based stop.
@@ -405,10 +420,8 @@ async function importFromWatchlist() {
   try {
     const results = await Promise.all(toAdd.map(async (symbol) => {
       try {
-        const resp = await fetch(`${API_BASE}/api/v1/risk/sizing/${symbol}`)
-        const payload = await resp.json().catch(() => ({}))
-        if (!resp.ok || !payload?.data) return null
-        const d = payload.data
+        const d = await fetchSizingData(symbol)
+        if (!d) return null
         const moderate = (d.suggested_stops || []).find(s => s.label === '穩健')
         const stop = moderate ? moderate.stop_price : Math.round((d.price - d.atr * 2) * 100) / 100
         return { symbol, name: d.name || symbol, industry: d.industry || '未分類', entry: d.price, stop, lots: 1, price: d.price }
@@ -496,6 +509,7 @@ onBeforeUnmount(() => window.removeEventListener('storage', onJournalStorage))
 .stress-table th:first-child, .stress-table td:first-child { text-align: left; }
 .pos-table th, .stress-table th { color: var(--text-muted); font-weight: 500; font-size: 0.76rem; }
 .sym small { color: var(--text-muted); }
+.enrich-warn { display: inline-block; margin-left: 4px; font-size: 0.68rem; color: #f59e0b; white-space: nowrap; cursor: help; }
 .del { background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.9rem; }
 .del:hover { color: #ef4444; }
 strong.warn { color: #f59e0b; }

@@ -105,10 +105,14 @@ async function addAlert() {
 }
 
 async function remove(id) {
+  if (!window.confirm('確定要刪除這則價格警報嗎？')) return
   try {
-    await fetch(`${API_BASE}/api/v1/risk/alerts/${id}`, { method: 'DELETE' })
+    const resp = await fetch(`${API_BASE}/api/v1/risk/alerts/${id}`, { method: 'DELETE' })
+    if (!resp.ok) throw new Error('刪除失敗')
     alerts.value = alerts.value.filter(a => a.id !== id)
-  } catch { /* ignore */ }
+  } catch {
+    formError.value = '刪除失敗，請稍後再試。'
+  }
 }
 
 async function checkNow() {

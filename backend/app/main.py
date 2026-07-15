@@ -113,6 +113,13 @@ async def lifespan(app: FastAPI):
     except Exception:
         pass
 
+    try:
+        from .crawler.finmind_client import close_finmind_client
+
+        await close_finmind_client()
+    except Exception:
+        pass
+
 
 app = FastAPI(
     title=settings.app_name,

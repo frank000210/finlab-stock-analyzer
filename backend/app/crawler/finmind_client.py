@@ -13,6 +13,29 @@ from ..config.settings import get_settings
 _cache: dict[str, tuple[float, pd.DataFrame]] = {}
 _CACHE_TTL = 300  # 5 minutes
 
+# P2：共用一個 httpx.AsyncClient（含連線池），不要每次 _fetch() 都開一個新的。
+# 觀察清單掃描一次可能對 30 檔股票各發 1-2 個 FinMind 請求、併發觸發，若每次
+# 都重新 TCP+TLS 握手，額外開銷會被併發數放大。行程關閉時由 main.py 的
+# lifespan shutdown 呼叫 close_finmind_client() 釋放。
+_client: httpx.AsyncClient | None = None
+
+
+def _get_client() -> httpx.AsyncClient:
+    global _client
+    if _client is None or _client.is_closed:
+        _client = httpx.AsyncClient(
+            timeout=30.0,
+            limits=httpx.Limits(max_connections=50, max_keepalive_connections=20),
+        )
+    return _client
+
+
+async def close_finmind_client() -> None:
+    global _client
+    if _client is not None and not _client.is_closed:
+        await _client.aclose()
+    _client = None
+
 
 def _clear_cache() -> int:
     count = len(_cache)
@@ -75,21 +98,21 @@ class FinMindClient:
             "token": self.token,
             **params,
         }
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            resp = await client.get(self.BASE_URL, params=payload)
-            try:
-                resp.raise_for_status()
-            except httpx.HTTPStatusError as exc:
-                # httpx's default exception message (and str(exc)) embeds the
-                # full request URL, which includes our FINMIND_TOKEN as a
-                # query param. API route handlers across this codebase
-                # commonly return str(e) as the HTTP error detail, so letting
-                # the original exception propagate would leak the token to
-                # any caller whenever FinMind returns a 4xx/5xx.
-                raise ValueError(
-                    f"FinMind request failed: HTTP {exc.response.status_code}"
-                ) from None
-            data = resp.json()
+        client = _get_client()
+        resp = await client.get(self.BASE_URL, params=payload)
+        try:
+            resp.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            # httpx's default exception message (and str(exc)) embeds the
+            # full request URL, which includes our FINMIND_TOKEN as a
+            # query param. API route handlers across this codebase
+            # commonly return str(e) as the HTTP error detail, so letting
+            # the original exception propagate would leak the token to
+            # any caller whenever FinMind returns a 4xx/5xx.
+            raise ValueError(
+                f"FinMind request failed: HTTP {exc.response.status_code}"
+            ) from None
+        data = resp.json()
 
         if data.get("status") != 200:
             raise ValueError(f"FinMind API error: {data.get('msg', 'Unknown')}")
