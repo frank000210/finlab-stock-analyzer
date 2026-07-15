@@ -10,7 +10,7 @@
       <div class="hero-meta">
         <span class="badge">頻率 {{ freq === 'daily' ? '日頻' : '週頻' }}</span>
         <span class="badge">Universe {{ universe === 'twse' ? '官方類股' : '觀察池聚合' }}</span>
-        <span class="badge">日期 {{ activeDate || '—' }}</span>
+        <DataLineage :as-of="activeDate" source="cache" />
       </div>
     </section>
 
@@ -239,6 +239,7 @@
 <script setup>
 import PageFocusBanner from '../components/PageFocusBanner.vue'
 import InfoTooltip from '../components/InfoTooltip.vue'
+import DataLineage from '../components/DataLineage.vue'
 import { metricGlossary } from '../lib/metricGlossary'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import * as d3 from 'd3'

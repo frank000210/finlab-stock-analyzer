@@ -36,17 +36,29 @@ async def ingest_sector_index(
     """Backfill TWSE sector index closes into Mongo, skipping cached days.
 
     Holidays are cached as empty markers so they are never re-fetched.
+
+    最近 2 天內的空結果不視為「已知」（不永久快取）——TWSE 的 MI_INDEX 通常收盤後
+    要等一段時間才會發布當日資料，若排程在資料還沒發布前就跑（例如台股 13:30
+    收盤、排程 15:00 就執行），會抓到空結果。若把這種「還沒發布」跟「真的是假日」
+    同樣永久快取，類股輪動會卡在前一個交易日，就算之後 TWSE 資料已經發布也不會
+    重試。給最近 2 天一個重試窗口（涵蓋今天 + 下一次排程執行時），過了這個窗口
+    才視為確定的假日並永久快取，避免無限重試已經確認沒有資料的舊日期。
     """
     start = _parse_date(start_date)
     end = _parse_date(end_date)
+    retry_window = {(date.today() - timedelta(days=offset)).isoformat() for offset in (0, 1)}
     mongo = await get_mongodb()
     await ensure_rotation_indexes(mongo)
 
     known_cursor = mongo.raw_sector_index_days.find(
         {"date": {"$gte": start.isoformat(), "$lte": end.isoformat()}},
-        {"_id": 0, "date": 1},
+        {"_id": 0, "date": 1, "row_count": 1},
     )
-    known_dates = {doc["date"] for doc in await known_cursor.to_list(length=None)}
+    known_dates = {
+        doc["date"]
+        for doc in await known_cursor.to_list(length=None)
+        if not (doc["date"] in retry_window and not doc.get("row_count"))
+    }
 
     missing: list[date] = []
     cursor_day = start

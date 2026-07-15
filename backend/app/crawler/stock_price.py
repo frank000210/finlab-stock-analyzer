@@ -81,7 +81,13 @@ class StockPriceCrawler:
         df = df.rename(columns={"date": "date"})
         # 指數的 volume 可能為 NaN → 補 0，避免 int() 轉換爆掉
         df["volume"] = df["volume"].fillna(0)
-        return df[["date", "open", "high", "low", "close", "volume"]]
+        df = df[["date", "open", "high", "low", "close", "volume"]]
+        # yfinance 最新一兩筆（尤其是剛收盤或跨時區的美股）常常先回一筆 close
+        # 還沒結算的 NaN 列（open/volume 有值、close 是 NaN）。這種「掛在那裡的
+        # 未結算列」如果被當成正常資料，下游 .iloc[-1] 抓到的「現價」就是 NaN，
+        # 整條 ATR 試算會直接炸掉。與其讓使用者看到不明所以的錯誤，不如在來源
+        # 這裡就把還沒結算的列丟掉，讓 .iloc[-1] 永遠是最後一筆「真的收盤」的資料。
+        return df.dropna(subset=["close"]).reset_index(drop=True)
 
     def _resample(self, df: pd.DataFrame, rule: str) -> pd.DataFrame:
         """Resample daily data to weekly/monthly."""
