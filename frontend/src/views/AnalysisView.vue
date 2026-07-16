@@ -193,19 +193,25 @@
     </section>
 
     <!-- Q1：換手率分析——只支援台股（需要已發行股數資料），美股/查無資料時不顯示 -->
-    <section class="card turnover-section" v-if="turnoverData">
+    <section class="card turnover-section" v-if="turnoverLoading || turnoverData">
       <div class="section-head compact">
         <div>
           <h2>換手率分析 <InfoTooltip v-bind="metricGlossary.turnoverRate" /></h2>
         </div>
-        <span class="cap-tier-badge">{{ turnoverData.cap_tier }}股</span>
+        <span v-if="turnoverData" class="cap-tier-badge">{{ turnoverData.cap_tier }}股</span>
       </div>
-      <div class="turnover-body">
+      <!-- R6：背景載入完成前給個提示，避免數字突然彈出讓人以為頁面跳動 -->
+      <div v-if="turnoverLoading && !turnoverData" class="loading-placeholder">
+        <span class="loading-spinner" aria-hidden="true"></span>載入中...
+      </div>
+      <div v-else-if="turnoverData" class="turnover-body">
         <div class="turnover-value">
           <strong>{{ turnoverData.turnover_pct }}%</strong>
-          <span class="muted">近 60 日百分位 {{ turnoverData.percentile }}%</span>
+          <span v-if="turnoverData.percentile != null" class="muted">近 {{ turnoverData.sample_days }} 日百分位 {{ turnoverData.percentile }}%</span>
+          <span v-else class="muted">近期上市，僅 {{ turnoverData.sample_days }} 個交易日資料，樣本不足無法計算百分位</span>
         </div>
         <MetricScale
+          v-if="turnoverData.percentile != null"
           class="turnover-scale"
           :min="0" :max="100" :value="turnoverData.percentile"
           :zones="[{ to: 15, tone: 'warn' }, { to: 85, tone: 'good' }, { to: 100, tone: 'warn' }]"
@@ -348,8 +354,12 @@
           <div v-if="!recentChipRows.length" class="empty-state">尚未取得籌碼資料</div>
         </div>
 
+        <!-- R6：背景載入中提示 -->
+        <div v-if="chipSummaryLoading && !chipSummary" class="whale-trend loading-placeholder">
+          <span class="loading-spinner" aria-hidden="true"></span>載入中...
+        </div>
         <!-- Q2：千張大戶持股趨勢——只有累積到至少一週的週度快照才有數字可比較 -->
-        <div v-if="chipSummary && chipSummary.recent_weeks.length" class="whale-trend">
+        <div v-else-if="chipSummary && chipSummary.recent_weeks.length" class="whale-trend">
           <div class="whale-trend-head">
             <span>千張大戶持股趨勢 <InfoTooltip v-bind="metricGlossary.megaHolderTrend" /></span>
             <router-link :to="`/stocks/${symbol}/chip`" class="whale-trend-link">看完整分布 →</router-link>
@@ -362,7 +372,7 @@
             <svg v-if="megaSparklinePoints" class="whale-sparkline" viewBox="0 0 100 24" preserveAspectRatio="none">
               <polyline :points="megaSparklinePoints" fill="none" stroke="currentColor" stroke-width="2" />
             </svg>
-            <span class="muted small">資料日 {{ formatTdccDate(chipSummary.data_date) }}</span>
+            <span class="muted small">資料日 {{ formatYyyymmdd(chipSummary.data_date) }}</span>
           </div>
           <p class="whale-trend-narrative">{{ chipTrendNarrative }}</p>
           <p v-if="crossSignalNarrative" class="whale-trend-cross">{{ crossSignalNarrative }}</p>
@@ -409,6 +419,8 @@ import * as d3 from 'd3'
 import { useChartTheme } from '../composables/useChartTheme'
 import { tvChartUrl } from '../lib/tradingview'
 import { fetchSizingData } from '../lib/livePriceCache'
+import { useSparkline } from '../composables/useSparkline'
+import { formatYyyymmdd } from '../lib/dateFormat'
 
 const theme = useChartTheme()
 const calendarEl = ref(null)
@@ -478,6 +490,8 @@ function setupCls(total) { return total >= 70 ? 'good' : total >= 45 ? 'mid' : '
 const chipHealth = ref(null)
 const turnoverData = ref(null) // Q1：換手率分析
 const chipSummary = ref(null) // Q2：千張大戶持股趨勢摘要
+const turnoverLoading = ref(false) // R6：背景載入中提示，避免數字突然彈出
+const chipSummaryLoading = ref(false)
 const eventCalendar = ref([]) // A4：個股行事曆（營收/財報/除息）
 const upcomingEvents = computed(() => {
   const today = new Date().toISOString().slice(0, 10)
@@ -734,18 +748,19 @@ const TURNOVER_HOT_PCT = 85
 const TURNOVER_COLD_PCT = 15
 const turnoverNarrative = computed(() => {
   const t = turnoverData.value
-  if (!t) return ''
+  if (!t || t.percentile == null) return ''
   const pct = t.percentile
+  const days = t.sample_days
   const priceUp = priceChangePercent.value >= 0
   if (pct >= TURNOVER_HOT_PCT) {
     return priceUp
-      ? `近期換手率明顯放大（近 60 日百分位 ${pct}%）且股價同步走高，換手確立趨勢的訊號較強，籌碼有換手成功的跡象。`
-      : `近期換手率明顯放大（近 60 日百分位 ${pct}%）但股價未同步走高，留意是否為高檔換手不過、籌碼在盤整中轉手，常是主力調節的訊號。`
+      ? `近期換手率明顯放大（近 ${days} 日百分位 ${pct}%）且股價同步走高，換手確立趨勢的訊號較強，籌碼有換手成功的跡象。`
+      : `近期換手率明顯放大（近 ${days} 日百分位 ${pct}%）但股價未同步走高，留意是否為高檔換手不過、籌碼在盤整中轉手，常是主力調節的訊號。`
   }
   if (pct <= TURNOVER_COLD_PCT) {
-    return `近期換手率偏低（近 60 日百分位 ${pct}%），籌碼安定但市場關注度不高，波動可能持續收斂，未來突破通常需要量能配合才可信。`
+    return `近期換手率偏低（近 ${days} 日百分位 ${pct}%），籌碼安定但市場關注度不高，波動可能持續收斂，未來突破通常需要量能配合才可信。`
   }
-  return `近期換手率處於自身歷史正常區間（近 60 日百分位 ${pct}%），籌碼流動度無明顯異常。`
+  return `近期換手率處於自身歷史正常區間（近 ${days} 日百分位 ${pct}%），籌碼流動度無明顯異常。`
 })
 
 // Q2：千張大戶持股週度趨勢的白話敘事，直接複用後端既有的多空判斷文字。
@@ -757,38 +772,22 @@ const latestMegaChange = computed(() => {
 
 // Q1+Q2 三重確認：換手放大 + 大戶進出 + 價格方向同向時才給聯合判讀，訊號
 // 不一致時保持沉默，避免硬湊出一個不可靠的結論。
+// R4：換手率是「今天」的資料，大戶持股是集保「每週」公布一次的快照，兩者
+// 不一定是同一天——聯合判讀本身仍有參考價值，但要講清楚這個時間差，不能
+// 讓使用者誤以為是同一時點的資料互相印證。
 const crossSignalNarrative = computed(() => {
   const t = turnoverData.value
   const change = latestMegaChange.value
-  if (!t || change == null || t.percentile < 70) return ''
+  if (!t || t.percentile == null || change == null || t.percentile < 70) return ''
   const priceUp = priceChangePercent.value >= 0
-  if (change > 0.3 && priceUp) return '🔺 三重訊號同向：換手放大、千張大戶加碼、股價走高——主力進貨訊號較強。'
-  if (change < -0.3 && !priceUp) return '🔻 三重訊號同向：換手放大、千張大戶減碼、股價未走高——留意主力出貨、追高風險。'
+  if (change > 0.3 && priceUp) return '🔺 三重訊號同向：換手放大、千張大戶加碼、股價走高——主力進貨訊號較強（大戶持股為集保每週快照，與今日換手率非同一天資料，僅供參考）。'
+  if (change < -0.3 && !priceUp) return '🔻 三重訊號同向：換手放大、千張大戶減碼、股價未走高——留意主力出貨、追高風險（大戶持股為集保每週快照，與今日換手率非同一天資料，僅供參考）。'
   return ''
 })
 
-function formatTdccDate(d) {
-  const s = String(d || '')
-  return s.length === 8 ? `${s.slice(0, 4)}/${s.slice(4, 6)}/${s.slice(6, 8)}` : s
-}
-
-// 近 8 週千張大戶持股比例的極簡 sparkline（SVG polyline points）。
-const megaSparklinePoints = computed(() => {
-  const weeks = chipSummary.value?.recent_weeks
-  if (!weeks || weeks.length < 2) return ''
-  const values = weeks.map(w => w.mega_pct)
-  const min = Math.min(...values)
-  const max = Math.max(...values)
-  const span = max - min || 1
-  const w = 100, h = 24
-  return values
-    .map((v, i) => {
-      const x = (i / (values.length - 1)) * w
-      const y = h - ((v - min) / span) * h
-      return `${x.toFixed(1)},${y.toFixed(1)}`
-    })
-    .join(' ')
-})
+// 近 8 週千張大戶持股比例的極簡 sparkline（R7：共用 composable）。
+const megaWeekValues = computed(() => (chipSummary.value?.recent_weeks || []).map(w => w.mega_pct))
+const { points: megaSparklinePoints } = useSparkline(megaWeekValues, { width: 100, height: 24 })
 
 watch(() => route.params.symbol, async () => {
   saveRecent()
@@ -829,6 +828,8 @@ async function loadAnalysis() {
   chipHealth.value = null
   turnoverData.value = null
   chipSummary.value = null
+  turnoverLoading.value = false
+  chipSummaryLoading.value = false
   eventCalendar.value = []
   const token = ++requestToken
 
@@ -893,22 +894,28 @@ async function loadAnalysis() {
 }
 
 async function loadTurnover(sym, token) {
+  turnoverLoading.value = true
   try {
     const payload = await apiGet(`/api/v1/analysis/${sym}/turnover`)
     if (token !== requestToken) return
     turnoverData.value = (payload && typeof payload === 'object' && 'turnover_pct' in payload) ? payload : null
   } catch {
     /* 換手率僅支援台股，美股/查無資料時靜默忽略 */
+  } finally {
+    if (token === requestToken) turnoverLoading.value = false
   }
 }
 
 async function loadChipSummary(sym, token) {
+  chipSummaryLoading.value = true
   try {
     const payload = await apiGet(`/api/v1/stocks/${sym}/chip-summary`)
     if (token !== requestToken) return
     chipSummary.value = (payload && typeof payload === 'object' && 'mega_pct' in payload) ? payload : null
   } catch {
     /* 大戶持股趨勢為加值資訊，失敗時靜默忽略 */
+  } finally {
+    if (token === requestToken) chipSummaryLoading.value = false
   }
 }
 
@@ -2091,6 +2098,8 @@ function valueTone(value) {
 .small { font-size: 0.76rem; }
 .turnover-scale { max-width: 420px; }
 .turnover-narrative { font-size: 0.8rem; color: var(--text-secondary); line-height: 1.6; margin: 2px 0 0; }
+.loading-placeholder { display: flex; align-items: center; gap: 8px; font-size: 0.82rem; color: var(--text-muted); padding: 4px 0; }
+.loading-placeholder .loading-spinner { width: 14px; height: 14px; border-width: 2px; }
 
 .chart-stack {
   display: flex;

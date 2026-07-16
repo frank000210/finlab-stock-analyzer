@@ -225,6 +225,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useStockStore } from '../stores/stock.js'
 import { useChartTheme } from '../composables/useChartTheme'
+import { useSparkline } from '../composables/useSparkline'
 
 const route = useRoute()
 const stockStore = useStockStore()
@@ -278,15 +279,9 @@ async function fetchHistory() {
 
 const sparkW = 600
 const sparkH = 80
-const sparkPoints = computed(() => {
-  if (history.value.length < 2) return ''
-  const scores = history.value.map(h => h.buzz_score)
-  const min = Math.min(...scores)
-  const max = Math.max(...scores)
-  const range = (max - min) || 1
-  const stepX = sparkW / (scores.length - 1)
-  return scores.map((s, i) => `${i * stepX},${sparkH - ((s - min) / range) * sparkH}`).join(' ')
-})
+// R7：共用 sparkline composable
+const sparkScores = computed(() => history.value.map(h => h.buzz_score))
+const { points: sparkPoints } = useSparkline(sparkScores, { width: sparkW, height: sparkH })
 
 // 日期字串皆為 YYYY-MM-DD（或空字串），可直接用字串比較排序；沒有日期
 // 的項目一律排到最後，不管目前是由近至遠還是由遠至近。

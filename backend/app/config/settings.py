@@ -63,4 +63,14 @@ def get_settings() -> Settings:
             "admin sessions will be invalidated on every restart until you "
             "set ADMIN_SECRET in the environment."
         )
+    if not settings.finmind_token:
+        # R9：FinMind 是全站絕大多數端點（分析/籌碼/風控...）的主要資料源，
+        # 沒有 token 就只能用免費/未驗證額度，額度用完後會在各端點分散出現
+        # 零星的 500/502，難以追查根因。啟動時就給一個清楚的警告，跟
+        # ADMIN_SECRET 的待遇一致，而不是等使用者回報「某某頁面壞了」才發現。
+        logger.warning(
+            "FINMIND_TOKEN is not set. FinMind requests will fall back to "
+            "unauthenticated/free-tier rate limits, which most endpoints in "
+            "this app depend on — set FINMIND_TOKEN in the environment."
+        )
     return settings

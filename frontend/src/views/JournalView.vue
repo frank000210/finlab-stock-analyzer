@@ -401,21 +401,10 @@ const equityPoints = computed(() => {
   return pts
 })
 const eqW = 600, eqH = 120
-const equityBounds = computed(() => {
-  const ys = equityPoints.value
-  const min = Math.min(0, ...ys), max = Math.max(0, ...ys)
-  return { min, max, range: (max - min) || 1 }
-})
-const eqZeroY = computed(() => eqH - ((0 - equityBounds.value.min) / equityBounds.value.range) * eqH)
-const equityPolyline = computed(() => {
-  const ys = equityPoints.value
-  const n = ys.length
-  return ys.map((y, i) => {
-    const x = (i / (n - 1)) * eqW
-    const yy = eqH - ((y - equityBounds.value.min) / equityBounds.value.range) * eqH
-    return `${x.toFixed(1)},${yy.toFixed(1)}`
-  }).join(' ')
-})
+// R7：共用 sparkline composable，includeValue: 0 讓零線永遠落在圖表範圍內
+// （權益曲線要看得到零線，不能因為全部都是正值/負值而被擠出畫面）。
+const { points: equityPolyline, toY: eqToY } = useSparkline(equityPoints, { width: eqW, height: eqH, includeValue: 0 })
+const eqZeroY = computed(() => eqToY.value(0))
 
 // R-multiple distribution histogram
 const rHist = computed(() => {

@@ -1,12 +1,24 @@
 """Cache management API endpoints."""
 
-from fastapi import APIRouter, Query
+import time
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+
+from .admin import require_admin
 
 router = APIRouter(prefix="/api/v1/cache", tags=["cache"])
 
+# R1：/reingest 觸發的是排程本來就會跑的重量級工作（類股輪動+關聯圖重抓），
+# 是一般使用者在設定頁就能點的正常功能（非管理員限定），所以不能像
+# /stats、DELETE 一樣直接掛 admin 驗證——那樣會擋掉現有正常用法。改成簡單
+# 的行程內冷卻時間，擋掉短時間內重複觸發造成的濫用/成本放大，不影響偶爾
+# 手動更新一次的正常使用情境。
+_REINGEST_COOLDOWN_SEC = 300
+_last_reingest_at: float = 0.0
+
 
 @router.get("/stats")
-async def cache_stats():
+async def cache_stats(_admin: dict = Depends(require_admin)):
     """Get cache statistics."""
     try:
         from ..db.mongodb import get_mongodb
@@ -44,6 +56,7 @@ async def cache_stats():
 async def clear_cache(
     category: str = Query(default=None, description="清除特定類別快取"),
     symbol: str = Query(default=None, description="清除特定股票快取"),
+    _admin: dict = Depends(require_admin),
 ):
     """Clear cache entries."""
     try:
@@ -63,10 +76,19 @@ async def clear_cache(
 async def reingest_now():
     """手動立即執行一次「每日排程」的 re-ingest（類股輪動指數＋關聯圖觀察池），
     並清掉圖/輪動記憶體快取。跟每日排程做的事完全一樣，供需要時手動觸發。"""
+    global _last_reingest_at
+    now = time.monotonic()
+    remaining = _REINGEST_COOLDOWN_SEC - (now - _last_reingest_at)
+    if remaining > 0:
+        raise HTTPException(
+            status_code=429,
+            detail=f"更新太頻繁，請 {int(remaining)} 秒後再試（避免重複觸發昂貴的重抓作業）。",
+        )
     try:
         from ..scheduler import _run_once
 
         await _run_once()
+        _last_reingest_at = now
         return {"success": True, "data": {"status": "reingested"}}
     except Exception as e:
         return {"success": False, "error": str(e)}

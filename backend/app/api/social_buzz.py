@@ -1,8 +1,11 @@
 """Social Buzz (社群熱度) API endpoint."""
 
+import logging
+
 from fastapi import APIRouter
 
 router = APIRouter(prefix="/api/v1/stocks", tags=["social-buzz"])
+logger = logging.getLogger(__name__)
 
 
 @router.get("/{symbol}/social-buzz/history")
@@ -42,5 +45,8 @@ async def get_social_buzz(symbol: str):
 
         return {"success": True, "data": result}
     except Exception as e:
-        import traceback
-        return {"success": False, "error": str(e), "detail": traceback.format_exc()[-800:]}
+        # R2：完整 traceback 只記到伺服器端日誌，不回傳給呼叫端——之前直接把
+        # traceback.format_exc() 塞進 API 回應，等於把內部檔案路徑、套件版本
+        # 洩漏給任何匿名呼叫者（跟 H1 修過的 FinMind token 洩漏是同類問題）。
+        logger.exception("social-buzz analysis failed for %s", symbol)
+        return {"success": False, "error": f"社群熱度分析失敗：{e}"}

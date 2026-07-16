@@ -104,19 +104,29 @@ async def get_fundamental(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+_TURNOVER_MIN_TRADING_DAYS = 20  # R3：樣本太少時百分位排名沒有統計意義
+
+
 @router.get("/{symbol}/turnover")
 async def get_turnover(symbol: str):
     """換手率分析（Q1）：換手率＝當日成交量 ÷ 已發行股數，衡量籌碼流動的
     活躍程度。用已發行股數而非真正的流通股數（台股沒有公開的自由流通量
-    資料源），跟主力成本估算同一個誠信慣例：標明是近似值。
+    資料源），跟主力成本估算同一個誠信慣例：標明是近似值；已發行股數本身
+    也只在增資/減資/初次公開發行等事件時才會變動，不是每天更新。
 
     只回傳近 60 個交易日的序列＋今天在這段期間內的百分位排名，讓前端可以
     用「相對自己歷史」而不是全市場統一門檻來判斷是否異常——不同股本大小
-    的正常換手率基準差很多，套死的門檻沒有意義。
+    的正常換手率基準差很多，套死的門檻沒有意義。樣本不足 20 個交易日時
+    （例如新上市股票）percentile 回傳 null，避免用 1-2 筆資料算出無意義
+    的「100 百分位」卻用跟正常情況一樣的信心呈現。
     """
+    import asyncio
+
+    import pandas as pd
     from datetime import date, timedelta
 
-    from ..analysis.market_cap import classify_cap_tier, get_shares_outstanding
+    from ..analysis.market_cap import classify_cap_tier
+    from ..crawler.finmind_client import FinMindClient
     from ..crawler.stock_price import StockPriceCrawler
     from ..data.us_symbols import is_tw_symbol, normalize_symbol
 
@@ -127,26 +137,48 @@ async def get_turnover(symbol: str):
     end = date.today()
     start = end - timedelta(days=120)  # 抓夠多日曆天，確保有 60 個交易日
 
+    # R5：價格跟已發行股數是兩個獨立資料源，改併發抓取。
     crawler = StockPriceCrawler()
-    df = await crawler.get_price(symbol, start.isoformat(), end.isoformat(), "1d")
+    df, sh = await asyncio.gather(
+        crawler.get_price(symbol, start.isoformat(), end.isoformat(), "1d"),
+        FinMindClient().get_shares_outstanding(symbol, start.isoformat(), end.isoformat()),
+    )
     if df is None or df.empty:
         raise HTTPException(status_code=404, detail=f"{symbol} 查無價格資料")
 
-    shares = await get_shares_outstanding(symbol, start.isoformat(), end.isoformat())
-    if not shares or shares <= 0:
+    # R3：已發行股數是不定期公布的時間序列（不是每天更新），用整段期間裡
+    # 「最新一天」的股數套用到全部歷史交易日會讓增資/減資前的換手率算錯。
+    # 改用 merge_asof 依每天當時最近一次已知的股數對齊，較貼近真實情況。
+    if sh is None or sh.empty or "NumberOfSharesIssued" not in sh.columns:
         raise HTTPException(status_code=404, detail=f"{symbol} 查無已發行股數資料")
+    sh = sh[["date", "NumberOfSharesIssued"]].dropna().sort_values("date")
+    sh["date"] = pd.to_datetime(sh["date"])
+    shares_latest = float(sh["NumberOfSharesIssued"].iloc[-1])
+    if shares_latest <= 0:
+        raise HTTPException(status_code=404, detail=f"{symbol} 已發行股數資料異常")
 
     df = df.sort_values("date").tail(60).reset_index(drop=True)
-    turnover = (df["volume"].astype(float) / shares * 100)
-    dates = [str(d)[:10] for d in df["date"]]
+    df["date"] = pd.to_datetime(df["date"])
+    merged = pd.merge_asof(df, sh, on="date", direction="backward")
+    # 價格資料比已發行股數資料更早（asof 對不到）的天數，用最早一筆已知股數
+    # 回填——沒有更早的資料可用，這是能做到最接近的近似值。
+    merged["NumberOfSharesIssued"] = merged["NumberOfSharesIssued"].ffill().bfill()
+
+    turnover = (merged["volume"].astype(float) / merged["NumberOfSharesIssued"] * 100)
+    dates = merged["date"].dt.strftime("%Y-%m-%d").tolist()
     series = [{"date": d, "turnover_pct": round(float(t), 3)} for d, t in zip(dates, turnover)]
 
     today_pct = float(turnover.iloc[-1])
     # 百分位排名：今天的換手率贏過近 60 日內多少比例的交易日（含自己）。
-    percentile = round(float((turnover <= today_pct).sum()) / len(turnover) * 100, 1)
+    # 樣本太少（例如新上市股票）時排名沒有統計意義，回傳 null 而不是硬湊。
+    percentile = (
+        round(float((turnover <= today_pct).sum()) / len(turnover) * 100, 1)
+        if len(turnover) >= _TURNOVER_MIN_TRADING_DAYS
+        else None
+    )
 
     price = float(df["close"].iloc[-1])
-    market_cap = price * shares
+    market_cap = price * shares_latest
     cap_tier = classify_cap_tier(market_cap)
 
     return {
@@ -155,9 +187,11 @@ async def get_turnover(symbol: str):
             "symbol": symbol,
             "turnover_pct": round(today_pct, 3),
             "percentile": percentile,
+            "sample_days": len(turnover),
             "cap_tier": cap_tier,
             "series": series,
             "as_of": dates[-1],
+            "shares_as_of": str(sh["date"].iloc[-1])[:10],
             "source": crawler.last_source,
         },
     }

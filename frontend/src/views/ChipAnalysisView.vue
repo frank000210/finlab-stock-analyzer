@@ -487,6 +487,7 @@ import { ref, computed, watch, onMounted, nextTick, onBeforeUnmount } from 'vue'
 import { useRoute } from 'vue-router'
 import { createChart } from 'lightweight-charts'
 import { useStockStore } from '../stores/stock.js'
+import { formatYyyymmdd as formatDate } from '../lib/dateFormat'
 
 const route = useRoute()
 const stockStore = useStockStore()
@@ -781,12 +782,6 @@ function formatNet(v) {
   return sign + abs.toLocaleString('en-US')
 }
 
-function formatDate(d) {
-  if (!d) return ''
-  const s = String(d)
-  if (s.length === 8) return `${s.slice(0, 4)}/${s.slice(4, 6)}/${s.slice(6, 8)}`
-  return s
-}
 
 async function fetchData() {
   if (!symbol.value) return
