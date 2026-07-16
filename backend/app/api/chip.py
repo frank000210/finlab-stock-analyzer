@@ -98,6 +98,46 @@ async def get_chip_score(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/{symbol}/chip-summary")
+async def get_chip_summary(
+    symbol: str,
+    days: int = Query(default=90, ge=20, le=365),
+):
+    """輕量大戶持股趨勢摘要（Q2）：供個股分析頁的精簡卡片用，複用完整籌碼
+    分析的快取（不重新抓 TDCC），只回傳最新千張大戶持股比例、週變化、近 8
+    週走勢（sparkline）跟既有的多空判斷文字，不含 15 級完整分布明細——那些
+    細節留在籌碼分析頁（/stocks/{symbol}/chip）。
+    """
+    try:
+        result = await _build_chip_analysis(symbol, days)
+        dist = result.get("distribution")
+        if not dist:
+            raise HTTPException(status_code=404, detail=result.get("distribution_error") or "查無大戶持股資料")
+        movements = dist.get("movements") or []
+        structure = dist.get("structure") or {}
+        return {
+            "success": True,
+            "data": {
+                "symbol": symbol,
+                "data_date": dist.get("data_date"),
+                "mega_pct": structure.get("mega", {}).get("percent"),
+                "whale_pct": structure.get("whale", {}).get("percent"),
+                "retail_pct": structure.get("retail", {}).get("percent"),
+                "recent_weeks": [
+                    {"date": m["date"], "mega_pct": m["mega_pct"], "mega_pct_change": m["mega_pct_change"]}
+                    for m in movements[-8:]
+                ],
+                "verdict": dist.get("verdict"),
+                "verdict_description": dist.get("verdict_description"),
+                "history_weeks": dist.get("history_weeks", 0),
+            },
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/{symbol}/major-cost")
 async def get_major_cost(
     symbol: str,

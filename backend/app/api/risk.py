@@ -349,25 +349,13 @@ async def check_alerts_now():
 
 
 async def _market_cap_tier(symbol: str, price: float, start_iso: str, end_iso: str) -> tuple[float | None, str | None]:
-    """O1：市值＝現價×已發行股數，NT$100億分大/中型 vs 小型（P5：抽成共用
-    helper，原本在 position_sizing() 跟 watchlist_signals() 各寫一份幾乎逐字
-    重複的邏輯）。非台股或資料取不到時回傳 (None, None)，呼叫端不特別處理。
+    """O1：市值＝現價×已發行股數，NT$100億分大/中型 vs 小型。P5 抽成共用
+    helper；Q1 進一步搬到 analysis/market_cap.py，讓 analysis.py（換手率）
+    也能複用同一套分級門檻，這裡保留薄薄一層轉呼叫，維持既有呼叫端不用改。
     """
-    from ..crawler.finmind_client import FinMindClient
-    from ..data.us_symbols import is_tw_symbol
+    from ..analysis.market_cap import market_cap_tier
 
-    if not is_tw_symbol(symbol):
-        return None, None
-    try:
-        sh = await FinMindClient().get_shares_outstanding(symbol, start_iso, end_iso)
-        if sh is not None and not sh.empty and "NumberOfSharesIssued" in sh.columns:
-            shares = float(sh.sort_values("date")["NumberOfSharesIssued"].iloc[-1])
-            market_cap = price * shares
-            cap_tier = "大型/中型" if market_cap >= 1e10 else "小型"
-            return market_cap, cap_tier
-    except Exception:
-        pass
-    return None, None
+    return await market_cap_tier(symbol, price, start_iso, end_iso)
 
 
 @router.get("/sizing/{symbol}")

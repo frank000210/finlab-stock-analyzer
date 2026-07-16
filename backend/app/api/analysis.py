@@ -104,6 +104,65 @@ async def get_fundamental(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/{symbol}/turnover")
+async def get_turnover(symbol: str):
+    """換手率分析（Q1）：換手率＝當日成交量 ÷ 已發行股數，衡量籌碼流動的
+    活躍程度。用已發行股數而非真正的流通股數（台股沒有公開的自由流通量
+    資料源），跟主力成本估算同一個誠信慣例：標明是近似值。
+
+    只回傳近 60 個交易日的序列＋今天在這段期間內的百分位排名，讓前端可以
+    用「相對自己歷史」而不是全市場統一門檻來判斷是否異常——不同股本大小
+    的正常換手率基準差很多，套死的門檻沒有意義。
+    """
+    from datetime import date, timedelta
+
+    from ..analysis.market_cap import classify_cap_tier, get_shares_outstanding
+    from ..crawler.stock_price import StockPriceCrawler
+    from ..data.us_symbols import is_tw_symbol, normalize_symbol
+
+    symbol = normalize_symbol(symbol)
+    if not is_tw_symbol(symbol):
+        raise HTTPException(status_code=404, detail="換手率僅支援台股（需要已發行股數資料，美股/指數無此資料源）")
+
+    end = date.today()
+    start = end - timedelta(days=120)  # 抓夠多日曆天，確保有 60 個交易日
+
+    crawler = StockPriceCrawler()
+    df = await crawler.get_price(symbol, start.isoformat(), end.isoformat(), "1d")
+    if df is None or df.empty:
+        raise HTTPException(status_code=404, detail=f"{symbol} 查無價格資料")
+
+    shares = await get_shares_outstanding(symbol, start.isoformat(), end.isoformat())
+    if not shares or shares <= 0:
+        raise HTTPException(status_code=404, detail=f"{symbol} 查無已發行股數資料")
+
+    df = df.sort_values("date").tail(60).reset_index(drop=True)
+    turnover = (df["volume"].astype(float) / shares * 100)
+    dates = [str(d)[:10] for d in df["date"]]
+    series = [{"date": d, "turnover_pct": round(float(t), 3)} for d, t in zip(dates, turnover)]
+
+    today_pct = float(turnover.iloc[-1])
+    # 百分位排名：今天的換手率贏過近 60 日內多少比例的交易日（含自己）。
+    percentile = round(float((turnover <= today_pct).sum()) / len(turnover) * 100, 1)
+
+    price = float(df["close"].iloc[-1])
+    market_cap = price * shares
+    cap_tier = classify_cap_tier(market_cap)
+
+    return {
+        "success": True,
+        "data": {
+            "symbol": symbol,
+            "turnover_pct": round(today_pct, 3),
+            "percentile": percentile,
+            "cap_tier": cap_tier,
+            "series": series,
+            "as_of": dates[-1],
+            "source": crawler.last_source,
+        },
+    }
+
+
 # 季報法定公告截止日（公開資訊觀測站規定，非預測）：Q1 5/15、Q2 8/14、Q3 11/14、
 # 年報(Q4) 次年 3/31。用來估算「下一次財報最晚何時會公告」。
 _FIN_DEADLINES = [(5, 15), (8, 14), (11, 14), (3, 31)]

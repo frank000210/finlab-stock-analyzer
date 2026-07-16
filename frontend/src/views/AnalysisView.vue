@@ -192,6 +192,30 @@
       </p>
     </section>
 
+    <!-- Q1：換手率分析——只支援台股（需要已發行股數資料），美股/查無資料時不顯示 -->
+    <section class="card turnover-section" v-if="turnoverData">
+      <div class="section-head compact">
+        <div>
+          <h2>換手率分析 <InfoTooltip v-bind="metricGlossary.turnoverRate" /></h2>
+        </div>
+        <span class="cap-tier-badge">{{ turnoverData.cap_tier }}股</span>
+      </div>
+      <div class="turnover-body">
+        <div class="turnover-value">
+          <strong>{{ turnoverData.turnover_pct }}%</strong>
+          <span class="muted">近 60 日百分位 {{ turnoverData.percentile }}%</span>
+        </div>
+        <MetricScale
+          class="turnover-scale"
+          :min="0" :max="100" :value="turnoverData.percentile"
+          :zones="[{ to: 15, tone: 'warn' }, { to: 85, tone: 'good' }, { to: 100, tone: 'warn' }]"
+          :thresholds="[{ value: 15, label: '偏冷' }, { value: 85, label: '偏熱' }]"
+          left-label="冷清" right-label="熱絡"
+        />
+        <p class="turnover-narrative">{{ turnoverNarrative }}</p>
+      </div>
+    </section>
+
     <section class="metrics-grid">
       <article v-for="metric in keyMetrics" :key="metric.label" class="card metric-tile">
         <div class="metric-label">{{ metric.label }}</div>
@@ -323,6 +347,26 @@
           </div>
           <div v-if="!recentChipRows.length" class="empty-state">尚未取得籌碼資料</div>
         </div>
+
+        <!-- Q2：千張大戶持股趨勢——只有累積到至少一週的週度快照才有數字可比較 -->
+        <div v-if="chipSummary && chipSummary.recent_weeks.length" class="whale-trend">
+          <div class="whale-trend-head">
+            <span>千張大戶持股趨勢 <InfoTooltip v-bind="metricGlossary.megaHolderTrend" /></span>
+            <router-link :to="`/stocks/${symbol}/chip`" class="whale-trend-link">看完整分布 →</router-link>
+          </div>
+          <div class="whale-trend-row">
+            <strong>{{ chipSummary.mega_pct }}%</strong>
+            <span v-if="latestMegaChange != null" :class="valueTone(latestMegaChange)">
+              {{ latestMegaChange >= 0 ? '+' : '' }}{{ latestMegaChange }}% 週變化
+            </span>
+            <svg v-if="megaSparklinePoints" class="whale-sparkline" viewBox="0 0 100 24" preserveAspectRatio="none">
+              <polyline :points="megaSparklinePoints" fill="none" stroke="currentColor" stroke-width="2" />
+            </svg>
+            <span class="muted small">資料日 {{ formatTdccDate(chipSummary.data_date) }}</span>
+          </div>
+          <p class="whale-trend-narrative">{{ chipTrendNarrative }}</p>
+          <p v-if="crossSignalNarrative" class="whale-trend-cross">{{ crossSignalNarrative }}</p>
+        </div>
       </article>
 
       <!-- A4 個股行事曆：營收/財報/除息，避免在公告前後被突襲 -->
@@ -432,6 +476,8 @@ async function fetchSetup(sym) {
 }
 function setupCls(total) { return total >= 70 ? 'good' : total >= 45 ? 'mid' : 'bad' }
 const chipHealth = ref(null)
+const turnoverData = ref(null) // Q1：換手率分析
+const chipSummary = ref(null) // Q2：千張大戶持股趨勢摘要
 const eventCalendar = ref([]) // A4：個股行事曆（營收/財報/除息）
 const upcomingEvents = computed(() => {
   const today = new Date().toISOString().slice(0, 10)
@@ -682,6 +728,68 @@ const trustTrendTone = computed(() => {
   return ''
 })
 
+// Q1：換手率百分位驅動尺標與敘事——同樣是換手放大，股價方向不同解讀完全
+// 相反（換手確立趨勢 vs 高檔換手不過），不能只丟一個數字讓使用者自己腦補。
+const TURNOVER_HOT_PCT = 85
+const TURNOVER_COLD_PCT = 15
+const turnoverNarrative = computed(() => {
+  const t = turnoverData.value
+  if (!t) return ''
+  const pct = t.percentile
+  const priceUp = priceChangePercent.value >= 0
+  if (pct >= TURNOVER_HOT_PCT) {
+    return priceUp
+      ? `近期換手率明顯放大（近 60 日百分位 ${pct}%）且股價同步走高，換手確立趨勢的訊號較強，籌碼有換手成功的跡象。`
+      : `近期換手率明顯放大（近 60 日百分位 ${pct}%）但股價未同步走高，留意是否為高檔換手不過、籌碼在盤整中轉手，常是主力調節的訊號。`
+  }
+  if (pct <= TURNOVER_COLD_PCT) {
+    return `近期換手率偏低（近 60 日百分位 ${pct}%），籌碼安定但市場關注度不高，波動可能持續收斂，未來突破通常需要量能配合才可信。`
+  }
+  return `近期換手率處於自身歷史正常區間（近 60 日百分位 ${pct}%），籌碼流動度無明顯異常。`
+})
+
+// Q2：千張大戶持股週度趨勢的白話敘事，直接複用後端既有的多空判斷文字。
+const chipTrendNarrative = computed(() => chipSummary.value?.verdict_description || '')
+const latestMegaChange = computed(() => {
+  const weeks = chipSummary.value?.recent_weeks
+  return weeks && weeks.length ? weeks[weeks.length - 1].mega_pct_change : null
+})
+
+// Q1+Q2 三重確認：換手放大 + 大戶進出 + 價格方向同向時才給聯合判讀，訊號
+// 不一致時保持沉默，避免硬湊出一個不可靠的結論。
+const crossSignalNarrative = computed(() => {
+  const t = turnoverData.value
+  const change = latestMegaChange.value
+  if (!t || change == null || t.percentile < 70) return ''
+  const priceUp = priceChangePercent.value >= 0
+  if (change > 0.3 && priceUp) return '🔺 三重訊號同向：換手放大、千張大戶加碼、股價走高——主力進貨訊號較強。'
+  if (change < -0.3 && !priceUp) return '🔻 三重訊號同向：換手放大、千張大戶減碼、股價未走高——留意主力出貨、追高風險。'
+  return ''
+})
+
+function formatTdccDate(d) {
+  const s = String(d || '')
+  return s.length === 8 ? `${s.slice(0, 4)}/${s.slice(4, 6)}/${s.slice(6, 8)}` : s
+}
+
+// 近 8 週千張大戶持股比例的極簡 sparkline（SVG polyline points）。
+const megaSparklinePoints = computed(() => {
+  const weeks = chipSummary.value?.recent_weeks
+  if (!weeks || weeks.length < 2) return ''
+  const values = weeks.map(w => w.mega_pct)
+  const min = Math.min(...values)
+  const max = Math.max(...values)
+  const span = max - min || 1
+  const w = 100, h = 24
+  return values
+    .map((v, i) => {
+      const x = (i / (values.length - 1)) * w
+      const y = h - ((v - min) / span) * h
+      return `${x.toFixed(1)},${y.toFixed(1)}`
+    })
+    .join(' ')
+})
+
 watch(() => route.params.symbol, async () => {
   saveRecent()
   await loadAnalysis()
@@ -719,6 +827,8 @@ async function loadAnalysis() {
   errorMessage.value = ''
   majorCost.value = null
   chipHealth.value = null
+  turnoverData.value = null
+  chipSummary.value = null
   eventCalendar.value = []
   const token = ++requestToken
 
@@ -778,6 +888,28 @@ async function loadAnalysis() {
   loadMajorCost(sym, token)
   loadChipScore(sym, token)
   loadEventCalendar(sym, token)
+  loadTurnover(sym, token)
+  loadChipSummary(sym, token)
+}
+
+async function loadTurnover(sym, token) {
+  try {
+    const payload = await apiGet(`/api/v1/analysis/${sym}/turnover`)
+    if (token !== requestToken) return
+    turnoverData.value = (payload && typeof payload === 'object' && 'turnover_pct' in payload) ? payload : null
+  } catch {
+    /* 換手率僅支援台股，美股/查無資料時靜默忽略 */
+  }
+}
+
+async function loadChipSummary(sym, token) {
+  try {
+    const payload = await apiGet(`/api/v1/stocks/${sym}/chip-summary`)
+    if (token !== requestToken) return
+    chipSummary.value = (payload && typeof payload === 'object' && 'mega_pct' in payload) ? payload : null
+  } catch {
+    /* 大戶持股趨勢為加值資訊，失敗時靜默忽略 */
+  }
 }
 
 async function loadEventCalendar(sym, token) {
@@ -1950,6 +2082,16 @@ function valueTone(value) {
 .volume-profile-host { min-height: 320px; }
 .chart-caption { font-size: 0.72rem; color: var(--text-muted); margin-top: 6px; }
 
+.turnover-section { display: flex; flex-direction: column; gap: 10px; }
+.cap-tier-badge { font-size: 0.72rem; padding: 2px 10px; border-radius: 999px; background: var(--bg-well, rgba(148,163,184,0.12)); color: var(--text-muted); }
+.turnover-body { display: flex; flex-direction: column; gap: 8px; }
+.turnover-value { display: flex; align-items: baseline; gap: 10px; }
+.turnover-value strong { font-size: 1.6rem; }
+.muted { color: var(--text-muted); }
+.small { font-size: 0.76rem; }
+.turnover-scale { max-width: 420px; }
+.turnover-narrative { font-size: 0.8rem; color: var(--text-secondary); line-height: 1.6; margin: 2px 0 0; }
+
 .chart-stack {
   display: flex;
   flex-direction: column;
@@ -2224,6 +2366,16 @@ function valueTone(value) {
   color: var(--text-secondary);
   padding: 6px 0 0;
 }
+
+.whale-trend { margin-top: 14px; padding-top: 12px; border-top: 1px solid rgba(51, 65, 85, 0.45); display: flex; flex-direction: column; gap: 6px; }
+.whale-trend-head { display: flex; justify-content: space-between; align-items: center; font-size: 0.82rem; color: var(--text-secondary); }
+.whale-trend-link { font-size: 0.76rem; color: var(--accent-blue); text-decoration: none; }
+.whale-trend-link:hover { text-decoration: underline; }
+.whale-trend-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.whale-trend-row strong { font-size: 1.25rem; }
+.whale-sparkline { width: 60px; height: 20px; color: var(--accent-blue); }
+.whale-trend-narrative { font-size: 0.8rem; color: var(--text-secondary); line-height: 1.6; margin: 0; }
+.whale-trend-cross { font-size: 0.8rem; color: var(--color-warning, #f59e0b); font-weight: 600; line-height: 1.6; margin: 0; }
 
 .cal-section { margin-top: 10px; }
 .cal-section:first-of-type { margin-top: 0; }
