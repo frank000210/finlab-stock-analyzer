@@ -72,7 +72,7 @@
         <div class="preset-list">
           <div v-for="p in allPresets" :key="p.id" class="preset-chip">
             <button class="preset-apply" @click="applyPreset(p.values)">{{ p.name }}</button>
-            <button v-if="!p.builtin" class="preset-del" title="刪除此組合" @click="deletePreset(p.id)">✕</button>
+            <button v-if="!p.builtin" class="preset-del" title="刪除此組合" :aria-label="`刪除組合 ${p.name}`" @click="deletePreset(p.id)">✕</button>
           </div>
         </div>
       </div>

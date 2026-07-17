@@ -107,6 +107,7 @@
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import DataLineage from '../components/DataLineage.vue'
 import { realizedR, journalWinStats, halfKellyRiskPct, loadJournal, saveJournal, localDateStr, JOURNAL_KEY } from '../lib/tradeMath'
+import { fetchWithRetry } from '../lib/apiFetch'
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 
@@ -132,7 +133,7 @@ const effRiskPct = computed(() => {
 
 async function loadRegime() {
   try {
-    const resp = await fetch(`${API_BASE}/api/v1/risk/market-regime`)
+    const resp = await fetchWithRetry(`${API_BASE}/api/v1/risk/market-regime`)
     const payload = await resp.json().catch(() => ({}))
     if (resp.ok && payload?.data) regime.value = payload.data
   } catch { /* best-effort */ }
@@ -293,7 +294,7 @@ async function scan() {
   loading.value = true
   errorMessage.value = ''
   try {
-    const resp = await fetch(`${API_BASE}/api/v1/risk/watchlist-signals?symbols=${syms.join(',')}`)
+    const resp = await fetchWithRetry(`${API_BASE}/api/v1/risk/watchlist-signals?symbols=${syms.join(',')}`)
     const payload = await resp.json().catch(() => ({}))
     if (!resp.ok || payload?.success === false) throw new Error(payload?.detail || '掃描失敗')
     rows.value = payload.data?.items || []
@@ -317,7 +318,7 @@ async function analyzeCorr() {
   const syms = [...new Set(okRows.value.map(r => r.symbol))]
   if (syms.length < 2) return
   try {
-    const resp = await fetch(`${API_BASE}/api/v1/risk/correlation?symbols=${syms.join(',')}`)
+    const resp = await fetchWithRetry(`${API_BASE}/api/v1/risk/correlation?symbols=${syms.join(',')}`)
     const payload = await resp.json().catch(() => ({}))
     if (resp.ok && payload?.data) corr.value = payload.data
   } catch { /* best-effort */ }

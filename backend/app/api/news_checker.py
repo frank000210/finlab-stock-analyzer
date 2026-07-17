@@ -24,7 +24,7 @@ async def get_crawled_data(
     limit: int = Query(default=50, ge=1, le=200),
 ):
     try:
-        items = news_analyzer.get_crawled_data(source=source, limit=limit)
+        items = await news_analyzer.get_crawled_data(source=source, limit=limit)
         return {"success": True, "data": {"items": [item.model_dump() for item in items]}}
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))

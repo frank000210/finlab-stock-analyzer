@@ -103,10 +103,41 @@ class SignalRuleEngine:
         )
         self._rules: dict[str, SignalRule] = {default_rule.id: default_rule}
 
+    # S1：自訂規則原本只存在這個 process 的記憶體字典，重啟/重新部署就全部
+    # 消失，使用者會在不知情的狀況下悄悄變回預設規則（因為 get_active_rule/
+    # execute_rule 直接決定 AI 訊號跟交易建議邏輯）。現在改成 Mongo 持久化：
+    # 啟動時 load_rules() 把存檔的自訂規則載回記憶體快取，讀取路徑
+    # （list_rules/get_active_rule/execute_rule）維持同步、只讀記憶體，不因
+    # 為要 await DB 而拖慢訊號產生的熱路徑；只有異動（新增/修改/刪除/啟用）
+    # 才 await 寫回 DB。
+    async def load_rules(self) -> None:
+        """啟動時從 Mongo 載入使用者自訂規則，跟預設規則合併。"""
+        try:
+            from ..db.cache import get_setting
+
+            saved = await get_setting("signal_rules", [])
+            for item in saved or []:
+                try:
+                    rule = SignalRule(**item)
+                    self._rules[rule.id] = rule
+                except Exception:
+                    continue
+        except Exception:
+            pass  # Mongo 不可用時退回只有預設規則，不影響行程啟動
+
+    async def _persist(self) -> None:
+        """把目前所有規則（含預設）存回 Mongo，best-effort。"""
+        try:
+            from ..db.cache import set_setting
+
+            await set_setting("signal_rules", [r.model_dump(mode="json") for r in self._rules.values()])
+        except Exception:
+            pass  # Mongo 短暫不可用時不擋掉這次操作本身，下次異動會再嘗試存檔
+
     def list_rules(self) -> list[SignalRule]:
         return sorted(self._rules.values(), key=lambda item: item.createdAt)
 
-    def create_rule(self, payload: SignalRuleCreate) -> SignalRule:
+    async def create_rule(self, payload: SignalRuleCreate) -> SignalRule:
         now = datetime.utcnow()
         rule = SignalRule(
             id=str(uuid4()),
@@ -119,11 +150,12 @@ class SignalRuleEngine:
         )
         self._rules[rule.id] = rule
         if rule.isActive:
-            self.activate_rule(rule.id)
+            await self.activate_rule(rule.id)
         clear_signal_cache()
+        await self._persist()
         return self._rules[rule.id]
 
-    def update_rule(self, rule_id: str, payload: SignalRuleUpdate) -> SignalRule:
+    async def update_rule(self, rule_id: str, payload: SignalRuleUpdate) -> SignalRule:
         rule = self._get_rule(rule_id)
         updates = payload.model_dump(exclude_unset=True)
         for key, value in updates.items():
@@ -131,18 +163,20 @@ class SignalRuleEngine:
         rule.updatedAt = datetime.utcnow()
         self._rules[rule.id] = rule
         if payload.isActive:
-            self.activate_rule(rule.id)
+            await self.activate_rule(rule.id)
         clear_signal_cache()
+        await self._persist()
         return rule
 
-    def delete_rule(self, rule_id: str) -> None:
+    async def delete_rule(self, rule_id: str) -> None:
         rule = self._get_rule(rule_id)
         if rule.isDefault:
             raise ValueError("Default rule cannot be deleted")
         del self._rules[rule_id]
         clear_signal_cache()
+        await self._persist()
 
-    def activate_rule(self, rule_id: str) -> SignalRule:
+    async def activate_rule(self, rule_id: str) -> SignalRule:
         target = self._get_rule(rule_id)
         for rule in self._rules.values():
             rule.isActive = False
@@ -151,6 +185,7 @@ class SignalRuleEngine:
         target.updatedAt = datetime.utcnow()
         self._rules[target.id] = target
         clear_signal_cache()
+        await self._persist()
         return target
 
     def get_active_rule(self) -> SignalRule:

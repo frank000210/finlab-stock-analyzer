@@ -25,7 +25,7 @@ async def list_signal_rules():
 @router.post("")
 async def create_signal_rule(payload: SignalRuleCreate = Body(...)):
     try:
-        rule = rule_engine.create_rule(payload)
+        rule = await rule_engine.create_rule(payload)
         return {"success": True, "data": rule.model_dump()}
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
@@ -34,7 +34,7 @@ async def create_signal_rule(payload: SignalRuleCreate = Body(...)):
 @router.put("/{id}")
 async def update_signal_rule(id: str, payload: SignalRuleUpdate = Body(...)):
     try:
-        rule = rule_engine.update_rule(id, payload)
+        rule = await rule_engine.update_rule(id, payload)
         return {"success": True, "data": rule.model_dump()}
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
@@ -45,7 +45,7 @@ async def update_signal_rule(id: str, payload: SignalRuleUpdate = Body(...)):
 @router.delete("/{id}")
 async def delete_signal_rule(id: str):
     try:
-        rule_engine.delete_rule(id)
+        await rule_engine.delete_rule(id)
         return {"success": True, "data": {"deleted": id}}
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
@@ -56,7 +56,7 @@ async def delete_signal_rule(id: str):
 @router.post("/{id}/activate")
 async def activate_signal_rule(id: str):
     try:
-        rule = rule_engine.activate_rule(id)
+        rule = await rule_engine.activate_rule(id)
         return {"success": True, "data": rule.model_dump()}
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
@@ -69,7 +69,7 @@ async def test_signal_rule(payload: SignalRuleTestRequest = Body(...)):
     try:
         snapshot = await build_market_snapshot(payload.symbol)
         if payload.script:
-            temp_rule = rule_engine.create_rule(
+            temp_rule = await rule_engine.create_rule(
                 SignalRuleCreate(
                     name="Ad-hoc test rule",
                     description="Temporary rule created by /test endpoint.",
@@ -80,7 +80,7 @@ async def test_signal_rule(payload: SignalRuleTestRequest = Body(...)):
             try:
                 result = rule_engine.execute_rule(temp_rule.id, snapshot)
             finally:
-                rule_engine.delete_rule(temp_rule.id)
+                await rule_engine.delete_rule(temp_rule.id)
         elif payload.id:
             result = rule_engine.execute_rule(payload.id, snapshot)
         else:

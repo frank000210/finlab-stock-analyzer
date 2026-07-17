@@ -37,14 +37,14 @@
     <section class="section-block" v-reveal>
       <h3>記錄一筆交易</h3>
       <div class="add-form">
-        <input v-model="form.symbol" class="inp w110" placeholder="代碼 2330" />
-        <select v-model="form.side" class="inp"><option value="long">做多</option><option value="short">做空</option></select>
-        <input v-model.number="form.entry" type="number" class="inp w110" placeholder="進場價" step="0.05" />
-        <input v-model.number="form.stop" type="number" class="inp w110" placeholder="停損價" step="0.05" />
-        <input v-model.number="form.target" type="number" class="inp w110" placeholder="目標價(選填)" step="0.05" />
-        <input v-model.number="form.lots" type="number" class="inp w90" placeholder="張數" min="1" step="1" />
-        <input v-model="form.tag" class="inp w110" placeholder="型態(選填)" />
-        <input v-model="form.catalyst" class="inp w160" placeholder="進場理由/催化劑(選填)" />
+        <input v-model="form.symbol" class="inp w110" placeholder="代碼 2330" aria-label="股票代碼" />
+        <select v-model="form.side" class="inp" aria-label="交易方向"><option value="long">做多</option><option value="short">做空</option></select>
+        <input v-model.number="form.entry" type="number" class="inp w110" placeholder="進場價" step="0.05" aria-label="進場價" />
+        <input v-model.number="form.stop" type="number" class="inp w110" placeholder="停損價" step="0.05" aria-label="停損價" />
+        <input v-model.number="form.target" type="number" class="inp w110" placeholder="目標價(選填)" step="0.05" aria-label="目標價（選填）" />
+        <input v-model.number="form.lots" type="number" class="inp w90" placeholder="張數" min="1" step="1" aria-label="張數" />
+        <input v-model="form.tag" class="inp w110" placeholder="型態(選填)" aria-label="交易型態（選填）" />
+        <input v-model="form.catalyst" class="inp w160" placeholder="進場理由/催化劑(選填)" aria-label="進場理由/催化劑（選填）" />
         <button class="btn btn-primary" @click="addTrade">加入</button>
         <button class="btn" @click="importOpenPositions">從投組帶入</button>
       </div>
@@ -103,7 +103,7 @@
               <td class="actions">
                 <button class="btn xs" :disabled="livePrice(t) == null" title="用目前市價直接平倉" @click="closeAtMarket(t)">現價平倉</button>
                 <button class="btn xs" @click="closeTrade(t)">平倉</button>
-                <button class="del" @click="removeTrade(t.id)" title="刪除">✕</button>
+                <button class="del" @click="removeTrade(t.id)" title="刪除" aria-label="刪除交易紀錄">✕</button>
               </td>
             </tr>
           </tbody>
@@ -140,7 +140,7 @@
               <td>{{ t.lots }}</td>
               <td><strong :class="realizedR(t) >= 0 ? 'up' : 'down'">{{ realizedR(t) >= 0 ? '+' : '' }}{{ realizedR(t).toFixed(2) }}R</strong></td>
               <td :class="pnl(t) >= 0 ? 'up' : 'down'">{{ fmtInt(pnl(t)) }}</td>
-              <td><button class="del" @click="removeTrade(t.id)" title="刪除">✕</button></td>
+              <td><button class="del" @click="removeTrade(t.id)" title="刪除" aria-label="刪除交易紀錄">✕</button></td>
             </tr>
           </tbody>
         </table>
@@ -200,6 +200,7 @@ import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useStockStore } from '../stores/stock.js'
 import { riskPerShare, profitPerShare, realizedR, tradePnl as pnl, riskAmount, loadJournal, saveJournal, localDateStr } from '../lib/tradeMath'
 import { fetchLivePrices } from '../lib/livePriceCache'
+import { useSparkline } from '../composables/useSparkline'
 import { resolveStockName } from '../lib/stockSearch'
 
 const stockStore = useStockStore()

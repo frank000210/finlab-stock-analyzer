@@ -25,6 +25,13 @@
         <button class="et-x" aria-label="關閉錯誤提示" @click="dismissToast(t.id)">✕</button>
       </div>
     </div>
+    <!-- S8：偵測到新版本部署時提示，讓使用者自己選擇何時重新整理 -->
+    <div v-if="swUpdateAvailable" class="sw-update-toast" role="status">
+      <span class="et-icon">🔄</span>
+      <span class="et-text">有新版本可用，重新整理即可更新。</span>
+      <button class="ob-go sw-update-btn" @click="applySwUpdate">立即重新整理</button>
+      <button class="et-x" aria-label="稍後再說" @click="swUpdateAvailable = false">✕</button>
+    </div>
   </div>
 </template>
 
@@ -55,6 +62,16 @@ function dismissToast(id) {
 }
 onMounted(() => {
   window.addEventListener('finlab:app-error', (e) => pushErrorToast(e.detail))
+})
+
+// S8：Service Worker 更新提示（見 main.js）
+const swUpdateAvailable = ref(false)
+function applySwUpdate() {
+  swUpdateAvailable.value = false
+  window.__finlabApplySwUpdate?.()
+}
+onMounted(() => {
+  window.addEventListener('finlab:sw-update-available', () => { swUpdateAvailable.value = true })
 })
 onMounted(() => {
   // Only surface the first-visit banner on the landing page.
@@ -121,6 +138,30 @@ onMounted(async () => {
 .error-toast .et-text { flex: 1; min-width: 0; line-height: 1.5; word-break: break-word; }
 .error-toast .et-x { background: none; border: none; color: #fca5a5; cursor: pointer; flex: 0 0 auto; }
 .error-toast .et-x:hover { color: #fff; }
+
+/* S8：Service Worker 更新提示——用資訊藍而不是錯誤紅，這是例行更新不是問題 */
+.sw-update-toast {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 18px;
+  z-index: 500;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(480px, calc(100vw - 24px));
+  background: rgba(12, 24, 40, 0.96);
+  border: 1px solid var(--accent-blue, #3b82f6);
+  color: #bfdbfe;
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-size: 0.84rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+}
+.sw-update-toast .et-text { flex: 1; min-width: 0; line-height: 1.5; }
+.sw-update-toast .sw-update-btn { flex: 0 0 auto; background: var(--accent-blue, #3b82f6); color: #fff; border: none; border-radius: 8px; padding: 6px 12px; font-weight: 600; font-size: 0.8rem; cursor: pointer; }
+.sw-update-toast .et-x { background: none; border: none; color: #bfdbfe; cursor: pointer; flex: 0 0 auto; }
+.sw-update-toast .et-x:hover { color: #fff; }
 
 .global-counter-wrap {
   position: fixed;

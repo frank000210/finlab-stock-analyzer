@@ -97,6 +97,14 @@ async def lifespan(app: FastAPI):
     except Exception as exc:
         logging.warning(f"auto-ingest scheduler not started: {exc}")
 
+    # S1：載入使用者自訂訊號規則（原本只存在記憶體，重啟就消失）
+    try:
+        from .signal_rules.engine import rule_engine
+
+        await rule_engine.load_rules()
+    except Exception as exc:
+        logging.warning(f"signal rules load skipped: {exc}")
+
     yield
 
     try:
@@ -186,6 +194,32 @@ async def health_check():
         "routes": len(app.routes),
         "build_time": _load_build_info().get("build_time"),
     }
+
+
+@app.get("/api/ready")
+async def readiness_check():
+    """S4：/api/health 只確認「行程活著」，不管 MongoDB 連得上或 FinMind
+    token 有沒有設定都回 200——這支額外探測關鍵依賴，讓監控/維運能分辨
+    「行程活著但功能壞掉」跟「真的完全健康」。依賴壞掉時回 503，方便給
+    load balancer / uptime 監控用來判斷是否該把流量導開。
+    """
+    checks: dict[str, str] = {}
+    try:
+        from .db.mongodb import get_mongodb
+
+        db = await get_mongodb()
+        await db.command("ping")
+        checks["mongodb"] = "ok"
+    except Exception as exc:
+        checks["mongodb"] = f"error: {exc}"
+
+    checks["finmind_token"] = "ok" if settings.finmind_token else "missing"
+
+    healthy = all(v == "ok" for v in checks.values())
+    return JSONResponse(
+        status_code=200 if healthy else 503,
+        content={"status": "ready" if healthy else "degraded", "checks": checks},
+    )
 
 
 frontend_dist = Path(__file__).parent.parent.parent / "frontend" / "dist"

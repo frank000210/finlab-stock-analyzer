@@ -42,7 +42,7 @@
               <td>{{ a.last_price != null ? fmt(a.last_price) : '—' }}</td>
               <td><span :class="a.triggered ? 'ok-text' : 'muted'">{{ statusLabel(a) }}</span></td>
               <td class="muted">{{ a.note || '—' }}</td>
-              <td><button class="del" @click="remove(a.id)" title="刪除">✕</button></td>
+              <td><button class="del" @click="remove(a.id)" title="刪除" aria-label="刪除價格警報">✕</button></td>
             </tr>
           </tbody>
         </table>

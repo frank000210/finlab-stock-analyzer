@@ -14,7 +14,16 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(SHELL_CACHE).then((cache) => cache.addAll(SHELL_URLS)).catch(() => {})
   );
-  self.skipWaiting();
+  // S8：不再無條件 skipWaiting()——原本新版本一部署，開著的分頁會立刻被
+  // 接管，若使用者剛好在導頁、路由動態載入的 JS chunk 用的是舊版 hash，
+  // 伺服器上已經沒有那個檔案，直接 404 且沒有任何提示。改成等前端收到
+  // 使用者確認「立即重新整理」才送 SKIP_WAITING 訊息觸發接管。
+});
+
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });
 
 self.addEventListener('activate', (event) => {

@@ -421,6 +421,7 @@ import { tvChartUrl } from '../lib/tradingview'
 import { fetchSizingData } from '../lib/livePriceCache'
 import { useSparkline } from '../composables/useSparkline'
 import { formatYyyymmdd } from '../lib/dateFormat'
+import { fetchWithRetry } from '../lib/apiFetch'
 
 const theme = useChartTheme()
 const calendarEl = ref(null)
@@ -969,7 +970,8 @@ function applyMajorCostLine() {
 }
 
 async function apiGet(path) {
-  const response = await fetch(`${API_BASE}${path}`)
+  // S5：後端短暫斷線時自動重試，不要打一次就放棄。
+  const response = await fetchWithRetry(`${API_BASE}${path}`)
   const payload = await response.json().catch(() => ({}))
   if (!response.ok) {
     throw new Error(payload?.detail || 'API request failed')

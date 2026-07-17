@@ -261,9 +261,10 @@ async def run_alert_check() -> dict:
             or (a["direction"] == "below" and price <= a["target_price"])
         )
         if hit:
-            a["triggered"] = True
-            a["triggered_at"] = now_iso
-            triggered_count += 1
+            # S2：一次性警報要等推播真的送出才標記 triggered，不然網路短暫
+            # 抖動時 send_telegram 失敗，警報卻已經被標記成「已觸發」而永久
+            # 失效——使用者完全不會收到通知，也不知道發生了什麼事。沒有設定
+            # Telegram 時沒有「推播失敗」這回事，直接標記已觸發。
             if token and chat:
                 dir_label = "漲破" if a["direction"] == "above" else "跌破"
                 msg = f"🔔 價格警報：{a['symbol']} 已{dir_label} {a['target_price']}（現價 {price}）"
@@ -272,7 +273,10 @@ async def run_alert_check() -> dict:
                 try:
                     await send_telegram(msg, token, chat)
                 except Exception:
-                    pass
+                    continue  # 推播失敗，留給下一輪排程重試，不標記已觸發
+            a["triggered"] = True
+            a["triggered_at"] = now_iso
+            triggered_count += 1
     await set_setting("price_alerts", alerts)
     return {"checked": len(symbols), "triggered": triggered_count}
 

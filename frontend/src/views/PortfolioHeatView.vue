@@ -74,7 +74,7 @@
               <td>{{ fmtInt(posRisk(p)) }}</td>
               <td><strong :class="{ warn: posRiskPct(p) > 2 }">{{ posRiskPct(p).toFixed(2) }}%</strong></td>
               <td :class="posUnreal(p) >= 0 ? 'up' : 'down'">{{ p.price ? fmtInt(posUnreal(p)) : '—' }}</td>
-              <td><button class="del" @click="remove(i)" title="移除">✕</button></td>
+              <td><button class="del" @click="remove(i)" title="移除" aria-label="移除部位">✕</button></td>
             </tr>
           </tbody>
         </table>

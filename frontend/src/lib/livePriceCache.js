@@ -9,6 +9,10 @@
 // （需要 name/industry/suggested_stops）跟分析頁（需要 setup）也能共用同一
 // 份快取/去重，不用各自繞過去直接 fetch——四個頁面只要查同一檔、時間點夠
 // 接近，就只打一次 FinMind。
+// S5：後端短暫斷線時（今天遇到的 Docker/WSL 環境不穩定）自動重試 2 次，
+// 不要打一次就放棄——這支是四個頁面共用的報價來源，重試效益最大。
+import { fetchWithRetry } from './apiFetch'
+
 const CACHE_TTL_MS = 60_000
 
 const cache = new Map() // symbol -> { data, fetchedAt, error }
@@ -21,7 +25,7 @@ async function fetchOne(symbol, apiBase) {
 
   const promise = (async () => {
     try {
-      const resp = await fetch(`${apiBase}/api/v1/risk/sizing/${encodeURIComponent(symbol)}`)
+      const resp = await fetchWithRetry(`${apiBase}/api/v1/risk/sizing/${encodeURIComponent(symbol)}`)
       const payload = await resp.json().catch(() => ({}))
       if (!resp.ok || !payload?.data || !(Number(payload.data.price) > 0)) {
         throw new Error(payload?.detail || '查價失敗')

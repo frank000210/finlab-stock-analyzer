@@ -12,7 +12,7 @@
           <p class="muted">以 ATR 波動度定停損、以單筆風險回推張數，並檢視風報比與期望值。</p>
         </div>
         <div class="symbol-box">
-          <input v-model="symbolInput" class="inp" placeholder="股票代碼，例如 2330" @keyup.enter="loadMarket" />
+          <input v-model="symbolInput" class="inp" placeholder="股票代碼，例如 2330" aria-label="股票代碼" @keyup.enter="loadMarket" />
           <button class="btn btn-primary" :disabled="loading" @click="loadMarket">
             <span v-if="loading" class="loading-spinner btn-spinner" aria-hidden="true"></span>查詢
           </button>

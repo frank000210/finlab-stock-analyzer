@@ -56,7 +56,6 @@ class NewsAnalyzer:
             "money.udn.com",
             "economicdaily.com.tw",
         }
-        self._history: list[NewsCheckResult] = []
 
     async def analyze(self, payload: NewsCheckRequest) -> NewsCheckResult:
         domain = self._extract_domain(payload.url)
@@ -81,15 +80,45 @@ class NewsAnalyzer:
             published_at=payload.published_at,
             checked_at=datetime.utcnow(),
         )
-        self._history.insert(0, result)
-        self._history = self._history[:200]
+        await self._persist(result)
         return result
 
-    def get_crawled_data(self, source: str | None = None, limit: int = 50) -> list[NewsCheckResult]:
-        items = self._history
-        if source:
-            items = [item for item in items if source.lower() in item.source.lower()]
-        return items[:limit]
+    async def _persist(self, result: NewsCheckResult) -> None:
+        """S3：檢查紀錄存進 Mongo，不再只留在 process 記憶體（重啟就消失，
+        多 worker 時各自看到不同歷史）。best-effort，存檔失敗不影響這次
+        檢查本身已經算出的結果。"""
+        try:
+            from ..db.mongodb import get_mongodb
+
+            db = await get_mongodb()
+            await db.news_checks.insert_one(result.model_dump(mode="json"))
+            # 只保留最近 200 筆，避免集合無限成長
+            count = await db.news_checks.count_documents({})
+            if count > 200:
+                stale = db.news_checks.find({}, {"_id": 1}).sort("checked_at", 1).limit(count - 200)
+                stale_ids = [doc["_id"] async for doc in stale]
+                if stale_ids:
+                    await db.news_checks.delete_many({"_id": {"$in": stale_ids}})
+        except Exception:
+            pass
+
+    async def get_crawled_data(self, source: str | None = None, limit: int = 50) -> list[NewsCheckResult]:
+        try:
+            from ..db.mongodb import get_mongodb
+
+            db = await get_mongodb()
+            query = {"source": {"$regex": source, "$options": "i"}} if source else {}
+            cursor = db.news_checks.find(query).sort("checked_at", -1).limit(limit)
+            items = []
+            async for doc in cursor:
+                doc.pop("_id", None)
+                try:
+                    items.append(NewsCheckResult(**doc))
+                except Exception:
+                    continue
+            return items
+        except Exception:
+            return []
 
     def _media_layer(self, domain: str) -> LayerResult:
         score = float(self._media_scores.get(domain, 55))
