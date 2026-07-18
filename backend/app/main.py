@@ -24,6 +24,7 @@ from .api import (
     major_players_router,
     chip_router,
     ml_router,
+    market_router,
     news_checker_router,
     notifications_router,
     peers_router,
@@ -173,6 +174,7 @@ app.include_router(admin_router)
 app.include_router(graph_router)
 app.include_router(rotation_router)
 app.include_router(peers_router)
+app.include_router(market_router)
 
 
 BUILD_INFO_PATH = Path(__file__).parent / "build_info.json"

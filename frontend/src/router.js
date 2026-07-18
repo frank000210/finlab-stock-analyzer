@@ -32,6 +32,11 @@ const routes = [
     component: () => import('./views/RotationView.vue'),
   },
   {
+    path: '/market-lights',
+    name: 'market-lights',
+    component: () => import('./views/MarketLightsView.vue'),
+  },
+  {
     path: '/stocks/:symbol',
     name: 'analysis',
     component: () => import('./views/AnalysisView.vue'),

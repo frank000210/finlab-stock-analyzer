@@ -210,6 +210,26 @@ class FinMindClient:
             {"data_id": symbol, "start_date": start, "end_date": end},
         )
 
+    async def get_futures_institutional(
+        self, futures_id: str, start: str, end: str
+    ) -> pd.DataFrame:
+        """期貨三大法人多空部位（V1 大盤多空儀表板用）：台指期 data_id='TX'，
+        含多/空方交易與未平倉的口數與金額。金額單位為千元。
+        """
+        return await self._fetch(
+            "TaiwanFuturesInstitutionalInvestors",
+            {"data_id": futures_id, "start_date": start, "end_date": end},
+        )
+
+    async def get_total_margin(self, start: str, end: str) -> pd.DataFrame:
+        """全市場融資融券餘額（V1 大盤多空儀表板用）：name 欄位區分
+        MarginPurchaseMoney（融資金額）等類型，餘額單位為元。
+        """
+        return await self._fetch(
+            "TaiwanStockTotalMarginPurchaseShortSale",
+            {"start_date": start, "end_date": end},
+        )
+
     async def get_valuation(
         self, symbol: str, start: str, end: str
     ) -> pd.DataFrame:
