@@ -27,6 +27,10 @@ CACHE_TTL = {
     "public_data": 360,
     "financial": 1440,
     "backtest": 1440,
+    # U1 同業比較：PE 等估值日頻更新、營收月頻、財報季頻，比較表整包快取
+    # 6 小時已足夠新鮮；全市場日行情一天只需要抓一次。
+    "peer": 360,
+    "market_quotes": 720,
 }
 
 

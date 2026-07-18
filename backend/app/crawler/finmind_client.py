@@ -210,6 +210,17 @@ class FinMindClient:
             {"data_id": symbol, "start_date": start, "end_date": end},
         )
 
+    async def get_valuation(
+        self, symbol: str, start: str, end: str
+    ) -> pd.DataFrame:
+        """估值資料（U1 同業比較用）：交易所計算的本益比 PER、股價淨值比
+        PBR、殖利率 dividend_yield，日頻。虧損股 PER 會缺值或為 0。
+        """
+        return await self._fetch(
+            "TaiwanStockPER",
+            {"data_id": symbol, "start_date": start, "end_date": end},
+        )
+
     async def get_stock_info(self) -> pd.DataFrame:
         """Fetch all Taiwan stock info for search."""
         return await self._fetch("TaiwanStockInfo", {})

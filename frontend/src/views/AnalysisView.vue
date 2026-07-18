@@ -402,6 +402,106 @@
         </div>
       </article>
     </section>
+
+    <!-- U2：同業比較——把單股數字放進參照系（貴是相對誰貴、成長是相對誰快） -->
+    <section class="card peer-section" v-if="peerLoading || peerData">
+      <div class="section-head compact">
+        <div>
+          <h2>同業比較 <InfoTooltip v-bind="metricGlossary.peerComparison" /></h2>
+        </div>
+        <div class="peer-head-right" v-if="peerData">
+          <span class="peer-source-badge" :class="peerData.group_source">
+            {{ peerData.group_source === 'custom' ? '自訂群組' : `產業預設（${peerData.industry}）` }}
+          </span>
+          <button class="btn xs" type="button" @click="togglePeerEdit">{{ peerEditing ? '收合編輯' : '編輯同業' }}</button>
+        </div>
+      </div>
+
+      <div v-if="peerLoading && !peerData" class="loading-placeholder">
+        <span class="loading-spinner" aria-hidden="true"></span>載入同業資料中（首次載入較久）...
+      </div>
+
+      <template v-else-if="peerData">
+        <p v-if="peerNarrative" class="peer-narrative">{{ peerNarrative }}</p>
+
+        <div class="table-wrap" v-if="peerRows.length > 1">
+          <table class="peer-table">
+            <thead>
+              <tr>
+                <th>代碼</th>
+                <th v-for="col in peerColumns" :key="col.key" class="sortable" @click="sortPeers(col.key)">
+                  {{ col.label }}<span v-if="peerSortKey === col.key">{{ peerSortDir === 'desc' ? ' ▼' : ' ▲' }}</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in peerRows" :key="row.symbol" :class="{ 'peer-target': row.source === 'target' }">
+                <td class="sym">
+                  {{ row.symbol }}<small class="nm">{{ row.name }}</small>
+                  <span v-if="row.source === 'ai'" class="peer-tag" title="由 AI 建議加入">AI</span>
+                </td>
+                <td>{{ row.pe != null ? row.pe : '—' }}</td>
+                <td :class="valueTone(row.revenue_yoy_avg)">{{ row.revenue_yoy_avg != null ? formatSignedPercent(row.revenue_yoy_avg) : '—' }}</td>
+                <td>{{ row.eps != null ? `${row.eps}` : '—' }}<small v-if="row.eps_yoy_pct != null" :class="valueTone(row.eps_yoy_pct)"> ({{ row.eps_yoy_pct >= 0 ? '+' : '' }}{{ row.eps_yoy_pct }}%)</small></td>
+                <td>{{ row.gross_margin != null ? row.gross_margin + '%' : '—' }}</td>
+                <td :class="valueTone(row.mom20_pct)">{{ row.mom20_pct != null ? formatSignedPercent(row.mom20_pct) : '—' }}</td>
+                <td>{{ row.above_ma200 == null ? '—' : row.above_ma200 ? '✓' : '✗' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p v-else class="muted">目前沒有可比較的同業——點「編輯同業」手動加入，或用下方 AI 協助找出真同業。</p>
+        <p class="disclaimer">※ PE 為交易所計算之近四季本益比（虧損股無值）；產業預設依官方分類自動選取，題材股建議手動調整同業。</p>
+
+        <!-- 同業編輯 + AI 協助 -->
+        <div v-if="peerEditing" class="peer-edit">
+          <div class="peer-chips">
+            <span v-for="p in peerDraft" :key="p.symbol" class="peer-chip">
+              {{ p.symbol }} {{ p.name || '' }}<em v-if="p.source === 'ai'" class="peer-tag">AI</em>
+              <button type="button" class="chip-x" :aria-label="`移除 ${p.symbol}`" @click="removePeerDraft(p.symbol)">✕</button>
+            </span>
+            <span v-if="!peerDraft.length" class="muted small">尚無同業，從下方加入</span>
+          </div>
+          <div class="peer-add-row">
+            <input v-model="peerAddInput" class="inp w110" placeholder="代碼 3017" aria-label="加入同業代碼" @keyup.enter="addPeerDraft" />
+            <button class="btn xs" type="button" @click="addPeerDraft">加入</button>
+            <button class="btn xs btn-primary" type="button" :disabled="peerSaving" @click="savePeerGroup">
+              <span v-if="peerSaving" class="loading-spinner btn-spinner" aria-hidden="true"></span>儲存群組
+            </button>
+            <button class="btn xs" type="button" :disabled="peerSaving" @click="resetPeerGroup">還原產業預設</button>
+            <span v-if="peerEditMsg" class="muted small">{{ peerEditMsg }}</span>
+          </div>
+
+          <div class="peer-ai">
+            <div class="peer-ai-head">
+              <strong>🤖 AI 協助選同業</strong>
+              <span class="muted small">官方產業分類看不出題材同業（例：高力的真同業散在散熱/電源類）——讓有即時網路知識的 AI 來找</span>
+            </div>
+            <ol class="peer-ai-steps">
+              <li>
+                <button class="btn xs" type="button" @click="copyAiPrompt">📋 產生 AI 提問並複製</button>
+                <span v-if="aiPromptCopied" class="copied-hint">已複製！</span>
+              </li>
+              <li>開啟 Chrome 工具列的 <strong>Gemini</strong>（或任一 AI 助手）貼上提問，也可以直接問「根據此頁面資料，這檔的真正競爭對手是誰？」</li>
+              <li>
+                把 AI 的回答整段貼回這裡：
+                <textarea v-model="aiPasteText" class="inp ai-paste" rows="3" placeholder="貼上 AI 回答，會自動抽取其中的股票代碼" aria-label="貼上 AI 回答"></textarea>
+                <button class="btn xs" type="button" :disabled="aiParsing" @click="parseAiPaste">
+                  <span v-if="aiParsing" class="loading-spinner btn-spinner" aria-hidden="true"></span>解析代碼
+                </button>
+              </li>
+            </ol>
+            <div v-if="aiCandidates.length" class="ai-candidates">
+              <label v-for="c in aiCandidates" :key="c.symbol" class="ai-cand">
+                <input type="checkbox" v-model="c.checked" :disabled="!c.valid" />
+                {{ c.symbol }} {{ c.name || '' }}<em v-if="!c.valid" class="muted">（查無此代碼）</em>
+              </label>
+              <button class="btn xs" type="button" @click="addAiCandidates">加入勾選的同業</button>
+            </div>
+          </div>
+        </div>
+      </template>
+    </section>
   </div>
 </template>
 
@@ -493,6 +593,221 @@ const turnoverData = ref(null) // Q1：換手率分析
 const chipSummary = ref(null) // Q2：千張大戶持股趨勢摘要
 const turnoverLoading = ref(false) // R6：背景載入中提示，避免數字突然彈出
 const chipSummaryLoading = ref(false)
+
+// U2：同業比較
+const peerData = ref(null)
+const peerLoading = ref(false)
+const peerEditing = ref(false)
+const peerDraft = ref([]) // [{symbol, name, source}]
+const peerAddInput = ref('')
+const peerSaving = ref(false)
+const peerEditMsg = ref('')
+const peerSortKey = ref('')
+const peerSortDir = ref('desc')
+const aiPromptCopied = ref(false)
+const aiPasteText = ref('')
+const aiParsing = ref(false)
+const aiCandidates = ref([]) // [{symbol, name, valid, checked}]
+
+const peerColumns = [
+  { key: 'pe', label: '本益比' },
+  { key: 'revenue_yoy_avg', label: '營收YoY(3月均)' },
+  { key: 'eps', label: '季EPS(年增)' },
+  { key: 'gross_margin', label: '毛利率' },
+  { key: 'mom20_pct', label: '20日漲跌' },
+  { key: 'above_ma200', label: '年線上' },
+]
+
+// 目標股永遠置頂高亮，同業依使用者點的欄位排序
+const peerRows = computed(() => {
+  const d = peerData.value
+  if (!d) return []
+  const target = { ...d.target, source: 'target' }
+  let peers = [...(d.peers || [])]
+  if (peerSortKey.value) {
+    const k = peerSortKey.value
+    const dir = peerSortDir.value === 'desc' ? -1 : 1
+    peers.sort((a, b) => {
+      const av = a[k], bv = b[k]
+      if (av == null && bv == null) return 0
+      if (av == null) return 1 // 缺值永遠沉底，不受排序方向影響
+      if (bv == null) return -1
+      return (av > bv ? 1 : av < bv ? -1 : 0) * dir
+    })
+  }
+  return [target, ...peers]
+})
+
+function sortPeers(key) {
+  if (peerSortKey.value === key) {
+    peerSortDir.value = peerSortDir.value === 'desc' ? 'asc' : 'desc'
+  } else {
+    peerSortKey.value = key
+    peerSortDir.value = 'desc'
+  }
+}
+
+// 相對定位敘事：把目標股的 PE 與營收成長放進同業排名講一句白話
+const peerNarrative = computed(() => {
+  const d = peerData.value
+  if (!d || !d.peers?.length) return ''
+  const all = [{ ...d.target }, ...d.peers]
+  const t = d.target
+  const parts = []
+  const peRanked = all.filter(r => r.pe != null).sort((a, b) => a.pe - b.pe)
+  if (t.pe != null && peRanked.length >= 3) {
+    const rank = peRanked.findIndex(r => r.symbol === t.symbol) + 1
+    const median = peRanked[Math.floor(peRanked.length / 2)].pe
+    parts.push(`本益比 ${t.pe} 倍在 ${peRanked.length} 檔中排第 ${rank} 低（同業中位數約 ${median} 倍）`)
+  }
+  const yoyRanked = all.filter(r => r.revenue_yoy_avg != null).sort((a, b) => b.revenue_yoy_avg - a.revenue_yoy_avg)
+  if (t.revenue_yoy_avg != null && yoyRanked.length >= 3) {
+    const rank = yoyRanked.findIndex(r => r.symbol === t.symbol) + 1
+    parts.push(`營收成長排第 ${rank} 高`)
+  }
+  if (!parts.length) return ''
+  const pricey = t.pe != null && peRanked.length >= 3 && peRanked.findIndex(r => r.symbol === t.symbol) >= peRanked.length - 2
+  const growing = t.revenue_yoy_avg != null && yoyRanked.length >= 3 && yoyRanked.findIndex(r => r.symbol === t.symbol) <= 1
+  let verdict = ''
+  if (pricey && growing) verdict = '——估值溢價有成長支撐，但若成長降溫將面臨劇烈修正。'
+  else if (pricey && !growing) verdict = '——估值偏貴而成長未領先同業，留意修正風險。'
+  else if (!pricey && growing) verdict = '——成長領先同業而估值未偏貴，值得進一步研究便宜的原因。'
+  return `${t.name} ${parts.join('、')}${verdict}`
+})
+
+async function loadPeerComparison(sym, token) {
+  peerLoading.value = true
+  try {
+    const payload = await apiGet(`/api/v1/stocks/${sym}/peer-comparison`)
+    if (token !== requestToken) return
+    peerData.value = (payload && typeof payload === 'object' && 'target' in payload) ? payload : null
+    if (peerData.value) {
+      peerDraft.value = (peerData.value.peers || []).map(p => ({ symbol: p.symbol, name: p.name, source: p.source }))
+    }
+  } catch {
+    /* 同業比較僅支援台股，美股/失敗時靜默忽略 */
+  } finally {
+    if (token === requestToken) peerLoading.value = false
+  }
+}
+
+function togglePeerEdit() {
+  peerEditing.value = !peerEditing.value
+  peerEditMsg.value = ''
+}
+
+function removePeerDraft(sym) {
+  peerDraft.value = peerDraft.value.filter(p => p.symbol !== sym)
+}
+
+async function addPeerDraft() {
+  const sym = String(peerAddInput.value || '').trim()
+  peerEditMsg.value = ''
+  if (!/^\d{4}$/.test(sym)) { peerEditMsg.value = '請輸入 4 位數股票代碼'; return }
+  if (sym === symbol.value) { peerEditMsg.value = '不能加入自己'; return }
+  if (peerDraft.value.some(p => p.symbol === sym)) { peerEditMsg.value = '已在群組中'; return }
+  const name = await lookupStockName(sym)
+  if (name == null) { peerEditMsg.value = `查無代碼 ${sym}`; return }
+  peerDraft.value.push({ symbol: sym, name, source: 'manual' })
+  peerAddInput.value = ''
+}
+
+async function lookupStockName(sym) {
+  try {
+    const payload = await apiGet(`/api/v1/stocks/search?q=${encodeURIComponent(sym)}`)
+    const items = payload?.items || []
+    const hit = items.find(i => String(i.symbol) === sym)
+    return hit ? (hit.name_zh || hit.name || '') : null
+  } catch { return null }
+}
+
+async function savePeerGroup() {
+  peerSaving.value = true
+  peerEditMsg.value = ''
+  try {
+    const resp = await fetchWithRetry(`${API_BASE}/api/v1/stocks/${symbol.value}/peers`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ peers: peerDraft.value.map(p => ({ symbol: p.symbol, source: p.source })) }),
+    })
+    if (!resp.ok) throw new Error('儲存失敗')
+    peerEditMsg.value = '✓ 已儲存'
+    loadPeerComparison(symbol.value, requestToken)
+  } catch (e) {
+    peerEditMsg.value = e?.message || '儲存失敗'
+  } finally {
+    peerSaving.value = false
+  }
+}
+
+async function resetPeerGroup() {
+  peerSaving.value = true
+  peerEditMsg.value = ''
+  try {
+    const resp = await fetchWithRetry(`${API_BASE}/api/v1/stocks/${symbol.value}/peers`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ peers: [] }),
+    })
+    if (!resp.ok) throw new Error('還原失敗')
+    peerEditMsg.value = '✓ 已還原產業預設'
+    loadPeerComparison(symbol.value, requestToken)
+  } catch (e) {
+    peerEditMsg.value = e?.message || '還原失敗'
+  } finally {
+    peerSaving.value = false
+  }
+}
+
+// AI 協助：網站出題（用既有資料組提示詞）→ 使用者問 Gemini → 貼回解析。
+// 業務細節刻意不寫進提示詞，讓有即時網路搜尋能力的 AI 自己查——那正是
+// 本站缺的能力，也是這個流程存在的原因。
+async function copyAiPrompt() {
+  const d = peerData.value
+  const t = d?.target || {}
+  const capYi = t.market_cap ? Math.round(t.market_cap / 1e8) : null
+  const prompt = `${t.name || ''}（${symbol.value}）是台灣上市櫃的${d?.industry || ''}類股` +
+    `${capYi ? `，市值約 ${capYi} 億元` : ''}` +
+    `${t.revenue_yoy_avg != null ? `，近三月營收年增約 ${t.revenue_yoy_avg}%` : ''}。` +
+    `請上網研究它的實際業務與主要產品線，列出台灣上市櫃中業務性質最相似的 5-10 檔股票，` +
+    `每檔一行，格式：「代碼 名稱：相似原因」。官方產業分類僅供參考，請以實際業務相似度為準。`
+  try {
+    await navigator.clipboard.writeText(prompt)
+    aiPromptCopied.value = true
+    setTimeout(() => { aiPromptCopied.value = false }, 3000)
+  } catch {
+    peerEditMsg.value = '複製失敗，請手動複製'
+  }
+}
+
+async function parseAiPaste() {
+  aiParsing.value = true
+  try {
+    // 貼回內容一律當資料處理：只抽 4 位數代碼、逐一經搜尋 API 驗證存在
+    const codes = [...new Set((aiPasteText.value.match(/\b\d{4}\b/g) || []))]
+      .filter(c => c !== symbol.value && !peerDraft.value.some(p => p.symbol === c))
+      .slice(0, 15)
+    const results = await Promise.all(codes.map(async (c) => {
+      const name = await lookupStockName(c)
+      return { symbol: c, name: name || '', valid: name != null, checked: name != null }
+    }))
+    aiCandidates.value = results
+    if (!results.length) peerEditMsg.value = '回答中沒有找到新的股票代碼'
+  } finally {
+    aiParsing.value = false
+  }
+}
+
+function addAiCandidates() {
+  for (const c of aiCandidates.value) {
+    if (c.checked && c.valid && !peerDraft.value.some(p => p.symbol === c.symbol)) {
+      peerDraft.value.push({ symbol: c.symbol, name: c.name, source: 'ai' })
+    }
+  }
+  aiCandidates.value = []
+  aiPasteText.value = ''
+  peerEditMsg.value = '已加入，記得按「儲存群組」'
+}
 const eventCalendar = ref([]) // A4：個股行事曆（營收/財報/除息）
 const upcomingEvents = computed(() => {
   const today = new Date().toISOString().slice(0, 10)
@@ -831,6 +1146,11 @@ async function loadAnalysis() {
   chipSummary.value = null
   turnoverLoading.value = false
   chipSummaryLoading.value = false
+  peerData.value = null
+  peerLoading.value = false
+  peerEditing.value = false
+  peerDraft.value = []
+  aiCandidates.value = []
   eventCalendar.value = []
   const token = ++requestToken
 
@@ -892,6 +1212,7 @@ async function loadAnalysis() {
   loadEventCalendar(sym, token)
   loadTurnover(sym, token)
   loadChipSummary(sym, token)
+  loadPeerComparison(sym, token)
 }
 
 async function loadTurnover(sym, token) {
@@ -2102,6 +2423,37 @@ function valueTone(value) {
 .turnover-narrative { font-size: 0.8rem; color: var(--text-secondary); line-height: 1.6; margin: 2px 0 0; }
 .loading-placeholder { display: flex; align-items: center; gap: 8px; font-size: 0.82rem; color: var(--text-muted); padding: 4px 0; }
 .loading-placeholder .loading-spinner { width: 14px; height: 14px; border-width: 2px; }
+
+/* U2：同業比較 */
+.peer-section { display: flex; flex-direction: column; gap: 10px; }
+.peer-head-right { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.peer-source-badge { font-size: 0.72rem; padding: 2px 10px; border-radius: 999px; background: var(--bg-well, rgba(148,163,184,0.12)); color: var(--text-muted); }
+.peer-source-badge.custom { color: var(--accent-blue); border: 1px solid var(--accent-blue); background: transparent; }
+.peer-narrative { font-size: 0.82rem; color: var(--text-secondary); line-height: 1.6; margin: 0; }
+.peer-table { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
+.peer-table th, .peer-table td { text-align: right; padding: 8px 10px; border-bottom: 1px solid var(--border-color); white-space: nowrap; }
+.peer-table th:first-child, .peer-table td:first-child { text-align: left; }
+.peer-table th { color: var(--text-muted); font-weight: 500; font-size: 0.74rem; }
+.peer-table th.sortable { cursor: pointer; user-select: none; }
+.peer-table tr.peer-target { background: rgba(59,130,246,0.08); box-shadow: inset 3px 0 0 var(--accent-blue); }
+.peer-table .sym { font-weight: 700; }
+.peer-table .sym .nm { display: block; font-weight: 400; color: var(--text-muted); font-size: 0.7rem; line-height: 1.2; }
+.peer-tag { display: inline-block; margin-left: 4px; font-size: 0.62rem; font-style: normal; padding: 1px 5px; border-radius: 6px; background: rgba(139,92,246,0.15); color: var(--accent-purple, #8b5cf6); vertical-align: middle; }
+.btn.xs { padding: 4px 10px; font-size: 0.78rem; }
+
+.peer-edit { display: flex; flex-direction: column; gap: 10px; border-top: 1px solid var(--border-color); padding-top: 12px; }
+.peer-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.peer-chip { display: inline-flex; align-items: center; gap: 4px; font-size: 0.78rem; padding: 3px 8px; border-radius: 999px; border: 1px solid var(--border-color); background: var(--bg-hover, rgba(148,163,184,0.08)); }
+.chip-x { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.72rem; padding: 0 2px; }
+.chip-x:hover { color: #ef4444; }
+.peer-add-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.peer-ai { border: 1px dashed var(--border-color); border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+.peer-ai-head { display: flex; flex-direction: column; gap: 2px; }
+.peer-ai-steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; font-size: 0.82rem; color: var(--text-secondary); }
+.ai-paste { width: 100%; margin-top: 4px; font-size: 0.8rem; resize: vertical; }
+.copied-hint { margin-left: 8px; color: #10b981; font-size: 0.78rem; }
+.ai-candidates { display: flex; flex-direction: column; gap: 4px; font-size: 0.82rem; }
+.ai-cand { display: flex; align-items: center; gap: 6px; }
 
 .chart-stack {
   display: flex;
