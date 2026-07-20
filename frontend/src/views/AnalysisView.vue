@@ -169,6 +169,40 @@
       </article>
     </section>
 
+    <!-- W2：AI 摘要——刻意設計為使用者主動觸發（每次呼叫有成本、需 15~40 秒），
+         不放在頁面自動載入路徑上；AI 服務未設定或不可用時整區隱藏 -->
+    <section class="card ai-summary-section" v-if="aiConfigured">
+      <div class="section-head compact">
+        <div>
+          <h2>🤖 AI 摘要 <InfoTooltip v-bind="metricGlossary.aiSummary" /></h2>
+        </div>
+        <button
+          class="btn btn-primary ai-btn"
+          :disabled="aiLoading"
+          @click="loadAiSummary"
+        >
+          <span v-if="aiLoading" class="loading-spinner btn-spinner" aria-hidden="true"></span>
+          {{ aiLoading ? '分析中…' : (aiSummary ? '重新產生' : '產生 AI 摘要') }}
+        </button>
+      </div>
+
+      <p v-if="aiError" class="error-text">{{ aiError }}</p>
+      <p v-if="aiLoading && !aiSummary" class="ai-hint muted">
+        AI 正在解讀本頁數據，約需 15～40 秒…
+      </p>
+      <p v-else-if="!aiSummary && !aiError" class="ai-hint muted">
+        點右上按鈕，讓 AI 用本頁已計算好的數據（技術面／基本面／籌碼／換手率／大盤體制）生成白話摘要，並指出數據間的矛盾與待查證事項。
+      </p>
+
+      <div v-if="aiSummary" class="ai-body">
+        <div class="ai-text" v-html="aiSummaryHtml"></div>
+        <p class="ai-note muted">
+          {{ aiSummary.model_note }}　資料日 {{ aiSummary.as_of }}
+          <span v-if="aiSummary.cached">（快取結果）</span>
+        </p>
+      </div>
+    </section>
+
     <section class="card calendar-section">
       <div class="section-head compact">
         <div>
@@ -593,6 +627,55 @@ const turnoverData = ref(null) // Q1：換手率分析
 const chipSummary = ref(null) // Q2：千張大戶持股趨勢摘要
 const turnoverLoading = ref(false) // R6：背景載入中提示，避免數字突然彈出
 const chipSummaryLoading = ref(false)
+
+// W2：AI 摘要（使用者主動觸發，不自動載入）
+const aiConfigured = ref(false)
+const aiSummary = ref(null)
+const aiLoading = ref(false)
+const aiError = ref('')
+
+// AI 回傳的是純文字（含 **粗體** 與條列），要渲染成 HTML 就必須先把 HTML
+// 特殊字元轉義掉，再只還原我們自己允許的少數標記——直接把模型輸出丟進
+// v-html 等於開一個 XSS 破口。
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;')
+}
+const aiSummaryHtml = computed(() => {
+  const raw = aiSummary.value?.summary || ''
+  return escapeHtml(raw)
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\n/g, '<br />')
+})
+
+async function loadAiSummary() {
+  aiLoading.value = true
+  aiError.value = ''
+  const sym = symbol.value
+  try {
+    // AI 呼叫本身就慢（15~40 秒），重試只會讓使用者等更久，故不套用重試包裝
+    const resp = await fetch(`${API_BASE}/api/v1/stocks/${sym}/ai-summary`)
+    const payload = await resp.json().catch(() => ({}))
+    if (!resp.ok || !payload?.data) throw new Error(payload?.detail || 'AI 摘要產生失敗')
+    if (symbol.value !== sym) return // 產生期間使用者已換股，丟棄過期結果
+    aiSummary.value = payload.data
+  } catch (e) {
+    aiError.value = e?.message || 'AI 摘要產生失敗'
+  } finally {
+    aiLoading.value = false
+  }
+}
+
+async function checkAiConfigured() {
+  try {
+    const resp = await fetch(`${API_BASE}/api/v1/stocks/ai/status`)
+    const payload = await resp.json().catch(() => ({}))
+    aiConfigured.value = Boolean(payload?.data?.configured)
+  } catch {
+    aiConfigured.value = false // AI 未設定/不可用時整區隱藏，不影響其他功能
+  }
+}
 
 // U2：同業比較
 const peerData = ref(null)
@@ -1129,6 +1212,7 @@ watch(selectedRange, async () => {
 onMounted(async () => {
   window.addEventListener('resize', handleResize)
   saveRecent()
+  checkAiConfigured()
   await loadAnalysis()
 })
 
@@ -1146,6 +1230,9 @@ async function loadAnalysis() {
   chipSummary.value = null
   turnoverLoading.value = false
   chipSummaryLoading.value = false
+  // W2：換股一定要清掉上一檔的 AI 摘要，否則會殘留別檔的解讀
+  aiSummary.value = null
+  aiError.value = ''
   peerData.value = null
   peerLoading.value = false
   peerEditing.value = false
@@ -2423,6 +2510,23 @@ function valueTone(value) {
 .turnover-narrative { font-size: 0.8rem; color: var(--text-secondary); line-height: 1.6; margin: 2px 0 0; }
 .loading-placeholder { display: flex; align-items: center; gap: 8px; font-size: 0.82rem; color: var(--text-muted); padding: 4px 0; }
 .loading-placeholder .loading-spinner { width: 14px; height: 14px; border-width: 2px; }
+
+/* W2：AI 摘要 */
+.ai-summary-section { display: flex; flex-direction: column; gap: 10px; }
+.ai-summary-section .ai-btn { white-space: nowrap; }
+.ai-hint { font-size: 0.8rem; line-height: 1.6; margin: 0; }
+.ai-body { display: flex; flex-direction: column; gap: 8px; }
+.ai-text {
+  font-size: 0.86rem;
+  line-height: 1.85;
+  color: var(--text-secondary);
+  background: var(--bg-well, rgba(148, 163, 184, 0.06));
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 14px 16px;
+}
+.ai-text :deep(strong) { color: var(--text-primary); }
+.ai-note { font-size: 0.7rem; margin: 0; }
 
 /* U2：同業比較 */
 .peer-section { display: flex; flex-direction: column; gap: 10px; }

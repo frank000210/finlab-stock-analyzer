@@ -19,6 +19,18 @@ class Settings(BaseSettings):
     # LINE Notify
     line_notify_token: str = ""
 
+    # LLM（OpenCode Go，OpenAI 相容）。key 一律走環境變數，不進版控。
+    # 供應商中立：換服務只要改 base_url/model，程式碼不用動。
+    opencode_api_key: str = ""
+    llm_base_url: str = "https://opencode.ai/zen/go/v1"
+    # minimax-m2.5：實測 5 個模型後選定——延遲 ~15s、輸出結構完整、能正確
+    # 指出財報數據矛盾；deepseek-v4-flash/glm-5.1 會回空內容，kimi 會把思考
+    # 過程洩漏到答案裡，qwen3.7-plus 要 40s 且 token 用量 2.5 倍。
+    llm_model: str = "minimax-m2.5"
+    llm_fallback_model: str = "qwen3.7-plus"
+    llm_timeout_seconds: float = 90.0
+    llm_daily_call_limit: int = 200
+
     # Admin / OAuth
     google_client_id: str = ""
     # No hardcoded fallback: get_settings() below fills in a random

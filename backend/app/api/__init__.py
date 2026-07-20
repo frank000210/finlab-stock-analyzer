@@ -23,6 +23,7 @@ from .graph import router as graph_router
 from .rotation import router as rotation_router
 from .peers import router as peers_router
 from .market import router as market_router
+from .ai_summary import router as ai_summary_router
 
 __all__ = [
     "stock_router",
@@ -50,4 +51,5 @@ __all__ = [
     "rotation_router",
     "peers_router",
     "market_router",
+    "ai_summary_router",
 ]

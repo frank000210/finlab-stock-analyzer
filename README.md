@@ -60,7 +60,20 @@ docker build -t finlab-stock-analyzer .
 docker run -p 8000:8080 --env-file .env finlab-stock-analyzer
 ```
 
-本機一鍵啟動（含 MongoDB、從 Windows 環境變數帶入 `FINMIND_TOKEN`、自動 build 該路徑下的最新程式碼）：
+### AI 功能（選填）
+
+個股「🤖 AI 摘要」需要 LLM 服務金鑰，設在 **Windows 使用者環境變數** `OPENCODE_API_KEY`（跟 `FINMIND_TOKEN` 同慣例，**不寫進 `.env` 或任何進版控的檔案**）：
+
+```powershell
+[Environment]::SetEnvironmentVariable('OPENCODE_API_KEY', '你的金鑰', 'User')
+```
+
+- 未設定時：AI 區塊自動隱藏，其餘功能完全不受影響
+- 目前接 [OpenCode Go](https://opencode.ai/docs/zh-tw/go/)（OpenAI 相容），換供應商只需改 `settings.py` 的 `llm_base_url` / `llm_model`
+- 預設模型 `minimax-m2.5`（實測 5 個模型後選定：延遲約 15 秒、輸出結構完整；部分模型會回空內容或洩漏思考過程）
+- 呼叫端一律「使用者主動觸發 + 快取」，並有每日呼叫上限（`llm_daily_call_limit`，預設 200 次）
+
+本機一鍵啟動（含 MongoDB、從 Windows 環境變數帶入 `FINMIND_TOKEN` 與 `OPENCODE_API_KEY`、自動 build 該路徑下的最新程式碼）：
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\run-local.ps1
 ```

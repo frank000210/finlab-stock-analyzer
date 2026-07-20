@@ -69,9 +69,22 @@ if (-not $token) {
 }
 Write-Host "FINMIND_TOKEN resolved from Windows env (length $($token.Length))." -ForegroundColor Green
 
+# 1b. OPENCODE_API_KEY (AI 功能用)。跟 FINMIND_TOKEN 同樣只走環境變數，不進
+#     版控。這個是選填：沒設定時 AI 相關功能自動隱藏，其餘功能不受影響。
+$aiKey = $env:OPENCODE_API_KEY
+if (-not $aiKey) { $aiKey = [Environment]::GetEnvironmentVariable('OPENCODE_API_KEY', 'User') }
+if (-not $aiKey) { $aiKey = [Environment]::GetEnvironmentVariable('OPENCODE_API_KEY', 'Machine') }
+if ($aiKey) {
+    Write-Host "OPENCODE_API_KEY resolved from Windows env (length $($aiKey.Length))." -ForegroundColor Green
+} else {
+    Write-Host "OPENCODE_API_KEY not set - AI features will be hidden (other features unaffected)." -ForegroundColor Yellow
+    $aiKey = ''
+}
+
 # 2. Forward the token into WSL for this invocation only.
 $env:FINMIND_TOKEN = $token
-$env:WSLENV = 'FINMIND_TOKEN/u'
+$env:OPENCODE_API_KEY = $aiKey
+$env:WSLENV = 'FINMIND_TOKEN/u:OPENCODE_API_KEY/u'
 
 # 3. Ensure docker daemon, network and MongoDB are up, then (re)run the app.
 $remote = @"
@@ -94,6 +107,7 @@ docker run -d --name $Container --network $Network \
   --env-file /mnt/f/github/finlab-stock-analyzer/.env \
   -e MONGODB_URI=mongodb://mongo:27017 \
   -e FINMIND_TOKEN="`$FINMIND_TOKEN" \
+  -e OPENCODE_API_KEY="`$OPENCODE_API_KEY" \
   -p ${Port}:8080 $Image >/dev/null
 echo "app container FINMIND_TOKEN length:"
 docker exec $Container printenv FINMIND_TOKEN | tr -d '\n' | wc -c
