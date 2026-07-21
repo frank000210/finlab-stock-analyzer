@@ -209,16 +209,69 @@ async def daily_brief_send():
 _MAX_PRICE_ALERTS = 50
 
 
+_ALERT_TYPES = ("price", "volume_spike", "rsi_extreme")
+_MAX_ALERT_HISTORY = 200
+
+# Y2：門檻直接沿用 watchlist_signals()（O1/既有）已經在用的數字，不重新發明
+# 一套——RSI >=70 超買/<=30 超賣、vol_ratio >=1.5 爆量，全站對「異常」的定義
+# 保持一致，使用者不會在不同頁面看到兩套互相矛盾的門檻。
+_RSI_OVERBOUGHT = 70.0
+_RSI_OVERSOLD = 30.0
+_VOL_SPIKE_RATIO = 1.5
+
+
 class PriceAlertReq(BaseModel):
     symbol: str
-    direction: str  # "above" | "below"
-    target_price: float
+    alert_type: str = "price"  # price | volume_spike | rsi_extreme
+    direction: str = "above"  # price: above=漲破/below=跌破；rsi_extreme: above=超買/below=超賣；volume_spike 不使用
+    target_price: float | None = None  # 只有 price 類型需要
     note: str = ""
 
 
+def _compute_rsi_vol_ratio(close, vol) -> tuple[float | None, float | None]:
+    """跟 watchlist_signals() 完全同一套算法（RSI14 + vol_ratio），抽出來給
+    警報檢查跟訊號掃描共用同一個結果，不能兩邊各算一次還可能算出不同數字。
+    """
+    import numpy as np
+
+    if len(close) < 15:
+        return None, None
+    delta = close.diff()
+    gain = delta.clip(lower=0).rolling(14).mean()
+    loss = (-delta.clip(upper=0)).rolling(14).mean()
+    rs = gain / loss.replace(0, np.nan)
+    rsi_series = 100 - 100 / (1 + rs)
+    rsi = float(rsi_series.iloc[-1]) if not np.isnan(rsi_series.iloc[-1]) else None
+
+    vol_ratio = None
+    if len(vol) >= 20:
+        vol_ma20 = float(vol.tail(20).mean())
+        if vol_ma20:
+            vol_ratio = round(float(vol.iloc[-1]) / vol_ma20, 2)
+    return (round(rsi, 1) if rsi is not None else None), vol_ratio
+
+
+async def _append_alert_history(entry: dict) -> None:
+    """Y3：警報觸發的歷史紀錄——原本觸發後只是把同一筆警報的 triggered 翻
+    成 true，沒有任何時間序列可查，使用者想知道「這週觸發過哪些」只能翻
+    Telegram 訊息。這裡另外存一份精簡歷史（上限 200 筆，超過砍最舊的）。
+    """
+    from ..db.cache import get_setting, set_setting
+
+    try:
+        history = await get_setting("alert_history", []) or []
+        history.append(entry)
+        if len(history) > _MAX_ALERT_HISTORY:
+            history = history[-_MAX_ALERT_HISTORY:]
+        await set_setting("alert_history", history)
+    except Exception:
+        pass  # 歷史紀錄是附加資訊，存失敗不影響警報本身已經觸發/推播成功
+
+
 async def run_alert_check() -> dict:
-    """檢查所有啟用中的價格警報（C10）：現價觸及設定門檻就推播 Telegram 並標記
-    已觸發（一次性，不會每次檢查都重複推播）。排程與手動端點共用同一份邏輯。
+    """檢查所有啟用中的警報（C10 價格／Y2 成交量異常／RSI 極端值）：條件
+    命中就推播 Telegram 並標記已觸發（一次性，不會每次檢查都重複推播）。
+    排程與手動端點共用同一份邏輯。
     """
     import asyncio
     from datetime import date, datetime, timedelta
@@ -237,50 +290,79 @@ async def run_alert_check() -> dict:
     symbols = sorted(set(normalize_symbol(a["symbol"]) for a in active))
     crawler = StockPriceCrawler()
     end = date.today()
-    start = end - timedelta(days=10)
+    # RSI(14)/vol_ratio(20日均量) 需要足夠交易日緩衝，價格類型仍只需要最新收盤
+    start = end - timedelta(days=60)
 
     # P3：跟 watchlist_signals/portfolio_correlation 一樣改併發抓取——最多 50
     # 檔警報若序列抓取會拖到 10-30 秒，排程每 20 分鐘跑一次也拖累其他請求。
-    async def _fetch_price(sym: str):
+    async def _fetch_metrics(sym: str):
         try:
             df = await crawler.get_price(sym, start.isoformat(), end.isoformat(), "1d")
-            if df is not None and not df.empty:
-                return sym, float(df.sort_values("date")["close"].iloc[-1])
+            if df is None or df.empty:
+                return sym, None
+            df = df.sort_values("date")
+            close = df["close"].astype(float)
+            vol = df["volume"].astype(float)
+            price = float(close.iloc[-1])
+            rsi, vol_ratio = _compute_rsi_vol_ratio(close, vol)
+            return sym, {"price": price, "rsi": rsi, "vol_ratio": vol_ratio}
         except Exception:
             pass
         return sym, None
 
-    results = await asyncio.gather(*[_fetch_price(sym) for sym in symbols])
-    prices: dict[str, float] = {sym: p for sym, p in results if p is not None}
+    results = await asyncio.gather(*[_fetch_metrics(sym) for sym in symbols])
+    metrics: dict[str, dict] = {sym: m for sym, m in results if m is not None}
 
     s = get_settings()
     token = (s.telegram_bot_token or "").strip()
     chat = (s.telegram_chat_id or "").strip()
 
     now_iso = datetime.utcnow().isoformat()
+    today_iso = date.today().isoformat()
     triggered_count = 0
     for a in alerts:
         if not a.get("active") or a.get("triggered"):
             continue
-        price = prices.get(normalize_symbol(a["symbol"]))
-        if price is None:
+        m = metrics.get(normalize_symbol(a["symbol"]))
+        if m is None or m.get("price") is None:
             continue
+        price, rsi, vol_ratio = m["price"], m.get("rsi"), m.get("vol_ratio")
         a["last_price"] = price
         a["last_checked_at"] = now_iso
-        hit = (
-            (a["direction"] == "above" and price >= a["target_price"])
-            or (a["direction"] == "below" and price <= a["target_price"])
-        )
-        if hit:
+
+        alert_type = a.get("alert_type", "price")
+        hit = False
+        msg = None
+        if alert_type == "price":
+            hit = (
+                (a["direction"] == "above" and price >= a["target_price"])
+                or (a["direction"] == "below" and price <= a["target_price"])
+            )
+            if hit:
+                dir_label = "漲破" if a["direction"] == "above" else "跌破"
+                msg = f"🔔 價格警報：{a['symbol']} 已{dir_label} {a['target_price']}（現價 {price}）"
+        elif alert_type == "volume_spike":
+            hit = vol_ratio is not None and vol_ratio >= _VOL_SPIKE_RATIO
+            if hit:
+                msg = f"📊 成交量異常：{a['symbol']} 成交量達 20 日均量 {vol_ratio}×（現價 {price}）"
+        elif alert_type == "rsi_extreme":
+            if a["direction"] == "above":
+                hit = rsi is not None and rsi >= _RSI_OVERBOUGHT
+                if hit:
+                    msg = f"📈 RSI 超買：{a['symbol']} RSI {rsi}（現價 {price}）"
+            else:
+                hit = rsi is not None and rsi <= _RSI_OVERSOLD
+                if hit:
+                    msg = f"📉 RSI 超賣：{a['symbol']} RSI {rsi}（現價 {price}）"
+
+        if hit and msg:
+            if a.get("note"):
+                msg += f"\n備註：{a['note']}"
             # S2：一次性警報要等推播真的送出才標記 triggered，不然網路短暫
             # 抖動時 send_telegram 失敗，警報卻已經被標記成「已觸發」而永久
             # 失效——使用者完全不會收到通知，也不知道發生了什麼事。沒有設定
             # Telegram 時沒有「推播失敗」這回事，直接標記已觸發。
             if token and chat:
-                dir_label = "漲破" if a["direction"] == "above" else "跌破"
-                msg = f"🔔 價格警報：{a['symbol']} 已{dir_label} {a['target_price']}（現價 {price}）"
-                if a.get("note"):
-                    msg += f"\n備註：{a['note']}"
                 try:
                     await send_telegram(msg, token, chat)
                 except Exception:
@@ -288,6 +370,12 @@ async def run_alert_check() -> dict:
             a["triggered"] = True
             a["triggered_at"] = now_iso
             triggered_count += 1
+            await _append_alert_history({
+                "id": a["id"], "symbol": a["symbol"], "alert_type": alert_type,
+                "direction": a.get("direction"), "target_price": a.get("target_price"),
+                "price": price, "rsi": rsi, "vol_ratio": vol_ratio,
+                "note": a.get("note", ""), "triggered_at": now_iso, "date": today_iso,
+            })
     await set_setting("price_alerts", alerts)
     return {"checked": len(symbols), "triggered": triggered_count}
 
@@ -303,18 +391,25 @@ async def list_alerts():
 
 @router.post("/alerts")
 async def create_alert(req: PriceAlertReq):
-    """新增一筆價格警報：漲破/跌破指定價位就推播 Telegram。"""
+    """新增一筆警報：價格漲跌破 / 成交量異常(Y2) / RSI 超買超賣(Y2)。"""
     import uuid
     from datetime import datetime
 
     from ..data.us_symbols import normalize_symbol
     from ..db.cache import get_setting, set_setting
 
+    alert_type = req.alert_type.strip().lower()
+    if alert_type not in _ALERT_TYPES:
+        raise HTTPException(status_code=400, detail=f"alert_type 必須是 {', '.join(_ALERT_TYPES)} 其中之一")
     direction = req.direction.strip().lower()
     if direction not in ("above", "below"):
         raise HTTPException(status_code=400, detail="direction 必須是 above 或 below")
-    if req.target_price <= 0:
-        raise HTTPException(status_code=400, detail="目標價必須大於 0")
+    target_price = req.target_price
+    if alert_type == "price":
+        if not target_price or target_price <= 0:
+            raise HTTPException(status_code=400, detail="目標價必須大於 0")
+    else:
+        target_price = None  # 成交量異常/RSI 極端值不使用目標價，門檻是站內固定值
     symbol = normalize_symbol(req.symbol)
     if not symbol:
         raise HTTPException(status_code=400, detail="請提供股票代碼")
@@ -326,8 +421,9 @@ async def create_alert(req: PriceAlertReq):
     alert = {
         "id": uuid.uuid4().hex[:12],
         "symbol": symbol,
+        "alert_type": alert_type,
         "direction": direction,
-        "target_price": req.target_price,
+        "target_price": target_price,
         "note": req.note.strip()[:200],
         "created_at": datetime.utcnow().isoformat(),
         "active": True,
@@ -339,6 +435,16 @@ async def create_alert(req: PriceAlertReq):
     alerts.append(alert)
     await set_setting("price_alerts", alerts)
     return {"success": True, "data": alert}
+
+
+@router.get("/alerts/history")
+async def get_alert_history(limit: int = 50):
+    """Y3：警報觸發歷史 feed，最新在前。"""
+    from ..db.cache import get_setting
+
+    history = await get_setting("alert_history", []) or []
+    items = list(reversed(history))[: max(1, min(limit, _MAX_ALERT_HISTORY))]
+    return {"success": True, "data": {"items": items}}
 
 
 @router.delete("/alerts/{alert_id}")

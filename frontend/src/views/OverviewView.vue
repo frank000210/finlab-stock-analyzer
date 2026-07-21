@@ -7,10 +7,34 @@
         <h1>📊 個股總覽儀表板</h1>
         <p class="subtitle">{{ stockStore.symbol }} {{ stockStore.name }} — 各維度綜合評估</p>
       </div>
-      <button class="btn btn-primary" @click="loadAll" :disabled="loading">
-        {{ loading ? '載入中...' : '🔄 重新整理' }}
-      </button>
+      <div class="header-actions">
+        <button class="btn" type="button" @click="showLayoutPanel = !showLayoutPanel" :aria-expanded="showLayoutPanel">🧩 版面設定</button>
+        <button class="btn btn-primary" @click="loadAll" :disabled="loading">
+          {{ loading ? '載入中...' : '🔄 重新整理' }}
+        </button>
+      </div>
     </header>
+
+    <!-- Y10：版面自訂——顯示/隱藏＋排序各維度卡片，設定存在這台裝置 -->
+    <div v-if="showLayoutPanel" class="card layout-panel">
+      <div class="layout-panel-head">
+        <h3>自訂維度顯示與順序</h3>
+        <button class="btn xs" type="button" @click="resetLayout">重置為預設</button>
+      </div>
+      <ul class="layout-list">
+        <li v-for="(key, i) in layoutPrefs.order" :key="key" class="layout-item">
+          <label>
+            <input type="checkbox" :checked="!isHidden(key)" @change="toggleHidden(key)" />
+            {{ cardLabel(key) }}
+          </label>
+          <span class="layout-move">
+            <button type="button" class="icon-btn" :disabled="i === 0" @click="moveCard(key, -1)" aria-label="上移">↑</button>
+            <button type="button" class="icon-btn" :disabled="i === layoutPrefs.order.length - 1" @click="moveCard(key, 1)" aria-label="下移">↓</button>
+          </span>
+        </li>
+      </ul>
+      <p class="muted small">隱藏的維度不會出現在下方卡片，也不會列入雷達圖計分（至少保留 1 個）；設定只存在這台裝置的瀏覽器。</p>
+    </div>
 
     <!-- Radar Chart -->
     <div class="overview-hero-grid">
@@ -51,7 +75,7 @@
     <!-- Summary Cards Grid -->
     <div class="summary-grid">
       <!-- Seasonal -->
-      <div class="card summary-card" role="link" tabindex="0" aria-label="季節性分析" @click="goTo('seasonal')" @keydown.enter="goTo('seasonal')" @keydown.space.prevent="goTo('seasonal')">
+      <div class="card summary-card" v-show="!isHidden('seasonal')" :style="cardStyle('seasonal')" role="link" tabindex="0" aria-label="季節性分析" @click="goTo('seasonal')" @keydown.enter="goTo('seasonal')" @keydown.space.prevent="goTo('seasonal')">
         <div class="card-head">
           <span class="card-icon">📅</span>
           <h3>季節性分析</h3>
@@ -65,7 +89,7 @@
       </div>
 
       <!-- Lead-Lag -->
-      <div class="card summary-card" role="link" tabindex="0" aria-label="領先/落後" @click="goTo('lead-lag')" @keydown.enter="goTo('lead-lag')" @keydown.space.prevent="goTo('lead-lag')">
+      <div class="card summary-card" v-show="!isHidden('leadLag')" :style="cardStyle('leadLag')" role="link" tabindex="0" aria-label="領先/落後" @click="goTo('lead-lag')" @keydown.enter="goTo('lead-lag')" @keydown.space.prevent="goTo('lead-lag')">
         <div class="card-head">
           <span class="card-icon">⏱️</span>
           <h3>領先/落後</h3>
@@ -79,7 +103,7 @@
       </div>
 
       <!-- Major Players -->
-      <div class="card summary-card" role="link" tabindex="0" aria-label="主力動向" @click="goTo('major-players')" @keydown.enter="goTo('major-players')" @keydown.space.prevent="goTo('major-players')">
+      <div class="card summary-card" v-show="!isHidden('majorPlayers')" :style="cardStyle('majorPlayers')" role="link" tabindex="0" aria-label="主力動向" @click="goTo('major-players')" @keydown.enter="goTo('major-players')" @keydown.space.prevent="goTo('major-players')">
         <div class="card-head">
           <span class="card-icon">🐋</span>
           <h3>主力動向</h3>
@@ -93,7 +117,7 @@
       </div>
 
       <!-- Social Buzz -->
-      <div class="card summary-card" role="link" tabindex="0" aria-label="社群熱度" @click="goTo('social-buzz')" @keydown.enter="goTo('social-buzz')" @keydown.space.prevent="goTo('social-buzz')">
+      <div class="card summary-card" v-show="!isHidden('socialBuzz')" :style="cardStyle('socialBuzz')" role="link" tabindex="0" aria-label="社群熱度" @click="goTo('social-buzz')" @keydown.enter="goTo('social-buzz')" @keydown.space.prevent="goTo('social-buzz')">
         <div class="card-head">
           <span class="card-icon">🔥</span>
           <h3>社群熱度</h3>
@@ -107,7 +131,7 @@
       </div>
 
       <!-- Public Data -->
-      <div class="card summary-card" role="link" tabindex="0" aria-label="公開資訊" @click="goTo('public-data')" @keydown.enter="goTo('public-data')" @keydown.space.prevent="goTo('public-data')">
+      <div class="card summary-card" v-show="!isHidden('publicData')" :style="cardStyle('publicData')" role="link" tabindex="0" aria-label="公開資訊" @click="goTo('public-data')" @keydown.enter="goTo('public-data')" @keydown.space.prevent="goTo('public-data')">
         <div class="card-head">
           <span class="card-icon">📋</span>
           <h3>公開資訊</h3>
@@ -121,7 +145,7 @@
       </div>
 
       <!-- Technical Analysis -->
-      <div class="card summary-card" role="link" tabindex="0" aria-label="技術分析" @click="goTo('analysis')" @keydown.enter="goTo('analysis')" @keydown.space.prevent="goTo('analysis')">
+      <div class="card summary-card" v-show="!isHidden('technical')" :style="cardStyle('technical')" role="link" tabindex="0" aria-label="技術分析" @click="goTo('analysis')" @keydown.enter="goTo('analysis')" @keydown.space.prevent="goTo('analysis')">
         <div class="card-head">
           <span class="card-icon">📈</span>
           <h3>技術分析</h3>
@@ -143,6 +167,7 @@ import InfoTooltip from '../components/InfoTooltip.vue'
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useStockStore } from '../stores/stock.js'
+import { loadLayoutPrefs, saveLayoutPrefs } from '../lib/layoutPrefs'
 
 const router = useRouter()
 const stockStore = useStockStore()
@@ -164,14 +189,65 @@ const scores = computed(() => ({
   technical: technical.value ? technical.value.score || 50 : 0,
 }))
 
-const dimensions = computed(() => [
-  { label: '季節性', score: scores.value.seasonal },
-  { label: '領先落後', score: scores.value.leadLag },
-  { label: '主力動向', score: scores.value.majorPlayers },
-  { label: '社群熱度', score: scores.value.socialBuzz },
-  { label: '公開資訊', score: scores.value.publicData },
-  { label: '技術面', score: scores.value.technical },
-])
+// Y10：版面自訂——6 個維度卡片可顯示/隱藏＋排序，隱藏的維度也不列入雷達圖。
+const CARD_LABELS = {
+  seasonal: '季節性分析', leadLag: '領先/落後', majorPlayers: '主力動向',
+  socialBuzz: '社群熱度', publicData: '公開資訊', technical: '技術分析',
+}
+const DEFAULT_ORDER = Object.keys(CARD_LABELS)
+const LAYOUT_PAGE_KEY = 'overview'
+
+const layoutPrefs = ref(loadLayoutPrefs(LAYOUT_PAGE_KEY, DEFAULT_ORDER))
+const showLayoutPanel = ref(false)
+
+function cardLabel(key) { return CARD_LABELS[key] || key }
+function isHidden(key) { return layoutPrefs.value.hidden.includes(key) }
+function cardStyle(key) {
+  const idx = layoutPrefs.value.order.indexOf(key)
+  return { order: idx === -1 ? 999 : idx }
+}
+function persistLayout() { saveLayoutPrefs(LAYOUT_PAGE_KEY, layoutPrefs.value) }
+
+function toggleHidden(key) {
+  const currentlyHidden = isHidden(key)
+  if (!currentlyHidden) {
+    const visibleCount = layoutPrefs.value.order.length - layoutPrefs.value.hidden.length
+    if (visibleCount <= 1) return // 至少保留 1 個維度，避免雷達圖無資料可畫
+  }
+  const hidden = currentlyHidden
+    ? layoutPrefs.value.hidden.filter(k => k !== key)
+    : [...layoutPrefs.value.hidden, key]
+  layoutPrefs.value = { ...layoutPrefs.value, hidden }
+  persistLayout()
+}
+
+function moveCard(key, dir) {
+  const order = [...layoutPrefs.value.order]
+  const i = order.indexOf(key)
+  const j = i + dir
+  if (i < 0 || j < 0 || j >= order.length) return
+  ;[order[i], order[j]] = [order[j], order[i]]
+  layoutPrefs.value = { ...layoutPrefs.value, order }
+  persistLayout()
+}
+
+function resetLayout() {
+  layoutPrefs.value = { order: [...DEFAULT_ORDER], hidden: [] }
+  persistLayout()
+}
+
+const dimensions = computed(() => {
+  const all = {
+    seasonal: { label: '季節性', score: scores.value.seasonal },
+    leadLag: { label: '領先落後', score: scores.value.leadLag },
+    majorPlayers: { label: '主力動向', score: scores.value.majorPlayers },
+    socialBuzz: { label: '社群熱度', score: scores.value.socialBuzz },
+    publicData: { label: '公開資訊', score: scores.value.publicData },
+    technical: { label: '技術面', score: scores.value.technical },
+  }
+  const hidden = new Set(layoutPrefs.value.hidden)
+  return layoutPrefs.value.order.filter(k => !hidden.has(k)).map(k => all[k]).filter(Boolean)
+})
 
 const dataPoints = computed(() => {
   return dimensions.value.map((d, i) => {
@@ -278,6 +354,23 @@ onMounted(() => {
 .overview-page { display: flex; flex-direction: column; gap: var(--space-5); }
 .page-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--space-3); }
 .subtitle { color: var(--text-muted); font-size: 0.85rem; margin-top: 4px; }
+.header-actions { display: flex; gap: 8px; align-items: center; }
+
+.layout-panel { display: flex; flex-direction: column; gap: 10px; }
+.layout-panel-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.layout-panel-head h3 { margin: 0; font-size: 0.95rem; }
+.btn.xs { padding: 4px 10px; font-size: 0.78rem; }
+.layout-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.layout-item {
+  display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  padding: 6px 10px; border: 1px solid var(--border-color); border-radius: 8px;
+}
+.layout-item label { display: flex; align-items: center; gap: 8px; font-size: 0.86rem; cursor: pointer; }
+.layout-move { display: flex; gap: 4px; }
+.icon-btn { border: 1px solid var(--border-color); background: var(--bg-secondary); border-radius: 6px; width: 26px; height: 24px; cursor: pointer; color: var(--text-secondary); font-size: 0.75rem; line-height: 1; }
+.icon-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+.muted { color: var(--text-muted); }
+.small { font-size: 0.78rem; }
 
 .overview-hero-grid {
   display: flex;

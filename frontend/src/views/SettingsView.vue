@@ -46,11 +46,15 @@
         <input type="checkbox" v-model="notifications.price" /> 價格突破通知
       </label>
       <label class="checkbox-label">
-        <input type="checkbox" v-model="notifications.signal" /> 技術訊號通知
+        <input type="checkbox" v-model="notifications.signal" /> 技術訊號通知（成交量異常／RSI 極端值）
       </label>
       <label class="checkbox-label">
         <input type="checkbox" v-model="notifications.ai" /> AI 預測通知 (信心 > 70%)
       </label>
+      <p class="theme-hint">
+        價格突破／技術訊號兩項會決定「價格警報」頁新增警報時能選擇哪些類型；關閉後對應類型會從下拉選單隱藏（已設定的既有警報不受影響）。
+        AI 預測通知目前尚未有對應功能可串接，先保留設定供未來使用。
+      </p>
     </div>
 
     <div class="card" style="margin-top: 16px;">
@@ -117,9 +121,10 @@
 
 <script setup>
 import PageFocusBanner from '../components/PageFocusBanner.vue'
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import axios from 'axios'
 import { useTheme } from '../composables/useTheme.js'
+import { loadNotificationPrefs, saveNotificationPrefs } from '../lib/notificationPrefs'
 
 const { state, THEME_FIELDS, BUILT_IN_PRESETS, setField, applyPreset, resetDefault, addPreset, deletePreset } = useTheme()
 const newPresetName = ref('')
@@ -166,7 +171,11 @@ const finmindToken = ref('')
 const lineToken = ref('')
 const defaultPeriod = ref('1Y')
 const defaultCapital = ref(1000000)
-const notifications = ref({ price: true, signal: true, ai: true })
+// Y2：原本這個 ref 從未存到任何地方、也沒有任何地方讀取——勾了跟沒勾一樣。
+// 現在會持久化到 localStorage，且 price/signal 兩個偏好會決定價格警報頁
+// 「新增警報」下拉選單顯示哪些類型（見 lib/notificationPrefs.js）。
+const notifications = ref(loadNotificationPrefs())
+watch(notifications, (val) => saveNotificationPrefs(val), { deep: true })
 const saved = ref(false)
 
 async function validateToken(type) {

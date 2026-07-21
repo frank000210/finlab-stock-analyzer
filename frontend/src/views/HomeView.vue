@@ -97,38 +97,41 @@
           <h2>最近瀏覽的股票</h2>
           <p>延續你上一輪的研究進度，快速回到剛剛關注的標的。</p>
         </div>
-        <button
-          v-if="recentStocks.length"
-          type="button"
-          class="text-link text-button"
-          @click="refreshRecentStocks"
-        >
-          重新整理
-        </button>
+        <div v-if="recentStocks.length" class="recent-actions">
+          <button type="button" class="text-link text-button" @click="refreshRecentStocks">
+            重新整理
+          </button>
+          <button type="button" class="text-link text-button danger" @click="clearAllRecent">
+            清空
+          </button>
+        </div>
       </div>
 
       <div v-if="recentStocks.length" class="recent-grid">
-        <RouterLink
-          v-for="stock in recentStocks"
-          :key="stock.symbol"
-          :to="`/stocks/${stock.symbol}`"
-          class="recent-card"
-        >
-          <div class="recent-topline">
-            <div>
-              <p class="recent-symbol">{{ stock.symbol }}</p>
-              <p class="recent-name">{{ stock.name }}</p>
+        <div v-for="stock in recentStocks" :key="stock.symbol" class="recent-card-wrap">
+          <RouterLink :to="`/stocks/${stock.symbol}`" class="recent-card">
+            <div class="recent-topline">
+              <div>
+                <p class="recent-symbol">{{ stock.symbol }}</p>
+                <p class="recent-name">{{ stock.name }}</p>
+              </div>
+              <span class="recent-badge">最近瀏覽</span>
             </div>
-            <span class="recent-badge">最近瀏覽</span>
-          </div>
 
-          <div class="recent-price-row">
-            <span class="recent-price">{{ stock.priceText }}</span>
-            <span :class="['recent-change', `trend-${stock.trend}`]">{{ stock.changeText }}</span>
-          </div>
+            <div class="recent-price-row">
+              <span class="recent-price">{{ stock.priceText }}</span>
+              <span :class="['recent-change', `trend-${stock.trend}`]">{{ stock.changeText }}</span>
+            </div>
 
-          <p class="recent-note">{{ stock.note }}</p>
-        </RouterLink>
+            <p class="recent-note">{{ stock.note }}</p>
+          </RouterLink>
+          <button
+            type="button"
+            class="recent-remove"
+            :aria-label="`從最近瀏覽移除 ${stock.symbol}`"
+            @click.stop.prevent="removeRecent(stock.symbol)"
+          >✕</button>
+        </div>
       </div>
 
       <div v-else class="recent-empty">
@@ -147,6 +150,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useStockStore } from '../stores/stock.js'
+import { fetchLivePrices } from '../lib/livePriceCache'
 
 const router = useRouter()
 const stockStore = useStockStore()
@@ -265,6 +269,42 @@ function loadRecentStocks() {
   } catch {
     recentStockItems.value = []
   }
+  refreshLivePrices()
+}
+
+// Y4：saveRecent()（AnalysisView.vue）只存 {symbol, name}，從來沒有存過
+// 價格，導致這裡永遠顯示「等待同步報價」的假占位文字。改成頁面載入時
+// 直接查即時報價補上；只更新價格，漲跌%沒有可靠來源就維持原本誠實的
+// 「最近檢視」文字，不去湊一個假的漲跌幅。
+async function refreshLivePrices() {
+  const symbols = recentStockItems.value.map(s => s.symbol)
+  if (!symbols.length) return
+  try {
+    const result = await fetchLivePrices(symbols)
+    recentStockItems.value = recentStockItems.value.map(stock => {
+      const price = result[stock.symbol]?.price
+      return price == null ? stock : { ...stock, priceText: formatPrice(price) }
+    })
+  } catch {
+    // 抓不到即時報價就維持原本的「等待同步報價」文字，不讓整個清單壞掉
+  }
+}
+
+function removeRecent(symbol) {
+  let parsed = []
+  try { parsed = JSON.parse(localStorage.getItem('recentStocks') || '[]') } catch { parsed = [] }
+  const next = parsed.filter(item => {
+    const sym = typeof item === 'string' ? item : (item?.symbol || item?.code || '')
+    return String(sym).trim() !== symbol
+  })
+  localStorage.setItem('recentStocks', JSON.stringify(next))
+  loadRecentStocks()
+}
+
+function clearAllRecent() {
+  if (!window.confirm('確定要清空最近瀏覽紀錄嗎？')) return
+  localStorage.removeItem('recentStocks')
+  loadRecentStocks()
 }
 
 function normalizeRecentStock(item) {
@@ -769,6 +809,18 @@ onBeforeUnmount(() => {
   gap: 20px;
 }
 
+.recent-actions {
+  display: flex;
+  gap: 14px;
+}
+.text-button.danger {
+  color: #ef4444;
+}
+
+.recent-card-wrap {
+  position: relative;
+}
+
 .recent-card {
   display: flex;
   flex-direction: column;
@@ -779,6 +831,26 @@ onBeforeUnmount(() => {
   background: rgba(20, 29, 47, 0.9);
   border: 1px solid rgba(148, 163, 184, 0.14);
   box-shadow: var(--shadow-md);
+}
+
+.recent-remove {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: rgba(20, 29, 47, 0.95);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.78rem;
+  line-height: 1;
+  z-index: 1;
+}
+.recent-remove:hover {
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.4);
 }
 
 .recent-topline {

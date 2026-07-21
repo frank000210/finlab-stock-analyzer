@@ -241,6 +241,7 @@ import { metricGlossary } from '../lib/metricGlossary'
 import { useAiStatus } from '../composables/useAiStatus'
 import { renderAiMarkdown } from '../composables/useAiMarkdown'
 import { useClipboard } from '../composables/useClipboard'
+import { downloadCsv, timestampedFilename } from '../lib/csvExport'
 
 const stockStore = useStockStore()
 
@@ -874,22 +875,15 @@ function applyCsvImport(text) {
     + (invalid ? `、忽略無效 ${invalid} 筆` : '') + '。'
 }
 
-function csvCell(v) { const s = String(v ?? ''); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s }
 function exportCsv() {
   if (!trades.value.length) return
   const cols = ['symbol', 'side', 'entry', 'stop', 'target', 'lots', 'tag', 'catalyst', 'openDate', 'status', 'exit', 'exitDate', 'R', 'pnl']
-  const lines = trades.value.map((t) => {
+  const rows = trades.value.map((t) => {
     const R = t.status === 'closed' ? realizedR(t).toFixed(3) : ''
     const p = t.status === 'closed' ? Math.round(pnl(t)) : ''
-    return [t.symbol, t.side, t.entry, t.stop, t.target ?? '', t.lots, t.tag ?? '', t.catalyst ?? '', t.openDate, t.status, t.exit ?? '', t.exitDate ?? '', R, p].map(csvCell).join(',')
+    return [t.symbol, t.side, t.entry, t.stop, t.target ?? '', t.lots, t.tag ?? '', t.catalyst ?? '', t.openDate, t.status, t.exit ?? '', t.exitDate ?? '', R, p]
   })
-  const csv = '﻿' + [cols.join(','), ...lines].join('\n')
-  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }))
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `trade-journal-${new Date().toISOString().slice(0, 10)}.csv`
-  document.body.appendChild(a); a.click(); a.remove()
-  URL.revokeObjectURL(url)
+  downloadCsv(timestampedFilename('trade-journal'), cols, rows)
 }
 
 async function importOpenPositions() {

@@ -460,6 +460,7 @@
             {{ peerData.group_source === 'custom' ? '自訂群組' : `產業預設（${peerData.industry}）` }}
           </span>
           <button class="btn xs" type="button" @click="togglePeerEdit">{{ peerEditing ? '收合編輯' : '編輯同業' }}</button>
+          <button v-if="peerRows.length > 1" class="btn xs" type="button" @click="exportPeerCsv">📥 匯出 CSV</button>
         </div>
       </div>
 
@@ -580,6 +581,7 @@ import { detectFundamentalFlags } from '../lib/fundamentalFlags'
 import { useAiStatus } from '../composables/useAiStatus'
 import { renderAiMarkdown } from '../composables/useAiMarkdown'
 import { useClipboard } from '../composables/useClipboard'
+import { downloadCsv, timestampedFilename } from '../lib/csvExport'
 
 const theme = useChartTheme()
 const calendarEl = ref(null)
@@ -723,6 +725,17 @@ const peerRows = computed(() => {
   }
   return [target, ...peers]
 })
+
+// Y5：同業比較表匯出，分析頁原本完全沒有匯出功能
+function exportPeerCsv() {
+  const cols = ['代碼', '名稱', '本益比', '營收YoY均%', 'EPS', 'EPS YoY%', '毛利率%', '20日動能%', '站上年線']
+  const rows = peerRows.value.map(row => [
+    row.symbol, row.name, row.pe ?? '', row.revenue_yoy_avg ?? '', row.eps ?? '',
+    row.eps_yoy_pct ?? '', row.gross_margin ?? '', row.mom20_pct ?? '',
+    row.above_ma200 == null ? '' : (row.above_ma200 ? '是' : '否'),
+  ])
+  downloadCsv(timestampedFilename(`peer-comparison-${symbol.value}`), cols, rows)
+}
 
 function sortPeers(key) {
   if (peerSortKey.value === key) {

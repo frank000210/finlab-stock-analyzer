@@ -48,6 +48,7 @@
           <span v-if="importing" class="loading-spinner btn-spinner" aria-hidden="true"></span>從觀察清單匯入
         </button>
         <button v-if="positions.length" class="btn" @click="clearAll">清空</button>
+        <button v-if="positions.length" class="btn" @click="exportPositionsCsv">📥 匯出 CSV</button>
       </div>
       <p v-if="formError" class="error-text">{{ formError }}</p>
       <p v-if="importMsg" class="muted import-msg">{{ importMsg }}</p>
@@ -216,6 +217,7 @@ import InfoTooltip from '../components/InfoTooltip.vue'
 import MetricScale from '../components/MetricScale.vue'
 import { metricGlossary } from '../lib/metricGlossary'
 import { fetchSizingData } from '../lib/livePriceCache'
+import { downloadCsv, timestampedFilename } from '../lib/csvExport'
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 const LS_POS = 'portfolio_heat_positions'
@@ -264,6 +266,17 @@ function posValue(p) { return posShares(p) * (Number(p.entry) || 0) }
 function posRisk(p) { return posShares(p) * Math.abs((Number(p.entry) || 0) - (Number(p.stop) || 0)) }
 function posRiskPct(p) { return account.value > 0 ? posRisk(p) / account.value * 100 : 0 }
 function posUnreal(p) { return p.price ? posShares(p) * (Number(p.price) - Number(p.entry)) : 0 }
+
+// Y5：部位表匯出，投組風險頁原本完全沒有匯出功能
+function exportPositionsCsv() {
+  const cols = ['代碼', '名稱', '產業', '進場', '停損', '張數', '部位金額', '風險金額', '風險%', '未實現損益']
+  const rows = positions.value.map(p => [
+    p.symbol, p.name || '', p.industry || '', p.entry, p.stop, p.lots,
+    Math.round(posValue(p)), Math.round(posRisk(p)), posRiskPct(p).toFixed(2),
+    p.price ? Math.round(posUnreal(p)) : '',
+  ])
+  downloadCsv(timestampedFilename('portfolio-heat'), cols, rows)
+}
 
 // E1：交易日誌的進行中部位若跟這頁手動記的不是同一批，總熱度只算手動部位
 // 會低估真實曝險。用代碼去重（手動部位優先，視為同一檔的權威記錄），只把

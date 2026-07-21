@@ -175,10 +175,13 @@ import PageFocusBanner from '../components/PageFocusBanner.vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import * as d3 from 'd3'
 import { useChartTheme } from '../composables/useChartTheme'
+import { loadWatchlist as loadSharedWatchlist } from '../lib/watchlist'
 
 const theme = useChartTheme()
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
-const WATCHLIST_STORAGE_KEY = 'finlab_watchlist'
+// Y1 修正：同 GraphView，本頁的圖組合跟共用觀察清單分開存，避免套用任意
+// 組合時覆蓋掉使用者真正的觀察清單
+const GRAPH_SYMBOLS_STORAGE_KEY = 'finlab_graph01_symbols'
 
 const viewModes = [
   { value: 'force', label: '力導向圖' },
@@ -650,12 +653,14 @@ function clearSelection() {
 
 function loadWatchlist() {
   try {
-    const raw = localStorage.getItem(WATCHLIST_STORAGE_KEY)
+    const raw = localStorage.getItem(GRAPH_SYMBOLS_STORAGE_KEY)
     const parsed = JSON.parse(raw || '[]')
     const normalized = Array.isArray(parsed)
       ? parsed.map(item => String(item || '').trim()).filter(Boolean)
       : []
-    return normalized.length ? normalized : ['2330', '2317', '2454']
+    if (normalized.length) return normalized
+    const shared = loadSharedWatchlist()
+    return shared.length ? shared : ['2330', '2317', '2454']
   } catch {
     return ['2330', '2317', '2454']
   }
@@ -676,7 +681,7 @@ function applySymbols() {
     return
   }
   symbols.value = parsed
-  localStorage.setItem(WATCHLIST_STORAGE_KEY, JSON.stringify(parsed))
+  localStorage.setItem(GRAPH_SYMBOLS_STORAGE_KEY, JSON.stringify(parsed))
   errorMessage.value = ''
   reloadTimeline()
 }

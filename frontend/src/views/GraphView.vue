@@ -172,10 +172,15 @@ import PageFocusBanner from '../components/PageFocusBanner.vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import * as d3 from 'd3'
 import { useChartTheme } from '../composables/useChartTheme'
+import { loadWatchlist as loadSharedWatchlist } from '../lib/watchlist'
 
 const theme = useChartTheme()
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
-const WATCHLIST_STORAGE_KEY = 'finlab_watchlist'
+// Y1 修正：這裡存的是「這次要畫關聯圖的股票組合」，跟觀察清單（Watchlist
+// 頁／作戰台在用的共用清單）是不同概念——原本兩者共用同一把 localStorage
+// key，導致在這裡套用任意股票組合會直接覆蓋掉使用者真正的觀察清單。
+// 改用本頁專屬 key 存這次的圖組合，只在「還沒存過」時才拿觀察清單當初始值。
+const GRAPH_SYMBOLS_STORAGE_KEY = 'finlab_graph_symbols'
 
 const viewModes = [
   { value: 'force', label: '力導向圖' },
@@ -635,12 +640,16 @@ function clearSelection() {
 
 function loadWatchlist() {
   try {
-    const raw = localStorage.getItem(WATCHLIST_STORAGE_KEY)
+    const raw = localStorage.getItem(GRAPH_SYMBOLS_STORAGE_KEY)
     const parsed = JSON.parse(raw || '[]')
     const normalized = Array.isArray(parsed)
       ? parsed.map(item => String(item || '').trim()).filter(Boolean)
       : []
-    return normalized.length ? normalized : ['2330', '2317', '2454']
+    if (normalized.length) return normalized
+    // 這頁還沒存過自己的組合：拿共用觀察清單當初始值，方便使用者一開始就
+    // 看到自己平常在追蹤的股票，但之後套用新組合不會回頭去動觀察清單本身
+    const shared = loadSharedWatchlist()
+    return shared.length ? shared : ['2330', '2317', '2454']
   } catch {
     return ['2330', '2317', '2454']
   }
@@ -661,7 +670,7 @@ function applySymbols() {
     return
   }
   symbols.value = parsed
-  localStorage.setItem(WATCHLIST_STORAGE_KEY, JSON.stringify(parsed))
+  localStorage.setItem(GRAPH_SYMBOLS_STORAGE_KEY, JSON.stringify(parsed))
   errorMessage.value = ''
   reloadTimeline()
 }

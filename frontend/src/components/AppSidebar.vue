@@ -142,6 +142,7 @@ const navGroups = [
     title: '決策 & 掃描',
     items: [
       { key: 'decision', icon: '🎯', label: '決策面板', cta: true, to: () => '/decision' },
+      { key: 'watchlist', icon: '⭐', label: '觀察清單', to: () => '/watchlist' },
       { key: 'command', icon: '⚡', label: '作戰台', to: () => '/command' },
       { key: 'signals', icon: '📡', label: '訊號', to: () => '/signals' },
       { key: 'ai-signals', icon: '🤖', label: 'AI 交易信號', to: () => '/ai-signals' },
@@ -169,6 +170,7 @@ const navGroups = [
       { key: 'graph', icon: '🕸️', label: '關聯圖', to: () => '/graph' },
       { key: 'graph01', icon: '🕸️', label: '關聯圖01', to: () => '/graph01' },
       { key: 'rotation', icon: '🔄', label: '類股輪動', to: () => '/rotation' },
+      { key: 'compare', icon: '⚖️', label: '多股比較', to: () => '/compare' },
       { key: 'market-lights', icon: '🚦', label: '大盤多空', to: () => '/market-lights' },
       { key: 'news-checker', icon: '🔍', label: '新聞可信度', to: () => '/news-checker' },
       { key: 'screener', icon: '🔎', label: 'AI 選股', to: () => '/screener' },

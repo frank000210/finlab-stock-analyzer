@@ -17,6 +17,11 @@ const routes = [
     component: () => import('./views/DecisionView.vue'),
   },
   {
+    path: '/watchlist',
+    name: 'watchlist',
+    component: () => import('./views/WatchlistView.vue'),
+  },
+  {
     path: '/graph',
     name: 'graph',
     component: () => import('./views/GraphView.vue'),
@@ -30,6 +35,11 @@ const routes = [
     path: '/rotation',
     name: 'rotation',
     component: () => import('./views/RotationView.vue'),
+  },
+  {
+    path: '/compare',
+    name: 'compare',
+    component: () => import('./views/StockCompareView.vue'),
   },
   {
     path: '/market-lights',

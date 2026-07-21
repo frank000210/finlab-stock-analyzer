@@ -48,7 +48,8 @@ test('價格警報頁：新增顯示於清單並可刪除', async ({ page }) => 
   }
 
   await page.goto('/price-alerts')
-  await expect(page.getByRole('heading', { name: /新增價格警報/ })).toBeVisible()
+  // Y2 把標題從「新增價格警報」改成「新增警報」（警報類型擴充到成交量/RSI，不再只有價格）
+  await expect(page.getByRole('heading', { name: /新增警報/ })).toBeVisible()
 
   await page.getByPlaceholder('代碼 2330').fill('2454')
   await page.getByPlaceholder('目標價').fill('9999')

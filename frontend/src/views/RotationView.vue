@@ -148,6 +148,7 @@
             <h3>RRG 輪動時鐘</h3>
             <div class="chart-card-actions">
               <span class="muted small-hint" v-if="fullscreenTarget === 'rrg'">按 Esc 退出</span>
+              <button v-if="points.length" class="icon-btn" type="button" @click="exportRotationCsv">📥 匯出 CSV</button>
               <button class="icon-btn" type="button" @click="toggleFullscreen('rrg')">
                 {{ fullscreenTarget === 'rrg' ? '⤡ 退出全螢幕' : '⤢ 全螢幕' }}
               </button>
@@ -245,10 +246,14 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import * as d3 from 'd3'
 import { sankey as d3Sankey, sankeyLinkHorizontal } from 'd3-sankey'
 import { useChartTheme } from '../composables/useChartTheme'
+import { loadWatchlist as loadSharedWatchlist } from '../lib/watchlist'
+import { downloadCsv, timestampedFilename } from '../lib/csvExport'
 
 const theme = useChartTheme()
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
-const WATCHLIST_STORAGE_KEY = 'finlab_watchlist'
+// Y1 修正：同 GraphView，本頁的聚合股票組合跟共用觀察清單分開存，避免
+// 套用任意組合時覆蓋掉使用者真正的觀察清單
+const ROTATION_SYMBOLS_STORAGE_KEY = 'finlab_rotation_symbols'
 
 const loading = ref(false)
 const loadingLabel = ref('運算中…')
@@ -296,6 +301,13 @@ let leadSimulation = null
 const timelineDates = computed(() => timelineItems.value.map(item => item.date))
 const activeDate = computed(() => timelineDates.value[currentIndex.value] || '')
 const points = computed(() => snapshot.value?.points || [])
+
+// Y5：RRG 輪動時鐘匯出，類股輪動頁原本完全沒有匯出功能
+function exportRotationCsv() {
+  const cols = ['名稱', '象限', 'RS-Ratio', 'RS-Momentum', '角度']
+  const rows = points.value.map(p => [p.name, quadrantLabel(p.quadrant), fixed(p.rs_ratio, 3), fixed(p.rs_momentum, 3), fixed(p.angle, 2)])
+  downloadCsv(timestampedFilename(`rotation-rrg-${activeDate.value || 'latest'}`), cols, rows)
+}
 const trails = computed(() => snapshot.value?.trails || {})
 const leadEdges = computed(() => snapshot.value?.lead_edges || [])
 
@@ -514,12 +526,14 @@ function clearAllSectors() {
 
 function loadWatchlist() {
   try {
-    const raw = localStorage.getItem(WATCHLIST_STORAGE_KEY)
+    const raw = localStorage.getItem(ROTATION_SYMBOLS_STORAGE_KEY)
     const parsed = JSON.parse(raw || '[]')
     const normalized = Array.isArray(parsed)
       ? parsed.map(item => String(item || '').trim()).filter(Boolean)
       : []
-    return normalized.length ? normalized : ['2330', '2317', '2454']
+    if (normalized.length) return normalized
+    const shared = loadSharedWatchlist()
+    return shared.length ? shared : ['2330', '2317', '2454']
   } catch {
     return ['2330', '2317', '2454']
   }
@@ -540,7 +554,7 @@ function applySymbols() {
     return
   }
   symbols.value = parsed
-  localStorage.setItem(WATCHLIST_STORAGE_KEY, JSON.stringify(parsed))
+  localStorage.setItem(ROTATION_SYMBOLS_STORAGE_KEY, JSON.stringify(parsed))
   errorMessage.value = ''
   reloadTimeline()
 }

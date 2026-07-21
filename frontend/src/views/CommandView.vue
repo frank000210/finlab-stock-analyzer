@@ -19,8 +19,19 @@
           <button class="btn btn-primary" :disabled="loading" @click="scan">
             <span v-if="loading" class="loading-spinner btn-spinner" aria-hidden="true"></span>掃描
           </button>
+          <button class="btn" type="button" @click="showLayoutPanel = !showLayoutPanel">🧩 版面設定</button>
         </div>
       </div>
+
+      <!-- Y10：版面自訂——可隱藏用不到的提示條，設定存在這台裝置 -->
+      <div v-if="showLayoutPanel" class="layout-panel">
+        <span class="layout-panel-label">顯示提示條：</span>
+        <label v-for="s in STRIP_DEFS" :key="s.key" class="layout-strip-item">
+          <input type="checkbox" :checked="!isStripHidden(s.key)" @change="toggleStrip(s.key)" />
+          {{ s.label }}
+        </label>
+      </div>
+
       <p v-if="errorMessage" class="error-text">{{ errorMessage }}</p>
       <p v-if="logMsg" class="log-msg">{{ logMsg }}</p>
 
@@ -38,7 +49,7 @@
         </div>
       </div>
 
-      <div v-if="regime" class="regime-strip" :class="'regime-' + regime.regime">
+      <div v-if="regime && !isStripHidden('regime')" class="regime-strip" :class="'regime-' + regime.regime">
         <strong>市場體制：{{ regime.label }}</strong>
         <span class="rg-detail">0050 {{ regime.close }} vs 年線 {{ regime.ma200 }}（{{ regime.above_ma200 ? '站上' : '跌破' }}、年線{{ regime.ma200_rising ? '上揚' : '下彎' }}）· 20日動能 {{ regime.mom20_pct >= 0 ? '+' : '' }}{{ regime.mom20_pct }}%</span>
         <label class="rg-apply">
@@ -48,7 +59,7 @@
         </label>
       </div>
 
-      <div class="loss-limit-strip" :class="'ll-' + lossLimitStatus">
+      <div v-if="!isStripHidden('lossLimit')" class="loss-limit-strip" :class="'ll-' + lossLimitStatus">
         <strong>虧損上限熔斷：</strong>
         <span class="rg-detail">
           今日 {{ todayR >= 0 ? '+' : '' }}{{ todayR.toFixed(1) }}R / 上限 <input v-model.number="dailyLimitR" type="number" max="0" step="0.5" class="inp ll-input" @change="saveCfg" />R
@@ -58,7 +69,7 @@
         <span v-else-if="lossLimitStatus === 'warn'" class="ll-tag">⚠ 接近上限</span>
       </div>
 
-      <div v-if="corr && corr.high_pairs && corr.high_pairs.length" class="corr-warn">
+      <div v-if="corr && corr.high_pairs && corr.high_pairs.length && !isStripHidden('corrWarn')" class="corr-warn">
         <div v-for="hp in corr.high_pairs" :key="hp.a + '-' + hp.b">
           ⚠ {{ hp.a }} × {{ hp.b }} 相關 {{ hp.corr.toFixed(2) }} — 這兩檔實質同一注，別各下滿倉、重複曝險
         </div>
@@ -108,8 +119,28 @@ import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import DataLineage from '../components/DataLineage.vue'
 import { realizedR, journalWinStats, halfKellyRiskPct, loadJournal, saveJournal, localDateStr, JOURNAL_KEY } from '../lib/tradeMath'
 import { fetchWithRetry } from '../lib/apiFetch'
+import { loadLayoutPrefs, saveLayoutPrefs } from '../lib/layoutPrefs'
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
+
+// Y10：版面自訂——可隱藏用不到的提示條（不影響底層的紀律檢查/熔斷邏輯，純顯示層級）。
+const STRIP_DEFS = [
+  { key: 'regime', label: '市場體制' },
+  { key: 'lossLimit', label: '虧損上限熔斷' },
+  { key: 'corrWarn', label: '高相關警示' },
+]
+const LAYOUT_PAGE_KEY = 'command-strips'
+const layoutPrefs = ref(loadLayoutPrefs(LAYOUT_PAGE_KEY, STRIP_DEFS.map(s => s.key)))
+const showLayoutPanel = ref(false)
+
+function isStripHidden(key) { return layoutPrefs.value.hidden.includes(key) }
+function toggleStrip(key) {
+  const hidden = isStripHidden(key)
+    ? layoutPrefs.value.hidden.filter(k => k !== key)
+    : [...layoutPrefs.value.hidden, key]
+  layoutPrefs.value = { ...layoutPrefs.value, hidden }
+  saveLayoutPrefs(LAYOUT_PAGE_KEY, layoutPrefs.value)
+}
 
 const account = ref(1000000)
 const riskPct = ref(1)
@@ -356,6 +387,14 @@ onBeforeUnmount(() => window.removeEventListener('storage', onJournalStorage))
 .mini { display: inline-flex; align-items: center; gap: 4px; font-size: 0.8rem; color: var(--text-muted); }
 .inp { background: var(--bg-well); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 10px; padding: 8px 12px; font-size: 0.9rem; }
 .w130 { width: 130px; } .w70 { width: 70px; } .w200 { width: 200px; }
+
+.layout-panel {
+  margin-top: 10px; padding: 8px 14px; border-radius: 10px;
+  border: 1px solid var(--border-color); background: var(--bg-well);
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap; font-size: 0.82rem;
+}
+.layout-panel-label { color: var(--text-muted); }
+.layout-strip-item { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
 
 .regime-strip {
   margin-top: 12px;

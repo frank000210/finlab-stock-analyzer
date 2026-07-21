@@ -294,9 +294,9 @@
 import PageFocusBanner from '../components/PageFocusBanner.vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { createChart } from 'lightweight-charts'
+import { loadWatchlist as loadSharedWatchlist, addToWatchlist, removeFromWatchlist } from '../lib/watchlist'
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
-const WATCHLIST_STORAGE_KEY = 'finlab_watchlist'
 const filters = [
   { label: '全部', value: 'ALL' },
   { label: '買進', value: 'BUY' },
@@ -317,7 +317,7 @@ const errorMessage = ref('')
 const selectedFilter = ref('ALL')
 const watchInput = ref('')
 const watchSearchResults = ref([])
-const watchlist = ref(loadWatchlist())
+const watchlist = ref(loadSharedWatchlist())
 const rawSignals = ref([])
 const profiles = ref({})
 const histories = ref({})
@@ -480,7 +480,15 @@ onMounted(async () => {
   }, 60000)
 
   window.addEventListener('resize', queueSparklineRender)
+  // Y1：觀察清單頁（或其他分頁）異動後，同分頁即時反映最新清單
+  window.addEventListener('storage', onWatchlistStorageChange)
 })
+
+function onWatchlistStorageChange(e) {
+  if (e.key && e.key !== 'finlab_watchlist') return
+  watchlist.value = loadSharedWatchlist()
+  loadDashboard(true)
+}
 
 onBeforeUnmount(() => {
   if (clockTimer) window.clearInterval(clockTimer)
@@ -488,6 +496,7 @@ onBeforeUnmount(() => {
   if (searchTimer) window.clearTimeout(searchTimer)
   if (renderFrame) window.cancelAnimationFrame(renderFrame)
   window.removeEventListener('resize', queueSparklineRender)
+  window.removeEventListener('storage', onWatchlistStorageChange)
   destroyAllSparklines()
 })
 
@@ -661,8 +670,7 @@ async function submitWatchInput() {
 }
 
 function addWatchSymbol(symbol) {
-  watchlist.value = uniqueSymbols([symbol, ...watchlist.value])
-  persistWatchlist()
+  watchlist.value = addToWatchlist(symbol)
   watchInput.value = ''
   watchSearchResults.value = []
   errorMessage.value = ''
@@ -670,24 +678,8 @@ function addWatchSymbol(symbol) {
 }
 
 function removeWatchSymbol(symbol) {
-  watchlist.value = watchlist.value.filter(item => item !== symbol)
-  persistWatchlist()
+  watchlist.value = removeFromWatchlist(symbol)
   loadDashboard(true)
-}
-
-function persistWatchlist() {
-  localStorage.setItem(WATCHLIST_STORAGE_KEY, JSON.stringify(watchlist.value))
-}
-
-function loadWatchlist() {
-  try {
-    const raw = localStorage.getItem(WATCHLIST_STORAGE_KEY)
-    if (!raw) return []
-    const parsed = JSON.parse(raw)
-    return Array.isArray(parsed) ? uniqueSymbols(parsed) : []
-  } catch {
-    return []
-  }
 }
 
 async function apiGet(path) {

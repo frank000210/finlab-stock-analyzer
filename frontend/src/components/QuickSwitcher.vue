@@ -47,25 +47,42 @@ const inputEl = ref(null)
 const stockHits = ref([])
 let debounceTimer = null
 
-// 頁面捷徑（含常用別名，全部可被查詢命中）
+// Y9：頁面捷徑（含常用別名，全部可被查詢命中）——原本只涵蓋 12 個路由，
+// 對照 router.js 後把其餘不需股票代號的靜態路由全部補齊。
 const PAGES = [
+  { icon: '⭐', title: '首頁', sub: '/', to: '/', alias: 'home 首頁 最近瀏覽' },
+  { icon: '🎯', title: '決策面板', sub: '/decision', to: '/decision', alias: 'decision 決策' },
+  { icon: '⭐', title: '觀察清單', sub: '/watchlist', to: '/watchlist', alias: 'watchlist 觀察清單 自選股' },
   { icon: '⚡', title: '作戰台', sub: '/command', to: '/command', alias: 'command 作戰 儀表板' },
   { icon: '📡', title: '訊號', sub: '/signals', to: '/signals', alias: 'signals 觀察清單訊號' },
-  { icon: '📓', title: '交易日誌', sub: '/journal', to: '/journal', alias: 'journal 日誌 複盤' },
-  { icon: '🔥', title: '投組風險', sub: '/portfolio-heat', to: '/portfolio-heat', alias: 'portfolio heat 熱度 組合' },
-  { icon: '🛡️', title: '部位風控', sub: '/risk-sizing', to: '/risk-sizing', alias: 'risk sizing 凱利 部位' },
-  { icon: '🎯', title: '決策面板', sub: '/decision', to: '/decision', alias: 'decision 決策' },
-  { icon: '🕸️', title: '關聯圖', sub: '/graph', to: '/graph', alias: 'graph 關聯' },
-  { icon: '🔄', title: '類股輪動', sub: '/rotation', to: '/rotation', alias: 'rotation 輪動 rrg' },
-  { icon: '🎲', title: '蒙地卡羅', sub: '/monte-carlo', to: '/monte-carlo', alias: 'monte carlo 破產 模擬' },
+  { icon: '🤖', title: 'AI 交易信號', sub: '/ai-signals', to: '/ai-signals', alias: 'ai signals AI訊號' },
+  { icon: '✅', title: '交易核准中心', sub: '/trade-approval', to: '/trade-approval', alias: 'trade approval 核准 紙上交易' },
+  { icon: '📋', title: '盤後日報', sub: '/daily-brief', to: '/daily-brief', alias: 'daily brief 日報' },
   { icon: '📊', title: '總覽', sub: '/overview', to: '/overview', alias: 'overview 總覽' },
+  { icon: '🕸️', title: '關聯圖', sub: '/graph', to: '/graph', alias: 'graph 關聯' },
+  { icon: '🕸️', title: '關聯圖01', sub: '/graph01', to: '/graph01', alias: 'graph01 關聯圖二' },
+  { icon: '🔄', title: '類股輪動', sub: '/rotation', to: '/rotation', alias: 'rotation 輪動 rrg' },
+  { icon: '⚖️', title: '多股比較', sub: '/compare', to: '/compare', alias: 'compare 比較 多股' },
+  { icon: '🚦', title: '大盤多空', sub: '/market-lights', to: '/market-lights', alias: 'market lights 大盤 多空 三燈號' },
+  { icon: '🔍', title: '新聞可信度', sub: '/news-checker', to: '/news-checker', alias: 'news checker 新聞查核' },
+  { icon: '🔎', title: 'AI 選股', sub: '/screener', to: '/screener', alias: 'screener 選股 自然語言' },
+  { icon: '🛡️', title: '部位風控', sub: '/risk-sizing', to: '/risk-sizing', alias: 'risk sizing 凱利 部位' },
+  { icon: '🔥', title: '投組風險', sub: '/portfolio-heat', to: '/portfolio-heat', alias: 'portfolio heat 熱度 組合' },
+  { icon: '🚨', title: '風控監控', sub: '/risk-monitor', to: '/risk-monitor', alias: 'risk monitor 風控監控' },
+  { icon: '🧮', title: '交易儀表板', sub: '/trade-dashboard', to: '/trade-dashboard', alias: 'trade dashboard 交易儀表板' },
+  { icon: '📓', title: '交易日誌', sub: '/journal', to: '/journal', alias: 'journal 日誌 複盤' },
+  { icon: '🎲', title: '風險模擬', sub: '/monte-carlo', to: '/monte-carlo', alias: 'monte carlo 蒙地卡羅 破產 模擬' },
+  { icon: '🔔', title: '價格警報', sub: '/price-alerts', to: '/price-alerts', alias: 'price alerts 警報 提醒' },
   { icon: '🚀', title: '新手上路', sub: '/guide', to: '/guide', alias: 'guide 導覽 教學' },
+  { icon: '📰', title: '資料爬蟲與新聞檢查', sub: '/data-agent', to: '/data-agent', alias: 'data agent 爬蟲 新聞檢查' },
+  { icon: '🧩', title: '信號規則編輯器', sub: '/signal-rules', to: '/signal-rules', alias: 'signal rules 規則編輯器' },
   { icon: '⚙️', title: '設定', sub: '/settings', to: '/settings', alias: 'settings 設定' },
+  { icon: '🔧', title: '後台', sub: '/admin', to: '/admin', alias: 'admin 後台 管理' },
 ]
 
 const pageHits = computed(() => {
   const q = query.value.trim().toLowerCase()
-  if (!q) return PAGES.slice(0, 6)
+  if (!q) return PAGES.slice(0, 8)
   return PAGES.filter(p => (p.title + ' ' + p.sub + ' ' + p.alias).toLowerCase().includes(q))
 })
 

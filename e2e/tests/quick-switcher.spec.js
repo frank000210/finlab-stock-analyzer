@@ -42,3 +42,27 @@ test('Esc 關閉快速切換', async ({ page }) => {
   await page.keyboard.press('Escape')
   await expect(page.locator('.qs-panel')).toBeHidden()
 })
+
+// Y9：QuickSwitcher 原本只涵蓋 12 個路由，router.js 有 28 個不需股票代號的靜態
+// 路由——這裡驗證幾個先前缺漏、後來補上的頁面（觀察清單/多股比較/交易核准中心/後台）都能被搜到並跳轉。
+test('Ctrl+K 涵蓋先前缺漏的路由 (Y9)', async ({ page }) => {
+  await page.goto('/')
+
+  const cases = [
+    { query: '觀察清單', urlPart: '/watchlist' },
+    { query: '多股比較', urlPart: '/compare' },
+    { query: '交易核准', urlPart: '/trade-approval' },
+    { query: '後台', urlPart: '/admin' },
+  ]
+
+  for (const c of cases) {
+    await page.keyboard.press('Control+k')
+    const panel = page.locator('.qs-panel')
+    await expect(panel).toBeVisible()
+    await page.locator('.qs-input').fill(c.query)
+    await expect(panel.locator('.qs-item').first()).toBeVisible()
+    await page.keyboard.press('Enter')
+    await expect(page).toHaveURL(new RegExp(c.urlPart.replace('/', '\\/')))
+    await expect(panel).toBeHidden()
+  }
+})
