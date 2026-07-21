@@ -219,8 +219,11 @@
 
       <p v-if="aiCoachError" class="error-text">{{ aiCoachError }}</p>
       <div v-if="aiCoachInsight" class="ai-coach-box">
-        <strong>🤖 AI 複盤（細緻模式，非統計規則）</strong>
-        <p>{{ aiCoachInsight }}</p>
+        <strong>🤖 AI 複盤（細緻模式，非統計規則） <InfoTooltip v-bind="metricGlossary.aiJournalCoach" /></strong>
+        <p v-html="aiCoachInsightHtml"></p>
+        <button class="btn xs" type="button" @click="copyAiCoach(aiCoachInsight)">
+          {{ aiCoachCopied ? '已複製！' : '📋 複製' }}
+        </button>
       </div>
     </section>
   </div>
@@ -233,6 +236,11 @@ import { riskPerShare, profitPerShare, realizedR, tradePnl as pnl, riskAmount, l
 import { fetchLivePrices } from '../lib/livePriceCache'
 import { useSparkline } from '../composables/useSparkline'
 import { resolveStockName } from '../lib/stockSearch'
+import InfoTooltip from '../components/InfoTooltip.vue'
+import { metricGlossary } from '../lib/metricGlossary'
+import { useAiStatus } from '../composables/useAiStatus'
+import { renderAiMarkdown } from '../composables/useAiMarkdown'
+import { useClipboard } from '../composables/useClipboard'
 
 const stockStore = useStockStore()
 
@@ -241,22 +249,14 @@ const form = reactive({ symbol: stockStore.symbol || '', side: 'long', entry: nu
 
 // W6+W7：AI 複盤與進場理由品質檢查，皆為選填、手動觸發，未設定 AI 服務時
 // 相關按鈕整個不顯示（不影響交易日誌本身的核心功能）
-const aiConfigured = ref(false)
+const { aiConfigured, checkAiConfigured } = useAiStatus()
 const aiCoachLoading = ref(false)
 const aiCoachInsight = ref('')
 const aiCoachError = ref('')
+const aiCoachInsightHtml = computed(() => renderAiMarkdown(aiCoachInsight.value))
+const { copied: aiCoachCopied, copy: copyAiCoach } = useClipboard()
 const catalystChecking = ref(false)
 const catalystAssessment = ref('')
-
-async function checkAiConfigured() {
-  try {
-    const res = await fetch('/api/v1/stocks/ai/status')
-    const json = await res.json()
-    aiConfigured.value = Boolean(json?.data?.configured)
-  } catch {
-    aiConfigured.value = false
-  }
-}
 
 async function loadAiCoach() {
   aiCoachLoading.value = true
@@ -983,5 +983,6 @@ onMounted(() => {
 .coach-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
 .coach-head h3 { margin: 0; }
 .ai-coach-box { margin-top: 10px; border: 1px dashed var(--border-color); border-radius: 10px; padding: 10px 12px; font-size: 0.86rem; }
-.ai-coach-box p { margin: 6px 0 0; color: var(--text-secondary); line-height: 1.7; white-space: pre-line; }
+.ai-coach-box p { margin: 6px 0; color: var(--text-secondary); line-height: 1.7; }
+.ai-coach-box :deep(strong) { color: var(--text-primary); }
 </style>

@@ -25,7 +25,7 @@
       <!-- W4：AI 輿情摘要——使用者主動觸發，總結已抓到的標題清單，不杜撰內容 -->
       <section v-if="aiConfigured" class="card ai-news-section">
         <div class="section-head compact">
-          <div><h2>🤖 AI 輿情摘要</h2></div>
+          <div><h2>🤖 AI 輿情摘要 <InfoTooltip v-bind="metricGlossary.newsAiSummary" /></h2></div>
           <button class="btn btn-primary ai-btn" :disabled="aiNewsLoading" @click="loadAiNewsSummary">
             <span v-if="aiNewsLoading" class="loading-spinner btn-spinner" aria-hidden="true"></span>
             {{ aiNewsLoading ? '分析中…' : (aiNewsSummary ? '重新產生' : '產生輿情摘要') }}
@@ -33,7 +33,12 @@
         </div>
         <p v-if="aiNewsError" class="error-text">{{ aiNewsError }}</p>
         <p v-else-if="!aiNewsSummary" class="muted ai-hint">點右上按鈕，讓 AI 把下方已抓到的討論與報導標題總結成輿情判讀（約 15～40 秒）。</p>
-        <div v-if="aiNewsSummary" class="ai-text" v-html="aiNewsSummaryHtml"></div>
+        <div v-if="aiNewsSummary" class="ai-body">
+          <div class="ai-text" v-html="aiNewsSummaryHtml"></div>
+          <button class="btn xs" type="button" @click="copyAiNewsSummary(aiNewsSummary.summary)">
+            {{ aiNewsCopied ? '已複製！' : '📋 複製' }}
+          </button>
+        </div>
       </section>
 
       <!-- Buzz Score -->
@@ -240,6 +245,10 @@ import { useRoute } from 'vue-router'
 import { useStockStore } from '../stores/stock.js'
 import { useChartTheme } from '../composables/useChartTheme'
 import { useSparkline } from '../composables/useSparkline'
+import { useAiStatus } from '../composables/useAiStatus'
+import { renderAiMarkdown } from '../composables/useAiMarkdown'
+import { useClipboard } from '../composables/useClipboard'
+import { metricGlossary } from '../lib/metricGlossary'
 
 const route = useRoute()
 const stockStore = useStockStore()
@@ -252,20 +261,12 @@ const history = ref([])
 const sortOrder = ref('desc') // 'desc' = 由近至遠, 'asc' = 由遠至近
 
 // W4：AI 輿情摘要（使用者主動觸發，不自動載入——延遲 15~40 秒且有成本）
-const aiConfigured = ref(false)
+const { aiConfigured, checkAiConfigured } = useAiStatus()
 const aiNewsSummary = ref(null)
 const aiNewsLoading = ref(false)
 const aiNewsError = ref('')
-
-function escapeHtml(s) {
-  return String(s)
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;').replace(/'/g, '&#39;')
-}
-const aiNewsSummaryHtml = computed(() => {
-  const raw = aiNewsSummary.value?.summary || ''
-  return escapeHtml(raw).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br />')
-})
+const aiNewsSummaryHtml = computed(() => renderAiMarkdown(aiNewsSummary.value?.summary))
+const { copied: aiNewsCopied, copy: copyAiNewsSummary } = useClipboard()
 
 async function loadAiNewsSummary() {
   aiNewsLoading.value = true
@@ -281,16 +282,6 @@ async function loadAiNewsSummary() {
     aiNewsError.value = e?.message || '摘要產生失敗'
   } finally {
     aiNewsLoading.value = false
-  }
-}
-
-async function checkAiConfigured() {
-  try {
-    const res = await fetch('/api/v1/stocks/ai/status')
-    const json = await res.json()
-    aiConfigured.value = Boolean(json?.data?.configured)
-  } catch {
-    aiConfigured.value = false
   }
 }
 
@@ -400,6 +391,7 @@ watch(() => route.params.symbol, (sym) => {
 .ai-news-section { display: flex; flex-direction: column; gap: 10px; }
 .ai-news-section .ai-btn { white-space: nowrap; }
 .ai-hint { font-size: 0.8rem; line-height: 1.6; margin: 0; }
+.ai-body { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
 .ai-text {
   font-size: 0.86rem; line-height: 1.85; color: var(--text-secondary);
   background: var(--bg-well, rgba(148, 163, 184, 0.06));

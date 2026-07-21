@@ -144,6 +144,40 @@ async def get_log_stats(_admin: dict = Depends(require_admin)):
     }
 
 
+@router.get("/llm-usage")
+async def get_llm_usage(_admin: dict = Depends(require_admin)):
+    """X2：站長看不到 AI 用量——額度用完時只會在個別功能看到「已達上限」
+    錯誤，沒地方能事先掌握消耗速度、抓出異常濫用來源。回傳近 7 天每日
+    LLM 呼叫次數（key 是 `llm_calls:{date}`，見 llm/client.py 的每日計數）
+    與目前設定的每日上限，供 /admin 面板畫成小趨勢圖。
+    """
+    from datetime import date, timedelta
+
+    from ..config.settings import get_settings
+
+    if get_setting is None:
+        return {"success": False, "error": "MongoDB 設定輔助函式不可用"}
+
+    today = date.today()
+    days = []
+    for offset in range(6, -1, -1):
+        d = today - timedelta(days=offset)
+        try:
+            count = int(await get_setting(f"llm_calls:{d.isoformat()}", 0) or 0)
+        except Exception:
+            count = 0
+        days.append({"date": d.isoformat(), "count": count})
+
+    return {
+        "success": True,
+        "data": {
+            "days": days,
+            "daily_limit": get_settings().llm_daily_call_limit,
+            "today_count": days[-1]["count"] if days else 0,
+        },
+    }
+
+
 @router.get("/settings")
 async def get_settings_list(_admin: dict = Depends(require_admin)):
     await _ensure_setting_helpers_available()

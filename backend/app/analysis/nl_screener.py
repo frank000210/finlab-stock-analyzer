@@ -95,15 +95,19 @@ def _match_row(row: dict, criteria: dict) -> bool:
     return True
 
 
-async def run_screener(query: str) -> dict:
-    """自然語言選股本體。快取 6 小時（跟 peer_compare 同節奏），key 為查詢文字。"""
+async def run_screener(query: str, expand: bool = False) -> dict:
+    """自然語言選股本體。快取 6 小時（跟 peer_compare 同節奏），key 為查詢文字。
+
+    X10：expand=True 時把候選池上限翻倍——第一輪候選池太窄找不到符合條件
+    的股票時，前端可以直接要求擴大範圍重查，不用逼使用者換句話重問。
+    """
     from datetime import date
 
     from .peer_compare import _fetch_market_quotes, _one_metrics, _stock_info_maps
     from ..db.cache import get_cache, set_cache
 
     normalized = query.strip()
-    cache_key = f"nl_screener:v1:{normalized}:{date.today().isoformat()}"
+    cache_key = f"nl_screener:v1:{normalized}:{'expand' if expand else 'std'}:{date.today().isoformat()}"
     try:
         cached = await get_cache(cache_key)
         if cached:
@@ -111,6 +115,7 @@ async def run_screener(query: str) -> dict:
     except Exception:
         pass
 
+    max_candidates = MAX_CANDIDATES * 2 if expand else MAX_CANDIDATES
     criteria = await parse_query(normalized)
     industry_map, name_map = await _stock_info_maps()
 
@@ -134,12 +139,12 @@ async def run_screener(query: str) -> dict:
         candidate_syms = sorted(
             (s for s in industry_map if len(s) == 4 and s.isdigit()),
             key=lambda s: quotes.get(s, 0.0), reverse=True,
-        )[:MAX_CANDIDATES]
+        )[:max_candidates]
     else:
         # LLM 候選一律保留（題材股常是低成交金額的中小型股，跟官方分類
         # 比對到的股票混在一起依成交金額排序會被擠掉），剩餘名額才給
         # 依成交金額排序的官方分類比對結果補滿。
-        remaining = max(0, MAX_CANDIDATES - len(llm_candidates))
+        remaining = max(0, max_candidates - len(llm_candidates))
         fill = sorted(
             (s for s in keyword_matches if s not in llm_candidates),
             key=lambda s: quotes.get(s, 0.0), reverse=True,
@@ -156,6 +161,8 @@ async def run_screener(query: str) -> dict:
         "query": normalized,
         "criteria": criteria,
         "candidate_pool_size": len(candidate_syms),
+        "candidate_pool_max": max_candidates,
+        "expanded": expand,
         "matched": matched,
         "matched_count": len(matched),
         "as_of": date.today().isoformat(),

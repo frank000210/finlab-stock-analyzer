@@ -36,6 +36,8 @@ CACHE_TTL = {
     # W2 AI 摘要：來源多為日頻資料，且每次呼叫都有 LLM 成本與 15~40 秒延遲，
     # 快取拉長到 6 小時（cache key 另含日期，跨日自然失效）
     "ai_summary": 360,
+    # X1：LLM 端點 per-IP 節流窗口，10 分鐘
+    "rate_limit": 10,
 }
 
 

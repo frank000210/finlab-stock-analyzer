@@ -12,6 +12,8 @@
           <p class="muted" v-if="brief">
             <span v-if="brief.as_of">資料日期 {{ brief.as_of }}</span>
             <span v-if="brief.count != null"> · {{ brief.count }} 檔觀察中</span>
+            <!-- X8：標示導讀段落是否為 AI 生成，跟全站來源標註慣例一致 -->
+            <span v-if="brief.ai_generated" class="ai-badge" title="開頭導讀由 AI 依結構化資料生成，代碼/日期/警示等具體數字皆來自確定性模板，不受 AI 改寫影響">🤖 含 AI 導讀</span>
           </p>
         </div>
         <div class="actions">
@@ -26,7 +28,12 @@
       <p v-if="error" class="error-text">{{ error }}</p>
       <p v-if="sendMsg" class="muted small">{{ sendMsg }}</p>
 
-      <pre v-if="brief && brief.text" class="brief-text">{{ brief.text }}</pre>
+      <template v-if="brief && brief.text">
+        <pre class="brief-text">{{ brief.text }}</pre>
+        <button class="btn xs" type="button" @click="copyBrief(brief.text)">
+          {{ briefCopied ? '已複製！' : '📋 複製' }}
+        </button>
+      </template>
       <p v-else-if="brief && !brief.text" class="muted empty">{{ brief.note || '尚無日報內容。' }}</p>
 
       <p class="disclaimer">※ 排程每個平日收盤後（預設 15:35 台灣時間）自動產生並推播；這裡的「重新產生」是隨叫隨到版，內容相同。僅為訊號摘要，非投資建議。</p>
@@ -36,10 +43,12 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import { useClipboard } from '../composables/useClipboard'
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 
 const brief = ref(null)
+const { copied: briefCopied, copy: copyBrief } = useClipboard()
 const loading = ref(false)
 const error = ref('')
 const sending = ref(false)
@@ -84,6 +93,7 @@ onMounted(loadBrief)
 .head-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
 .head-row h2 { margin: 0 0 4px; }
 .actions { display: flex; gap: 8px; }
+.ai-badge { margin-left: 8px; font-size: 0.72rem; padding: 2px 8px; border-radius: 999px; background: rgba(99,102,241,0.15); color: #a5b4fc; cursor: help; }
 .brief-text {
   white-space: pre-wrap;
   word-break: break-word;

@@ -1,10 +1,11 @@
 """同業比較 (Peer Comparison) API — U1."""
 
-from fastapi import APIRouter, Body, HTTPException
+from fastapi import APIRouter, Body, Depends, HTTPException
 from pydantic import BaseModel
 
 from ..analysis.peer_compare import ai_suggest_peers, build_comparison, get_peer_group, set_peer_group
 from ..data.us_symbols import is_tw_symbol, normalize_symbol
+from ..llm import check_llm_rate_limit
 
 router = APIRouter(prefix="/api/v1/stocks", tags=["peers"])
 
@@ -47,7 +48,7 @@ async def save_peers(symbol: str, payload: PeerGroupPayload = Body(...)):
         raise HTTPException(status_code=502, detail=f"同業群組儲存失敗：{exc}")
 
 
-@router.post("/{symbol}/peers/ai-suggest")
+@router.post("/{symbol}/peers/ai-suggest", dependencies=[Depends(check_llm_rate_limit)])
 async def suggest_peers(symbol: str):
     """W1：AI 直接建議同業（取代手動複製提示詞去 Gemini 再貼回）。
 

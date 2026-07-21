@@ -103,6 +103,22 @@
         </div>
       </div>
 
+      <!-- Tab: AI 用量（X2）：站長事先看到消耗速度，避免額度用完才發現 -->
+      <div v-if="activeTab === 'llm'" class="tab-panel">
+        <h3>AI 用量（近 7 天）</h3>
+        <p class="muted small">每日上限 {{ llmUsage.daily_limit ?? '—' }} 次；今日已用 {{ llmUsage.today_count ?? 0 }} 次。額度為全站共用（跨所有 AI 功能），用完當天所有 AI 功能會暫時無法使用。</p>
+        <div class="pv-list">
+          <div v-for="d in llmUsage.days" :key="d.date" class="pv-row">
+            <span class="pv-page">{{ d.date }}</span>
+            <div class="pv-bar-wrap">
+              <div class="pv-bar" :class="{ 'pv-bar-warn': llmUsage.daily_limit && d.count >= llmUsage.daily_limit }" :style="{ width: llmBarWidth(d.count) }"></div>
+            </div>
+            <span class="pv-count">{{ d.count }}</span>
+          </div>
+        </div>
+        <div v-if="!llmUsage.days?.length" class="empty">尚無資料</div>
+      </div>
+
       <!-- Tab: Settings -->
       <div v-if="activeTab === 'settings'" class="tab-panel">
         <div class="panel-header">
@@ -178,6 +194,7 @@ const activeTab = ref('logs')
 const tabs = [
   { key: 'logs', icon: '📋', label: '訪客紀錄' },
   { key: 'pageviews', icon: '📊', label: '瀏覽統計' },
+  { key: 'llm', icon: '🤖', label: 'AI 用量' },
   { key: 'settings', icon: '⚙️', label: '系統設定' },
   { key: 'admins', icon: '👤', label: '管理員' },
   { key: 'notify', icon: '🔔', label: '通知設定' },
@@ -187,6 +204,7 @@ const stats = ref({ today_visitors: 0, total_pageviews: 0, unique_visitors: 0 })
 const logs = ref([])
 const logFilter = ref('')
 const pageviewMap = ref({})
+const llmUsage = ref({ days: [], daily_limit: null, today_count: 0 })
 const settingsMap = reactive({})
 const adminEmails = ref([])
 const showAddSetting = ref(false)
@@ -200,6 +218,9 @@ const notifyResult = ref(null)
 
 const maxPV = computed(() => Math.max(...Object.values(pageviewMap.value), 1))
 function barWidth(count) { return `${(count / maxPV.value) * 100}%` }
+
+const maxLlmBar = computed(() => Math.max(...(llmUsage.value.days || []).map(d => d.count), llmUsage.value.daily_limit || 0, 1))
+function llmBarWidth(count) { return `${(count / maxLlmBar.value) * 100}%` }
 
 function formatTime(ts) {
   if (!ts) return '-'
@@ -234,6 +255,14 @@ async function loadPageviews() {
     const r = await fetch('/api/v1/analytics/pageviews', { headers: authHeaders() })
     const d = await r.json()
     pageviewMap.value = d || {}
+  } catch {}
+}
+
+async function loadLlmUsage() {
+  try {
+    const r = await fetch('/api/v1/admin/llm-usage', { headers: authHeaders() })
+    const d = await r.json()
+    if (d.success) llmUsage.value = d.data
   } catch {}
 }
 
@@ -368,7 +397,7 @@ onMounted(async () => {
   // Handle OAuth redirect callback (#id_token=...) first
   await handleRedirectCallback()
   if (authStore.isAdmin) {
-    await Promise.all([loadStats(), loadLogs(), loadPageviews(), loadSettings(), loadAdmins()])
+    await Promise.all([loadStats(), loadLogs(), loadPageviews(), loadLlmUsage(), loadSettings(), loadAdmins()])
   } else if (authStore.isLoggedIn) {
     // Logged in but not an authorized admin
     loginError.value = '此帳號未獲授權進入後台'
@@ -448,7 +477,10 @@ onMounted(async () => {
 .pv-page { min-width: 140px; font-size: 0.85rem; color: var(--text-secondary, #aaa); }
 .pv-bar-wrap { flex: 1; height: 8px; background: rgba(255,255,255,0.06); border-radius: 4px; overflow: hidden; }
 .pv-bar { height: 100%; background: linear-gradient(90deg, #6366f1, var(--accent-purple)); border-radius: 4px; transition: width 0.5s ease; }
+.pv-bar-warn { background: linear-gradient(90deg, #f59e0b, #ef4444); }
 .pv-count { min-width: 40px; text-align: right; font-weight: 600; font-size: 0.85rem; }
+.muted { color: var(--text-muted, #666); }
+.small { font-size: 0.8rem; }
 
 .add-setting-form, .add-admin-form { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
 .settings-list, .admins-list { display: flex; flex-direction: column; gap: 8px; }

@@ -2,7 +2,9 @@
 
 import logging
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+
+from ..llm import check_llm_rate_limit
 
 router = APIRouter(prefix="/api/v1/stocks", tags=["social-buzz"])
 logger = logging.getLogger(__name__)
@@ -19,7 +21,7 @@ async def get_social_buzz_history(symbol: str, days: int = 30):
         return {"success": False, "error": str(e)}
 
 
-@router.get("/{symbol}/social-buzz/ai-summary")
+@router.get("/{symbol}/social-buzz/ai-summary", dependencies=[Depends(check_llm_rate_limit)])
 async def get_news_ai_summary(symbol: str):
     """W4：LLM 把已抓到的 PTT/新聞/財經媒體標題摘成白話輿情判讀。
 

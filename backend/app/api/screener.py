@@ -1,19 +1,20 @@
 """自然語言選股 API — W8."""
 
-from fastapi import APIRouter, Body, HTTPException
+from fastapi import APIRouter, Body, Depends, HTTPException
 from pydantic import BaseModel
 
 from ..analysis.nl_screener import run_screener
-from ..llm import LLMUnavailable, is_llm_configured
+from ..llm import LLMUnavailable, check_llm_rate_limit, is_llm_configured
 
 router = APIRouter(prefix="/api/v1/screener", tags=["screener"])
 
 
 class ScreenerQuery(BaseModel):
     query: str
+    expand: bool = False  # X10：候選池太窄找不到結果時，前端可要求擴大範圍重查
 
 
-@router.post("/query")
+@router.post("/query", dependencies=[Depends(check_llm_rate_limit)])
 async def query_screener(payload: ScreenerQuery = Body(...)):
     """自然語言選股：LLM 只解析成篩選條件，實際篩選用網站既有數據跑數字比較。
 
@@ -28,7 +29,7 @@ async def query_screener(payload: ScreenerQuery = Body(...)):
     if not is_llm_configured():
         raise HTTPException(status_code=503, detail="AI 服務尚未設定")
     try:
-        return {"success": True, "data": await run_screener(query)}
+        return {"success": True, "data": await run_screener(query, expand=payload.expand)}
     except LLMUnavailable as exc:
         raise HTTPException(status_code=503, detail=str(exc))
     except Exception as exc:

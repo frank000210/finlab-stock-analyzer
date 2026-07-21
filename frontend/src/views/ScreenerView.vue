@@ -4,7 +4,7 @@
 
     <header class="page-header">
       <div>
-        <h1>🔎 AI 選股</h1>
+        <h1>🔎 AI 選股 <InfoTooltip v-bind="metricGlossary.nlScreener" /></h1>
         <p class="subtitle">AI 只負責把你的話解析成篩選條件，實際篩選用網站既有數據比對，不會幫你編造股票</p>
       </div>
     </header>
@@ -22,11 +22,11 @@
             class="inp"
             rows="2"
             placeholder="例如：找散熱概念股，本益比小於20、營收年增大於10%"
-            @keydown.enter.exact.prevent="runQuery"
+            @keydown.enter.exact.prevent="runQuery()"
           ></textarea>
         </label>
         <div class="form-actions">
-          <button class="btn btn-primary" :disabled="loading || !query.trim()" @click="runQuery">
+          <button class="btn btn-primary" :disabled="loading || !query.trim()" @click="runQuery()">
             <span v-if="loading" class="loading-spinner btn-spinner" aria-hidden="true"></span>
             {{ loading ? '篩選中…（約 20~60 秒）' : '開始篩選' }}
           </button>
@@ -44,7 +44,19 @@
           <span v-if="result.criteria.pe_min != null" class="kw-tag">PE ≥ {{ result.criteria.pe_min }}</span>
           <span v-if="result.criteria.revenue_yoy_min != null" class="kw-tag">營收年增 ≥ {{ result.criteria.revenue_yoy_min }}%</span>
         </div>
-        <p class="muted small">依產業關鍵字比對＋成交金額排序取候選池 {{ result.candidate_pool_size }} 檔（非嚴格全市場掃描），其中符合條件 {{ result.matched_count }} 檔。</p>
+        <div class="pool-row">
+          <p class="muted small">依產業關鍵字比對＋成交金額排序取候選池 {{ result.candidate_pool_size }} 檔（非嚴格全市場掃描），其中符合條件 {{ result.matched_count }} 檔。</p>
+          <!-- X10：候選池太窄找不到符合條件的股票時，直接擴大範圍重查，不用逼使用者換句話重問 -->
+          <button
+            v-if="!result.expanded"
+            class="btn xs"
+            type="button"
+            :disabled="loading"
+            @click="runQuery(true)"
+          >
+            🔍 擴大候選池重查（{{ (result.candidate_pool_max || 0) * 2 }} 檔）
+          </button>
+        </div>
 
         <div v-if="result.matched.length" class="table-wrap">
           <table>
@@ -75,13 +87,16 @@
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import PageFocusBanner from '../components/PageFocusBanner.vue'
+import InfoTooltip from '../components/InfoTooltip.vue'
+import { metricGlossary } from '../lib/metricGlossary'
+import { useAiStatus } from '../composables/useAiStatus'
 
 const router = useRouter()
 const query = ref('')
 const loading = ref(false)
 const error = ref('')
 const result = ref(null)
-const aiConfigured = ref(false)
+const { aiConfigured, checkAiConfigured } = useAiStatus()
 
 function valueTone(v) {
   if (v == null) return ''
@@ -92,14 +107,15 @@ function goToStock(symbol) {
   router.push(`/stocks/${symbol}`)
 }
 
-async function runQuery() {
+async function runQuery(expand = false) {
   if (!query.value.trim()) return
   loading.value = true
   error.value = ''
   try {
+    // 呼叫 LLM，重試只會讓使用者等更久，不套用重試包裝（同 W2/W4 的慣例）
     const res = await fetch('/api/v1/screener/query', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query: query.value.trim() }),
+      body: JSON.stringify({ query: query.value.trim(), expand }),
     })
     const json = await res.json()
     if (!res.ok || !json.success) throw new Error(json.detail || '查詢失敗')
@@ -108,16 +124,6 @@ async function runQuery() {
     error.value = e?.message || '查詢失敗'
   } finally {
     loading.value = false
-  }
-}
-
-async function checkAiConfigured() {
-  try {
-    const res = await fetch('/api/v1/stocks/ai/status')
-    const json = await res.json()
-    aiConfigured.value = Boolean(json?.data?.configured)
-  } catch {
-    aiConfigured.value = false
   }
 }
 

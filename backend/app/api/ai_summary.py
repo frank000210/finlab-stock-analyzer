@@ -1,15 +1,15 @@
 """個股 AI 摘要 API — W2 試點。"""
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
 from ..analysis.ai_summary import build_ai_summary
 from ..data.us_symbols import is_tw_symbol, normalize_symbol
-from ..llm import LLMUnavailable, is_llm_configured
+from ..llm import LLMUnavailable, check_llm_rate_limit, is_llm_configured
 
 router = APIRouter(prefix="/api/v1/stocks", tags=["ai-summary"])
 
 
-@router.get("/{symbol}/ai-summary")
+@router.get("/{symbol}/ai-summary", dependencies=[Depends(check_llm_rate_limit)])
 async def ai_summary(symbol: str):
     """AI 依網站既有數據生成的個股現況摘要。
 

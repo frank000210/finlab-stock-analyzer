@@ -53,7 +53,7 @@
       <p class="disclaimer">※ 五層規則式分數為固定權重加權平均，非 AI 生成，可重現、可稽核。</p>
 
       <div v-if="result.llm_assessment?.available" class="llm-layer">
-        <strong>🤖 AI 語意層（僅供參考，不計入上方分數）</strong>
+        <strong>🤖 AI 語意層（僅供參考，不計入上方分數） <InfoTooltip v-bind="metricGlossary.newsCredibilityLlm" /></strong>
         <p>{{ result.llm_assessment.note }}</p>
       </div>
       <p v-else-if="aiConfigured" class="muted small">本次未取得 AI 語意層結果（可能逾時或內文過短），不影響上方五層分數。</p>
@@ -82,13 +82,17 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
 import PageFocusBanner from '../components/PageFocusBanner.vue'
+import InfoTooltip from '../components/InfoTooltip.vue'
+import { metricGlossary } from '../lib/metricGlossary'
+import { useAiStatus } from '../composables/useAiStatus'
+import { fetchWithRetry } from '../lib/apiFetch'
 
 const form = reactive({ url: '', title: '', text: '' })
 const loading = ref(false)
 const error = ref('')
 const result = ref(null)
 const history = ref([])
-const aiConfigured = ref(false)
+const { aiConfigured, checkAiConfigured } = useAiStatus()
 
 const LAYER_LABELS = {
   media_source: '媒體來源',
@@ -122,6 +126,8 @@ async function checkCredibility() {
   error.value = ''
   result.value = null
   try {
+    // 內含選填的 AI 語意層，可能要等 LLM 回應（15~40 秒），不套用重試包裝
+    // ——重試只會讓使用者等更久，若是 5xx 也可能重複耗用當日 AI 額度
     const res = await fetch('/api/v1/news/check-credibility', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -140,21 +146,11 @@ async function checkCredibility() {
 
 async function loadHistory() {
   try {
-    const res = await fetch('/api/v1/news/crawled-data?limit=10')
+    const res = await fetchWithRetry('/api/v1/news/crawled-data?limit=10')
     const json = await res.json()
     if (json.success) history.value = json.data.items || []
   } catch {
     // 歷史紀錄是附加資訊，抓不到不影響主要檢查功能
-  }
-}
-
-async function checkAiConfigured() {
-  try {
-    const res = await fetch('/api/v1/stocks/ai/status')
-    const json = await res.json()
-    aiConfigured.value = Boolean(json?.data?.configured)
-  } catch {
-    aiConfigured.value = false
   }
 }
 

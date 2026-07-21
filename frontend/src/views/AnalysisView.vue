@@ -196,10 +196,15 @@
 
       <div v-if="aiSummary" class="ai-body">
         <div class="ai-text" v-html="aiSummaryHtml"></div>
-        <p class="ai-note muted">
-          {{ aiSummary.model_note }}　資料日 {{ aiSummary.as_of }}
-          <span v-if="aiSummary.cached">（快取結果）</span>
-        </p>
+        <div class="ai-note-row">
+          <p class="ai-note muted">
+            {{ aiSummary.model_note }}　資料日 {{ aiSummary.as_of }}
+            <span v-if="aiSummary.cached">（快取結果）</span>
+          </p>
+          <button class="btn xs" type="button" @click="copyAiSummary(aiSummary.summary)">
+            {{ aiSummaryCopied ? '已複製！' : '📋 複製' }}
+          </button>
+        </div>
       </div>
     </section>
 
@@ -572,6 +577,9 @@ import { useSparkline } from '../composables/useSparkline'
 import { formatYyyymmdd } from '../lib/dateFormat'
 import { fetchWithRetry } from '../lib/apiFetch'
 import { detectFundamentalFlags } from '../lib/fundamentalFlags'
+import { useAiStatus } from '../composables/useAiStatus'
+import { renderAiMarkdown } from '../composables/useAiMarkdown'
+import { useClipboard } from '../composables/useClipboard'
 
 const theme = useChartTheme()
 const calendarEl = ref(null)
@@ -645,25 +653,12 @@ const turnoverLoading = ref(false) // R6：背景載入中提示，避免數字�
 const chipSummaryLoading = ref(false)
 
 // W2：AI 摘要（使用者主動觸發，不自動載入）
-const aiConfigured = ref(false)
+const { aiConfigured, checkAiConfigured } = useAiStatus()
 const aiSummary = ref(null)
 const aiLoading = ref(false)
 const aiError = ref('')
-
-// AI 回傳的是純文字（含 **粗體** 與條列），要渲染成 HTML 就必須先把 HTML
-// 特殊字元轉義掉，再只還原我們自己允許的少數標記——直接把模型輸出丟進
-// v-html 等於開一個 XSS 破口。
-function escapeHtml(s) {
-  return String(s)
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;').replace(/'/g, '&#39;')
-}
-const aiSummaryHtml = computed(() => {
-  const raw = aiSummary.value?.summary || ''
-  return escapeHtml(raw)
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\n/g, '<br />')
-})
+const aiSummaryHtml = computed(() => renderAiMarkdown(aiSummary.value?.summary))
+const { copied: aiSummaryCopied, copy: copyAiSummary } = useClipboard()
 
 async function loadAiSummary() {
   aiLoading.value = true
@@ -680,16 +675,6 @@ async function loadAiSummary() {
     aiError.value = e?.message || 'AI 摘要產生失敗'
   } finally {
     aiLoading.value = false
-  }
-}
-
-async function checkAiConfigured() {
-  try {
-    const resp = await fetch(`${API_BASE}/api/v1/stocks/ai/status`)
-    const payload = await resp.json().catch(() => ({}))
-    aiConfigured.value = Boolean(payload?.data?.configured)
-  } catch {
-    aiConfigured.value = false // AI 未設定/不可用時整區隱藏，不影響其他功能
   }
 }
 
@@ -2567,6 +2552,7 @@ function valueTone(value) {
   padding: 14px 16px;
 }
 .ai-text :deep(strong) { color: var(--text-primary); }
+.ai-note-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
 .ai-note { font-size: 0.7rem; margin: 0; }
 
 /* U2：同業比較 */
