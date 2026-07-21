@@ -45,11 +45,23 @@
         <input v-model.number="form.lots" type="number" class="inp w90" placeholder="張數" min="1" step="1" aria-label="張數" />
         <input v-model="form.tag" class="inp w110" placeholder="型態(選填)" aria-label="交易型態（選填）" />
         <input v-model="form.catalyst" class="inp w160" placeholder="進場理由/催化劑(選填)" aria-label="進場理由/催化劑（選填）" />
+        <!-- W7：AI 檢查進場理由夠不夠具體，選填、手動觸發，不影響加入交易的主流程 -->
+        <button
+          v-if="aiConfigured"
+          class="btn xs"
+          type="button"
+          :disabled="!form.catalyst.trim() || catalystChecking"
+          @click="checkCatalystQuality"
+        >
+          <span v-if="catalystChecking" class="loading-spinner btn-spinner" aria-hidden="true"></span>
+          🤖 檢查理由品質
+        </button>
         <button class="btn btn-primary" @click="addTrade">加入</button>
         <button class="btn" @click="importOpenPositions">從投組帶入</button>
       </div>
       <p v-if="formError" class="error-text">{{ formError }}</p>
       <p v-if="importMsg" class="muted small">{{ importMsg }}</p>
+      <p v-if="catalystAssessment" class="muted small">🤖 {{ catalystAssessment }}</p>
     </section>
 
     <!-- 進行中 -->
@@ -183,7 +195,20 @@
 
     <!-- E15 複盤教練：從既有統計自動生成的紀律建議 -->
     <section class="section-block" v-reveal v-if="closedTrades.length">
-      <h3>🎓 複盤教練</h3>
+      <div class="coach-head">
+        <h3>🎓 複盤教練</h3>
+        <!-- W6：AI 複盤找規則式教練沒設計到的細緻行為模式，跟下方規則式建議並存 -->
+        <button
+          v-if="aiConfigured && closedTrades.length >= 10"
+          class="btn xs btn-primary"
+          type="button"
+          :disabled="aiCoachLoading"
+          @click="loadAiCoach"
+        >
+          <span v-if="aiCoachLoading" class="loading-spinner btn-spinner" aria-hidden="true"></span>
+          {{ aiCoachLoading ? '分析中…' : (aiCoachInsight ? '重新分析' : '🤖 AI 複盤（找細緻模式）') }}
+        </button>
+      </div>
       <ul class="coach-list">
         <li v-for="(insight, i) in coachInsights" :key="i" class="coach-item" :class="'coach-' + insight.tone">
           <span class="coach-icon">{{ insight.icon }}</span>
@@ -191,6 +216,12 @@
         </li>
       </ul>
       <p class="disclaimer">※ 教練建議由你自己的交易紀錄統計規則產生，僅供覆盤參考，非投資建議。</p>
+
+      <p v-if="aiCoachError" class="error-text">{{ aiCoachError }}</p>
+      <div v-if="aiCoachInsight" class="ai-coach-box">
+        <strong>🤖 AI 複盤（細緻模式，非統計規則）</strong>
+        <p>{{ aiCoachInsight }}</p>
+      </div>
     </section>
   </div>
 </template>
@@ -207,6 +238,69 @@ const stockStore = useStockStore()
 
 const trades = ref([])
 const form = reactive({ symbol: stockStore.symbol || '', side: 'long', entry: null, stop: null, target: null, lots: 1, tag: '', catalyst: '' })
+
+// W6+W7：AI 複盤與進場理由品質檢查，皆為選填、手動觸發，未設定 AI 服務時
+// 相關按鈕整個不顯示（不影響交易日誌本身的核心功能）
+const aiConfigured = ref(false)
+const aiCoachLoading = ref(false)
+const aiCoachInsight = ref('')
+const aiCoachError = ref('')
+const catalystChecking = ref(false)
+const catalystAssessment = ref('')
+
+async function checkAiConfigured() {
+  try {
+    const res = await fetch('/api/v1/stocks/ai/status')
+    const json = await res.json()
+    aiConfigured.value = Boolean(json?.data?.configured)
+  } catch {
+    aiConfigured.value = false
+  }
+}
+
+async function loadAiCoach() {
+  aiCoachLoading.value = true
+  aiCoachError.value = ''
+  try {
+    const payload = {
+      trades: closedTrades.value.map(t => ({
+        symbol: t.symbol, side: t.side, entry: t.entry, exit: t.exit,
+        r_multiple: Number(realizedR(t).toFixed(2)), tag: t.tag || '', catalyst: t.catalyst || '',
+      })),
+      stats: stats.value,
+    }
+    const res = await fetch('/api/v1/journal/ai-coach', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+    })
+    const json = await res.json()
+    if (!res.ok || !json.success) throw new Error(json.detail || 'AI 複盤失敗')
+    aiCoachInsight.value = json.data.insight
+  } catch (e) {
+    aiCoachError.value = e?.message || 'AI 複盤失敗'
+  } finally {
+    aiCoachLoading.value = false
+  }
+}
+
+async function checkCatalystQuality() {
+  const catalyst = form.catalyst.trim()
+  if (!catalyst) return
+  catalystChecking.value = true
+  catalystAssessment.value = ''
+  try {
+    const res = await fetch('/api/v1/journal/catalyst-quality', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ symbol: form.symbol, side: form.side, catalyst }),
+    })
+    const json = await res.json()
+    if (!res.ok || !json.success) throw new Error(json.detail || '檢查失敗')
+    catalystAssessment.value = json.data.assessment
+  } catch (e) {
+    catalystAssessment.value = e?.message || '檢查失敗'
+  } finally {
+    catalystChecking.value = false
+  }
+}
 
 // 側欄搜尋切換全站目前個股時，新增交易表單的代號欄位跟著換
 // （只在使用者還沒動過欄位、或欄位仍是上一個全站個股時才更新，避免蓋掉
@@ -650,6 +744,7 @@ function addTrade() {
   save()
   resolveName(id, symbol) // 補上股票名稱（背景，代號伴隨名稱）
   form.symbol = ''; form.entry = null; form.stop = null; form.target = null; form.lots = 1; form.tag = ''; form.catalyst = ''
+  catalystAssessment.value = ''
 }
 
 // 手動輸入只有代號 → 用搜尋 API 補中文名（best-effort，不阻塞新增）
@@ -820,7 +915,10 @@ async function importOpenPositions() {
   importMsg.value = added ? `已從投組帶入 ${added} 筆進行中交易。` : '投組標的都已在進行中交易內。'
 }
 
-onMounted(load)
+onMounted(() => {
+  checkAiConfigured()
+  load()
+})
 </script>
 
 <style scoped>
@@ -880,4 +978,10 @@ onMounted(load)
 .coach-warn { background: rgba(245,158,11,0.08); border-color: rgba(245,158,11,0.35); }
 .coach-good { background: rgba(34,197,94,0.08); border-color: rgba(34,197,94,0.35); }
 .coach-info { background: var(--bg-well); color: var(--text-muted); }
+
+/* W6：AI 複盤 */
+.coach-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+.coach-head h3 { margin: 0; }
+.ai-coach-box { margin-top: 10px; border: 1px dashed var(--border-color); border-radius: 10px; padding: 10px 12px; font-size: 0.86rem; }
+.ai-coach-box p { margin: 6px 0 0; color: var(--text-secondary); line-height: 1.7; white-space: pre-line; }
 </style>

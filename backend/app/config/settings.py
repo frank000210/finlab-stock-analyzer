@@ -2,6 +2,7 @@ import logging
 import secrets
 from functools import lru_cache
 
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 logger = logging.getLogger(__name__)
@@ -21,7 +22,12 @@ class Settings(BaseSettings):
 
     # LLM（OpenCode Go，OpenAI 相容）。key 一律走環境變數，不進版控。
     # 供應商中立：換服務只要改 base_url/model，程式碼不用動。
-    opencode_api_key: str = ""
+    # Zeabur 上實際設定的變數名是 OPENCODE_APIKEY（沒有底線）；本機開發沿用
+    # 先前建立的 OPENCODE_API_KEY 慣例（比照 FINMIND_TOKEN）。兩種都接受，
+    # 避免任一環境因為名稱不符而讀到空字串、AI 功能悄悄失效。
+    opencode_api_key: str = Field(
+        default="", validation_alias=AliasChoices("OPENCODE_API_KEY", "OPENCODE_APIKEY")
+    )
     llm_base_url: str = "https://opencode.ai/zen/go/v1"
     # minimax-m2.5：實測 5 個模型後選定——延遲 ~15s、輸出結構完整、能正確
     # 指出財報數據矛盾；deepseek-v4-flash/glm-5.1 會回空內容，kimi 會把思考

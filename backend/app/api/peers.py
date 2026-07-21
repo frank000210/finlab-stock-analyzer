@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Body, HTTPException
 from pydantic import BaseModel
 
-from ..analysis.peer_compare import build_comparison, get_peer_group, set_peer_group
+from ..analysis.peer_compare import ai_suggest_peers, build_comparison, get_peer_group, set_peer_group
 from ..data.us_symbols import is_tw_symbol, normalize_symbol
 
 router = APIRouter(prefix="/api/v1/stocks", tags=["peers"])
@@ -45,6 +45,22 @@ async def save_peers(symbol: str, payload: PeerGroupPayload = Body(...)):
         return {"success": True, "data": await get_peer_group(symbol)}
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"同業群組儲存失敗：{exc}")
+
+
+@router.post("/{symbol}/peers/ai-suggest")
+async def suggest_peers(symbol: str):
+    """W1：AI 直接建議同業（取代手動複製提示詞去 Gemini 再貼回）。
+
+    只回傳候選清單，不寫入 Mongo——使用者仍要在前端勾選後呼叫 PUT /peers
+    確認才會真正儲存，跟既有貼回流程行為一致，避免 AI 誤判直接生效。
+    """
+    symbol = _check_tw(symbol)
+    try:
+        return {"success": True, "data": await ai_suggest_peers(symbol)}
+    except ValueError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"AI 建議同業失敗：{exc}")
 
 
 @router.get("/{symbol}/peer-comparison")

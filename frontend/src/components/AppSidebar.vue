@@ -170,6 +170,8 @@ const navGroups = [
       { key: 'graph01', icon: '🕸️', label: '關聯圖01', to: () => '/graph01' },
       { key: 'rotation', icon: '🔄', label: '類股輪動', to: () => '/rotation' },
       { key: 'market-lights', icon: '🚦', label: '大盤多空', to: () => '/market-lights' },
+      { key: 'news-checker', icon: '🔍', label: '新聞可信度', to: () => '/news-checker' },
+      { key: 'screener', icon: '🔎', label: 'AI 選股', to: () => '/screener' },
     ],
   },
   {

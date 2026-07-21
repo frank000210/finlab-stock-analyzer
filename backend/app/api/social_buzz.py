@@ -19,6 +19,33 @@ async def get_social_buzz_history(symbol: str, days: int = 30):
         return {"success": False, "error": str(e)}
 
 
+@router.get("/{symbol}/social-buzz/ai-summary")
+async def get_news_ai_summary(symbol: str):
+    """W4：LLM 把已抓到的 PTT/新聞/財經媒體標題摘成白話輿情判讀。
+
+    只總結已抓到的標題清單，不杜撰內容；使用者主動觸發、快取 6 小時，
+    跟 W2 個股 AI 摘要同樣的節奏。
+    """
+    from ..llm import LLMUnavailable, is_llm_configured
+
+    if not is_llm_configured():
+        return {"success": False, "error": "AI 服務尚未設定"}
+    try:
+        from ..analysis.news_summary import build_news_ai_summary
+        from ..analysis.social_buzz import analyze_social_buzz
+        from ..ai_agent.signal_generator import STOCK_NAMES
+
+        stock_name = STOCK_NAMES.get(symbol, "")
+        buzz = await analyze_social_buzz(symbol, stock_name)
+        result = await build_news_ai_summary(symbol, buzz)
+        return {"success": True, "data": result}
+    except LLMUnavailable as exc:
+        return {"success": False, "error": str(exc)}
+    except Exception as e:
+        logger.exception("news AI summary failed for %s", symbol)
+        return {"success": False, "error": f"新聞摘要產生失敗：{e}"}
+
+
 @router.get("/{symbol}/social-buzz")
 async def get_social_buzz(symbol: str):
     """Analyze social media and news buzz for a stock."""

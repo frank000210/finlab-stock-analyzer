@@ -24,6 +24,16 @@ class LayerResult(BaseModel):
     detail: str
 
 
+class LlmAssessment(BaseModel):
+    """W5：語意層，僅供參考，不計入 overall_score。
+
+    刻意跟既有 5 層規則式分數分開存放，不重新分配權重——避免動到已經在
+    生產環境跑的數值評分邏輯，語意判讀失敗時也完全不影響既有 5 層結果。
+    """
+    available: bool
+    note: str = ""
+
+
 class NewsCheckResult(BaseModel):
     url: str
     title: str
@@ -32,6 +42,7 @@ class NewsCheckResult(BaseModel):
     verdict: str
     layers: list[LayerResult]
     summary: str
+    llm_assessment: LlmAssessment | None = None
     published_at: datetime | None = None
     checked_at: datetime
 
@@ -77,11 +88,39 @@ class NewsAnalyzer:
             verdict=verdict,
             layers=layers,
             summary=summary,
+            llm_assessment=await self._llm_advisory_layer(payload),
             published_at=payload.published_at,
             checked_at=datetime.utcnow(),
         )
         await self._persist(result)
         return result
+
+    async def _llm_advisory_layer(self, payload: NewsCheckRequest) -> LlmAssessment | None:
+        """W5：LLM 語意層——判斷用詞誇大程度、內容是否有可查證的具體數據。
+
+        跟前 5 層完全獨立：這裡失敗（未設定金鑰／逾時／額度用盡）就回傳
+        None，不影響 overall_score 或既有的 5 層規則結果。
+        """
+        from ..llm import LLMUnavailable, is_llm_configured, llm_complete
+
+        if not is_llm_configured():
+            return None
+        excerpt = f"{payload.title}\n{payload.text}".strip()[:800]
+        if not excerpt:
+            return None
+        system = (
+            "你是新聞內容檢核助理。只根據使用者提供的標題與內文本身判斷，不得查證"
+            "外部事實、不得評論真假。請用一句話（40字以內，繁體中文，不可有簡體字）"
+            "描述：用詞是否誇大聳動、內容是否有具體可查證的數據或僅為空泛敘述。"
+            "只輸出這一句話，不要其他文字。"
+        )
+        try:
+            note = await llm_complete(system, excerpt, max_tokens=400, temperature=0.2)
+            return LlmAssessment(available=True, note=note.strip()[:120])
+        except LLMUnavailable:
+            return None
+        except Exception:
+            return None
 
     async def _persist(self, result: NewsCheckResult) -> None:
         """S3：檢查紀錄存進 Mongo，不再只留在 process 記憶體（重啟就消失，

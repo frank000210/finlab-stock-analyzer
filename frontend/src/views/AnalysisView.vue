@@ -335,6 +335,13 @@
           </div>
           <div v-if="!recentRevenueRows.length" class="empty-state">尚未取得基本面資料</div>
         </div>
+
+        <!-- W3：財報矛盾偵測，純規則算出、不需要 AI -->
+        <ul v-if="fundamentalFlags.length" class="fund-flags">
+          <li v-for="f in fundamentalFlags" :key="f.id" :class="'fund-flag-' + f.tone">
+            <span class="fund-flag-icon">{{ f.tone === 'warn' ? '⚠️' : 'ℹ️' }}</span>{{ f.text }}
+          </li>
+        </ul>
       </article>
 
       <article class="card detail-card">
@@ -511,6 +518,14 @@
               <strong>🤖 AI 協助選同業</strong>
               <span class="muted small">官方產業分類看不出題材同業（例：高力的真同業散在散熱/電源類）——讓有即時網路知識的 AI 來找</span>
             </div>
+            <div class="peer-ai-direct">
+              <button class="btn xs btn-primary" type="button" :disabled="aiSuggesting" @click="suggestPeersDirect">
+                <span v-if="aiSuggesting" class="loading-spinner btn-spinner" aria-hidden="true"></span>
+                {{ aiSuggesting ? '分析中…' : '🤖 一鍵 AI 建議（約 15~40 秒）' }}
+              </button>
+              <span v-if="aiSuggestError" class="muted small error-text">{{ aiSuggestError }}</span>
+              <span class="muted small">用網站內建 AI 憑訓練知識直接列出，代碼皆經真實名單驗證；若結果不理想，仍可用下方傳統流程改問有即時網路知識的 Gemini</span>
+            </div>
             <ol class="peer-ai-steps">
               <li>
                 <button class="btn xs" type="button" @click="copyAiPrompt">📋 產生 AI 提問並複製</button>
@@ -528,7 +543,7 @@
             <div v-if="aiCandidates.length" class="ai-candidates">
               <label v-for="c in aiCandidates" :key="c.symbol" class="ai-cand">
                 <input type="checkbox" v-model="c.checked" :disabled="!c.valid" />
-                {{ c.symbol }} {{ c.name || '' }}<em v-if="!c.valid" class="muted">（查無此代碼）</em>
+                {{ c.symbol }} {{ c.name || '' }}<em v-if="!c.valid" class="muted">（查無此代碼）</em><em v-else-if="c.reason" class="muted">（{{ c.reason }}）</em>
               </label>
               <button class="btn xs" type="button" @click="addAiCandidates">加入勾選的同業</button>
             </div>
@@ -556,6 +571,7 @@ import { fetchSizingData } from '../lib/livePriceCache'
 import { useSparkline } from '../composables/useSparkline'
 import { formatYyyymmdd } from '../lib/dateFormat'
 import { fetchWithRetry } from '../lib/apiFetch'
+import { detectFundamentalFlags } from '../lib/fundamentalFlags'
 
 const theme = useChartTheme()
 const calendarEl = ref(null)
@@ -691,6 +707,8 @@ const aiPromptCopied = ref(false)
 const aiPasteText = ref('')
 const aiParsing = ref(false)
 const aiCandidates = ref([]) // [{symbol, name, valid, checked}]
+const aiSuggesting = ref(false)
+const aiSuggestError = ref('')
 
 const peerColumns = [
   { key: 'pe', label: '本益比' },
@@ -845,6 +863,27 @@ async function resetPeerGroup() {
 // AI 協助：網站出題（用既有資料組提示詞）→ 使用者問 Gemini → 貼回解析。
 // 業務細節刻意不寫進提示詞，讓有即時網路搜尋能力的 AI 自己查——那正是
 // 本站缺的能力，也是這個流程存在的原因。
+// W1：一鍵 AI 建議同業，結果併入既有的 aiCandidates 勾選清單（後端已驗證
+// 代碼真實存在，valid 直接信任，不必再查一次搜尋 API）
+async function suggestPeersDirect() {
+  aiSuggesting.value = true
+  aiSuggestError.value = ''
+  try {
+    const resp = await fetch(`${API_BASE}/api/v1/stocks/${symbol.value}/peers/ai-suggest`, { method: 'POST' })
+    const payload = await resp.json().catch(() => ({}))
+    if (!resp.ok || !payload?.data) throw new Error(payload?.detail || 'AI 建議失敗')
+    const existing = new Set(peerDraft.value.map(p => p.symbol))
+    aiCandidates.value = (payload.data.candidates || [])
+      .filter(c => !existing.has(c.symbol))
+      .map(c => ({ symbol: c.symbol, name: c.name, valid: c.valid, checked: c.valid, reason: c.reason }))
+    if (!aiCandidates.value.length) aiSuggestError.value = 'AI 沒有找到新的候選同業'
+  } catch (e) {
+    aiSuggestError.value = e?.message || 'AI 建議失敗'
+  } finally {
+    aiSuggesting.value = false
+  }
+}
+
 async function copyAiPrompt() {
   const d = peerData.value
   const t = d?.target || {}
@@ -945,6 +984,8 @@ const revenueRows = computed(() => normalizeRevenueRows(fundamentalData.value?.r
 const epsRows = computed(() => normalizeQuarterRows(fundamentalData.value?.eps_quarterly, 'eps'))
 const marginRows = computed(() => normalizeQuarterRows(fundamentalData.value?.margins, 'gross_margin'))
 const debtRows = computed(() => normalizeQuarterRows(fundamentalData.value?.debt_ratios, 'debt_ratio'))
+// W3：財報矛盾偵測——純算術規則，頁面載入即算好，不用等 AI
+const fundamentalFlags = computed(() => detectFundamentalFlags(epsRows.value, revenueRows.value, marginRows.value))
 const chipRows = computed(() => normalizeChipRows(chipData.value?.items))
 const marginRowsNormalized = computed(() => normalizeChipRows(chipData.value?.margin, true))
 
@@ -2551,6 +2592,8 @@ function valueTone(value) {
 .chip-x { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.72rem; padding: 0 2px; }
 .chip-x:hover { color: #ef4444; }
 .peer-add-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+/* W1：AI 一鍵建議同業 */
+.peer-ai-direct { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding-bottom: 4px; border-bottom: 1px dashed var(--border-color); margin-bottom: 4px; }
 .peer-ai { border: 1px dashed var(--border-color); border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
 .peer-ai-head { display: flex; flex-direction: column; gap: 2px; }
 .peer-ai-steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; font-size: 0.82rem; color: var(--text-secondary); }
@@ -2833,6 +2876,13 @@ function valueTone(value) {
   color: var(--text-secondary);
   padding: 6px 0 0;
 }
+
+/* W3：財報矛盾偵測 */
+.fund-flags { margin: 10px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.fund-flags li { display: flex; gap: 6px; font-size: 0.78rem; line-height: 1.6; padding: 8px 10px; border-radius: 10px; }
+.fund-flags .fund-flag-warn { background: rgba(245, 158, 11, 0.08); color: var(--text-secondary); }
+.fund-flags .fund-flag-info { background: rgba(59, 130, 246, 0.08); color: var(--text-secondary); }
+.fund-flag-icon { flex-shrink: 0; }
 
 .whale-trend { margin-top: 14px; padding-top: 12px; border-top: 1px solid rgba(51, 65, 85, 0.45); display: flex; flex-direction: column; gap: 6px; }
 .whale-trend-head { display: flex; justify-content: space-between; align-items: center; font-size: 0.82rem; color: var(--text-secondary); }

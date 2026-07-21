@@ -37,6 +37,16 @@ const routes = [
     component: () => import('./views/MarketLightsView.vue'),
   },
   {
+    path: '/news-checker',
+    name: 'news-checker',
+    component: () => import('./views/NewsCheckerView.vue'),
+  },
+  {
+    path: '/screener',
+    name: 'screener',
+    component: () => import('./views/ScreenerView.vue'),
+  },
+  {
     path: '/stocks/:symbol',
     name: 'analysis',
     component: () => import('./views/AnalysisView.vue'),

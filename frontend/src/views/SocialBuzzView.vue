@@ -22,6 +22,20 @@
     <div v-if="error" class="card error-card">⚠️ {{ error }}</div>
 
     <div v-if="data" class="results">
+      <!-- W4：AI 輿情摘要——使用者主動觸發，總結已抓到的標題清單，不杜撰內容 -->
+      <section v-if="aiConfigured" class="card ai-news-section">
+        <div class="section-head compact">
+          <div><h2>🤖 AI 輿情摘要</h2></div>
+          <button class="btn btn-primary ai-btn" :disabled="aiNewsLoading" @click="loadAiNewsSummary">
+            <span v-if="aiNewsLoading" class="loading-spinner btn-spinner" aria-hidden="true"></span>
+            {{ aiNewsLoading ? '分析中…' : (aiNewsSummary ? '重新產生' : '產生輿情摘要') }}
+          </button>
+        </div>
+        <p v-if="aiNewsError" class="error-text">{{ aiNewsError }}</p>
+        <p v-else-if="!aiNewsSummary" class="muted ai-hint">點右上按鈕，讓 AI 把下方已抓到的討論與報導標題總結成輿情判讀（約 15～40 秒）。</p>
+        <div v-if="aiNewsSummary" class="ai-text" v-html="aiNewsSummaryHtml"></div>
+      </section>
+
       <!-- Buzz Score -->
       <section class="score-section">
         <div class="card buzz-score-card">
@@ -237,6 +251,49 @@ const data = ref(null)
 const history = ref([])
 const sortOrder = ref('desc') // 'desc' = 由近至遠, 'asc' = 由遠至近
 
+// W4：AI 輿情摘要（使用者主動觸發，不自動載入——延遲 15~40 秒且有成本）
+const aiConfigured = ref(false)
+const aiNewsSummary = ref(null)
+const aiNewsLoading = ref(false)
+const aiNewsError = ref('')
+
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;')
+}
+const aiNewsSummaryHtml = computed(() => {
+  const raw = aiNewsSummary.value?.summary || ''
+  return escapeHtml(raw).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br />')
+})
+
+async function loadAiNewsSummary() {
+  aiNewsLoading.value = true
+  aiNewsError.value = ''
+  const sym = symbol.value
+  try {
+    const res = await fetch(`/api/v1/stocks/${sym}/social-buzz/ai-summary`)
+    const json = await res.json()
+    if (!json.success) throw new Error(json.error || '摘要產生失敗')
+    if (symbol.value !== sym) return
+    aiNewsSummary.value = json.data
+  } catch (e) {
+    aiNewsError.value = e?.message || '摘要產生失敗'
+  } finally {
+    aiNewsLoading.value = false
+  }
+}
+
+async function checkAiConfigured() {
+  try {
+    const res = await fetch('/api/v1/stocks/ai/status')
+    const json = await res.json()
+    aiConfigured.value = Boolean(json?.data?.configured)
+  } catch {
+    aiConfigured.value = false
+  }
+}
+
 const gaugeColor = computed(() => {
   if (!data.value) return 'var(--text-muted)'
   const s = data.value.buzz_score
@@ -250,6 +307,8 @@ const gaugeColor = computed(() => {
 async function fetchData() {
   loading.value = true
   error.value = ''
+  aiNewsSummary.value = null
+  aiNewsError.value = ''
   try {
     const res = await fetch(`/api/v1/stocks/${symbol.value}/social-buzz`)
     const json = await res.json()
@@ -315,7 +374,10 @@ function verdictClass(verdict) {
   return 'fc-neutral'
 }
 
-onMounted(fetchData)
+onMounted(() => {
+  checkAiConfigured()
+  fetchData()
+})
 
 watch(() => route.params.symbol, (sym) => {
   if (sym && sym !== symbol.value) {
@@ -333,6 +395,17 @@ watch(() => route.params.symbol, (sym) => {
 .input-symbol { width: 90px; padding: 8px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-primary); font-weight: 700; text-align: center; }
 .sort-select { padding: 8px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-primary); font-size: 0.82rem; }
 .error-card { color: var(--color-down); background: var(--down-soft); border: 1px solid rgba(239, 68, 68, 0.3); }
+
+/* W4：AI 輿情摘要 */
+.ai-news-section { display: flex; flex-direction: column; gap: 10px; }
+.ai-news-section .ai-btn { white-space: nowrap; }
+.ai-hint { font-size: 0.8rem; line-height: 1.6; margin: 0; }
+.ai-text {
+  font-size: 0.86rem; line-height: 1.85; color: var(--text-secondary);
+  background: var(--bg-well, rgba(148, 163, 184, 0.06));
+  border: 1px solid var(--border-color); border-radius: 12px; padding: 14px 16px;
+}
+.ai-text :deep(strong) { color: var(--text-primary); }
 
 .score-section { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); }
 .buzz-score-card { display: flex; align-items: center; gap: 20px; }

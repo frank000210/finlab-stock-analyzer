@@ -154,7 +154,18 @@ async def build_daily_brief() -> dict:
         lines.append("注意：")
         lines.extend(warn_lines[:8])
     lines.append("（僅為訊號摘要，非投資建議）")
-    return {"text": "\n".join(lines)[:3500], "count": len(items), "as_of": as_of}
+    template_text = "\n".join(lines)[:3500]
+
+    # W9：LLM 生成的白話導讀「加在」結構化模板前面，不是取代它——代碼、
+    # 日期、警示這些具體數字必須保證原樣出現（LLM 改寫自由發揮時可能省略
+    # 或改寫掉某個代碼，那對實際交易決策是不可接受的損失）。排程推播不能
+    # 因為 LLM 掛掉而中斷，任何失敗都靜默跳過導讀、只送原本的模板文字
+    # （rewrite_brief_prose 內部已把所有例外收斂為 None）。
+    from ..analysis.daily_brief_llm import rewrite_brief_prose
+
+    prose = await rewrite_brief_prose(as_of, regime_data, top, warn_lines)
+    final_text = f"{prose}\n\n{template_text}"[:3500] if prose else template_text
+    return {"text": final_text, "count": len(items), "as_of": as_of, "ai_generated": bool(prose)}
 
 
 async def send_daily_brief() -> dict:

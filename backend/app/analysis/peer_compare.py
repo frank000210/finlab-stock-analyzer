@@ -131,6 +131,75 @@ async def get_peer_group(symbol: str) -> dict:
     return {"symbol": symbol, "industry": industry, "group_source": "industry", "peers": peers}
 
 
+AI_PEER_SYSTEM_PROMPT = """你是台股產業研究助理。使用者會給你一檔股票的代碼、名稱、
+官方產業分類與市值，請憑你的知識列出台灣上市櫃中業務性質最相似（真正的競爭對手，
+不是官方分類相同但業務無關的公司）的 5 到 8 檔股票。
+
+規則：
+1. 只能回答台灣上市櫃公司，且必須是實際存在的 4 位數股票代碼。不確定代碼是否正確
+   時寧可少列，不可編造代碼。
+2. 判斷依據是實際業務/產品線相似度，不是官方產業分類。
+3. 輸出格式：只輸出 JSON 陣列，不要任何其他文字。每個元素：
+   {"symbol": "4位數代碼", "name": "公司名稱", "reason": "15字以內的相似原因"}"""
+
+
+async def ai_suggest_peers(symbol: str) -> dict:
+    """W1：AI 直接建議同業，取代手動複製提示詞貼去 Gemini 再貼回的流程。
+
+    防幻覺：LLM 憑訓練知識列出的代碼可能是錯的或已下市，一律拿真實的
+    TaiwanStockInfo 名單驗證過才回傳；驗證不過的直接丟棄，不讓幻想代碼
+    流到前端。這裡不寫入 Mongo——建議清單只是候選，使用者仍要在前端勾選
+    確認才會呼叫 PUT /peers 真正儲存，跟既有的貼回流程行為一致。
+    """
+    from ..llm import LLMUnavailable, llm_complete
+
+    industry_map, name_map = await _stock_info_maps()
+    if symbol not in name_map:
+        raise ValueError("查無此股票代碼")
+
+    industry = industry_map.get(symbol, "")
+    name = name_map.get(symbol, symbol)
+    user_prompt = f"股票代碼：{symbol}\n名稱：{name}\n官方產業分類：{industry or '未知'}"
+
+    try:
+        raw = await llm_complete(AI_PEER_SYSTEM_PROMPT, user_prompt, max_tokens=1200, temperature=0.3)
+    except LLMUnavailable as exc:
+        raise ValueError(str(exc)) from exc
+
+    import json
+    import re
+
+    match = re.search(r"\[.*\]", raw, re.DOTALL)
+    try:
+        items = json.loads(match.group(0)) if match else []
+    except (json.JSONDecodeError, AttributeError):
+        items = []
+
+    candidates = []
+    seen = {symbol}
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        sym = str(item.get("symbol", "")).strip()
+        if not (len(sym) == 4 and sym.isdigit()) or sym in seen:
+            continue
+        seen.add(sym)
+        # 驗證：代碼必須真的存在於 FinMind 官方名單，否則視為幻覺捨棄
+        real_name = name_map.get(sym)
+        candidates.append({
+            "symbol": sym,
+            "name": real_name or str(item.get("name", "")).strip(),
+            "reason": str(item.get("reason", "")).strip()[:40],
+            "valid": real_name is not None,
+        })
+
+    return {
+        "symbol": symbol,
+        "candidates": candidates[:10],
+        "raw_count": len(items),
+    }
+
+
 async def set_peer_group(symbol: str, peers: list[dict]) -> None:
     """儲存自訂同業群組；空清單＝清除自訂、回到產業預設。"""
     from datetime import datetime
