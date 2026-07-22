@@ -555,13 +555,20 @@ function toggleSweptParam(key, schema) {
 const sweepCombos = computed(() => {
   const keys = Object.keys(sweepRanges.value)
   if (!keys.length) return []
+  // AA1：先前這裡會先把整個笛卡兒積跑完，MAX_SWEEP_COMBOS 只在 runSweep()
+  // 才擋——單軸打個極小間距（例如 0.0001）配大範圍，光是為了在畫面上顯示
+  // 「將測試幾組」就能在使用者還沒按下執行前生出天文數字的陣列，直接卡死
+  // 分頁。這裡把「每一軸最多產生幾個值」跟「總組合數」都在產生過程中就
+  // 硬性擋住，超過上限就提早跳出（畫面只需要知道「超過上限」，不需要精確
+  // 的總數）。
+  const AXIS_CAP = MAX_SWEEP_COMBOS + 1
   const axes = keys.map((k) => {
     const r = sweepRanges.value[k]
     const min = Number(r.min), max = Number(r.max)
     const step = Number(r.step) > 0 ? Number(r.step) : 1
     const values = []
     if (isFinite(min) && isFinite(max) && max >= min) {
-      for (let v = min; v <= max + 1e-9; v += step) {
+      for (let v = min; v <= max + 1e-9 && values.length < AXIS_CAP; v += step) {
         values.push(Math.round(v * 1e6) / 1e6)
       }
     }
@@ -571,8 +578,12 @@ const sweepCombos = computed(() => {
   let combos = [{}]
   for (const axis of axes) {
     const next = []
+    outer:
     for (const c of combos) {
-      for (const v of axis.values) next.push({ ...c, [axis.key]: v })
+      for (const v of axis.values) {
+        next.push({ ...c, [axis.key]: v })
+        if (next.length > MAX_SWEEP_COMBOS) break outer
+      }
     }
     combos = next
   }

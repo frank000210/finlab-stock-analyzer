@@ -7,6 +7,7 @@ from datetime import date, datetime, timedelta
 from typing import Any
 
 import numpy as np
+from pymongo import UpdateOne
 
 from ..crawler import FinMindClient, InstitutionalCrawler, StockPriceCrawler
 from ..db.mongodb import get_mongodb
@@ -190,6 +191,10 @@ async def ingest_watchlist_raw(
         try:
             df = await stock_crawler.get_price(symbol, start.isoformat(), end.isoformat(), "1d")
             if not df.empty:
+                # AA10：原本逐筆 await update_one()，一檔股票一年資料就是
+                # ~250 次序列化的 Mongo 往返。改成單一 bulk_write，一檔只
+                # 打一次（結果語意不變：仍是逐筆 upsert）。
+                ops = []
                 for _, row in df.iterrows():
                     iso_date = _to_iso(row.get("date"))
                     if not iso_date:
@@ -204,17 +209,16 @@ async def ingest_watchlist_raw(
                         "volume": _safe_float(row.get("volume")),
                         "updated_at": now,
                     }
-                    await mongo.raw_prices.update_one(
-                        {"symbol": symbol, "date": iso_date},
-                        {"$set": doc},
-                        upsert=True,
-                    )
-                    inserted_prices += 1
+                    ops.append(UpdateOne({"symbol": symbol, "date": iso_date}, {"$set": doc}, upsert=True))
+                if ops:
+                    await mongo.raw_prices.bulk_write(ops, ordered=False)
+                    inserted_prices += len(ops)
         except Exception:
             pass
 
         try:
             chip_data = await inst_crawler.get_chip_data(symbol, start.isoformat(), end.isoformat())
+            ops = []
             for item in chip_data.get("items", []):
                 iso_date = _to_iso(item.get("date"))
                 if not iso_date:
@@ -227,12 +231,10 @@ async def ingest_watchlist_raw(
                     "dealer_net_buy": _safe_float(item.get("dealer_net_buy")),
                     "updated_at": now,
                 }
-                await mongo.raw_institutional.update_one(
-                    {"symbol": symbol, "date": iso_date},
-                    {"$set": doc},
-                    upsert=True,
-                )
-                inserted_inst += 1
+                ops.append(UpdateOne({"symbol": symbol, "date": iso_date}, {"$set": doc}, upsert=True))
+            if ops:
+                await mongo.raw_institutional.bulk_write(ops, ordered=False)
+                inserted_inst += len(ops)
         except Exception:
             pass
 

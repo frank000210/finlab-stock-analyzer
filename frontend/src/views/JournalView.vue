@@ -111,7 +111,7 @@
                   :title="`這筆單未實現獲利曾經最高到 ${fmtInt(t.peakUnrealizedPnl)}，目前已回吐 ${profitGivebackPct(t).toFixed(0)}%，考慮分批停利或移動停損`"
                 >📉 回吐{{ profitGivebackPct(t).toFixed(0) }}%</span>
               </td>
-              <td><input v-model.number="t._exitInput" type="number" class="inp w90" step="0.05" placeholder="價格" /></td>
+              <td><input v-model.number="t._exitInput" type="number" class="inp w90" step="0.05" placeholder="價格" :aria-label="`${t.symbol} 出場價格`" /></td>
               <td class="actions">
                 <button class="btn xs" :disabled="livePrice(t) == null" title="用目前市價直接平倉" @click="closeAtMarket(t)">現價平倉</button>
                 <button class="btn xs" @click="closeTrade(t)">平倉</button>

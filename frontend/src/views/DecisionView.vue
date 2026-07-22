@@ -135,7 +135,7 @@
     </section>
 
     <section class="filters-bar card">
-      <div class="filter-pills" role="tablist" aria-label="Signal filters">
+      <div class="filter-pills" role="tablist" aria-label="訊號篩選">
         <button
           v-for="filter in filters"
           :key="filter.value"

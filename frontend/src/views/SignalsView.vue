@@ -12,7 +12,7 @@
           <p class="muted">趨勢排列、RSI、量能、距波段高低與 ATR 停損距離，一次掃完。</p>
         </div>
         <div class="ctrl">
-          <input v-model="symbolsInput" class="inp" placeholder="2330,2454,2317" />
+          <input v-model="symbolsInput" class="inp" placeholder="2330,2454,2317" aria-label="股票代碼，逗號分隔" />
           <button class="btn btn-primary" :disabled="loading" @click="load">
             <span v-if="loading" class="loading-spinner btn-spinner" aria-hidden="true"></span>掃描
           </button>

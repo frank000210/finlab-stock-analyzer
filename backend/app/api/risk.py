@@ -258,6 +258,24 @@ def _compute_rsi_vol_ratio(close, vol) -> tuple[float | None, float | None]:
     return (round(rsi, 1) if rsi is not None else None), vol_ratio
 
 
+def _compute_atr(high, low, close, period: int = 14) -> float | None:
+    """跟 position_sizing()/watchlist_signals() 完全同一套 True Range/ATR
+    算法，抽出來共用（AA5）——原本兩處各自重建同一份 pd.concat(...).max(...)
+    公式，跟 Z5 修過的 RSI 三處重複是同一類風險。
+    """
+    import numpy as np
+    import pandas as pd
+
+    if len(close) < period + 1:
+        return None
+    prev_close = close.shift(1)
+    true_range = pd.concat(
+        [(high - low), (high - prev_close).abs(), (low - prev_close).abs()], axis=1
+    ).max(axis=1)
+    atr = float(true_range.rolling(period).mean().iloc[-1])
+    return atr if not np.isnan(atr) else None
+
+
 async def _append_alert_history(entry: dict) -> None:
     """Y3：警報觸發的歷史紀錄——原本觸發後只是把同一筆警報的 triggered 翻
     成 true，沒有任何時間序列可查，使用者想知道「這週觸發過哪些」只能翻
@@ -501,8 +519,6 @@ async def position_sizing(
     import math
     from datetime import date, timedelta
 
-    import pandas as pd
-
     from ..crawler.finmind_client import FinMindClient
     from ..crawler.stock_price import StockPriceCrawler
     from ..data.us_symbols import normalize_symbol
@@ -522,15 +538,12 @@ async def position_sizing(
 
     df = df.sort_values("date").reset_index(drop=True)
     high, low, close = df["high"].astype(float), df["low"].astype(float), df["close"].astype(float)
-    prev_close = close.shift(1)
-    true_range = pd.concat(
-        [(high - low), (high - prev_close).abs(), (low - prev_close).abs()], axis=1
-    ).max(axis=1)
-    atr = float(true_range.rolling(atr_period).mean().iloc[-1])
+    atr_calc = _compute_atr(high, low, close, atr_period)
     price = float(close.iloc[-1])
 
-    if math.isnan(atr) or math.isnan(price) or price <= 0:
+    if atr_calc is None or math.isnan(price) or price <= 0:
         raise HTTPException(status_code=404, detail=f"{symbol} 無法計算有效的 ATR/現價")
+    atr = atr_calc
 
     # --- 進場評分 (Setup Score, 0-100) ---
     setup = _setup_score(df, close, high, price, atr)
@@ -753,8 +766,6 @@ async def watchlist_signals(
     import asyncio
     from datetime import date, timedelta
 
-    import pandas as pd
-
     from ..crawler.stock_price import StockPriceCrawler
     from ..data.us_symbols import normalize_symbol
 
@@ -836,11 +847,10 @@ async def watchlist_signals(
         rsi_calc, vol_ratio = _compute_rsi_vol_ratio(close, vol)
         rsi = rsi_calc if rsi_calc is not None else 50.0
 
-        # ATR(14) + 2xATR stop distance
-        prev_close = close.shift(1)
-        tr = pd.concat([(high - low), (high - prev_close).abs(), (low - prev_close).abs()], axis=1).max(axis=1)
-        atr = float(tr.rolling(14).mean().iloc[-1])
-        stop_dist_pct = round(2 * atr / price * 100, 2) if price else None
+        # ATR(14) + 2xATR stop distance：跟 position_sizing()/_setup_score()
+        # 共用同一份實作（AA5），避免多處各算一次還可能算出不同數字。
+        atr = _compute_atr(high, low, close)
+        stop_dist_pct = round(2 * atr / price * 100, 2) if price and atr is not None else None
 
         window = close.tail(60)
         hi60, lo60 = float(window.max()), float(window.min())

@@ -21,7 +21,9 @@ router = APIRouter(prefix="/api/v1/rotation", tags=["sector-rotation"])
 
 class BuildRotationRequest(BaseModel):
     universe: str = Field(default="twse", pattern="^(twse|watchlist)$")
-    symbols: list[str] = Field(default_factory=list, description="watchlist universe 專用")
+    # AA3：同 graph.py 的 BuildGraphRequest，watchlist universe 會逐一循序
+    # 抓每檔的資料，沒有上限的話異常大的陣列會讓單一請求跑很久。
+    symbols: list[str] = Field(default_factory=list, max_length=100, description="watchlist universe 專用")
     end: date | None = Field(default=None)
     lookback_days: int = Field(default=400, ge=60, le=1100)
 

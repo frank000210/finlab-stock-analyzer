@@ -19,7 +19,10 @@ router = APIRouter(prefix="/api/v1/graph/watchlist", tags=["watch-graph"])
 
 
 class BuildGraphRequest(BaseModel):
-    symbols: list[str] = Field(default_factory=list, description="觀察池股票代碼")
+    # AA2：ingest_watchlist_raw() 對每個代碼都是逐一循序打外部 API + 逐筆
+    # 寫入 Mongo，沒有上限的話一個異常大的 symbols 陣列會讓單一請求跑非常
+    # 久。100 檔已遠超過正常觀察清單規模，純粹是防呆上限，不影響一般使用。
+    symbols: list[str] = Field(default_factory=list, max_length=100, description="觀察池股票代碼")
     target_date: date | None = Field(default=None, description="目標日期")
     lookback_days: int = Field(default=60, ge=30, le=365)
     alpha: float = Field(default=0.50, ge=0.0, le=1.0)
