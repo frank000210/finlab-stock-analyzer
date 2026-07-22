@@ -1,6 +1,6 @@
 """Backtest API endpoints."""
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from typing import Optional
 from datetime import date, timedelta
@@ -11,6 +11,9 @@ import pandas as pd
 from ..crawler import StockPriceCrawler
 from ..backtest import BacktestEngine
 from ..backtest.strategies import ALL_STRATEGIES
+from ..backtest.strategies.custom_expression import CUSTOM_STRATEGY_ID, CustomExpressionStrategy
+from ..backtest.expr_lang import ExpressionError, parse_condition
+from ..llm import LLMUnavailable, check_llm_rate_limit, is_llm_configured
 
 # 過擬合防護（A3）門檻：樣本外交易數低於此值視為不可靠，不下判斷。
 _MIN_OOS_TRADES = 5
@@ -104,10 +107,51 @@ async def list_strategies():
     return {"success": True, "data": {"strategies": strategies}}
 
 
+class ValidateExpressionRequest(BaseModel):
+    expr: str
+
+
+@router.post("/validate-expression")
+async def validate_expression(req: ValidateExpressionRequest):
+    """BB3：只做語法檢查，不查價、不跑回測——前端可以在使用者打字/AI 生成完
+    當下就給即時回饋，不用等一整次回測跑完才知道語法錯在哪。
+    """
+    try:
+        parse_condition(req.expr)
+        return {"success": True, "data": {"valid": True}}
+    except ExpressionError as exc:
+        return {"success": True, "data": {"valid": False, "error": str(exc)}}
+
+
+class GenerateExpressionRequest(BaseModel):
+    query: str
+
+
+@router.post("/generate-expression", dependencies=[Depends(check_llm_rate_limit)])
+async def generate_expression_endpoint(req: GenerateExpressionRequest):
+    """BB4：白話描述 → 買賣條件運算式。LLM 只負責翻譯成本系統的運算式語法，
+    回傳前已經過 parser 驗證（見 nl_backtest_expr.py），不會把破損的運算式
+    交給前端。
+    """
+    from ..analysis.nl_backtest_expr import ExpressionGenerationError, generate_expression
+
+    if not is_llm_configured():
+        raise HTTPException(status_code=503, detail="AI 服務尚未設定")
+    try:
+        result = await generate_expression(req.query)
+        return {"success": True, "data": result}
+    except ExpressionGenerationError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    except LLMUnavailable as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+
+
 @router.post("/run")
 async def run_backtest(req: BacktestRequest):
     """Execute a backtest."""
-    if req.strategy_id not in ALL_STRATEGIES:
+    # BB3：自訂條件策略不在 ALL_STRATEGIES 註冊表裡（它的合法性要在建構當下
+    # 才知道，不是固定範本），單獨放行。
+    if req.strategy_id != CUSTOM_STRATEGY_ID and req.strategy_id not in ALL_STRATEGIES:
         raise HTTPException(
             status_code=400,
             detail=f"Unknown strategy: {req.strategy_id}. Available: {list(ALL_STRATEGIES.keys())}",
@@ -125,8 +169,14 @@ async def run_backtest(req: BacktestRequest):
             raise HTTPException(status_code=404, detail=f"No price data for {req.symbol}")
 
         # Create strategy instance
-        strategy_cls = ALL_STRATEGIES[req.strategy_id]
-        strategy = strategy_cls(params=req.params)
+        if req.strategy_id == CUSTOM_STRATEGY_ID:
+            try:
+                strategy = CustomExpressionStrategy(params=req.params)
+            except ExpressionError as exc:
+                raise HTTPException(status_code=400, detail=str(exc))
+        else:
+            strategy_cls = ALL_STRATEGIES[req.strategy_id]
+            strategy = strategy_cls(params=req.params)
 
         # Run backtest (net of commission/tax/slippage)
         commission = max(req.commission, 0.0)

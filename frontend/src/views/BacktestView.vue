@@ -8,11 +8,15 @@
         <input type="checkbox" v-model="compareMode" @change="onCompareModeChange" />
         策略並列比較模式（同股票/同區間，比較多個策略的績效）
       </label>
+      <label class="compare-toggle">
+        <input type="checkbox" v-model="customMode" @change="onCustomModeChange" />
+        自訂條件模式（自己寫或用 AI 生成買賣條件，類似簡化版 Pine Script）
+      </label>
       <div class="form-group">
         <label>股票代碼</label>
         <input v-model="form.symbol" class="form-input" />
       </div>
-      <div class="form-group" v-if="!compareMode">
+      <div class="form-group" v-if="!compareMode && !customMode">
         <label>策略</label>
         <select v-model="form.strategy_id" class="form-input" @change="onStrategyChange">
           <option v-for="s in strategies" :key="s.strategy_id" :value="s.strategy_id">
@@ -20,7 +24,7 @@
           </option>
         </select>
       </div>
-      <div class="form-group" v-else>
+      <div class="form-group" v-else-if="compareMode">
         <label>選擇要比較的策略（2~{{ MAX_COMPARE }} 個，各自使用預設參數）</label>
         <div class="compare-strategy-list">
           <label
@@ -36,6 +40,41 @@
             />
             {{ s.name }}
           </label>
+        </div>
+      </div>
+      <div class="form-group" v-else-if="customMode">
+        <div class="custom-ai-box">
+          <label>用白話描述你的進出場想法（選填，AI 幫你翻譯成條件）</label>
+          <textarea
+            v-model="customAiQuery" class="form-input custom-textarea" rows="2"
+            placeholder="例如：RSI 低於 30 而且成交量爆量兩倍以上就買，RSI 高於 70 就賣"
+          ></textarea>
+          <button class="btn" type="button" :disabled="customAiGenerating || !customAiQuery.trim()" @click="generateCustomExpression">
+            <span v-if="customAiGenerating" class="loading-spinner btn-spinner" aria-hidden="true"></span>{{ customAiGenerating ? 'AI 生成中...' : '✨ AI 生成條件' }}
+          </button>
+          <p v-if="customAiError" class="error-text">{{ customAiError }}</p>
+          <p v-if="customAiDescription" class="muted small">AI 理解：{{ customAiDescription }}</p>
+        </div>
+
+        <div class="form-group">
+          <label>買進條件 <InfoTooltip v-bind="metricGlossary.customExprSyntax" /></label>
+          <textarea
+            v-model="customBuyExpr" class="form-input custom-textarea mono" rows="2"
+            @blur="validateCustomExpr('buy')"
+          ></textarea>
+          <p v-if="customBuyError" class="error-text">{{ customBuyError }}</p>
+        </div>
+        <div class="form-group">
+          <label>賣出條件</label>
+          <textarea
+            v-model="customSellExpr" class="form-input custom-textarea mono" rows="2"
+            @blur="validateCustomExpr('sell')"
+          ></textarea>
+          <p v-if="customSellError" class="error-text">{{ customSellError }}</p>
+        </div>
+        <div class="form-group">
+          <label>停損 %（選填，跌破就出場，不論賣出條件是否成立）</label>
+          <input type="number" v-model.number="customStopLossPct" step="1" min="0" max="50" class="form-input" placeholder="例如 8" />
         </div>
       </div>
       <div class="form-group">
@@ -59,7 +98,7 @@
         <input type="number" v-model.number="form.slippagePct" step="0.01" min="0" class="form-input" />
       </div>
 
-      <div v-if="selectedStrategy && !compareMode" class="params-section">
+      <div v-if="selectedStrategy && !compareMode && !customMode" class="params-section">
         <h4>策略參數</h4>
         <label class="sweep-toggle">
           <input type="checkbox" v-model="sweepMode" @change="onSweepModeChange" />
@@ -119,19 +158,15 @@
 
       <button
         class="btn btn-primary" style="width: 100%; margin-top: 16px;"
-        @click="compareMode ? runCompare() : (sweepMode ? runSweep() : runBacktest())"
-        :disabled="compareMode
-          ? (compareSelected.length < 2 || compareRunning)
-          : (sweepMode
-            ? (sweepCombinationCount < 2 || sweepCombinationCount > MAX_SWEEP_COMBOS || sweepRunning)
-            : running)"
+        @click="runActive"
+        :disabled="isRunDisabled"
       >
-        <span v-if="compareMode ? compareRunning : (sweepMode ? sweepRunning : running)" class="loading-spinner" style="width:14px;height:14px;border-width:2px;vertical-align:-2px;margin-right:6px;" aria-hidden="true"></span>{{ compareMode ? (compareRunning ? '比較回測中...' : `🚀 執行比較回測 (${compareSelected.length})`) : (sweepMode ? (sweepRunning ? '掃描中...' : `🔍 執行參數掃描 (${sweepCombinationCount})`) : (running ? '回測中...' : '🚀 執行回測')) }}
+        <span v-if="isActiveRunning" class="loading-spinner" style="width:14px;height:14px;border-width:2px;vertical-align:-2px;margin-right:6px;" aria-hidden="true"></span>{{ runButtonLabel }}
       </button>
     </aside>
 
     <main class="results">
-      <div v-if="running || compareRunning || sweepRunning" class="empty-state card" role="status" aria-live="polite">
+      <div v-if="isActiveRunning" class="empty-state card" role="status" aria-live="polite">
         <div class="loading-spinner" style="width:40px;height:40px;border-width:3px;margin:0 auto 12px;"></div>
         <h3>回測運算中…</h3>
         <p>{{ compareMode ? '正在並列執行多個策略的回測，計算各自績效指標' : (sweepMode ? `正在測試 ${sweepCombinationCount} 組參數組合...` : '正在計算年化報酬率、最大回撤、夏普比率等績效指標') }}</p>
@@ -415,13 +450,14 @@ function bestValue(metric) {
 }
 
 function onCompareModeChange() {
+  result.value = null
+  trades.value = []
+  destroyEquityChart()
   if (compareMode.value) {
-    result.value = null
-    trades.value = []
-    destroyEquityChart()
     sweepMode.value = false
     sweepResults.value = []
     sweepError.value = ''
+    customMode.value = false
     if (!compareSelected.value.length) {
       compareSelected.value = strategies.value.slice(0, 2).map(s => s.strategy_id)
     }
@@ -592,11 +628,15 @@ const sweepCombos = computed(() => {
 const sweepCombinationCount = computed(() => sweepCombos.value.length)
 
 function onSweepModeChange() {
+  result.value = null
+  trades.value = []
+  destroyEquityChart()
   if (sweepMode.value) {
     compareMode.value = false
     compareResults.value = []
     compareError.value = ''
     destroyCompareChart()
+    customMode.value = false
   } else {
     sweepResults.value = []
     sweepError.value = ''
@@ -657,6 +697,144 @@ function exportSweepCsv() {
   ])
   downloadCsv(timestampedFilename(`backtest-sweep-${form.value.symbol}-${form.value.strategy_id}`), cols, rows)
 }
+
+// 自訂條件模式：買賣條件用簡化版運算式語言描述（見後端 expr_lang.py），
+// 可以自己寫、也可以用 AI 把白話描述翻譯成運算式——翻譯結果一律先過後端
+// parser 驗證過才會顯示，不會把語法錯誤的東西丟給使用者。
+const customMode = ref(false)
+const customBuyExpr = ref('RSI(14) < 30')
+const customSellExpr = ref('RSI(14) > 70')
+const customStopLossPct = ref(8)
+const customBuyError = ref('')
+const customSellError = ref('')
+const customAiQuery = ref('')
+const customAiGenerating = ref(false)
+const customAiError = ref('')
+const customAiDescription = ref('')
+const customRunning = ref(false)
+
+function onCustomModeChange() {
+  result.value = null
+  trades.value = []
+  destroyEquityChart()
+  if (customMode.value) {
+    compareMode.value = false
+    compareResults.value = []
+    compareError.value = ''
+    destroyCompareChart()
+    sweepMode.value = false
+    sweepResults.value = []
+    sweepError.value = ''
+  }
+  customAiError.value = ''
+  customBuyError.value = ''
+  customSellError.value = ''
+}
+
+async function validateCustomExpr(which) {
+  const expr = which === 'buy' ? customBuyExpr.value : customSellExpr.value
+  const errRef = which === 'buy' ? customBuyError : customSellError
+  if (!expr.trim()) {
+    errRef.value = ''
+    return
+  }
+  try {
+    const resp = await axios.post('/api/v1/backtest/validate-expression', { expr })
+    const data = resp.data?.data
+    errRef.value = data?.valid ? '' : (data?.error || '語法錯誤')
+  } catch {
+    // 驗證端點本身失敗不擋使用者——真正的錯誤會在「執行回測」時浮現。
+    errRef.value = ''
+  }
+}
+
+async function generateCustomExpression() {
+  if (!customAiQuery.value.trim()) return
+  customAiGenerating.value = true
+  customAiError.value = ''
+  try {
+    const resp = await axios.post('/api/v1/backtest/generate-expression', { query: customAiQuery.value })
+    const data = resp.data?.data
+    customBuyExpr.value = data.buy_expr
+    customSellExpr.value = data.sell_expr
+    customAiDescription.value = data.description || ''
+    customBuyError.value = ''
+    customSellError.value = ''
+  } catch (e) {
+    customAiError.value = e.response?.data?.detail || e.message || 'AI 生成失敗'
+  }
+  customAiGenerating.value = false
+}
+
+async function runCustomBacktest() {
+  if (!customBuyExpr.value.trim() || !customSellExpr.value.trim()) return
+  customRunning.value = true
+  result.value = null
+  trades.value = []
+  try {
+    const resp = await axios.post('/api/v1/backtest/run', {
+      symbol: form.value.symbol,
+      strategy_id: 'custom_expression',
+      params: {
+        buy_expr: customBuyExpr.value,
+        sell_expr: customSellExpr.value,
+        stop_loss: Math.max(customStopLossPct.value || 0, 0) / 100,
+      },
+      date_range: { start: form.value.start, end: form.value.end },
+      capital: form.value.capital,
+      commission: Math.max(form.value.commissionPct || 0, 0) / 100,
+      slippage: Math.max(form.value.slippagePct || 0, 0) / 100,
+    })
+    if (!resp.data?.data || typeof resp.data.data !== 'object') {
+      throw new Error('回測回應格式異常')
+    }
+    result.value = resp.data.data
+    if (result.value.backtest_id) {
+      const tResp = await axios.get(`/api/v1/backtest/${result.value.backtest_id}/trades`)
+      trades.value = tResp.data?.data?.items || []
+    }
+    await nextTick()
+    renderEquityCurve()
+  } catch (e) {
+    alert('回測失敗: ' + (e.response?.data?.detail || e.message))
+  }
+  customRunning.value = false
+}
+
+const activeMode = computed(() => {
+  if (compareMode.value) return 'compare'
+  if (sweepMode.value) return 'sweep'
+  if (customMode.value) return 'custom'
+  return 'single'
+})
+
+function runActive() {
+  if (activeMode.value === 'compare') return runCompare()
+  if (activeMode.value === 'sweep') return runSweep()
+  if (activeMode.value === 'custom') return runCustomBacktest()
+  return runBacktest()
+}
+
+const isActiveRunning = computed(() => {
+  if (activeMode.value === 'compare') return compareRunning.value
+  if (activeMode.value === 'sweep') return sweepRunning.value
+  if (activeMode.value === 'custom') return customRunning.value
+  return running.value
+})
+
+const isRunDisabled = computed(() => {
+  if (activeMode.value === 'compare') return compareSelected.value.length < 2 || compareRunning.value
+  if (activeMode.value === 'sweep') return sweepCombinationCount.value < 2 || sweepCombinationCount.value > MAX_SWEEP_COMBOS || sweepRunning.value
+  if (activeMode.value === 'custom') return !customBuyExpr.value.trim() || !customSellExpr.value.trim() || customRunning.value
+  return running.value
+})
+
+const runButtonLabel = computed(() => {
+  if (activeMode.value === 'compare') return compareRunning.value ? '比較回測中...' : `🚀 執行比較回測 (${compareSelected.value.length})`
+  if (activeMode.value === 'sweep') return sweepRunning.value ? '掃描中...' : `🔍 執行參數掃描 (${sweepCombinationCount.value})`
+  if (activeMode.value === 'custom') return customRunning.value ? '回測中...' : '🚀 執行回測'
+  return running.value ? '回測中...' : '🚀 執行回測'
+})
 
 // Y5：交易明細匯出，回測頁原本完全沒有匯出功能
 function exportTradesCsv() {
@@ -825,6 +1003,14 @@ function renderEquityCurve() {
 }
 .compare-strategy-item.disabled { opacity: 0.45; cursor: not-allowed; }
 .error-text { color: #ef4444; font-size: 0.84rem; margin-top: var(--space-2); }
+.custom-ai-box {
+  display: flex; flex-direction: column; gap: 8px;
+  margin-bottom: var(--space-3);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px dashed var(--border-color);
+}
+.custom-textarea { resize: vertical; min-height: 42px; font-family: inherit; }
+.custom-textarea.mono { font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 0.82rem; }
 .best-cell { background: rgba(34, 197, 94, 0.14); color: #22c55e; font-weight: 700; }
 .best-hint { display: inline-block; padding: 1px 6px; border-radius: 6px; background: rgba(34, 197, 94, 0.14); color: #22c55e; font-weight: 700; }
 .sweep-toggle {

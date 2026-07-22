@@ -126,4 +126,8 @@ export const metricGlossary = {
     label: '千張大戶持股趨勢',
     text: '集保庫存單一帳戶持股超過 1,000 張（100 萬股）者，資料每週由集保結算所公布。持股比例連續上升，通常視為籌碼趨於集中（大戶加碼）；連續下降則可能是大戶調節出脫。台股沒有公開的個別大戶逐筆交易紀錄，只能看整體持股級距的週度變化趨勢，不是「某大戶某天買賣多少股」這種明細。',
   },
+  customExprSyntax: {
+    label: '自訂條件運算式語法',
+    text: '可用指標：CLOSE/OPEN/HIGH/LOW/VOLUME（不需參數）、MA(n)/EMA(n)/RSI(n)/ATR(n)/VOLUME_RATIO(n)（需要週期參數，例如 RSI(14)）、MACD_DIF/MACD_DEA/MACD_HIST、BB_UPPER/BB_MIDDLE/BB_LOWER、KD_K/KD_D、ADX/PLUS_DI/MINUS_DI（固定用預設參數，不需加括號）。比較符號：> < >= <= == !=。交叉：CROSSES_ABOVE（由下往上穿越）、CROSSES_BELOW（由上往下穿越）。邏輯：AND、OR、NOT，可用括號分組。範例：RSI(14) < 30 AND VOLUME_RATIO(20) > 1.5。',
+  },
 }
