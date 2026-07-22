@@ -184,10 +184,26 @@ class TechnicalAnalyzer:
             df["plus_di"] = talib.PLUS_DI(df["high"], df["low"], df["close"], timeperiod=period)
             df["minus_di"] = talib.MINUS_DI(df["high"], df["low"], df["close"], timeperiod=period)
         else:
-            # Simplified ADX calculation
-            df["adx"] = np.nan
-            df["plus_di"] = np.nan
-            df["minus_di"] = np.nan
+            # CC2：talib 沒裝進 requirements.txt/Dockerfile，這個分支才是實際
+            # 部署會跑到的路徑（不是罕見 fallback）——先前這裡整段回傳 NaN，
+            # 是死掉的功能。改用 backtest/expr_lang.py::_adx 已經驗證正確的
+            # Wilder's DM/ADX 公式（純 pandas，不靠 talib）。
+            high, low, close = df["high"], df["low"], df["close"]
+            up_move = high.diff()
+            down_move = -low.diff()
+            plus_dm = pd.Series(np.where((up_move > down_move) & (up_move > 0), up_move, 0.0), index=df.index)
+            minus_dm = pd.Series(np.where((down_move > up_move) & (down_move > 0), down_move, 0.0), index=df.index)
+            prev_close = close.shift(1)
+            true_range = pd.concat([
+                high - low, (high - prev_close).abs(), (low - prev_close).abs(),
+            ], axis=1).max(axis=1)
+            atr = true_range.ewm(alpha=1 / period, adjust=False).mean()
+            plus_di = 100 * plus_dm.ewm(alpha=1 / period, adjust=False).mean() / atr.replace(0, np.nan)
+            minus_di = 100 * minus_dm.ewm(alpha=1 / period, adjust=False).mean() / atr.replace(0, np.nan)
+            dx = (plus_di - minus_di).abs() / (plus_di + minus_di).replace(0, np.nan) * 100
+            df["adx"] = dx.ewm(alpha=1 / period, adjust=False).mean()
+            df["plus_di"] = plus_di
+            df["minus_di"] = minus_di
 
         return df
 

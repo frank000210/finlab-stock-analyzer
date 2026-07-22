@@ -345,6 +345,12 @@ async def run_alert_check() -> dict:
     now_iso = datetime.utcnow().isoformat()
     today_iso = date.today().isoformat()
     triggered_count = 0
+    # CC4：這輪檢查從讀到寫中間有好幾秒的併發抓價（見上面的 asyncio.gather），
+    # 使用者若在這段時間新增/刪除警報，原本直接把整份 alerts 寫回去會連同
+    # 使用者剛做的變更一起蓋掉。改成只記錄「這次檢查算出的更新」，最後才
+    # 重新讀一次最新清單、只把更新套用到當下還存在的 id 上——新增的不會被
+    # 漏掉，刪除的也不會因為套用一份已經過期的更新而借屍還魂。
+    updates: dict[str, dict] = {}
     for a in alerts:
         if not a.get("active") or a.get("triggered"):
             continue
@@ -354,6 +360,7 @@ async def run_alert_check() -> dict:
         price, rsi, vol_ratio = m["price"], m.get("rsi"), m.get("vol_ratio")
         a["last_price"] = price
         a["last_checked_at"] = now_iso
+        updates[a["id"]] = {"last_price": price, "last_checked_at": now_iso}
 
         alert_type = a.get("alert_type", "price")
         hit = False
@@ -394,6 +401,8 @@ async def run_alert_check() -> dict:
                     continue  # 推播失敗，留給下一輪排程重試，不標記已觸發
             a["triggered"] = True
             a["triggered_at"] = now_iso
+            updates[a["id"]]["triggered"] = True
+            updates[a["id"]]["triggered_at"] = now_iso
             triggered_count += 1
             await _append_alert_history({
                 "id": a["id"], "symbol": a["symbol"], "alert_type": alert_type,
@@ -401,7 +410,13 @@ async def run_alert_check() -> dict:
                 "price": price, "rsi": rsi, "vol_ratio": vol_ratio,
                 "note": a.get("note", ""), "triggered_at": now_iso, "date": today_iso,
             })
-    await set_setting("price_alerts", alerts)
+
+    current = await get_setting("price_alerts", []) or []
+    for c in current:
+        u = updates.get(c.get("id"))
+        if u:
+            c.update(u)
+    await set_setting("price_alerts", current)
     return {"checked": len(symbols), "triggered": triggered_count}
 
 

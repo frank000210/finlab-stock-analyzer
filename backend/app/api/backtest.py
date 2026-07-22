@@ -3,6 +3,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from typing import Optional
+from collections import OrderedDict
 from datetime import date, timedelta
 import uuid
 
@@ -77,7 +78,11 @@ def _check_overfit(engine: BacktestEngine, df: pd.DataFrame, strategy, capital: 
 router = APIRouter(prefix="/api/v1/backtest", tags=["backtest"])
 
 # In-memory store for backtest results (replace with DB in production)
-_backtest_results: dict = {}
+# CC5：先前是普通 dict，每次 /run 都塞一筆、從不清——長時間跑下去 process
+# 記憶體無上限成長。改成有上限的 FIFO：滿了就把最舊的一筆丟掉，不追求
+# 真正的 LRU（read 不影響存活順序），單一 worker 場景下夠用。
+_MAX_BACKTEST_RESULTS = 200
+_backtest_results: "OrderedDict[str, dict]" = OrderedDict()
 
 
 class BacktestRequest(BaseModel):
@@ -137,6 +142,10 @@ async def generate_expression_endpoint(req: GenerateExpressionRequest):
 
     if not is_llm_configured():
         raise HTTPException(status_code=503, detail="AI 服務尚未設定")
+    # CC3：跟 screener.py 的白話選股一樣的長度上限——沒有這道防線，呼叫端可以
+    # 塞任意長的 query 拉高每次呼叫的 token 成本，吃掉共用的每日 LLM 額度。
+    if len(req.query) > 200:
+        raise HTTPException(status_code=400, detail="描述過長，請精簡在 200 字以內")
     try:
         result = await generate_expression(req.query)
         return {"success": True, "data": result}
@@ -203,6 +212,8 @@ async def run_backtest(req: BacktestRequest):
             "status": "completed",
             **result,
         }
+        while len(_backtest_results) > _MAX_BACKTEST_RESULTS:
+            _backtest_results.popitem(last=False)
 
         return {
             "success": True,

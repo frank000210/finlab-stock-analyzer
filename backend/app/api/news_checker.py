@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, Body, HTTPException, Query
+from fastapi import APIRouter, Body, Depends, HTTPException, Query
 
+from ..llm import check_llm_rate_limit
 from ..news_checker.analyzer import NewsCheckRequest, news_analyzer
 
 logger = logging.getLogger(__name__)
@@ -13,7 +14,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/news", tags=["news-checker"])
 
 
-@router.post("/check-credibility")
+@router.post("/check-credibility", dependencies=[Depends(check_llm_rate_limit)])
 async def check_credibility(payload: NewsCheckRequest = Body(...)):
     try:
         result = await news_analyzer.analyze(payload)

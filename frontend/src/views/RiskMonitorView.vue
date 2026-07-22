@@ -46,7 +46,7 @@
           </div>
         </div>
         <div class="state-body">
-          <span class="status-pill" :class="statusClass(circuitStatus)">{{ circuitStatus }}</span>
+          <span class="status-pill" :class="statusClass(circuitStatus)">{{ circuitBreakerLabel }}</span>
           <p>{{ statusDescription }}</p>
           <div class="threshold-cfg">
             <label>警戒 MDD<input v-model.number="mddWarnPct" type="number" min="0.5" step="0.5" class="cfg-inp" @change="saveThresholds" />%</label>
@@ -127,7 +127,7 @@ let chart = null
 
 const {
   hasJournalData, equitySeries, mddPercent, dailyTrades, dailyTradeLimit,
-  mddWarnPct, mddPausePct, warnTrades, circuitBreaker, reload, saveRiskConfig,
+  mddWarnPct, mddPausePct, warnTrades, circuitBreaker, circuitBreakerLabel, reload, saveRiskConfig,
   openTrades, unrealizedPnl,
 } = useJournalRisk()
 

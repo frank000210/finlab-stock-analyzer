@@ -184,6 +184,8 @@
       <div v-else-if="!compareMode && !sweepMode && !result" class="empty-state card">
         <h3>設定策略參數後點擊「執行回測」</h3>
         <p>系統將計算年化報酬率、最大回撤、夏普比率等績效指標</p>
+        <p v-if="strategiesError" class="error-text">{{ strategiesError }}</p>
+        <p v-if="resultError" class="error-text">{{ resultError }}</p>
       </div>
 
       <template v-if="!compareMode && !sweepMode && result">
@@ -272,7 +274,7 @@
 
         <!-- B7 MFE/MAE：出場價只是「結果」，這裡看持有期間的「過程」 -->
         <div v-if="result.mfe_mae && result.mfe_mae.available" class="card mfe-card">
-          <h4>📐 MFE / MAE 分析</h4>
+          <h4>📐 MFE / MAE 分析 <InfoTooltip v-bind="metricGlossary.mfe" /> <InfoTooltip v-bind="metricGlossary.mae" /></h4>
           <p class="mfe-intro">MFE＝持有期間內最有利時比進場價高多少；MAE＝最不利時比進場價低多少（負值）。擷取率＝實際報酬佔 MFE 的比例，太低代表出場太早、獲利留在桌上。</p>
           <div class="mfe-grid">
             <div class="mfe-stat"><span>平均 MFE</span><strong class="up">+{{ result.mfe_mae.avg_mfe_pct }}%</strong></div>
@@ -307,7 +309,7 @@
           <div class="data-table table-wrap">
             <table>
               <thead>
-                <tr><th>進場日</th><th>出場日</th><th>進場價</th><th>出場價</th><th>報酬%</th><th>持有天數</th><th>MFE%</th><th>MAE%</th></tr>
+                <tr><th>進場日</th><th>出場日</th><th>進場價</th><th>出場價</th><th>報酬%</th><th>持有天數</th><th>MFE% <InfoTooltip v-bind="metricGlossary.mfe" /></th><th>MAE% <InfoTooltip v-bind="metricGlossary.mae" /></th></tr>
               </thead>
               <tbody>
                 <tr v-for="(t, i) in trades" :key="i">
@@ -415,9 +417,11 @@ const theme = useChartTheme()
 const route = useRoute()
 const stockStore = useStockStore()
 const strategies = ref([])
+const strategiesError = ref('') // CC8：策略清單抓取失敗時要有地方顯示，不能整段悄悄失敗
 const selectedStrategy = ref(null)
 const running = ref(false)
 const result = ref(null)
+const resultError = ref('') // CC8：跟 compareError/sweepError 一致的行內錯誤，取代 alert()
 const trades = ref([])
 const equityChart = ref(null)
 
@@ -771,6 +775,7 @@ async function runCustomBacktest() {
   customRunning.value = true
   result.value = null
   trades.value = []
+  resultError.value = ''
   try {
     const resp = await axios.post('/api/v1/backtest/run', {
       symbol: form.value.symbol,
@@ -796,7 +801,8 @@ async function runCustomBacktest() {
     await nextTick()
     renderEquityCurve()
   } catch (e) {
-    alert('回測失敗: ' + (e.response?.data?.detail || e.message))
+    // CC8：跟 compareError/sweepError 一樣改行內顯示，不擋住整個瀏覽器的 alert()
+    resultError.value = '回測失敗: ' + (e.response?.data?.detail || e.message)
   }
   customRunning.value = false
 }
@@ -826,7 +832,7 @@ const isRunDisabled = computed(() => {
   if (activeMode.value === 'compare') return compareSelected.value.length < 2 || compareRunning.value
   if (activeMode.value === 'sweep') return sweepCombinationCount.value < 2 || sweepCombinationCount.value > MAX_SWEEP_COMBOS || sweepRunning.value
   if (activeMode.value === 'custom') return !customBuyExpr.value.trim() || !customSellExpr.value.trim() || customRunning.value
-  return running.value
+  return running.value || !selectedStrategy.value
 })
 
 const runButtonLabel = computed(() => {
@@ -862,8 +868,13 @@ onMounted(async () => {
   try {
     const resp = await axios.get('/api/v1/backtest/strategies')
     strategies.value = resp.data?.data?.strategies || []
+    strategiesError.value = ''
     onStrategyChange()
-  } catch { /* ignore */ }
+  } catch (e) {
+    // CC8：先前失敗就整段沉默——策略清單永遠是空的，參數區塊不會出現，
+    // 「執行回測」卻還是可以按，會送出後端根本不認得的預設 strategy_id。
+    strategiesError.value = '策略清單載入失敗，請重新整理頁面再試：' + (e.response?.data?.detail || e.message)
+  }
 })
 
 // 側欄搜尋在這頁（/stocks/:symbol/backtest）換股：換代號欄位，讓下一次
@@ -891,6 +902,7 @@ async function runBacktest() {
   running.value = true
   result.value = null
   trades.value = []
+  resultError.value = ''
 
   try {
     const resp = await axios.post('/api/v1/backtest/run', {
@@ -916,7 +928,7 @@ async function runBacktest() {
     await nextTick()
     renderEquityCurve()
   } catch (e) {
-    alert('回測失敗: ' + (e.response?.data?.detail || e.message))
+    resultError.value = '回測失敗: ' + (e.response?.data?.detail || e.message)
   }
   running.value = false
 }
@@ -1072,7 +1084,7 @@ function renderEquityCurve() {
     gap: var(--space-3);
   }
   .config-panel,
-  .results-panel .card {
+  .results .card {
     padding: var(--space-3);
   }
 }

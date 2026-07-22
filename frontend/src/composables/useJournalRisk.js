@@ -18,6 +18,11 @@ const CFG_KEYS = {
 }
 const DEFAULTS = { mddWarn: 6, mddPause: 10, dailyLimit: 15 }
 
+// CC7：circuitBreaker 回傳的英文列舉值(ACTIVE/WARNING/PAUSED)本身要保留
+// 給 CSS class 判斷／字串比較用，不能直接改掉；顯示用的中文另外開一個
+// 對照表，兩個畫面（風控監控／交易儀表板）共用同一份，不用各自維護一次。
+export const CIRCUIT_LABELS = { ACTIVE: '正常', WARNING: '警戒', PAUSED: '暫停' }
+
 function shiftDay(iso, deltaDays) {
   const d = new Date(iso)
   d.setDate(d.getDate() + deltaDays)
@@ -123,6 +128,7 @@ export function useJournalRisk() {
     if (mddPercent.value >= mddWarnPct.value || dailyTrades.value >= warnTrades.value) return 'WARNING'
     return 'ACTIVE'
   })
+  const circuitBreakerLabel = computed(() => CIRCUIT_LABELS[circuitBreaker.value] || circuitBreaker.value)
 
   // B2 跨分頁同步：交易日誌在別的分頁（或視窗）新增/平倉時，storage 事件
   // 只會發到「其他」分頁——正好用來讓已開著的風控頁即時跟上，不用手動
@@ -154,6 +160,7 @@ export function useJournalRisk() {
     mddPausePct,
     warnTrades,
     circuitBreaker,
+    circuitBreakerLabel,
     reload,
     saveRiskConfig,
   }

@@ -121,7 +121,7 @@
 
 <script setup>
 import PageFocusBanner from '../components/PageFocusBanner.vue'
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import axios from 'axios'
 import { useTheme } from '../composables/useTheme.js'
 import { loadNotificationPrefs, saveNotificationPrefs } from '../lib/notificationPrefs'
@@ -178,6 +178,22 @@ const notifications = ref(loadNotificationPrefs())
 watch(notifications, (val) => saveNotificationPrefs(val), { deep: true })
 const saved = ref(false)
 
+// CC1：儲存設定按鈕先前是純裝飾——按下去只閃一下「已儲存」，從未真的送出，
+// 重新整理後預設區間／資金就打回原樣。這裡只接回真正有讀寫的兩個欄位；
+// FinMind／LINE Token 維持現況（按「驗證」/「測試通知」即測即用，後端目前
+// 沒有任何地方會讀 Mongo 存的 token 值，硬存進去只會製造「看起來存了、其實
+// 沒作用」的第二層假象，不在這次範圍內)。
+onMounted(async () => {
+  try {
+    const resp = await axios.get('/api/v1/settings')
+    const data = resp.data?.data || {}
+    if (data.default_period) defaultPeriod.value = data.default_period
+    if (typeof data.default_capital === 'number') defaultCapital.value = data.default_capital
+  } catch {
+    // 讀取失敗就保留欄位預設值，不擋頁面其他功能
+  }
+})
+
 async function validateToken(type) {
   try {
     const resp = await axios.post('/api/v1/settings/validate-token', { token_type: type, token: finmindToken.value })
@@ -197,8 +213,16 @@ async function testLine() {
 }
 
 async function save() {
-  saved.value = true
-  setTimeout(() => { saved.value = false }, 3000)
+  try {
+    await axios.put('/api/v1/settings', {
+      default_period: defaultPeriod.value,
+      default_capital: defaultCapital.value,
+    })
+    saved.value = true
+    setTimeout(() => { saved.value = false }, 3000)
+  } catch {
+    alert('❌ 儲存失敗，請稍後再試')
+  }
 }
 </script>
 

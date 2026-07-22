@@ -2158,7 +2158,15 @@ function saveRecent() {
   // Only save numeric stock codes to prevent saving Chinese names in recent list
   if (!current || !/^\d{4,6}$/.test(current)) return
   const name = stockInfo.value?.name_zh || ''
-  const history = JSON.parse(localStorage.getItem('recentStocks') || '[]')
+  // CC6：跟 HomeView.vue 管理同一個 key 時就有包 try/catch——這裡沒包，壞掉
+  // 的 recentStocks 值會讓 saveRecent 直接 throw，連帶讓呼叫它的 onMounted／
+  // route watcher 整段中斷，分析頁後面該做的事全部不會執行。
+  let history = []
+  try {
+    history = JSON.parse(localStorage.getItem('recentStocks') || '[]')
+  } catch {
+    history = []
+  }
   // Normalize to objects
   const normalized = history.map(item =>
     typeof item === 'string' ? { symbol: item, name: '' } : item

@@ -1,9 +1,21 @@
 ﻿import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 
+// CC6：先前這裡是全站唯一沒包 try/catch 的 localStorage JSON.parse
+// （useTheme.js／watchlist.js／tradeMath.js 等都有包）。store 是在 Pinia
+// setup 當下同步執行，壞掉的 admin_user 值（寫到一半、手動改壞）會直接
+// throw 到呼叫端，讓任何碰到這個 store 的地方都掛掉。
+function loadStoredUser() {
+  try {
+    return JSON.parse(localStorage.getItem('admin_user') || 'null')
+  } catch {
+    return null
+  }
+}
+
 export const useAuthStore = defineStore('auth', () => {
   const token = ref(localStorage.getItem('admin_token') || null)
-  const user = ref(JSON.parse(localStorage.getItem('admin_user') || 'null'))
+  const user = ref(loadStoredUser())
 
   const isLoggedIn = computed(() => !!token.value && !!user.value)
   const isAdmin = computed(() => user.value?.is_admin === true)

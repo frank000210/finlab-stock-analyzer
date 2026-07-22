@@ -27,7 +27,7 @@
       </article>
       <article class="card metric-card">
         <div class="label">熔斷機制</div>
-        <div class="value" :class="statusClass(circuitStatus)">{{ circuitStatus }}</div>
+        <div class="value" :class="statusClass(circuitStatus)">{{ circuitBreakerLabel }}</div>
         <div class="meta">{{ circuitStatusDescription }}</div>
       </article>
       <article class="card metric-card">
@@ -99,7 +99,7 @@
         </div>
         <div>
           <span class="risk-label">熔斷狀態</span>
-          <strong :class="statusClass(circuitStatus)">{{ circuitStatus }}</strong>
+          <strong :class="statusClass(circuitStatus)">{{ circuitBreakerLabel }}</strong>
         </div>
       </div>
     </section>
@@ -141,7 +141,7 @@ const chartEl = ref(null)
 const sankeyEl = ref(null)
 let chart = null
 
-const { hasJournalData, portfolioValue, mddPercent, dailyTrades, dailyTradeLimit, circuitBreaker, reload: reloadJournalRisk } = useJournalRisk()
+const { hasJournalData, portfolioValue, mddPercent, dailyTrades, dailyTradeLimit, circuitBreaker, circuitBreakerLabel, reload: reloadJournalRisk } = useJournalRisk()
 
 const topSignals = computed(() => signals.value.slice(0, 4))
 const latestPriceDisplay = computed(() => {

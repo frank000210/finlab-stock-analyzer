@@ -126,6 +126,14 @@ export const metricGlossary = {
     label: '千張大戶持股趨勢',
     text: '集保庫存單一帳戶持股超過 1,000 張（100 萬股）者，資料每週由集保結算所公布。持股比例連續上升，通常視為籌碼趨於集中（大戶加碼）；連續下降則可能是大戶調節出脫。台股沒有公開的個別大戶逐筆交易紀錄，只能看整體持股級距的週度變化趨勢，不是「某大戶某天買賣多少股」這種明細。',
   },
+  mfe: {
+    label: 'MFE（最大有利變動）',
+    text: '持有期間內，價格曾經比進場價「最有利」時高出的幅度（Maximum Favorable Excursion）。反映的是這筆交易理論上最多能賺到多少，不是最後真的賺到多少——實際報酬通常會小於 MFE。',
+  },
+  mae: {
+    label: 'MAE（最大不利變動）',
+    text: '持有期間內，價格曾經比進場價「最不利」時低了多少幅度（Maximum Adverse Excursion），數字為負值。反映這筆交易中途承受過的最深帳面虧損，用來檢視停損設定是否留了足夠（但不過多）的緩衝空間。',
+  },
   customExprSyntax: {
     label: '自訂條件運算式語法',
     text: '可用指標：CLOSE/OPEN/HIGH/LOW/VOLUME（不需參數）、MA(n)/EMA(n)/RSI(n)/ATR(n)/VOLUME_RATIO(n)（需要週期參數，例如 RSI(14)）、MACD_DIF/MACD_DEA/MACD_HIST、BB_UPPER/BB_MIDDLE/BB_LOWER、KD_K/KD_D、ADX/PLUS_DI/MINUS_DI（固定用預設參數，不需加括號）。比較符號：> < >= <= == !=。交叉：CROSSES_ABOVE（由下往上穿越）、CROSSES_BELOW（由上往下穿越）。邏輯：AND、OR、NOT，可用括號分組。範例：RSI(14) < 30 AND VOLUME_RATIO(20) > 1.5。',
