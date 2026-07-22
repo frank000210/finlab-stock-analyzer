@@ -26,7 +26,6 @@ from .api import (
     lead_lag_router,
     major_players_router,
     chip_router,
-    ml_router,
     market_router,
     news_checker_router,
     notifications_router,
@@ -156,7 +155,6 @@ app.add_middleware(
 app.include_router(stock_router)
 app.include_router(analysis_router)
 app.include_router(backtest_router)
-app.include_router(ml_router)
 app.include_router(notifications_router)
 app.include_router(settings_router)
 app.include_router(ai_agent_router)

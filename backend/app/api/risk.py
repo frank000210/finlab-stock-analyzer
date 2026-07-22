@@ -229,8 +229,15 @@ class PriceAlertReq(BaseModel):
 
 
 def _compute_rsi_vol_ratio(close, vol) -> tuple[float | None, float | None]:
-    """跟 watchlist_signals() 完全同一套算法（RSI14 + vol_ratio），抽出來給
-    警報檢查跟訊號掃描共用同一個結果，不能兩邊各算一次還可能算出不同數字。
+    """跟 watchlist_signals()/_setup_score() 完全同一套算法（RSI14 +
+    vol_ratio），抽出來給警報檢查、訊號掃描、進場評分共用同一個結果，不能
+    多處各算一次還可能算出不同數字（Z5）。
+
+    注意：這裡刻意用簡單移動平均版 RSI，不是 AnalysisView 技術分析圖表用
+    的 TA-Lib Wilder's smoothing 版（backend/app/analysis/technical.py）——
+    兩者數值不會完全一樣。前者驅動的是會觸發 Telegram 通知的即時訊號/警報，
+    後者是圖表視覺化用途；不要為了「統一數字」把這裡改成呼叫 talib（那樣
+    等於改變既有使用者已經在用的警報觸發時機，是行為變更而非單純重構）。
     """
     import numpy as np
 
@@ -597,23 +604,20 @@ async def position_sizing(
 
 
 def _setup_score(df, close, high, price, atr):
-    """0–100 進場品質評分：趨勢排列(30) + 風報比(30) + 量能(20) + RSI 位置(20)。"""
-    import numpy as np
+    """0–100 進場品質評分：趨勢排列(30) + 風報比(30) + 量能(20) + RSI 位置(20)。
 
+    Z5：RSI/vol_ratio 原本在這裡跟 watchlist_signals() 各自重算一次同樣的
+    公式，跟 _compute_rsi_vol_ratio() 自己的 docstring 警告的「兩邊各算一
+    次還可能算出不同數字」正是同一種風險——改成呼叫同一份共用實作。
+    """
     n = len(close)
     ma20 = float(close.tail(20).mean())
     ma60 = float(close.tail(60).mean()) if n >= 60 else float(close.mean())
 
-    delta = close.diff()
-    gain = delta.clip(lower=0).rolling(14).mean()
-    loss = (-delta.clip(upper=0)).rolling(14).mean()
-    rs = gain / loss.replace(0, np.nan)
-    rsi_series = 100 - 100 / (1 + rs)
-    rsi = float(rsi_series.iloc[-1]) if not np.isnan(rsi_series.iloc[-1]) else 50.0
-
     vol = df["volume"].astype(float)
-    vol_ma20 = float(vol.tail(20).mean()) if len(vol) >= 20 else float(vol.mean())
-    vol_ratio = float(vol.iloc[-1]) / vol_ma20 if vol_ma20 else 1.0
+    rsi_calc, vol_ratio_calc = _compute_rsi_vol_ratio(close, vol)
+    rsi = rsi_calc if rsi_calc is not None else 50.0
+    vol_ratio = vol_ratio_calc if vol_ratio_calc is not None else 1.0
 
     hi60 = float(high.tail(60).max())
     stop = price - 2 * atr
@@ -749,7 +753,6 @@ async def watchlist_signals(
     import asyncio
     from datetime import date, timedelta
 
-    import numpy as np
     import pandas as pd
 
     from ..crawler.stock_price import StockPriceCrawler
@@ -828,21 +831,16 @@ async def watchlist_signals(
         ma20 = float(close.tail(20).mean())
         ma60 = float(close.tail(60).mean()) if len(close) >= 60 else float(close.mean())
 
-        # RSI(14)
-        delta = close.diff()
-        gain = delta.clip(lower=0).rolling(14).mean()
-        loss = (-delta.clip(upper=0)).rolling(14).mean()
-        rs = gain / loss.replace(0, np.nan)
-        rsi = float((100 - 100 / (1 + rs)).iloc[-1]) if not np.isnan(rs.iloc[-1]) else 50.0
+        # RSI(14) + vol_ratio：跟 _setup_score()/價格警報共用同一份實作（Z5），
+        # 避免三處各算一次還可能算出不同數字。
+        rsi_calc, vol_ratio = _compute_rsi_vol_ratio(close, vol)
+        rsi = rsi_calc if rsi_calc is not None else 50.0
 
         # ATR(14) + 2xATR stop distance
         prev_close = close.shift(1)
         tr = pd.concat([(high - low), (high - prev_close).abs(), (low - prev_close).abs()], axis=1).max(axis=1)
         atr = float(tr.rolling(14).mean().iloc[-1])
         stop_dist_pct = round(2 * atr / price * 100, 2) if price else None
-
-        vol_ma20 = float(vol.tail(20).mean()) if len(vol) >= 20 else float(vol.mean())
-        vol_ratio = round(float(vol.iloc[-1]) / vol_ma20, 2) if vol_ma20 else None
 
         window = close.tail(60)
         hi60, lo60 = float(window.max()), float(window.min())

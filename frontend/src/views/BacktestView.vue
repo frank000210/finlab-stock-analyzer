@@ -307,7 +307,11 @@
               </thead>
               <tbody>
                 <tr v-for="m in COMPARE_METRICS" :key="m.key">
-                  <td style="text-align:left; color: var(--text-muted);">{{ m.label }}</td>
+                  <td style="text-align:left; color: var(--text-muted);">
+                    {{ m.label }}
+                    <InfoTooltip v-if="m.key === 'sharpe_ratio'" v-bind="metricGlossary.sharpe" />
+                    <InfoTooltip v-else-if="m.key === 'profit_factor'" v-bind="metricGlossary.profitFactor" />
+                  </td>
                   <td
                     v-for="r in compareResults" :key="r.strategy_id"
                     :class="{ 'best-cell': m.higherBetter != null && typeof r.performance?.[m.key] === 'number' && r.performance[m.key] === bestValue(m) }"
@@ -337,7 +341,7 @@
               <thead>
                 <tr>
                   <th v-for="k in Object.keys(sweepRanges)" :key="k" style="text-align:left;">{{ k }}</th>
-                  <th>年化報酬率</th><th>最大回撤</th><th>夏普比率</th><th>勝率</th><th>盈虧比</th><th>總交易數</th>
+                  <th>年化報酬率</th><th>最大回撤</th><th>夏普比率 <InfoTooltip v-bind="metricGlossary.sharpe" /></th><th>勝率</th><th>盈虧比 <InfoTooltip v-bind="metricGlossary.profitFactor" /></th><th>總交易數</th>
                 </tr>
               </thead>
               <tbody>

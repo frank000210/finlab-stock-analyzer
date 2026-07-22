@@ -130,7 +130,7 @@ _alert_task: asyncio.Task | None = None
 
 def start_scheduler() -> None:
     """在 FastAPI lifespan 啟動時呼叫。"""
-    global _task, _brief_task
+    global _task, _brief_task, _alert_task
     if os.getenv("AUTO_INGEST_ENABLED", "true").lower() in ("0", "false", "no", "off"):
         logger.info("auto-ingest scheduler disabled by AUTO_INGEST_ENABLED")
     elif _task is None:

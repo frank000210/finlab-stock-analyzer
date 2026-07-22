@@ -58,7 +58,7 @@
 </template>
 
 <script setup>
-import { onBeforeUnmount, ref, watch } from 'vue'
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import PageFocusBanner from '../components/PageFocusBanner.vue'
 import { createChart } from 'lightweight-charts'
 import { useChartTheme } from '../composables/useChartTheme'
@@ -164,6 +164,15 @@ function destroyChart() {
   }
 }
 onBeforeUnmount(destroyChart)
+
+// Z7：原本圖表寬度只在建立當下量一次，旋轉手機/縮放視窗後圖表寬度卡住不變
+// （AnalysisView 等其他圖表頁面都有掛 resize listener，這頁漏掉了）。
+function handleResize() {
+  if (!chartInstance || !chartHost.value) return
+  chartInstance.applyOptions({ width: chartHost.value.clientWidth })
+}
+onMounted(() => window.addEventListener('resize', handleResize))
+onBeforeUnmount(() => window.removeEventListener('resize', handleResize))
 
 function renderChart() {
   if (!chartHost.value) return

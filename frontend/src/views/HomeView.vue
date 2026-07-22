@@ -150,7 +150,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useStockStore } from '../stores/stock.js'
-import { fetchLivePrices } from '../lib/livePriceCache'
+import { fetchLivePrices, clearLivePriceCache } from '../lib/livePriceCache'
 
 const router = useRouter()
 const stockStore = useStockStore()
@@ -253,6 +253,9 @@ function goToStock(symbol) {
 }
 
 function refreshRecentStocks() {
+  // Z8：fetchLivePrices() 有 60 秒快取，使用者按「重新整理」是明確要求拿
+  // 最新報價，先清快取再查，不然可能在 60 秒內悄悄回傳舊資料。
+  clearLivePriceCache()
   loadRecentStocks()
 }
 

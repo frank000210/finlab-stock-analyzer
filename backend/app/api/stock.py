@@ -1,8 +1,12 @@
 """Stock data API endpoints."""
 
+import logging
+
 from fastapi import APIRouter, Query, HTTPException
 from datetime import date, timedelta
 from ..crawler import StockPriceCrawler, FinMindClient
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/stocks", tags=["stocks"])
 
@@ -107,6 +111,10 @@ async def get_stock_info(symbol: str):
     except HTTPException:
         raise
     except Exception as e:
+        # Z3：這兩支是全站最常被打的端點，出錯時完全沒有伺服器端記錄可查，
+        # 只能靠回應內容猜——先補上 log（同 R2 的做法：完整錯誤記到伺服器，
+        # 回應內容維持原本的 str(e)，不改變既有 API 行為）。
+        logger.exception("get_stock_info failed for %s", sym_u)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -158,4 +166,5 @@ async def get_stock_price(
     except HTTPException:
         raise
     except Exception as e:
+        logger.exception("get_stock_price failed for %s", symbol)
         raise HTTPException(status_code=500, detail=str(e))

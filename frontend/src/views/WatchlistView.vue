@@ -41,7 +41,7 @@
             <option value="">全部分組</option>
             <option v-for="g in groupOptions" :key="g" :value="g">{{ g }}</option>
           </select>
-          <button v-if="items.length" class="btn xs" type="button" @click="refreshPrices" :disabled="pricesLoading">
+          <button v-if="items.length" class="btn xs" type="button" @click="manualRefreshPrices" :disabled="pricesLoading">
             <span v-if="pricesLoading" class="loading-spinner btn-spinner" aria-hidden="true"></span>重新整理報價
           </button>
         </div>
@@ -99,7 +99,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import PageFocusBanner from '../components/PageFocusBanner.vue'
 import { resolveStockName } from '../lib/stockSearch'
-import { fetchLivePrices } from '../lib/livePriceCache'
+import { fetchLivePrices, clearLivePriceCache } from '../lib/livePriceCache'
 import {
   loadWatchlist, addToWatchlist, removeFromWatchlist, reorderWatchlist,
   loadWatchlistMeta, setWatchlistMeta,
@@ -214,6 +214,14 @@ async function refreshPrices() {
   } finally {
     pricesLoading.value = false
   }
+}
+
+// Z8：「重新整理報價」按鈕代表使用者明確要最新報價——先清 fetchLivePrices()
+// 的 60 秒快取，不然 60 秒內按下去可能悄悄拿到舊資料。自動觸發的
+// refreshPrices()（掛載時、觀察清單變動時）維持原樣，不用每次都清快取。
+function manualRefreshPrices() {
+  clearLivePriceCache()
+  refreshPrices()
 }
 
 function onStorageChange(e) {

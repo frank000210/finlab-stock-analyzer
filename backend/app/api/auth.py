@@ -1,5 +1,6 @@
 """Admin authentication API endpoints."""
 
+import logging
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -7,6 +8,8 @@ from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel
 
 from ..config.settings import get_settings
+
+logger = logging.getLogger(__name__)
 
 try:
     from ..db.cache import get_setting
@@ -78,7 +81,10 @@ async def verify_google_token(payload: GoogleVerifyPayload):
         from google.auth.transport import requests as google_requests
         import jwt
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Authentication dependencies are unavailable: {exc}") from exc
+        # Z4：這是管理員登入端點，不回傳確切的匯入錯誤細節給呼叫端（跟下面
+        # _decode_token 對 token 失敗的處理一致），只記到伺服器端日誌。
+        logger.exception("admin auth dependencies unavailable")
+        raise HTTPException(status_code=500, detail="Authentication is temporarily unavailable.") from exc
 
     try:
         token_info = google_id_token.verify_oauth2_token(
