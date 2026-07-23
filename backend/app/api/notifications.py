@@ -15,14 +15,6 @@ class LineTestRequest(BaseModel):
     token: Optional[str] = None
 
 
-class NotificationSettings(BaseModel):
-    line_token: Optional[str] = None
-    price_alert: bool = True
-    technical_signal: bool = True
-    ai_prediction: bool = True
-    ai_confidence_threshold: float = 0.7
-
-
 @router.post("/line/test")
 async def test_line_notification(payload: Optional[LineTestRequest] = None):
     """Test LINE notification.(token 由 body 傳入,不走 query string)"""
@@ -31,25 +23,3 @@ async def test_line_notification(payload: Optional[LineTestRequest] = None):
     if not success:
         raise HTTPException(status_code=400, detail="LINE notification failed. Check token.")
     return {"success": True, "data": {"message": "Test notification sent successfully"}}
-
-
-@router.get("/settings")
-async def get_notification_settings():
-    """Get notification settings."""
-    # In production, load from DB per user
-    return {
-        "success": True,
-        "data": {
-            "price_alert": True,
-            "technical_signal": True,
-            "ai_prediction": True,
-            "ai_confidence_threshold": 0.7,
-        },
-    }
-
-
-@router.put("/settings")
-async def update_notification_settings(settings: NotificationSettings):
-    """Update notification settings."""
-    # In production, save to DB
-    return {"success": True, "data": {"message": "Settings updated"}}

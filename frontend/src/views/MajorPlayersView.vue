@@ -8,7 +8,7 @@
         <p class="subtitle">偵測法人拉抬或出貨行為</p>
       </div>
       <div class="controls">
-        <input v-model="symbol" placeholder="股票代號" class="input-symbol" @keyup.enter="fetchData" />
+        <input v-model="symbol" placeholder="股票代號" aria-label="股票代號" class="input-symbol" @keyup.enter="fetchData" />
         <select v-model="days">
           <option :value="30">30 天</option>
           <option :value="60">60 天</option>

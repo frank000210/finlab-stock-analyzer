@@ -64,7 +64,7 @@
       <section class="card" v-if="data.financial_summary">
         <h2>📊 最新財務摘要</h2>
         <div class="fin-grid">
-          <div class="fin-item" v-for="(val, key) in data.financial_summary" :key="key">
+          <div class="fin-item" v-for="[key, val] in financialSummaryEntries" :key="key">
             <span class="fin-label">
               {{ formatLabel(key) }}
               <InfoTooltip v-if="key === 'roe'" v-bind="metricGlossary.roe" />
@@ -82,7 +82,7 @@
 import PageFocusBanner from '../components/PageFocusBanner.vue'
 import InfoTooltip from '../components/InfoTooltip.vue'
 import { metricGlossary } from '../lib/metricGlossary'
-import { ref, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useStockStore } from '../stores/stock.js'
 import * as d3 from 'd3'
@@ -99,11 +99,15 @@ const revenueEl = ref(null)
 const fundamental = ref(null)
 const priceHistory = ref(null)
 
+// DD8：這裡原本對不上後端 _fetch_financial_summary 實際回傳的欄位
+// （revenue_latest/revenue_latest_month/revenue_yoy_pct/eps_latest/
+// eps_report_date），未對應到的 key 會直接把英文欄位名原樣顯示出來。
 const labelMap = {
   revenue_latest: '最新月營收',
+  revenue_latest_month: '營收月份',
+  revenue_yoy_pct: '營收年增率',
   eps_latest: '最新 EPS',
-  pe_ratio: '本益比',
-  dividend_yield: '殖利率',
+  eps_report_date: 'EPS 財報日期',
   roe: 'ROE',
   roa: 'ROA',
 }
@@ -111,6 +115,17 @@ const labelMap = {
 function formatLabel(key) {
   return labelMap[key] || key
 }
+
+// DD8：latest_financial_announcement 是後端夾帶進同一個物件的公告明細
+// （dict，不是純量），直接丟進原本的迴圈會把 {{ val }} 顯示成
+// "[object Object]"。這裡只列出純量欄位，且跳過完全沒有值的項目。
+const financialSummaryEntries = computed(() => {
+  const summary = data.value?.financial_summary || {}
+  return Object.entries(summary).filter(([key, val]) => {
+    if (key === 'latest_financial_announcement') return false
+    return val !== null && val !== undefined && typeof val !== 'object'
+  })
+})
 
 async function fetchData() {
   const sym = route.params.symbol || stockStore.symbol

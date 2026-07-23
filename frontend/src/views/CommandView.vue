@@ -14,7 +14,7 @@
         <div class="ctrl">
           <label class="mini">資金<input v-model.number="account" type="number" min="0" step="10000" class="inp w130" @change="saveCfg" /></label>
           <label class="mini">風險%<input v-model.number="riskPct" type="number" min="0.1" max="100" step="0.1" class="inp w70" @change="saveCfg" /></label>
-          <span v-if="kellyRisk && kellyRisk.pct" class="kelly-hint">實戰半凱利建議 {{ kellyRisk.pct.toFixed(1) }}%（{{ kellyRisk.count }} 筆）<button type="button" class="link-btn" @click="applyKellyRisk">套用</button></span>
+          <span v-if="kellyRisk && kellyRisk.pct" class="kelly-hint">實戰半凱利建議 {{ kellyRisk.pct.toFixed(1) }}%（{{ kellyRisk.count }} 筆）<InfoTooltip v-bind="metricGlossary.kelly" /><button type="button" class="link-btn" @click="applyKellyRisk">套用</button></span>
           <input v-model="symbolsInput" class="inp w200" placeholder="2330,2454,2317" />
           <button class="btn btn-primary" :disabled="loading" @click="scan">
             <span v-if="loading" class="loading-spinner btn-spinner" aria-hidden="true"></span>掃描
@@ -117,9 +117,12 @@
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import DataLineage from '../components/DataLineage.vue'
+import InfoTooltip from '../components/InfoTooltip.vue'
+import { metricGlossary } from '../lib/metricGlossary'
 import { realizedR, journalWinStats, halfKellyRiskPct, loadJournal, saveJournal, localDateStr, JOURNAL_KEY } from '../lib/tradeMath'
 import { fetchWithRetry } from '../lib/apiFetch'
 import { loadLayoutPrefs, saveLayoutPrefs } from '../lib/layoutPrefs'
+import { loadWatchlist } from '../lib/watchlist'
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 
@@ -311,14 +314,6 @@ function commitTrade() {
   pendingTrade.value = null
 }
 
-function readWatchlist() {
-  try {
-    const raw = JSON.parse(localStorage.getItem('finlab_watchlist') || '[]')
-    if (Array.isArray(raw)) return raw.map(s => String(typeof s === 'string' ? s : (s?.symbol || '')).trim().toUpperCase()).filter(Boolean)
-  } catch { /* ignore */ }
-  return []
-}
-
 async function scan() {
   const syms = [...new Set(String(symbolsInput.value || '').split(',').map(s => s.trim().toUpperCase()).filter(Boolean))]
   if (!syms.length) { errorMessage.value = '請輸入至少一個代碼。'; return }
@@ -370,7 +365,7 @@ onMounted(() => {
   applyRegime.value = localStorage.getItem('finlab_apply_regime') !== '0'
   const dl = Number(localStorage.getItem('finlab_daily_loss_limit_r')); if (dl < 0) dailyLimitR.value = dl
   const wkl = Number(localStorage.getItem('finlab_weekly_loss_limit_r')); if (wkl < 0) weeklyLimitR.value = wkl
-  const wl = readWatchlist()
+  const wl = loadWatchlist()
   symbolsInput.value = wl.length ? wl.join(',') : '2330,2454,2317'
   loadRegime()
   scan()

@@ -202,7 +202,7 @@ async function toggleActive(rule) {
           name: rule.name,
           description: rule.description,
           script: rule.script,
-          is_active: false,
+          isActive: false,
         }),
       })
     } else {

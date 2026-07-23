@@ -218,6 +218,7 @@ import MetricScale from '../components/MetricScale.vue'
 import { metricGlossary } from '../lib/metricGlossary'
 import { fetchSizingData } from '../lib/livePriceCache'
 import { downloadCsv, timestampedFilename } from '../lib/csvExport'
+import { loadWatchlist } from '../lib/watchlist'
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 const LS_POS = 'portfolio_heat_positions'
@@ -414,16 +415,7 @@ function clearAll() {
 // 'finlab_watchlist' key), auto-fill entry=price and an ATR-based stop.
 async function importFromWatchlist() {
   importMsg.value = ''
-  let syms = []
-  try {
-    const raw = JSON.parse(localStorage.getItem('finlab_watchlist') || '[]')
-    if (Array.isArray(raw)) {
-      syms = raw
-        .map(s => String(typeof s === 'string' ? s : (s?.symbol || '')).trim().toUpperCase())
-        .filter(Boolean)
-    }
-  } catch { /* ignore */ }
-  syms = [...new Set(syms)]
+  const syms = loadWatchlist()
   if (!syms.length) { importMsg.value = '觀察清單是空的，先到關聯圖或決策面板加入標的。'; return }
   const existing = new Set(positions.value.map(p => p.symbol))
   const toAdd = syms.filter(s => !existing.has(s))

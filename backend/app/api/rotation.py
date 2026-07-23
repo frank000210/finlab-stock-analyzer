@@ -146,36 +146,3 @@ async def rotation_heatmap(
         _raise_rotation_error(exc)
 
 
-@router.get("/ranking")
-async def rotation_ranking(
-    universe: str = Query(default="twse", pattern="^(twse|watchlist)$"),
-    freq: str = Query(default="daily", pattern="^(daily|weekly)$"),
-    date_value: date | None = Query(default=None, alias="date"),
-    symbols: str | None = Query(default=None),
-    lookback_days: int = Query(default=400, ge=60, le=1100),
-):
-    try:
-        parsed = _parse_symbols(symbols)
-        cache_key = f"rotation:ranking:{universe}:{freq}:{date_value}:{','.join(parsed)}:{lookback_days}"
-        cached = mem_get(cache_key)
-        if cached is None:
-            cached = await get_rotation_snapshot(
-                universe=universe,
-                freq=freq,
-                target_date=date_value,
-                symbols=parsed,
-                lookback_days=lookback_days,
-            )
-            mem_set(cache_key, cached)
-        snapshot = cached
-        return {
-            "success": True,
-            "data": {
-                "date": snapshot.get("date"),
-                "freq": freq,
-                "universe": universe,
-                "items": snapshot.get("ranking", []),
-            },
-        }
-    except Exception as exc:
-        _raise_rotation_error(exc)

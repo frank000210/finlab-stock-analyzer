@@ -8,7 +8,7 @@
         <p class="subtitle">比較個股與大盤或龍頭股的漲跌時序關係</p>
       </div>
       <div class="controls">
-        <input v-model="symbol" placeholder="股票代號" class="input-symbol" @keyup.enter="fetchData" />
+        <input v-model="symbol" placeholder="股票代號" aria-label="股票代號" class="input-symbol" @keyup.enter="fetchData" />
         <select v-model="benchmark">
           <option value="TAIEX">加權指數</option>
           <option v-for="l in leaders" :key="l.symbol" :value="l.symbol">{{ l.name }} ({{ l.symbol }})</option>

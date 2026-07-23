@@ -57,8 +57,8 @@
           <tbody>
             <tr v-for="(symbol, idx) in filteredItems" :key="symbol">
               <td class="reorder-cell">
-                <button class="icon-btn" type="button" :disabled="idx === 0" aria-label="上移" @click="moveUp(symbol)">▲</button>
-                <button class="icon-btn" type="button" :disabled="idx === filteredItems.length - 1" aria-label="下移" @click="moveDown(symbol)">▼</button>
+                <button class="icon-btn" type="button" :disabled="idx === 0 || groupFilter" :title="groupFilter ? '篩選分組時無法排序，避免跟隱藏的其他分組項目互換位置' : ''" aria-label="上移" @click="moveUp(symbol)">▲</button>
+                <button class="icon-btn" type="button" :disabled="idx === filteredItems.length - 1 || groupFilter" :title="groupFilter ? '篩選分組時無法排序，避免跟隱藏的其他分組項目互換位置' : ''" aria-label="下移" @click="moveDown(symbol)">▼</button>
               </td>
               <td>
                 <router-link :to="`/stocks/${symbol}`" class="symbol-link"><strong>{{ symbol }}</strong></router-link>
@@ -175,6 +175,8 @@ async function addSymbol(symbol) {
 }
 
 function removeSymbol(symbol) {
+  // DD6：跟投組風險頁/交易日誌的刪除一致要有確認，避免手滑點到就整筆消失。
+  if (!window.confirm(`確定要從觀察清單移除 ${symbol}？`)) return
   items.value = removeFromWatchlist(symbol)
   meta.value = loadWatchlistMeta()
 }

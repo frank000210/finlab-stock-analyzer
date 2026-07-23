@@ -11,6 +11,7 @@
         <input
           v-model="symbol"
           placeholder="股票代號"
+          aria-label="股票代號"
           class="input-symbol"
           @keyup.enter="fetchData"
         />

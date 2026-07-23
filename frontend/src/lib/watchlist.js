@@ -20,7 +20,11 @@ const META_STORAGE_KEY = 'finlab_watchlist_meta'
 export function uniqueSymbols(items) {
   return [...new Set(
     (items || [])
-      .map(item => String(item || '').trim().toUpperCase())
+      // DD10：CommandView/PortfolioHeatView 各自對同一把 key 多防了一手
+      // 「萬一存的是 {symbol: '2330'} 這種物件形狀」，這裡原本沒有——
+      // String(物件) 會變成 "[object Object]"，悄悄弄丟舊格式資料。把
+      // 這兩處已經在用的防呆邏輯搬進共用模組，兩處才能真的改用同一份。
+      .map(item => String(typeof item === 'string' ? item : (item?.symbol || '')).trim().toUpperCase())
       .filter(Boolean)
   )]
 }

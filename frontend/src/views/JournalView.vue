@@ -17,7 +17,7 @@
         <div class="scard"><span class="slabel">已平倉筆數</span><strong class="sval">{{ stats.count }}</strong><span class="shint">進行中 {{ openTrades.length }}</span></div>
         <div class="scard"><span class="slabel">勝率</span><strong class="sval">{{ stats.count ? (stats.winRate * 100).toFixed(0) + '%' : '—' }}</strong></div>
         <div class="scard"><span class="slabel">期望值 / 筆</span><strong class="sval" :class="stats.expectancyR >= 0 ? 'up' : 'down'">{{ stats.count ? stats.expectancyR.toFixed(2) + ' R' : '—' }}</strong></div>
-        <div class="scard"><span class="slabel">獲利因子</span><strong class="sval" :class="stats.profitFactor >= 1 ? 'up' : 'down'">{{ stats.count ? fmt(stats.profitFactor) : '—' }}</strong></div>
+        <div class="scard"><span class="slabel">獲利因子 <InfoTooltip v-bind="metricGlossary.profitFactor" /></span><strong class="sval" :class="stats.profitFactor >= 1 ? 'up' : 'down'">{{ stats.count ? fmt(stats.profitFactor) : '—' }}</strong></div>
         <div class="scard"><span class="slabel">累計 R</span><strong class="sval" :class="stats.totalR >= 0 ? 'up' : 'down'">{{ stats.count ? (stats.totalR >= 0 ? '+' : '') + stats.totalR.toFixed(2) + ' R' : '—' }}</strong></div>
         <div class="scard"><span class="slabel">累計損益</span><strong class="sval" :class="stats.totalPnl >= 0 ? 'up' : 'down'">{{ stats.count ? fmtInt(stats.totalPnl) : '—' }}</strong></div>
         <div class="scard"><span class="slabel">最大連虧</span><strong class="sval">{{ stats.count ? stats.maxConsecLoss : '—' }}</strong></div>
@@ -474,8 +474,13 @@ const stats = computed(() => {
   const losses = Rs.filter(r => r <= 0)
   const grossWin = pnls.filter(p => p > 0).reduce((a, b) => a + b, 0)
   const grossLoss = Math.abs(pnls.filter(p => p < 0).reduce((a, b) => a + b, 0))
+  // DD2：closedTrades 沒有固定的時間順序（新交易 unshift 到最前面、CSV 匯入
+  // 用 push 加到最後面），連續虧損筆數是「照平倉時間順序數」才有意義——這裡
+  // 跟既有的 expectancyTrend 用同一招，另外排一份按 exitDate 排序的複本，
+  // 不去動 closedTrades 本身（避免影響其他依賴它目前順序的地方）。
+  const chronoRs = [...cl].sort((a, b) => new Date(a.exitDate || 0) - new Date(b.exitDate || 0)).map(realizedR)
   let maxConsec = 0, cur = 0
-  for (const r of Rs) { if (r <= 0) { cur += 1; maxConsec = Math.max(maxConsec, cur) } else cur = 0 }
+  for (const r of chronoRs) { if (r <= 0) { cur += 1; maxConsec = Math.max(maxConsec, cur) } else cur = 0 }
   return {
     count: n,
     winRate: wins.length / n,
@@ -489,11 +494,13 @@ const stats = computed(() => {
   }
 })
 
-// cumulative-R equity curve
+// cumulative-R equity curve — DD2：跟 stats.maxConsecLoss 同一個理由，要照
+// 平倉時間順序累加才是真正的權益曲線，不能照陣列的插入順序。
 const equityPoints = computed(() => {
+  const chrono = [...closedTrades.value].sort((a, b) => new Date(a.exitDate || 0) - new Date(b.exitDate || 0))
   let cum = 0
   const pts = [0]
-  for (const t of closedTrades.value) { cum += realizedR(t); pts.push(cum) }
+  for (const t of chrono) { cum += realizedR(t); pts.push(cum) }
   return pts
 })
 const eqW = 600, eqH = 120
