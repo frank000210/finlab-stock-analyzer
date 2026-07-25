@@ -6,6 +6,7 @@ Measures discussion volume and sentiment for a stock across:
 - Volume-based proxy for market attention
 """
 
+import logging
 import re
 import time
 import hashlib
@@ -17,6 +18,8 @@ from datetime import date, datetime, timedelta
 from email.utils import parsedate_to_datetime
 from typing import Optional
 from ..crawler import StockPriceCrawler
+
+logger = logging.getLogger(__name__)
 
 
 def _format_pub_date(raw: str) -> str:
@@ -110,7 +113,7 @@ async def _record_snapshot(symbol: str, post_count: int, article_count: int, buz
             upsert=True,
         )
     except Exception:
-        pass
+        logger.exception("_record_snapshot failed for %s", symbol)
 
 
 async def _get_trend_baseline(symbol: str) -> Optional[dict]:
@@ -136,6 +139,7 @@ async def _get_trend_baseline(symbol: str) -> Optional[dict]:
             "sample_days": len(rows),
         }
     except Exception:
+        logger.exception("_get_trend_baseline failed for %s", symbol)
         return None
 
 
@@ -151,6 +155,7 @@ async def get_buzz_history(symbol: str, days: int = 30) -> list[dict]:
         ).sort("date", 1)
         return [row async for row in cursor]
     except Exception:
+        logger.exception("get_buzz_history failed for %s", symbol)
         return []
 
 
@@ -182,26 +187,31 @@ async def analyze_social_buzz(symbol: str, stock_name: str = "") -> dict:
     try:
         ptt_result = await _scrape_ptt(search_terms)
     except Exception:
+        logger.exception("analyze_social_buzz: _scrape_ptt failed for %s", symbol)
         ptt_result = {"post_count": 0, "posts": [], "sentiment": "neutral", "bullish_count": 0, "bearish_count": 0, "trend": "stable", "source": "PTT 股板"}
 
     try:
         news_result = await _scrape_news(search_terms)
     except Exception:
+        logger.exception("analyze_social_buzz: _scrape_news failed for %s", symbol)
         news_result = {"article_count": 0, "articles": [], "trend": "stable", "source": "Google News"}
 
     try:
         volume_result = await _analyze_volume_attention(symbol)
     except Exception:
+        logger.exception("analyze_social_buzz: _analyze_volume_attention failed for %s", symbol)
         volume_result = {"attention_score": 50, "volume_surge": False, "volume_ratio": 1.0, "vol_increasing": False, "avg_volume_20d": 0, "avg_volume_5d": 0}
 
     try:
         factcheck_result = await _scrape_factcheck(search_terms)
     except Exception:
+        logger.exception("analyze_social_buzz: _scrape_factcheck failed for %s", symbol)
         factcheck_result = {"check_count": 0, "items": [], "source": "台灣事實查核中心", "source_url": "https://tfc-taiwan.org.tw/"}
 
     try:
         finance_news_result = await _scrape_finance_news(search_terms)
     except Exception:
+        logger.exception("analyze_social_buzz: _scrape_finance_news failed for %s", symbol)
         finance_news_result = {"article_count": 0, "articles": [], "trend": "stable", "source": "台灣財經媒體（鉅亨網／MoneyDJ／CMoney）"}
 
     # Compute composite buzz score (0-100)
@@ -357,7 +367,7 @@ async def _scrape_ptt(search_terms: list[str]) -> dict:
                         bearish_weight += weight
 
     except Exception:
-        pass
+        logger.exception("_scrape_ptt failed")
 
     # Deduplicate
     seen_titles = set()
@@ -431,7 +441,7 @@ async def _scrape_news(search_terms: list[str]) -> dict:
             # 消歧效果；改用中文「股票」讓 Google News 用台股語境排序結果。
             articles.extend(await _fetch_google_news_rss(f"{term} 股票"))
     except Exception:
-        pass
+        logger.exception("_scrape_news failed")
 
     # Deduplicate
     seen = set()
@@ -473,7 +483,7 @@ async def _scrape_finance_news(search_terms: list[str]) -> dict:
         for term in search_terms[:2]:
             articles.extend(await _fetch_google_news_rss(f"{term} {_FINANCE_SITES}"))
     except Exception:
-        pass
+        logger.exception("_scrape_finance_news failed")
 
     seen = set()
     unique_articles = []
@@ -527,7 +537,7 @@ async def _scrape_factcheck(search_terms: list[str]) -> dict:
                         "verdict": verdict_match.group(1) if verdict_match else "相關文章",
                     })
     except Exception:
-        pass
+        logger.exception("_scrape_factcheck failed")
 
     seen: set[str] = set()
     unique_items = []

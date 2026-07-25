@@ -6,6 +6,7 @@ from datetime import date, datetime, timedelta
 from typing import Any
 
 import numpy as np
+from pymongo import UpdateOne
 
 from ..crawler.sector_index import BENCHMARK_ID, SectorIndexCrawler
 from ..db.mongodb import get_mongodb
@@ -74,31 +75,47 @@ async def ingest_sector_index(
     now = datetime.utcnow()
     inserted_rows = 0
     trading_days = 0
+    # HH7：原本每一天、每一檔類股指數都各自 await update_one()——AA10 已在
+    # watch_graph.py 修過同一種問題（單檔股票一年資料就是 ~250 次序列化
+    # Mongo 往返），這裡初次回補（max_fetch_days=260 天 × 20+ 檔類股，上看
+    # 數千次寫入）規模更大卻沒跟進。改成兩批 bulk_write，結果語意不變
+    # （仍是逐筆 upsert），只是把序列化往返收斂成兩次。
+    day_ops: list[UpdateOne] = []
+    index_ops: list[UpdateOne] = []
     for iso_day, rows in fetched.items():
-        await mongo.raw_sector_index_days.update_one(
-            {"date": iso_day},
-            {"$set": {"date": iso_day, "row_count": len(rows), "updated_at": now}},
-            upsert=True,
+        day_ops.append(
+            UpdateOne(
+                {"date": iso_day},
+                {"$set": {"date": iso_day, "row_count": len(rows), "updated_at": now}},
+                upsert=True,
+            )
         )
         if not rows:
             continue
         trading_days += 1
         for row in rows:
-            await mongo.raw_sector_index.update_one(
-                {"sector_id": row["sector_id"], "date": iso_day},
-                {
-                    "$set": {
-                        "sector_id": row["sector_id"],
-                        "name": row["name"],
-                        "date": iso_day,
-                        "close": float(row["close"]),
-                        "is_benchmark": bool(row.get("is_benchmark")),
-                        "updated_at": now,
-                    }
-                },
-                upsert=True,
+            index_ops.append(
+                UpdateOne(
+                    {"sector_id": row["sector_id"], "date": iso_day},
+                    {
+                        "$set": {
+                            "sector_id": row["sector_id"],
+                            "name": row["name"],
+                            "date": iso_day,
+                            "close": float(row["close"]),
+                            "is_benchmark": bool(row.get("is_benchmark")),
+                            "updated_at": now,
+                        }
+                    },
+                    upsert=True,
+                )
             )
             inserted_rows += 1
+
+    if day_ops:
+        await mongo.raw_sector_index_days.bulk_write(day_ops, ordered=False)
+    if index_ops:
+        await mongo.raw_sector_index.bulk_write(index_ops, ordered=False)
 
     return {
         "requested_days": len(missing),

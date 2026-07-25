@@ -44,22 +44,25 @@ async def _check_and_bump_daily_quota() -> None:
 
     計數存 Mongo settings（key 含日期，天然每日重置）。Mongo 不可用時
     「放行」而不是擋下——沒有計數能力不該讓功能整個不能用。
+
+    HH6：原本是讀值→比對→寫回三個分開的步驟，不同來源的並行請求可能
+    在彼此寫回前都讀到同一個舊值，讓全域每日額度被超額打穿（跟 CC4 修過
+    的 price_alerts read-modify-write race 是同一類問題）。改用
+    increment_setting() 的原子 $inc，遞增本身不會有並行請求互相蓋過的
+    問題；用遞增後的回傳值判斷是否超過門檻（等價於原本「遞增前
+    used>=limit 就擋」的語意，只是改成看遞增後的值 used>limit）。
     """
     from ..config.settings import get_settings
-    from ..db.cache import get_setting, set_setting
+    from ..db.cache import increment_setting
 
     limit = get_settings().llm_daily_call_limit
     key = f"llm_calls:{date.today().isoformat()}"
     try:
-        used = int(await get_setting(key, 0) or 0)
+        used = await increment_setting(key, 1)
     except Exception:
         return
-    if used >= limit:
+    if used > limit:
         raise LLMUnavailable(f"今日 AI 呼叫次數已達上限（{limit} 次），請明日再試。")
-    try:
-        await set_setting(key, used + 1)
-    except Exception:
-        pass
 
 
 async def _post_once(model: str, system: str, user: str,

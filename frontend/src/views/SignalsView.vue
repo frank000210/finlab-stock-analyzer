@@ -51,6 +51,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import { fetchWithRetry } from '../lib/apiFetch'
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 
@@ -77,7 +78,7 @@ async function load() {
   loading.value = true
   errorMessage.value = ''
   try {
-    const resp = await fetch(`${API_BASE}/api/v1/risk/watchlist-signals?symbols=${[...new Set(syms)].join(',')}`)
+    const resp = await fetchWithRetry(`${API_BASE}/api/v1/risk/watchlist-signals?symbols=${[...new Set(syms)].join(',')}`)
     const payload = await resp.json().catch(() => ({}))
     if (!resp.ok || payload?.success === false) throw new Error(payload?.detail || '掃描失敗')
     items.value = payload.data?.items || []

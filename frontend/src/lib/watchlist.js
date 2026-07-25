@@ -56,7 +56,14 @@ export function loadWatchlist() {
 export function saveWatchlist(list) {
   const normalized = uniqueSymbols(list)
   const raw = JSON.stringify(normalized)
-  localStorage.setItem(WATCHLIST_STORAGE_KEY, raw)
+  // HH3：localStorage.setItem 可能丟出例外（quota/private mode）——這是
+  // DecisionView/CommandView/GraphView/Graph01View/RotationView 共用的
+  // 觀察清單寫入點，沒包住的話例外會讓呼叫端（新增/移除/排序）整個中斷。
+  try {
+    localStorage.setItem(WATCHLIST_STORAGE_KEY, raw)
+  } catch {
+    // 寫入失敗仍回傳正規化後的清單，讓呼叫端的畫面狀態能繼續更新
+  }
   dispatchChange(raw)
   return normalized
 }
@@ -86,7 +93,11 @@ export function reorderWatchlist(fromIndex, toIndex) {
   // 這裡不能再走 uniqueSymbols（保證去重不保證我們要的順序在 Set 語意下
   // 剛好被保留，寧可直接寫入已經手動排好序的陣列）
   const raw = JSON.stringify(list)
-  localStorage.setItem(WATCHLIST_STORAGE_KEY, raw)
+  try {
+    localStorage.setItem(WATCHLIST_STORAGE_KEY, raw)
+  } catch {
+    // 寫入失敗仍回傳排序後的清單，讓呼叫端的畫面狀態能繼續更新
+  }
   dispatchChange(raw)
   return list
 }
@@ -103,7 +114,11 @@ export function loadWatchlistMeta() {
 }
 
 export function saveWatchlistMeta(meta) {
-  localStorage.setItem(META_STORAGE_KEY, JSON.stringify(meta || {}))
+  try {
+    localStorage.setItem(META_STORAGE_KEY, JSON.stringify(meta || {}))
+  } catch {
+    // 寫入失敗不影響呼叫端已經算好的分組/備註內容繼續顯示
+  }
 }
 
 export function setWatchlistMeta(symbol, patch) {

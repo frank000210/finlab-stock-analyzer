@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from datetime import date, timedelta
 
 from fastapi import APIRouter, HTTPException, Query
@@ -17,6 +18,13 @@ from ..analysis.watch_graph import ingest_watchlist_raw
 from ..db.memcache import mem_clear, mem_get, mem_set
 
 router = APIRouter(prefix="/api/v1/rotation", tags=["sector-rotation"])
+
+# HH5：跟 graph.py 的 /build 同理——這支端點是 RotationView.vue「更新原始
+# 資料」按鈕直接綁的正常功能，背後卻是重量級的外部資料重抓（依 universe
+# 逐檔序列打 FinMind，或整批類股指數重抓）。比照 cache.py /reingest（R1）
+# 與 graph.py /build 的冷卻機制，擋掉短時間內重複點擊造成的額度浪費。
+_BUILD_COOLDOWN_SEC = 60
+_last_build_at: float = 0.0
 
 
 class BuildRotationRequest(BaseModel):
@@ -43,6 +51,14 @@ def _raise_rotation_error(exc: Exception) -> None:
 
 @router.post("/build")
 async def build_rotation(payload: BuildRotationRequest):
+    global _last_build_at
+    now = time.monotonic()
+    remaining = _BUILD_COOLDOWN_SEC - (now - _last_build_at)
+    if remaining > 0:
+        raise HTTPException(
+            status_code=429,
+            detail=f"更新太頻繁，請 {int(remaining)} 秒後再試（避免重複觸發昂貴的重抓作業）。",
+        )
     try:
         end = payload.end or date.today()
         start = end - timedelta(days=payload.lookback_days)
@@ -51,6 +67,7 @@ async def build_rotation(payload: BuildRotationRequest):
         else:
             result = await ingest_sector_index(start, end)
         mem_clear("rotation:")  # 原始資料重抓後，記憶體裡的輪動計算結果全部失效
+        _last_build_at = now
         return {"success": True, "data": {"universe": payload.universe, **result}}
     except HTTPException:
         raise

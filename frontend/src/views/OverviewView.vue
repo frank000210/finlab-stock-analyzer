@@ -168,6 +168,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useStockStore } from '../stores/stock.js'
 import { loadLayoutPrefs, saveLayoutPrefs } from '../lib/layoutPrefs'
+import { fetchWithRetry } from '../lib/apiFetch'
 
 const router = useRouter()
 const stockStore = useStockStore()
@@ -324,12 +325,12 @@ async function loadAll() {
   loading.value = true
   const sym = stockStore.symbol
   const fetches = [
-    fetch(`/api/v1/stocks/${sym}/seasonal?years=5`).then(r => r.json()).then(d => { seasonal.value = d.data }).catch(() => {}),
-    fetch(`/api/v1/stocks/${sym}/lead-lag?benchmark=TAIEX&days=365`).then(r => r.json()).then(d => { leadLag.value = d.data }).catch(() => {}),
-    fetch(`/api/v1/stocks/${sym}/major-players?days=60`).then(r => r.json()).then(d => { majorPlayers.value = d.data }).catch(() => {}),
-    fetch(`/api/v1/stocks/${sym}/social-buzz`).then(r => r.json()).then(d => { socialBuzz.value = d.data }).catch(() => {}),
-    fetch(`/api/v1/stocks/${sym}/public-data`).then(r => r.json()).then(d => { publicData.value = d.data }).catch(() => {}),
-    fetch(`/api/v1/stocks/${sym}/price?period=1d`).then(r => r.json()).then(d => {
+    fetchWithRetry(`/api/v1/stocks/${sym}/seasonal?years=5`).then(r => r.json()).then(d => { seasonal.value = d.data }).catch(() => {}),
+    fetchWithRetry(`/api/v1/stocks/${sym}/lead-lag?benchmark=TAIEX&days=365`).then(r => r.json()).then(d => { leadLag.value = d.data }).catch(() => {}),
+    fetchWithRetry(`/api/v1/stocks/${sym}/major-players?days=60`).then(r => r.json()).then(d => { majorPlayers.value = d.data }).catch(() => {}),
+    fetchWithRetry(`/api/v1/stocks/${sym}/social-buzz`).then(r => r.json()).then(d => { socialBuzz.value = d.data }).catch(() => {}),
+    fetchWithRetry(`/api/v1/stocks/${sym}/public-data`).then(r => r.json()).then(d => { publicData.value = d.data }).catch(() => {}),
+    fetchWithRetry(`/api/v1/stocks/${sym}/price?period=1d`).then(r => r.json()).then(d => {
       if (d.data?.items?.length > 14) {
         const items = d.data.items
         const closes = items.map(i => i.close)

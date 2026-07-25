@@ -27,6 +27,24 @@ _PUBLIC_SETTING_KEYS = (
     "default_stock_name",
 )
 
+# HH1：GG1 只補了讀取端（GET）的過濾，寫入端（PUT）當時沒有一併檢查——
+# update_settings() 原本會把 AppSettings 裡任何非 None 欄位（含
+# finmind_token/line_token）原樣寫進同一個 Mongo settings collection，
+# 且這支端點沒有掛驗證。admin.py 的 send_test_notification 會把
+# "line_token" 這個 key 當成 LINE 測試通知的備援來源
+# （AdminView.vue 的設定編輯畫面也是直接把這個 key 當成正典欄位顯示），
+# 等於任何匿名呼叫者都能用這支端點把管理員的 LINE 測試通知目標偷樑換柱。
+# SettingsView.vue 的 save() 目前只送 default_period/default_capital，
+# 限制成這份白名單不會影響任何既有前端行為。
+_WRITABLE_SETTING_KEYS = (
+    "default_period",
+    "default_indicators",
+    "default_strategy",
+    "default_capital",
+    "default_stock",
+    "default_stock_name",
+)
+
 
 class AppSettings(BaseModel):
     finmind_token: Optional[str] = None
@@ -70,11 +88,13 @@ async def get_settings():
 
 @router.put("")
 async def update_settings(settings: AppSettings):
-    """Update app settings to MongoDB."""
+    """Update app settings to MongoDB (writable-safe subset only — see _WRITABLE_SETTING_KEYS)."""
     try:
         from ..db.cache import set_setting
         data = settings.model_dump(exclude_none=True)
         for key, value in data.items():
+            if key not in _WRITABLE_SETTING_KEYS:
+                continue
             await set_setting(key, value)
         return {"success": True, "data": {"message": "設定已儲存"}}
     except Exception as e:

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from datetime import date, timedelta
 
 from fastapi import APIRouter, HTTPException, Query
@@ -16,6 +17,14 @@ from ..analysis.watch_graph import (
 from ..db.memcache import mem_clear, mem_get, mem_set
 
 router = APIRouter(prefix="/api/v1/graph/watchlist", tags=["watch-graph"])
+
+# HH5：/build 會強制 force_ingest（逐檔序列打 FinMind + 寫 Mongo），跟
+# cache.py 的 /reingest 是同一類「一般使用者在頁面上就能點的正常功能，但
+# 背後是重量級外部抓取」——那邊已經用簡單的行程內冷卻擋掉短時間內重複
+# 觸發（R1），這裡先前沒有跟進，任何人都能連續呼叫這支端點打爆 FinMind
+# 額度。比照同樣的作法。
+_BUILD_COOLDOWN_SEC = 60
+_last_build_at: float = 0.0
 
 
 class BuildGraphRequest(BaseModel):
@@ -46,6 +55,14 @@ def _raise_graph_error(exc: Exception) -> None:
 
 @router.post("/build")
 async def build_graph(payload: BuildGraphRequest):
+    global _last_build_at
+    now = time.monotonic()
+    remaining = _BUILD_COOLDOWN_SEC - (now - _last_build_at)
+    if remaining > 0:
+        raise HTTPException(
+            status_code=429,
+            detail=f"更新太頻繁，請 {int(remaining)} 秒後再試（避免重複觸發昂貴的重抓作業）。",
+        )
     try:
         snapshot = await build_watchlist_graph(
             symbols=payload.symbols,
@@ -57,6 +74,7 @@ async def build_graph(payload: BuildGraphRequest):
             gamma=payload.gamma,
         )
         mem_clear("graph:")  # 重建後舊的節點/邊快取全部失效
+        _last_build_at = now
         return {
             "success": True,
             "data": {

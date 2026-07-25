@@ -50,7 +50,14 @@ export function loadJournal() {
 }
 
 export function saveJournal(trades) {
-  localStorage.setItem(JOURNAL_KEY, JSON.stringify(trades))
+  // HH3：localStorage.setItem 可能丟出例外（quota 爆掉、private mode 停用
+  // storage）——這裡是所有交易日誌動作（新增/平倉/刪除/CSV 匯入）共用的
+  // 寫入點，沒包住的話例外會直接往上炸穿呼叫端，讓整個動作看起來當掉。
+  try {
+    localStorage.setItem(JOURNAL_KEY, JSON.stringify(trades))
+  } catch {
+    // 寫入失敗至少讓畫面上的操作能繼續完成，不因為儲存失敗而整個中斷
+  }
 }
 
 // F2：凱利公式（作戰台、部位風控共用）。f* = W×(PF-1)/PF；winRate 為 0-1

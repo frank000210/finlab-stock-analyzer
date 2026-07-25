@@ -76,7 +76,7 @@
         <div class="preset-list">
           <div v-for="p in allPresets" :key="p.id" class="preset-chip">
             <button class="preset-apply" @click="applyPreset(p.values)">{{ p.name }}</button>
-            <button v-if="!p.builtin" class="preset-del" title="刪除此組合" :aria-label="`刪除組合 ${p.name}`" @click="deletePreset(p.id)">✕</button>
+            <button v-if="!p.builtin" class="preset-del" title="刪除此組合" :aria-label="`刪除組合 ${p.name}`" @click="confirmDeletePreset(p.id, p.name)">✕</button>
           </div>
         </div>
       </div>
@@ -136,6 +136,14 @@ function saveAsPreset() {
   } else {
     alert('請先輸入組合名稱')
   }
+}
+
+// HH9：刪除自訂主題組合原本點下去立刻刪、沒有確認，跟站上其他刪除動作
+// （JournalView/AdminView/PortfolioHeatView/PriceAlertView/SignalRulesView/
+// WatchlistView）不一致，誤按會直接永久遺失一組自訂主題、無法復原。
+function confirmDeletePreset(id, name) {
+  if (!window.confirm(`確定要刪除組合「${name}」嗎？此動作無法復原。`)) return
+  deletePreset(id)
 }
 
 // <input type="color"> 只吃 #rrggbb；把值正規化，非 hex 時給合理預設

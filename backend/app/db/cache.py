@@ -9,6 +9,8 @@ import json
 from datetime import datetime, timedelta
 from typing import Any, Optional
 
+from pymongo import ReturnDocument
+
 try:
     from .mongodb import get_mongodb
 except Exception:
@@ -135,6 +137,25 @@ async def set_setting(key: str, value: Any) -> None:
         {"$set": {"key": key, "value": value, "updated_at": datetime.utcnow()}},
         upsert=True,
     )
+
+
+async def increment_setting(key: str, amount: int = 1) -> int:
+    """Atomically increment a numeric setting and return the new (post-increment) value.
+
+    HH6：llm/client.py 原本是 get_setting() 讀值、比對門檻、再 set_setting()
+    寫回——三個步驟不是原子的，不同來源的並行請求可能同時讀到同一個舊值，
+    全域每日額度就可能被超額打穿。改用 Mongo 的 $inc 讓遞增本身是原子操作，
+    不管多少個並行請求同時打進來，每個請求拿到的都是彼此不同、嚴格遞增的
+    回傳值，天然避免 race。
+    """
+    db = await _get_db()
+    doc = await db.settings.find_one_and_update(
+        {"key": key},
+        {"$inc": {"value": amount}, "$set": {"updated_at": datetime.utcnow()}},
+        upsert=True,
+        return_document=ReturnDocument.AFTER,
+    )
+    return int(doc.get("value", 0))
 
 
 async def get_all_settings() -> dict:

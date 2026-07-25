@@ -173,6 +173,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import * as d3 from 'd3'
 import { useChartTheme } from '../composables/useChartTheme'
 import { loadWatchlist as loadSharedWatchlist } from '../lib/watchlist'
+import { fetchWithRetry } from '../lib/apiFetch'
 
 const theme = useChartTheme()
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
@@ -676,7 +677,7 @@ function applySymbols() {
 }
 
 async function apiGet(path) {
-  const response = await fetch(`${API_BASE}${path}`)
+  const response = await fetchWithRetry(`${API_BASE}${path}`)
   const payload = await response.json().catch(() => ({}))
   if (!response.ok || payload?.success === false) {
     throw new Error(payload?.detail || payload?.message || 'API 請求失敗')
@@ -685,7 +686,7 @@ async function apiGet(path) {
 }
 
 async function apiPost(path, body) {
-  const response = await fetch(`${API_BASE}${path}`, {
+  const response = await fetchWithRetry(`${API_BASE}${path}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),

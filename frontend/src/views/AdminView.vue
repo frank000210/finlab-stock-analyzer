@@ -128,7 +128,7 @@
         <div v-if="showAddSetting" class="add-setting-form">
           <input v-model="newKey" placeholder="設定鍵值 (Key)" class="input-sm" />
           <input v-model="newValue" placeholder="設定內容 (Value)" class="input-sm" />
-          <button class="btn-primary" @click="addSetting">儲存</button>
+          <button class="btn-primary" @click="addSetting" :disabled="addingSetting">{{ addingSetting ? '儲存中...' : '儲存' }}</button>
           <button class="btn-ghost" @click="showAddSetting = false">取消</button>
         </div>
         <div v-if="actionError" class="login-error">{{ actionError }}</div>
@@ -156,7 +156,7 @@
         </div>
         <div class="add-admin-form">
           <input v-model="newAdminEmail" placeholder="輸入 Google 帳號 Email" class="input-sm" />
-          <button class="btn-primary" @click="addAdmin">新增</button>
+          <button class="btn-primary" @click="addAdmin" :disabled="addingAdmin">{{ addingAdmin ? '新增中...' : '新增' }}</button>
         </div>
       </div>
 
@@ -218,6 +218,8 @@ const telegramChatId = ref('')
 const lineToken = ref('')
 const notifyResult = ref(null)
 const actionError = ref('')
+const addingSetting = ref(false)
+const addingAdmin = ref(false)
 
 const maxPV = computed(() => Math.max(...Object.values(pageviewMap.value), 1))
 function barWidth(count) { return `${(count / maxPV.value) * 100}%` }
@@ -295,26 +297,37 @@ async function loadAdmins() {
 
 async function addSetting() {
   if (!newKey.value) return
+  addingSetting.value = true
+  actionError.value = ''
   try {
-    await fetch('/api/v1/admin/settings', {
+    const resp = await fetch('/api/v1/admin/settings', {
       method: 'POST',
       headers: authHeaders(),
       body: JSON.stringify({ key: newKey.value, value: newValue.value }),
     })
+    const payload = await resp.json().catch(() => ({}))
+    if (!resp.ok) throw new Error(payload?.detail || `HTTP ${resp.status}`)
     settingsMap[newKey.value] = newValue.value
     newKey.value = ''; newValue.value = ''
     showAddSetting.value = false
-  } catch {}
+  } catch (e) {
+    actionError.value = `新增設定失敗：${e.message || '請稍後再試'}`
+  }
+  addingSetting.value = false
 }
 
 async function updateSetting(key, value) {
+  actionError.value = ''
   try {
-    await fetch(`/api/v1/admin/settings/${key}`, {
+    const resp = await fetch(`/api/v1/admin/settings/${key}`, {
       method: 'PUT',
       headers: authHeaders(),
       body: JSON.stringify({ value }),
     })
-  } catch {}
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
+  } catch (e) {
+    actionError.value = `更新設定「${key}」失敗：${e.message || '請稍後再試'}`
+  }
 }
 
 async function deleteSetting(key) {
@@ -331,15 +344,22 @@ async function deleteSetting(key) {
 
 async function addAdmin() {
   if (!newAdminEmail.value) return
+  addingAdmin.value = true
+  actionError.value = ''
   try {
-    await fetch('/api/v1/admin/allowed-admins', {
+    const resp = await fetch('/api/v1/admin/allowed-admins', {
       method: 'POST',
       headers: authHeaders(),
       body: JSON.stringify({ email: newAdminEmail.value }),
     })
+    const payload = await resp.json().catch(() => ({}))
+    if (!resp.ok) throw new Error(payload?.detail || `HTTP ${resp.status}`)
     adminEmails.value.push(newAdminEmail.value)
     newAdminEmail.value = ''
-  } catch {}
+  } catch (e) {
+    actionError.value = `新增管理員失敗：${e.message || '請稍後再試'}`
+  }
+  addingAdmin.value = false
 }
 
 async function removeAdmin(email) {

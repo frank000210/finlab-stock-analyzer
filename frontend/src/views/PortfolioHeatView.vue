@@ -357,8 +357,12 @@ function fmt(v) { return (v == null || isNaN(v)) ? '—' : Number(v).toLocaleStr
 function fmtInt(v) { return (v == null || isNaN(v)) ? '—' : Math.round(v).toLocaleString('en-US') }
 
 function save() {
-  localStorage.setItem(LS_POS, JSON.stringify(positions.value))
-  localStorage.setItem(LS_ACCT, String(account.value))
+  try {
+    localStorage.setItem(LS_POS, JSON.stringify(positions.value))
+    localStorage.setItem(LS_ACCT, String(account.value))
+  } catch {
+    // 寫入失敗不擋畫面上的操作繼續進行
+  }
 }
 
 function load() {
