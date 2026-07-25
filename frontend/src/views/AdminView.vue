@@ -126,8 +126,8 @@
           <button class="btn-primary" @click="showAddSetting = !showAddSetting">+ 新增</button>
         </div>
         <div v-if="showAddSetting" class="add-setting-form">
-          <input v-model="newKey" placeholder="Key" class="input-sm" />
-          <input v-model="newValue" placeholder="Value" class="input-sm" />
+          <input v-model="newKey" placeholder="設定鍵值 (Key)" class="input-sm" />
+          <input v-model="newValue" placeholder="設定內容 (Value)" class="input-sm" />
           <button class="btn-primary" @click="addSetting">儲存</button>
           <button class="btn-ghost" @click="showAddSetting = false">取消</button>
         </div>
@@ -271,7 +271,10 @@ async function loadLlmUsage() {
 
 async function loadSettings() {
   try {
-    const r = await fetch('/api/v1/settings', { headers: authHeaders() })
+    // GG1：改讀 /api/v1/admin/settings——同一份完整設定，但這支才是真的掛
+    // require_admin 驗證的（公開的 /api/v1/settings 現在只回傳安全子集，
+    // 不再包含 telegram_bot_token 等機密，這裡才拿得到完整內容）。
+    const r = await fetch('/api/v1/admin/settings', { headers: authHeaders() })
     const d = await r.json()
     const data = d.data || {}
     Object.keys(settingsMap).forEach(k => delete settingsMap[k])

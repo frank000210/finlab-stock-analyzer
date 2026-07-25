@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from collections import OrderedDict
 from datetime import date, datetime, timedelta
 from typing import Literal
 
@@ -27,7 +28,12 @@ STOCK_NAMES = {
     "5871": "中租-KY", "2880": "華南金",
 }
 _CACHE_TTL_SECONDS = 120
-_signal_cache: dict[str, tuple[datetime, list["SignalItem"]]] = {}
+# GG3：key 是 "{rule_id}|{symbols}"，symbols 來自使用者可控的 query
+# param（單次呼叫上限 30 檔，但不同組合/順序就是不同的 key）——過期的
+# entry 只在剛好被同一個 key 覆蓋時才會消失，不同組合會無上限累積。比照
+# 其他模組快取（finmind_client.py、social_buzz.py）的做法加上限。
+_MAX_SIGNAL_CACHE_ENTRIES = 200
+_signal_cache: "OrderedDict[str, tuple[datetime, list[SignalItem]]]" = OrderedDict()
 
 
 class SignalCondition(BaseModel):
@@ -316,6 +322,9 @@ async def generate_signals(
             )
         )
         _signal_cache[cache_key] = (now, results)
+        _signal_cache.move_to_end(cache_key)
+        while len(_signal_cache) > _MAX_SIGNAL_CACHE_ENTRIES:
+            _signal_cache.popitem(last=False)
 
     if signal_type == "ALL":
         return results

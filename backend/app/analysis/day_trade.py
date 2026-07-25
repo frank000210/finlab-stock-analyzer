@@ -10,9 +10,12 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import date, timedelta
 
 from ..crawler import FinMindClient
+
+logger = logging.getLogger(__name__)
 
 
 async def analyze_day_trade(symbol: str, major: dict | None = None, days: int = 40) -> dict | None:
@@ -27,6 +30,7 @@ async def analyze_day_trade(symbol: str, major: dict | None = None, days: int = 
             {"data_id": symbol, "start_date": str(start), "end_date": str(end)},
         )
     except Exception as e:
+        logger.exception("analyze_day_trade: DayTrading fetch failed for %s", symbol)
         return {"error": f"當沖資料抓取失敗：{e}"}
 
     if df is None or df.empty:

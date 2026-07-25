@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
 router = APIRouter(prefix="/api/v1/risk", tags=["risk"])
+logger = logging.getLogger(__name__)
 
 
 class NotifyReq(BaseModel):
@@ -30,6 +33,7 @@ async def notify(req: NotifyReq):
         ok = await send_telegram(msg, token, chat)
         return {"success": True, "sent": bool(ok), "error": "" if ok else "Telegram 回應非 200"}
     except Exception as exc:  # noqa: BLE001
+        logger.exception("risk/notify: send_telegram failed")
         return {"success": True, "sent": False, "error": str(exc)[:200]}
 
 
@@ -59,6 +63,7 @@ async def market_regime():
     try:
         df = await StockPriceCrawler().get_price("0050", start.isoformat(), end.isoformat(), "1d")
     except Exception as exc:
+        logger.exception("market_regime: 0050 price fetch failed")
         raise HTTPException(status_code=502, detail=f"大盤代理資料取得失敗：{exc}")
     if df is None or df.empty or len(df) < 220:
         raise HTTPException(status_code=404, detail="大盤代理資料不足（需 220 個交易日）")
@@ -129,7 +134,7 @@ async def build_daily_brief() -> dict:
     try:
         regime_data = (await market_regime())["data"]
     except Exception:
-        pass
+        logger.exception("build_daily_brief: market_regime failed, omitting from brief")
 
     resp = await watchlist_signals(symbols=",".join(syms), lookback_days=120)
     items = [i for i in resp["data"]["items"] if i.get("ok")]
@@ -185,6 +190,7 @@ async def send_daily_brief() -> dict:
         ok = await send_telegram(brief["text"], token, chat)
         return {"sent": bool(ok), "error": "" if ok else "Telegram 回應非 200", **brief}
     except Exception as exc:  # noqa: BLE001
+        logger.exception("send_daily_brief: send_telegram failed")
         return {"sent": False, "error": str(exc)[:200], **brief}
 
 
@@ -194,6 +200,7 @@ async def daily_brief():
     try:
         return {"success": True, "data": await build_daily_brief()}
     except Exception as exc:  # noqa: BLE001
+        logger.exception("daily_brief failed")
         raise HTTPException(status_code=502, detail=f"日報產生失敗：{exc}")
 
 
@@ -203,6 +210,7 @@ async def daily_brief_send():
     try:
         return {"success": True, "data": await send_daily_brief()}
     except Exception as exc:  # noqa: BLE001
+        logger.exception("daily_brief_send failed")
         raise HTTPException(status_code=502, detail=f"日報推播失敗：{exc}")
 
 
@@ -290,7 +298,8 @@ async def _append_alert_history(entry: dict) -> None:
             history = history[-_MAX_ALERT_HISTORY:]
         await set_setting("alert_history", history)
     except Exception:
-        pass  # 歷史紀錄是附加資訊，存失敗不影響警報本身已經觸發/推播成功
+        # 歷史紀錄是附加資訊，存失敗不影響警報本身已經觸發/推播成功
+        logger.exception("_append_alert_history failed")
 
 
 async def run_alert_check() -> dict:
@@ -332,7 +341,7 @@ async def run_alert_check() -> dict:
             rsi, vol_ratio = _compute_rsi_vol_ratio(close, vol)
             return sym, {"price": price, "rsi": rsi, "vol_ratio": vol_ratio}
         except Exception:
-            pass
+            logger.exception("run_alert_check: _fetch_metrics failed for %s", sym)
         return sym, None
 
     results = await asyncio.gather(*[_fetch_metrics(sym) for sym in symbols])
@@ -398,6 +407,7 @@ async def run_alert_check() -> dict:
                 try:
                     await send_telegram(msg, token, chat)
                 except Exception:
+                    logger.exception("run_alert_check: send_telegram failed for %s", a.get("symbol"))
                     continue  # 推播失敗，留給下一輪排程重試，不標記已觸發
             a["triggered"] = True
             a["triggered_at"] = now_iso
@@ -506,6 +516,7 @@ async def check_alerts_now():
     try:
         return {"success": True, "data": await run_alert_check()}
     except Exception as exc:  # noqa: BLE001
+        logger.exception("check_alerts_now failed")
         raise HTTPException(status_code=502, detail=f"警報檢查失敗：{exc}")
 
 
@@ -546,6 +557,7 @@ async def position_sizing(
         crawler = StockPriceCrawler()
         df = await crawler.get_price(symbol, start.isoformat(), end.isoformat(), "1d")
     except Exception as exc:
+        logger.exception("position_sizing: price fetch failed for %s", symbol)
         raise HTTPException(status_code=502, detail=f"價格資料取得失敗：{exc}")
 
     if df is None or df.empty or len(df) < atr_period + 2:
@@ -606,7 +618,7 @@ async def position_sizing(
                     name = str(r0.get("stock_name", symbol)) or symbol
                     industry = str(r0.get("industry_category", r0.get("Industry_category", "")) or "").strip()
         except Exception:
-            pass
+            logger.exception("position_sizing: FinMind name/industry lookup failed for %s", symbol)
 
     return {
         "success": True,
@@ -729,6 +741,7 @@ async def portfolio_correlation(
             s = df.sort_values("date").set_index("date")["close"].astype(float)
             return sym, s
         except Exception:
+            logger.exception("portfolio_correlation: price fetch failed for %s", sym)
             return sym, None
 
     results = await asyncio.gather(*[_fetch(s) for s in syms])
@@ -816,7 +829,7 @@ async def watchlist_signals(
                     if sid and nm:
                         name_map[sid] = nm
         except Exception:
-            pass
+            logger.exception("watchlist_signals: FinMind stock-info lookup failed")
         if not any(s in name_map for s in tw_syms):
             try:
                 from ..db.mongodb import get_mongodb
@@ -826,12 +839,13 @@ async def watchlist_signals(
                     if doc.get("name_zh"):
                         name_map[doc["symbol"]] = doc["name_zh"]
             except Exception:
-                pass
+                logger.exception("watchlist_signals: Mongo raw_industry fallback failed")
 
     async def _one(sym: str):
         try:
             df = await crawler.get_price(sym, start.isoformat(), end.isoformat(), "1d")
         except Exception:
+            logger.exception("watchlist_signals: price fetch failed for %s", sym)
             return {"symbol": sym, "name": name_map.get(sym, ""), "ok": False, "error": "資料取得失敗"}
         if df is None or df.empty or len(df) < 30:
             return {"symbol": sym, "name": name_map.get(sym, ""), "ok": False, "error": "資料不足"}
@@ -895,6 +909,7 @@ async def watchlist_signals(
             _s = _setup_score(df, close, high, price, atr)
             setup_total, setup_verdict = _s["total"], _s["verdict"]
         except Exception:
+            logger.exception("watchlist_signals: _setup_score failed for %s", sym)
             setup_total, setup_verdict = None, ""
 
         return {

@@ -70,6 +70,7 @@
 import PageFocusBanner from '../components/PageFocusBanner.vue'
 import { onMounted, ref, watch } from 'vue'
 import { loadJournal, saveJournal, localDateStr } from '../lib/tradeMath'
+import { fetchWithRetry } from '../lib/apiFetch'
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 const statuses = ['ALL', 'PENDING', 'APPROVED', 'REJECTED']
@@ -152,7 +153,7 @@ async function logToJournal(trade) {
 }
 
 async function apiRequest(path, options = {}) {
-  const response = await fetch(`${API_BASE}${path}`, {
+  const response = await fetchWithRetry(`${API_BASE}${path}`, {
     headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
     ...options,
   })

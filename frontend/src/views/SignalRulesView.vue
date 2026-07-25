@@ -63,6 +63,9 @@
       </article>
     </section>
 
+    <div v-if="loading && !rules.length" class="loading-placeholder">
+      <span class="loading-spinner" aria-hidden="true"></span>載入規則中...
+    </div>
     <section class="rules-list">
       <article v-for="rule in rules" :key="rule.id" class="card rule-card">
         <div class="rule-head">
@@ -112,6 +115,7 @@
 <script setup>
 import PageFocusBanner from '../components/PageFocusBanner.vue'
 import { onMounted, ref } from 'vue'
+import { fetchWithRetry } from '../lib/apiFetch'
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 const defaultScript = `def generate_signal(context):
@@ -130,6 +134,7 @@ const defaultScript = `def generate_signal(context):
     }`
 
 const rules = ref([])
+const loading = ref(false)
 const editDrafts = ref({})
 const editingId = ref('')
 const saving = ref(false)
@@ -144,6 +149,7 @@ const newRule = ref({
 onMounted(loadRules)
 
 async function loadRules() {
+  loading.value = true
   try {
     const payload = await apiRequest('/api/v1/signal-rules')
     rules.value = normalizeRules(payload)
@@ -156,15 +162,19 @@ async function loadRules() {
     rules.value = []
     editDrafts.value = {}
   }
+  loading.value = false
 }
 
 async function createRule() {
   saving.value = true
   try {
+    // GG7：建立規則是非冪等的 POST（每次都會產生新的 uuid），跟其餘
+    // GET/PUT/activate/delete/test 不同——如果伺服器端已成功建立、只是
+    // 回應遺失，重試會建立第二筆重複的規則。這裡刻意不套用重試。
     await apiRequest('/api/v1/signal-rules', {
       method: 'POST',
       body: JSON.stringify(newRule.value),
-    })
+    }, { retry: false })
     newRule.value = { name: '', description: '', script: defaultScript }
     await loadRules()
   } catch (error) {
@@ -238,8 +248,9 @@ async function testRule(script, target) {
   testingTarget.value = ''
 }
 
-async function apiRequest(path, options = {}) {
-  const response = await fetch(`${API_BASE}${path}`, {
+async function apiRequest(path, options = {}, { retry = true } = {}) {
+  const doFetch = retry ? fetchWithRetry : fetch
+  const response = await doFetch(`${API_BASE}${path}`, {
     headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
     ...options,
   })

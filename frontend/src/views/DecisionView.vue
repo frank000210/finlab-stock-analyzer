@@ -13,7 +13,7 @@
 
         <div class="header-meta">
           <div class="datetime-panel">
-            <span class="meta-label">Live Datetime</span>
+            <span class="meta-label">即時時間</span>
             <strong>{{ liveDateTime }}</strong>
           </div>
           <div class="freshness-pill" :class="freshnessTone">
@@ -157,7 +157,7 @@
 
     <section v-if="errorMessage" class="feedback-card error-state card">
       <div>
-        <p class="meta-label">Error</p>
+        <p class="meta-label">錯誤</p>
         <h3>資料載入失敗</h3>
         <p>{{ errorMessage }}</p>
       </div>
@@ -174,7 +174,7 @@
 
     <section v-else-if="!filteredCards.length && !errorMessage" class="feedback-card empty-state card">
       <div>
-        <p class="meta-label">No Results</p>
+        <p class="meta-label">無符合結果</p>
         <h3>目前沒有符合條件的信號</h3>
         <p>請切換篩選條件、加入追蹤股票，或稍後重新整理。</p>
       </div>
@@ -217,7 +217,7 @@
 
         <div class="price-block">
           <div>
-            <p class="meta-label">Current Price</p>
+            <p class="meta-label">現價</p>
             <strong class="price-value">{{ formatPrice(card.price) }}</strong>
           </div>
 
@@ -267,7 +267,7 @@
 
         <div class="conditions-panel">
           <div class="conditions-head">
-            <span>Conditions</span>
+            <span>條件</span>
             <strong>{{ metCount(card.conditions) }}/{{ card.conditions.length }}</strong>
           </div>
           <ul class="conditions-list">

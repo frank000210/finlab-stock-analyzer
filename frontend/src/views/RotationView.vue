@@ -9,7 +9,7 @@
       </div>
       <div class="hero-meta">
         <span class="badge">頻率 {{ freq === 'daily' ? '日頻' : '週頻' }}</span>
-        <span class="badge">Universe {{ universe === 'twse' ? '官方類股' : '觀察池聚合' }}</span>
+        <span class="badge">股票池 {{ universe === 'twse' ? '官方類股' : '觀察池聚合' }}</span>
         <DataLineage :as-of="activeDate" source="cache" />
       </div>
     </section>
@@ -17,7 +17,7 @@
     <section class="section-block rotation-controls" v-reveal>
       <div class="control-grid">
         <label class="field">
-          <span>Universe</span>
+          <span>股票池</span>
           <select v-model="universe" class="input select">
             <option value="twse">官方類股指數</option>
             <option value="watchlist">觀察池聚合</option>

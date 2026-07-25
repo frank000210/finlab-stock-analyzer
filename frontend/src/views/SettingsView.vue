@@ -214,10 +214,14 @@ async function testLine() {
 
 async function save() {
   try {
-    await axios.put('/api/v1/settings', {
+    // GG6：後端失敗時是回 200 + {success:false}，不是丟例外——只接
+    // catch{} 的話存失敗會被當成成功，照樣顯示「已儲存」。比照同檔案
+    // reingestNow() 的作法，改檢查 resp.data?.success 才顯示成功狀態。
+    const resp = await axios.put('/api/v1/settings', {
       default_period: defaultPeriod.value,
       default_capital: defaultCapital.value,
     })
+    if (!resp.data?.success) throw new Error(resp.data?.error || '儲存失敗')
     saved.value = true
     setTimeout(() => { saved.value = false }, 3000)
   } catch {

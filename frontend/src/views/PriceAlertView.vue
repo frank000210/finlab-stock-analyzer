@@ -100,6 +100,7 @@
 <script setup>
 import { computed, reactive, ref, onMounted } from 'vue'
 import { loadNotificationPrefs } from '../lib/notificationPrefs'
+import { fetchWithRetry } from '../lib/apiFetch'
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 
@@ -144,7 +145,7 @@ function formatTime(iso) {
 
 async function loadAlerts() {
   try {
-    const resp = await fetch(`${API_BASE}/api/v1/risk/alerts`)
+    const resp = await fetchWithRetry(`${API_BASE}/api/v1/risk/alerts`)
     const payload = await resp.json().catch(() => ({}))
     if (resp.ok && payload?.data) alerts.value = payload.data.items || []
   } catch { /* ignore */ }
@@ -153,7 +154,7 @@ async function loadAlerts() {
 async function loadHistory() {
   historyLoading.value = true
   try {
-    const resp = await fetch(`${API_BASE}/api/v1/risk/alerts/history?limit=50`)
+    const resp = await fetchWithRetry(`${API_BASE}/api/v1/risk/alerts/history?limit=50`)
     const payload = await resp.json().catch(() => ({}))
     if (resp.ok && payload?.data) history.value = payload.data.items || []
   } catch {
@@ -176,6 +177,10 @@ async function addAlert() {
   }
   adding.value = true
   try {
+    // GG7：新增警報是非冪等的 POST（每次呼叫都會建立一筆新資源）——如果
+    // 伺服器端其實已經成功寫入、只是回應在傳輸中遺失，重試會送出第二次
+    // POST、造成重複警報。跟 loadAlerts/loadHistory 這類純讀取不同，這裡
+    // 刻意維持原本的 fetch()、不套用 fetchWithRetry。
     const resp = await fetch(`${API_BASE}/api/v1/risk/alerts`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -201,7 +206,7 @@ async function addAlert() {
 async function remove(id) {
   if (!window.confirm('確定要刪除這則警報嗎？')) return
   try {
-    const resp = await fetch(`${API_BASE}/api/v1/risk/alerts/${id}`, { method: 'DELETE' })
+    const resp = await fetchWithRetry(`${API_BASE}/api/v1/risk/alerts/${id}`, { method: 'DELETE' })
     if (!resp.ok) throw new Error('刪除失敗')
     alerts.value = alerts.value.filter(a => a.id !== id)
   } catch {
@@ -213,7 +218,7 @@ async function checkNow() {
   checking.value = true
   checkMsg.value = ''
   try {
-    const resp = await fetch(`${API_BASE}/api/v1/risk/alerts/check`, { method: 'POST' })
+    const resp = await fetchWithRetry(`${API_BASE}/api/v1/risk/alerts/check`, { method: 'POST' })
     const payload = await resp.json().catch(() => ({}))
     if (!resp.ok) throw new Error(payload?.detail || '檢查失敗')
     const d = payload.data

@@ -129,6 +129,7 @@ import * as d3 from 'd3'
 import { useChartTheme } from '../composables/useChartTheme'
 import { useJournalRisk } from '../composables/useJournalRisk'
 import { useStockStore } from '../stores/stock.js'
+import { fetchWithRetry } from '../lib/apiFetch'
 
 const theme = useChartTheme()
 const stockStore = useStockStore()
@@ -215,7 +216,7 @@ async function loadDashboard() {
 }
 
 async function apiGet(path) {
-  const response = await fetch(`${API_BASE}${path}`)
+  const response = await fetchWithRetry(`${API_BASE}${path}`)
   const payload = await response.json().catch(() => ({}))
   if (!response.ok) {
     throw new Error(payload?.detail || 'API 請求失敗')

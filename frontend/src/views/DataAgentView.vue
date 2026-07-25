@@ -95,6 +95,7 @@
 <script setup>
 import PageFocusBanner from '../components/PageFocusBanner.vue'
 import { computed, onMounted, ref, watch } from 'vue'
+import { fetchWithRetry } from '../lib/apiFetch'
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 const sourceTabs = ['ALL', 'TWSE', 'PTT', 'NEWS']
@@ -129,15 +130,21 @@ async function submitCredibilityCheck() {
 async function loadCrawledData() {
   try {
     const source = selectedSource.value === 'ALL' ? '' : selectedSource.value
-    const payload = await apiRequest(`/api/v1/news/crawled-data?source=${encodeURIComponent(source)}&limit=50`)
+    const payload = await apiRequest(`/api/v1/news/crawled-data?source=${encodeURIComponent(source)}&limit=50`, {}, { retry: true })
     crawledItems.value = normalizeCrawledItems(payload)
   } catch {
     crawledItems.value = []
   }
 }
 
-async function apiRequest(path, options = {}) {
-  const response = await fetch(`${API_BASE}${path}`, {
+async function apiRequest(path, options = {}, { retry = false } = {}) {
+  // GG7：check-credibility 會觸發 LLM 語意層判讀（見 news_checker.py），
+  // 跟 NewsCheckerView 的 AI 摘要一樣不能無腦套用重試——如果是伺服器端已
+  // 經呼叫成功、只是回應沒送達的 5xx，重試會是重複觸發一次有成本的 LLM
+  // 呼叫。只有明確標記 retry:true 的呼叫（純讀取的 crawled-data）才走
+  // fetchWithRetry，預設仍是原本的 fetch()，不動 submitCredibilityCheck()。
+  const doFetch = retry ? fetchWithRetry : fetch
+  const response = await doFetch(`${API_BASE}${path}`, {
     headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
     ...options,
   })

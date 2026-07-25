@@ -17,6 +17,7 @@ for exactly this reason.
 
 from __future__ import annotations
 
+from collections import OrderedDict
 from datetime import datetime, timedelta
 from typing import Literal
 from uuid import uuid4
@@ -24,6 +25,13 @@ from uuid import uuid4
 from pydantic import BaseModel, Field
 
 from ..ai_agent.signal_generator import SignalItem, generate_signals
+
+# GG2：_trades 原本是普通 dict，sync_from_signals() 在每次
+# GET /api/v1/trade/pending（無驗證）都會呼叫，只要有信心度 > 0.7 的
+# BUY/SELL 訊號、且過去 24 小時內同代號同方向還沒有紀錄，就會新增一筆，
+# 從來沒有清掉舊的 REJECTED/APPROVED/過期 PENDING——長期執行下去會無上限
+# 成長。比照 backtest.py 的 _backtest_results 做法：改成有上限的 FIFO。
+_MAX_PENDING_TRADES = 300
 
 
 class PendingTrade(BaseModel):
@@ -53,7 +61,7 @@ class TradeApprovalAction(BaseModel):
 
 class TradeApprovalService:
     def __init__(self) -> None:
-        self._trades: dict[str, PendingTrade] = {}
+        self._trades: "OrderedDict[str, PendingTrade]" = OrderedDict()
 
     async def sync_from_signals(self, rule_id: str = "default") -> list[PendingTrade]:
         signals = await generate_signals(rule_id=rule_id)
@@ -73,6 +81,8 @@ class TradeApprovalService:
                 created_at=datetime.utcnow(),
             )
             self._trades[pending.task_id] = pending
+            while len(self._trades) > _MAX_PENDING_TRADES:
+                self._trades.popitem(last=False)
         return list(self._trades.values())
 
     async def list_pending(self, status: str = "ALL", rule_id: str = "default") -> list[PendingTrade]:

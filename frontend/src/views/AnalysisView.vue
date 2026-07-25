@@ -143,7 +143,7 @@
         <div class="score-ring" :style="scoreRingStyle">
           <div class="score-ring-inner">
             <strong>{{ overallScore }}</strong>
-            <span>Overall</span>
+            <span>綜合評分</span>
           </div>
         </div>
         <MetricScale

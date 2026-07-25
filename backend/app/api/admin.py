@@ -1,5 +1,6 @@
 """Admin management API endpoints."""
 
+import logging
 from datetime import datetime
 from typing import Any, Literal, Optional
 
@@ -9,6 +10,8 @@ from pydantic import BaseModel
 
 from ..config.settings import get_settings
 from ..notify import LineNotifier, send_telegram
+
+logger = logging.getLogger(__name__)
 
 try:
     from ..db.cache import get_all_settings, get_setting, set_setting
@@ -73,6 +76,9 @@ async def require_admin(token: Optional[str] = Header(default=None, alias="X-Adm
     except HTTPException:
         raise
     except Exception as exc:
+        # GG4：先前完全沒有 log，重複輸入無效/過期 token（含暴力猜測）不會
+        # 留下任何稽核紀錄——這是全站唯一一個「驗證失敗」特別需要留痕的端點。
+        logger.warning("require_admin: invalid/expired admin token rejected (%s)", type(exc).__name__)
         raise HTTPException(status_code=401, detail="Invalid or expired admin token.") from exc
 
     if not payload.get("is_admin"):
@@ -99,6 +105,7 @@ async def _get_allowed_admins_value() -> list[str]:
     try:
         admins = await get_setting("allowed_admin_emails", default_admins)
     except Exception:
+        logger.exception("_get_allowed_admins_value: get_setting failed, using defaults")
         return default_admins
     if not isinstance(admins, list):
         return default_admins
@@ -258,7 +265,7 @@ async def send_test_notification(payload: TestNotificationPayload, _admin: dict 
                 bot_token = await get_setting("TELEGRAM_BOT_TOKEN", bot_token)
                 chat_id = await get_setting("TELEGRAM_CHAT_ID", chat_id)
             except Exception:
-                pass
+                logger.exception("send_test_notification: Telegram override lookup failed, using env defaults")
         if not bot_token or not chat_id:
             raise HTTPException(status_code=400, detail="Telegram settings are not configured.")
         success = await send_telegram(payload.message, str(bot_token), str(chat_id))
@@ -270,7 +277,7 @@ async def send_test_notification(payload: TestNotificationPayload, _admin: dict 
                 if not line_token:
                     line_token = await get_setting("line_token", line_token)
             except Exception:
-                pass
+                logger.exception("send_test_notification: LINE override lookup failed, using env defaults")
         if not line_token:
             raise HTTPException(status_code=400, detail="LINE Notify token is not configured.")
         success = await LineNotifier(token=str(line_token)).send(payload.message)
