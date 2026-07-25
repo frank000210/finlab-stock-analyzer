@@ -111,8 +111,10 @@ test('後台頁：系統設定新增/更新/刪除都打對端點與方法', asy
   await fooInput.blur()
   expect(putCalls.some((u) => u.includes('/admin/settings/foo'))).toBeTruthy()
 
+  // FF6：刪除設定現在會先跳 confirm() 才送出 DELETE，避免誤觸
+  page.once('dialog', (dialog) => dialog.accept())
   await page.locator('.setting-row', { hasText: 'foo' }).getByRole('button', { name: '刪' }).click()
-  expect(deleteCalls.some((u) => u.includes('/admin/settings/foo'))).toBeTruthy()
+  await expect.poll(() => deleteCalls.some((u) => u.includes('/admin/settings/foo'))).toBeTruthy()
   await expect(page.locator('.setting-row', { hasText: 'foo' })).toHaveCount(0)
 })
 

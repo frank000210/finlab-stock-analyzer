@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 from datetime import datetime
 from typing import Any
@@ -18,6 +19,37 @@ from ..ai_agent.signal_generator import (
 )
 
 _SCRIPT_TIMEOUT_SECONDS = 5
+
+# FF1：限制 __builtins__ 字典本身擋不住屬性走訪型的沙箱逃逸——
+# ().__class__.__bases__[0].__subclasses__() 完全不需要呼叫任何 builtin，
+# 純粹靠語言本身的屬性/索引存取就能拿到目前行程載入的所有 object 子類別
+# （已用獨立測試實際驗證過這條路徑可行）。這個端點又沒有掛任何驗證
+# （SignalRulesView.vue 是一般使用者功能，不能比照 admin.py 端點加
+# require_admin，那樣會直接打壞現有功能），所以唯一站得住腳的防線是在
+# 真的 exec() 之前，靜態分析 AST、擋掉逃逸手法本身。
+_FORBIDDEN_NAMES = {
+    "eval", "exec", "compile", "open", "__import__", "getattr", "setattr",
+    "delattr", "globals", "locals", "vars", "input", "breakpoint", "help",
+    "memoryview",
+}
+
+
+class ScriptValidationError(ValueError):
+    """自訂規則腳本沒通過靜態安全檢查。"""
+
+
+def _validate_script_ast(script: str) -> None:
+    try:
+        tree = ast.parse(script, mode="exec")
+    except SyntaxError as exc:
+        raise ScriptValidationError(f"Script syntax error: {exc}") from exc
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.Import, ast.ImportFrom)):
+            raise ScriptValidationError("Script may not use import statements")
+        if isinstance(node, ast.Attribute) and node.attr.startswith("__") and node.attr.endswith("__"):
+            raise ScriptValidationError(f"Script may not access '{node.attr}'")
+        if isinstance(node, ast.Name) and node.id in _FORBIDDEN_NAMES:
+            raise ScriptValidationError(f"Script may not reference '{node.id}'")
 
 
 class SignalRule(BaseModel):
@@ -244,6 +276,8 @@ class SignalRuleEngine:
         )
 
     def _run_script(self, script: str, context: dict[str, Any]) -> dict[str, Any]:
+        _validate_script_ast(script)
+
         class _LocalQueue:
             def __init__(self) -> None:
                 self._item: dict[str, Any] | None = None
@@ -255,12 +289,22 @@ class SignalRuleEngine:
                 return self._item
 
         queue = _LocalQueue()
-        with ThreadPoolExecutor(max_workers=1) as executor:
-            future = executor.submit(_execute_rule_script_worker, script, context, queue)
-            try:
-                future.result(timeout=_SCRIPT_TIMEOUT_SECONDS)
-            except FuturesTimeoutError as exc:
-                raise ValueError("Rule execution timed out after 5 seconds") from exc
+        # FF1：原本用 `with ThreadPoolExecutor()` 包起來——逾時只是讓
+        # future.result() 拋例外，worker thread 本身（例如卡在無窮迴圈）
+        # 完全沒被中斷、還在背景繼續跑。離開 with 區塊時 shutdown(wait=True)
+        # 會等那個永遠不會結束的 thread，而 execute_rule 是從 async endpoint
+        # 同步直接呼叫（沒有丟到 executor），等於直接卡死整個事件迴圈、擋住
+        # 全站所有使用者，只要一個request 就能做到。改成不用 with、逾時後
+        # shutdown(wait=False)：不再等待失控的 thread（該 thread 仍會在背景
+        # 孤兒殘留直到自然結束，但至少不會拖死呼叫端與整個 event loop）。
+        executor = ThreadPoolExecutor(max_workers=1)
+        future = executor.submit(_execute_rule_script_worker, script, context, queue)
+        try:
+            future.result(timeout=_SCRIPT_TIMEOUT_SECONDS)
+        except FuturesTimeoutError as exc:
+            executor.shutdown(wait=False)
+            raise ValueError("Rule execution timed out after 5 seconds") from exc
+        executor.shutdown(wait=False)
 
         result = queue.get()
         if result is None:

@@ -63,7 +63,10 @@ async def search_stocks(q: str = Query(..., min_length=1)):
     except HTTPException:
         raise
     except Exception:
-        # FinMind 掛掉時至少回美股內建結果
+        # FinMind 掛掉時至少回美股內建結果，但要留一份 log 才知道是不是
+        # FinMind 本身出問題（跟下面 get_stock_info/get_stock_price 的
+        # str(e) 保留決策不同——這裡本來連 log 都沒有，純粹是漏掉）。
+        logger.exception("search_stocks: FinMind lookup failed for query=%r", q)
         return {"success": True, "data": {"items": us_items}}
 
 

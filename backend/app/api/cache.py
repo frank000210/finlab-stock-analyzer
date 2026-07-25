@@ -1,5 +1,6 @@
 """Cache management API endpoints."""
 
+import logging
 import time
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -7,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from .admin import require_admin
 
 router = APIRouter(prefix="/api/v1/cache", tags=["cache"])
+logger = logging.getLogger(__name__)
 
 # R1：/reingest 觸發的是排程本來就會跑的重量級工作（類股輪動+關聯圖重抓），
 # 是一般使用者在設定頁就能點的正常功能（非管理員限定），所以不能像
@@ -49,6 +51,7 @@ async def cache_stats(_admin: dict = Depends(require_admin)):
             },
         }
     except Exception as e:
+        logger.exception("cache_stats failed")
         return {"success": False, "error": str(e)}
 
 
@@ -69,6 +72,7 @@ async def clear_cache(
         memory_cleared = clear_memory_cache(category)
         return {"success": True, "data": {"deleted": deleted, "memory_cleared": memory_cleared}}
     except Exception as e:
+        logger.exception("clear_cache failed (category=%s, symbol=%s)", category, symbol)
         return {"success": False, "error": str(e)}
 
 
@@ -91,4 +95,5 @@ async def reingest_now():
         _last_reingest_at = now
         return {"success": True, "data": {"status": "reingested"}}
     except Exception as e:
+        logger.exception("reingest_now failed")
         return {"success": False, "error": str(e)}

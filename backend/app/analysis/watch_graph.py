@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 from datetime import date, datetime, timedelta
 from typing import Any
 
@@ -12,6 +13,8 @@ from pymongo import UpdateOne
 from ..crawler import FinMindClient, InstitutionalCrawler, StockPriceCrawler
 from ..db.mongodb import get_mongodb
 from .correlation import best_lag_corr, safe_corr
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_ALPHA = 0.50
 DEFAULT_BETA = 0.30
@@ -170,6 +173,7 @@ async def ingest_watchlist_raw(
         info_df = await finmind.get_stock_info()
     except Exception:
         # FinMind token/plan 問題時降級：不阻斷整體圖計算，產業先驗邊可先略過。
+        logger.exception("ingest_watchlist_raw: get_stock_info failed, skipping industry priors")
         info_df = None
     info_map: dict[str, dict[str, Any]] = {}
     if info_df is not None and not info_df.empty:
@@ -214,7 +218,10 @@ async def ingest_watchlist_raw(
                     await mongo.raw_prices.bulk_write(ops, ordered=False)
                     inserted_prices += len(ops)
         except Exception:
-            pass
+            # FF5：原本整段吞掉、零 log——回傳的 prices/institutional 計數
+            # 全是 0 時完全看不出是哪一檔、為什麼失敗（額度用完/該檔代號
+            # 錯誤/FinMind 暫時掛掉都長一樣）。
+            logger.exception("ingest_watchlist_raw: price fetch failed for %s", symbol)
 
         try:
             chip_data = await inst_crawler.get_chip_data(symbol, start.isoformat(), end.isoformat())
@@ -236,7 +243,7 @@ async def ingest_watchlist_raw(
                 await mongo.raw_institutional.bulk_write(ops, ordered=False)
                 inserted_inst += len(ops)
         except Exception:
-            pass
+            logger.exception("ingest_watchlist_raw: chip data fetch failed for %s", symbol)
 
         profile = info_map.get(symbol, {})
         if profile:
@@ -696,7 +703,7 @@ async def get_watchlist_timeline(
             if snapshot.get("nodes"):
                 snapshots.append(snapshot)
         except Exception:
-            pass
+            logger.exception("get_watchlist_timeline: snapshot build failed for %s", cursor_day.isoformat())
         cursor_day += timedelta(days=1)
 
     # 去重（同日期只留一筆）

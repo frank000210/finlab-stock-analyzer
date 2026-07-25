@@ -40,26 +40,26 @@
         <div class="pulse-content">
           <div class="pulse-badges">
             <div class="count-badge buy">
-              <span>BUY</span>
+              <span>買進</span>
               <strong>{{ signalCounts.BUY }}</strong>
             </div>
             <div class="count-badge sell">
-              <span>SELL</span>
+              <span>賣出</span>
               <strong>{{ signalCounts.SELL }}</strong>
             </div>
             <div class="count-badge hold">
-              <span>HOLD</span>
+              <span>觀望</span>
               <strong>{{ signalCounts.HOLD }}</strong>
             </div>
             <div class="count-badge neutral">
-              <span>AVG CONF.</span>
+              <span>平均信心</span>
               <strong>{{ averageConfidence }}%</strong>
             </div>
           </div>
 
           <div class="sentiment-meter-card">
             <div class="sentiment-summary">
-              <span class="meta-label">Overall Sentiment</span>
+              <span class="meta-label">整體情緒</span>
               <strong :class="sentimentClass">{{ sentimentLabel }}</strong>
             </div>
             <div class="meter-track" aria-hidden="true">
@@ -67,9 +67,9 @@
               <div class="meter-marker" :style="{ left: `${sentimentPercent}%` }"></div>
             </div>
             <div class="meter-scale">
-              <span>Bearish</span>
-              <span>Neutral</span>
-              <span>Bullish</span>
+              <span>偏空</span>
+              <span>中性</span>
+              <span>偏多</span>
             </div>
           </div>
         </div>
@@ -437,11 +437,11 @@ const sentimentPercent = computed(() => {
 })
 
 const sentimentLabel = computed(() => {
-  if (sentimentScore.value >= 0.4) return 'Bullish Bias'
-  if (sentimentScore.value >= 0.12) return 'Slightly Bullish'
-  if (sentimentScore.value <= -0.4) return 'Bearish Bias'
-  if (sentimentScore.value <= -0.12) return 'Slightly Bearish'
-  return 'Balanced / Neutral'
+  if (sentimentScore.value >= 0.4) return '明顯偏多'
+  if (sentimentScore.value >= 0.12) return '略偏多'
+  if (sentimentScore.value <= -0.4) return '明顯偏空'
+  if (sentimentScore.value <= -0.12) return '略偏空'
+  return '中性平衡'
 })
 
 const sentimentClass = computed(() => {

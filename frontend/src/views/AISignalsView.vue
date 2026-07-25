@@ -18,7 +18,7 @@
         :class="{ active: selectedFilter === tab }"
         @click="selectedFilter = tab"
       >
-        {{ tab }}
+        {{ tabLabel(tab) }}
       </button>
     </div>
 
@@ -101,6 +101,10 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 const tabs = ['ALL', 'BUY', 'SELL', 'HOLD']
 const selectedFilter = ref('ALL')
+const TAB_LABELS = { ALL: '全部', BUY: '買進', SELL: '賣出', HOLD: '觀望' }
+function tabLabel(tab) {
+  return TAB_LABELS[tab] || tab
+}
 const signals = ref([])
 const activeRule = ref({})
 const alphaScores = ref([])

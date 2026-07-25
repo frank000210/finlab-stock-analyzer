@@ -22,7 +22,10 @@ async def get_agent_signals(
     symbols: str | None = Query(default=None),
 ):
     try:
-        target_symbols = [item.strip() for item in symbols.split(",")] if symbols else DEFAULT_SYMBOLS
+        # FF4：跟 graph.py/rotation.py/risk.py 的 symbols 參數一樣加安全上限——
+        # 這裡沒有上限的話，一次丟一長串代號會讓 generate_signals 逐檔序列
+        # fetch，額度/耗時都跟著失控。
+        target_symbols = [item.strip() for item in symbols.split(",")][:30] if symbols else DEFAULT_SYMBOLS
         items = await generate_signals(symbols=target_symbols, signal_type=type, rule_id=ruleId)
         return {"success": True, "data": {"items": [item.model_dump() for item in items]}}
     except Exception as exc:
@@ -36,7 +39,7 @@ async def get_agent_alpha_scores(
     symbols: str | None = Query(default=None),
 ):
     try:
-        target_symbols = [item.strip() for item in symbols.split(",")] if symbols else DEFAULT_SYMBOLS
+        target_symbols = [item.strip() for item in symbols.split(",")][:30] if symbols else DEFAULT_SYMBOLS
         scores = await get_alpha_scores(symbols=target_symbols, rule_id=ruleId)
         return {"success": True, "data": {"items": scores}}
     except Exception as exc:

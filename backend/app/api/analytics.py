@@ -35,9 +35,15 @@ async def _get_db():
 
 
 def _get_client_ip(request: Request) -> str:
+    # FF2：X-Forwarded-For 是客戶端可自訂送出的 header，反向代理收到後是把
+    # 「自己看到的來源位址」*附加*到既有值後面，不是覆蓋——所以整條鏈最左邊
+    # 的值永遠是客戶端自己宣稱的（可偽造），只有最右邊那個是站台前唯一那層
+    # 受信任代理實際加上去的。原本取 split(",")[0]（最左邊）等於直接採信
+    # 使用者自報的 IP，任何人只要每次都換一個 X-Forwarded-For 值就能拿到全新
+    # 的 per-IP 額度，讓 rate_limit.py 的節流形同虛設。改取最右邊。
     forwarded_for = request.headers.get("x-forwarded-for")
     if forwarded_for:
-        return forwarded_for.split(",")[0].strip()
+        return forwarded_for.split(",")[-1].strip()
     if request.client and request.client.host:
         return request.client.host
     return "unknown"

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 
 from fastapi import APIRouter, Body, HTTPException
@@ -76,6 +77,7 @@ async def activate_signal_rule(id: str):
 async def test_signal_rule(payload: SignalRuleTestRequest = Body(...)):
     try:
         snapshot = await build_market_snapshot(payload.symbol)
+        loop = asyncio.get_event_loop()
         if payload.script:
             temp_rule = await rule_engine.create_rule(
                 SignalRuleCreate(
@@ -86,13 +88,14 @@ async def test_signal_rule(payload: SignalRuleTestRequest = Body(...)):
                 )
             )
             try:
-                result = rule_engine.execute_rule(temp_rule.id, snapshot)
+                result = await loop.run_in_executor(None, rule_engine.execute_rule, temp_rule.id, snapshot)
             finally:
                 await rule_engine.delete_rule(temp_rule.id)
         elif payload.id:
-            result = rule_engine.execute_rule(payload.id, snapshot)
+            result = await loop.run_in_executor(None, rule_engine.execute_rule, payload.id, snapshot)
         else:
-            result = rule_engine.execute_rule(rule_engine.get_active_rule().id, snapshot)
+            active_id = rule_engine.get_active_rule().id
+            result = await loop.run_in_executor(None, rule_engine.execute_rule, active_id, snapshot)
         return {"success": True, "data": result.model_dump()}
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))

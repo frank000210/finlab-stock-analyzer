@@ -95,7 +95,7 @@
             <input type="text" class="form-input hex-input" :value="state.current[f.key]" @change="setField(f.key, $event.target.value)" />
           </div>
           <div class="theme-control" v-else>
-            <input type="range" min="0" max="6" step="1" :value="toPx(state.current[f.key])" @input="setField(f.key, $event.target.value + 'px')" />
+            <input type="range" min="0" max="6" step="1" :value="toPx(state.current[f.key])" @input="setField(f.key, $event.target.value + 'px')" :aria-label="f.label" />
             <span class="width-val">{{ state.current[f.key] }}</span>
           </div>
         </div>

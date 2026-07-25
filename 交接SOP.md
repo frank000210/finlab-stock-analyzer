@@ -130,11 +130,17 @@ c26ca06 fix(graph): lower default edge_threshold so the graph isn't empty by def
 | `/decision` | 決策面板 | 今日所有股票的 BUY/SELL/HOLD 一覽 |
 | `/graph` | 觀察股關聯圖 | 關聯強度與網絡結構（力導向/階層邊綁定/矩陣三種檢視） |
 | `/rotation` | 類股輪動 | RRG 象限、領先落後、Horizon chart、Chord diagram |
-| `/stocks/:symbol` | 個股分析 | 技術面是否支持進出場，含日曆熱力圖、Volume Profile |
+| `/market-lights` | 大盤多空 | 三燈號市場體制儀表板（趨勢/寬度/風險） |
+| `/stocks/:symbol` | 個股分析 | 技術面是否支持進出場，含日曆熱力圖、Volume Profile、同業比較 |
 | `/stocks/:symbol/backtest` | 回測 | 策略歷史績效 |
 | `/stocks/:symbol/seasonal` | 季節性 | 季節性慣性，含箱型圖 |
 | `/stocks/:symbol/lead-lag` | 領先落後 | 個股與大盤/類股的領先落後關係 |
 | `/stocks/:symbol/major-players` | 主力籌碼 | 主力成本與動向 |
 | `/stocks/:symbol/chip` | 籌碼分析 | 三大法人買賣超 |
 | `/stocks/:symbol/social-buzz` | 社群熱度 | 社群討論熱度 |
-| `/stocks/:symbol/public-data` | 公開資訊 | 便宜或昂貴判斷，含 PE/PB 河流圖、營
+| `/stocks/:symbol/public-data` | 公開資訊 | 便宜或昂貴判斷，含 PE/PB 河流圖、營收成長圖 |
+| `/journal` | 交易日誌 | 紙上交易紀錄、複盤教練、進場理由品質檢查 |
+| `/monte-carlo` | 蒙地卡羅模擬 | 交易日誌 R 值抽樣模擬未來權益曲線分佈 |
+| `/price-alerts` | 價格警報 | 漲破/跌破提醒設定與歷史 |
+| `/screener` | AI 選股 | 自然語言描述條件，套用既有數據篩選 |
+| `/watchlist` | 觀察清單 | 觀察清單管理、分組、CSV 匯出 |

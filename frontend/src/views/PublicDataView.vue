@@ -87,6 +87,7 @@ import { useRoute } from 'vue-router'
 import { useStockStore } from '../stores/stock.js'
 import * as d3 from 'd3'
 import { useChartTheme } from '../composables/useChartTheme'
+import { fetchWithRetry } from '../lib/apiFetch'
 
 const route = useRoute()
 const stockStore = useStockStore()
@@ -132,7 +133,7 @@ async function fetchData() {
   loading.value = true
   error.value = ''
   try {
-    const res = await fetch(`/api/v1/stocks/${sym}/public-data`)
+    const res = await fetchWithRetry(`/api/v1/stocks/${sym}/public-data`)
     const json = await res.json()
     if (json.success) {
       data.value = json.data
@@ -149,7 +150,7 @@ async function fetchData() {
 async function fetchFundamental() {
   const sym = route.params.symbol || stockStore.symbol
   try {
-    const res = await fetch(`/api/v1/analysis/${sym}/fundamental?metrics=revenue,eps`)
+    const res = await fetchWithRetry(`/api/v1/analysis/${sym}/fundamental?metrics=revenue,eps`)
     const json = await res.json()
     if (json.success) fundamental.value = json.data
   } catch (e) {
@@ -164,7 +165,7 @@ async function fetchPriceHistory() {
   start.setFullYear(start.getFullYear() - 5)
   const fmt = (d) => d.toISOString().slice(0, 10)
   try {
-    const res = await fetch(
+    const res = await fetchWithRetry(
       `/api/v1/stocks/${sym}/price?start=${fmt(start)}&end=${fmt(end)}&period=1mo`
     )
     const json = await res.json()

@@ -100,6 +100,7 @@ import { metricGlossary } from '../lib/metricGlossary'
 import { ref, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useStockStore } from '../stores/stock.js'
+import { fetchWithRetry } from '../lib/apiFetch'
 
 const route = useRoute()
 const stockStore = useStockStore()
@@ -121,7 +122,7 @@ const leaders = ref([
 // 抓失敗就保留原本寫死的 5 檔當退路，不影響頁面能不能用。
 async function loadLeaders() {
   try {
-    const res = await fetch('/api/v1/stocks/lead-lag/leaders')
+    const res = await fetchWithRetry('/api/v1/stocks/lead-lag/leaders')
     const json = await res.json()
     if (json.success && Array.isArray(json.data) && json.data.length) {
       leaders.value = json.data.map(item => ({ symbol: item.symbol, name: item.name, sector: item.sector }))
@@ -133,7 +134,7 @@ async function fetchData() {
   loading.value = true
   error.value = ''
   try {
-    const res = await fetch(`/api/v1/stocks/${symbol.value}/lead-lag?benchmark=${benchmark.value}&days=365&max_lag=20`)
+    const res = await fetchWithRetry(`/api/v1/stocks/${symbol.value}/lead-lag?benchmark=${benchmark.value}&days=365&max_lag=20`)
     const json = await res.json()
     if (json.success) {
       data.value = json.data

@@ -131,6 +131,7 @@
           <button class="btn-primary" @click="addSetting">儲存</button>
           <button class="btn-ghost" @click="showAddSetting = false">取消</button>
         </div>
+        <div v-if="actionError" class="login-error">{{ actionError }}</div>
         <div class="settings-list">
           <div v-for="(val, key) in settingsMap" :key="key" class="setting-row">
             <span class="setting-key">{{ key }}</span>
@@ -146,6 +147,7 @@
         <div class="panel-header">
           <h3>管理員帳號</h3>
         </div>
+        <div v-if="actionError" class="login-error">{{ actionError }}</div>
         <div class="admins-list">
           <div v-for="email in adminEmails" :key="email" class="admin-row">
             <span class="admin-email">{{ email }}</span>
@@ -215,6 +217,7 @@ const telegramToken = ref('')
 const telegramChatId = ref('')
 const lineToken = ref('')
 const notifyResult = ref(null)
+const actionError = ref('')
 
 const maxPV = computed(() => Math.max(...Object.values(pageviewMap.value), 1))
 function barWidth(count) { return `${(count / maxPV.value) * 100}%` }
@@ -312,10 +315,15 @@ async function updateSetting(key, value) {
 }
 
 async function deleteSetting(key) {
+  if (!window.confirm(`確定要刪除設定「${key}」嗎？此動作無法復原。`)) return
+  actionError.value = ''
   try {
-    await fetch(`/api/v1/admin/settings/${key}`, { method: 'DELETE', headers: authHeaders() })
+    const resp = await fetch(`/api/v1/admin/settings/${key}`, { method: 'DELETE', headers: authHeaders() })
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
     delete settingsMap[key]
-  } catch {}
+  } catch (e) {
+    actionError.value = `刪除設定「${key}」失敗：${e.message || '請稍後再試'}`
+  }
 }
 
 async function addAdmin() {
@@ -332,10 +340,15 @@ async function addAdmin() {
 }
 
 async function removeAdmin(email) {
+  if (!window.confirm(`確定要移除管理員「${email}」的權限嗎？`)) return
+  actionError.value = ''
   try {
-    await fetch(`/api/v1/admin/allowed-admins/${encodeURIComponent(email)}`, { method: 'DELETE', headers: authHeaders() })
+    const resp = await fetch(`/api/v1/admin/allowed-admins/${encodeURIComponent(email)}`, { method: 'DELETE', headers: authHeaders() })
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
     adminEmails.value = adminEmails.value.filter(e => e !== email)
-  } catch {}
+  } catch (e) {
+    actionError.value = `移除管理員「${email}」失敗：${e.message || '請稍後再試'}`
+  }
 }
 
 async function saveTelegramToken() { await updateSetting('telegram_bot_token', telegramToken.value) }

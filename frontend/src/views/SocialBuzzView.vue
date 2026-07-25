@@ -249,6 +249,7 @@ import { useAiStatus } from '../composables/useAiStatus'
 import { renderAiMarkdown } from '../composables/useAiMarkdown'
 import { useClipboard } from '../composables/useClipboard'
 import { metricGlossary } from '../lib/metricGlossary'
+import { fetchWithRetry } from '../lib/apiFetch'
 
 const route = useRoute()
 const stockStore = useStockStore()
@@ -273,7 +274,7 @@ async function loadAiNewsSummary() {
   aiNewsError.value = ''
   const sym = symbol.value
   try {
-    const res = await fetch(`/api/v1/stocks/${sym}/social-buzz/ai-summary`)
+    const res = await fetchWithRetry(`/api/v1/stocks/${sym}/social-buzz/ai-summary`)
     const json = await res.json()
     if (!json.success) throw new Error(json.error || '摘要產生失敗')
     if (symbol.value !== sym) return
@@ -301,7 +302,7 @@ async function fetchData() {
   aiNewsSummary.value = null
   aiNewsError.value = ''
   try {
-    const res = await fetch(`/api/v1/stocks/${symbol.value}/social-buzz`)
+    const res = await fetchWithRetry(`/api/v1/stocks/${symbol.value}/social-buzz`)
     const json = await res.json()
     if (json.success) {
       data.value = json.data
@@ -319,7 +320,7 @@ async function fetchData() {
 async function fetchHistory() {
   history.value = []
   try {
-    const res = await fetch(`/api/v1/stocks/${symbol.value}/social-buzz/history?days=30`)
+    const res = await fetchWithRetry(`/api/v1/stocks/${symbol.value}/social-buzz/history?days=30`)
     const json = await res.json()
     if (json.success) history.value = json.data
   } catch (e) {

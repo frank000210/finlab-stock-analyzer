@@ -68,19 +68,19 @@
         <label>
           Edge 門檻：<strong>{{ threshold.toFixed(2) }}</strong>
         </label>
-        <input v-model.number="threshold" type="range" min="0" max="1" step="0.01" />
+        <input v-model.number="threshold" type="range" min="0" max="1" step="0.01" aria-label="Edge 門檻" />
       </div>
 
       <div class="slider-row" v-if="timelineDates.length">
         <label>
           日期播放：<strong>{{ activeDate || '—' }}</strong>
         </label>
-        <input v-model.number="currentIndex" type="range" :min="0" :max="timelineDates.length - 1" step="1" />
+        <input v-model.number="currentIndex" type="range" :min="0" :max="timelineDates.length - 1" step="1" aria-label="日期播放" />
       </div>
 
       <div class="playback-row">
         <button class="btn btn-primary" :disabled="!timelineDates.length" @click="togglePlay">
-          {{ isPlaying ? 'Pause' : 'Play' }}
+          {{ isPlaying ? '暫停' : '播放' }}
         </button>
         <label class="speed-select">
           播放速度

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from datetime import date, datetime, timedelta
 from typing import Literal
 
@@ -261,6 +262,39 @@ def generate_default_signal(snapshot: MarketSnapshot) -> SignalItem:
     )
 
 
+async def _build_signal_for_symbol(symbol: str, rule_id: str, now: datetime) -> SignalItem:
+    try:
+        snapshot = await build_market_snapshot(symbol)
+        if rule_id == "default":
+            return generate_default_signal(snapshot)
+        from ..signal_rules.engine import rule_engine
+
+        # FF1/FF4：execute_rule 對自訂規則會同步 exec() 使用者腳本（最長
+        # 阻塞 5 秒），直接呼叫會卡住事件迴圈；丟給 executor 才能讓多檔
+        # symbol 真正併發，也才不會讓一檔卡住拖累其他所有 symbol/使用者。
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, rule_engine.execute_rule, rule_id, snapshot)
+    except Exception as exc:
+        return SignalItem(
+            symbol=symbol,
+            name_zh=STOCK_NAMES.get(symbol, ""),
+            signal="HOLD",
+            confidence=0.0,
+            price=0.0,
+            reasoning=str(exc),
+            conditions=[
+                SignalCondition(
+                    name="Data fetch",
+                    met=False,
+                    value=str(exc),
+                )
+            ],
+            indicators={},
+            volume_ratio=None,
+            generated_at=now,
+        )
+
+
 async def generate_signals(
     symbols: list[str] | None = None,
     signal_type: Literal["ALL", "BUY", "SELL", "HOLD"] = "ALL",
@@ -273,38 +307,14 @@ async def generate_signals(
     if cached and (now - cached[0]).total_seconds() < _CACHE_TTL_SECONDS:
         results = cached[1]
     else:
-        results: list[SignalItem] = []
-        for symbol in target_symbols:
-            try:
-                snapshot = await build_market_snapshot(symbol)
-                if rule_id == "default":
-                    item = generate_default_signal(snapshot)
-                else:
-                    from ..signal_rules.engine import rule_engine
-
-                    item = rule_engine.execute_rule(rule_id, snapshot)
-                results.append(item)
-            except Exception as exc:
-                results.append(
-                    SignalItem(
-                        symbol=symbol,
-                        name_zh=STOCK_NAMES.get(symbol, ""),
-                        signal="HOLD",
-                        confidence=0.0,
-                        price=0.0,
-                        reasoning=str(exc),
-                        conditions=[
-                            SignalCondition(
-                                name="Data fetch",
-                                met=False,
-                                value=str(exc),
-                            )
-                        ],
-                        indicators={},
-                        volume_ratio=None,
-                        generated_at=now,
-                    )
-                )
+        # FF4：原本逐檔序列 await，symbols 一多就等於序列打好幾輪 FinMind，
+        # 沒有善用彼此獨立、可以並行抓的特性。每檔的例外仍各自處理、互不
+        # 影響（跟原本序列版行為一致），只是改成同時發出。
+        results = list(
+            await asyncio.gather(
+                *(_build_signal_for_symbol(symbol, rule_id, now) for symbol in target_symbols)
+            )
+        )
         _signal_cache[cache_key] = (now, results)
 
     if signal_type == "ALL":

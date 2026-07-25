@@ -162,6 +162,7 @@ import { metricGlossary } from '../lib/metricGlossary'
 import { ref, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useStockStore } from '../stores/stock.js'
+import { fetchWithRetry } from '../lib/apiFetch'
 
 const route = useRoute()
 const stockStore = useStockStore()
@@ -175,7 +176,7 @@ async function fetchData() {
   loading.value = true
   error.value = ''
   try {
-    const res = await fetch(`/api/v1/stocks/${symbol.value}/major-players?days=${days.value}`)
+    const res = await fetchWithRetry(`/api/v1/stocks/${symbol.value}/major-players?days=${days.value}`)
     const json = await res.json()
     if (json.success) {
       data.value = json.data

@@ -489,6 +489,7 @@ import { useRoute } from 'vue-router'
 import { createChart } from 'lightweight-charts'
 import { useStockStore } from '../stores/stock.js'
 import { formatYyyymmdd as formatDate } from '../lib/dateFormat'
+import { fetchWithRetry } from '../lib/apiFetch'
 
 const route = useRoute()
 const stockStore = useStockStore()
@@ -789,7 +790,7 @@ async function fetchData() {
   loading.value = true
   error.value = ''
   try {
-    const res = await fetch(`/api/v1/stocks/${symbol.value}/chip-analysis`)
+    const res = await fetchWithRetry(`/api/v1/stocks/${symbol.value}/chip-analysis`)
     const json = await res.json()
     if (json.success) {
       data.value = json.data
