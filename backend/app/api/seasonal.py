@@ -1,8 +1,12 @@
 """Seasonal analysis API endpoint."""
 
+import logging
+
 from fastapi import APIRouter, Query, HTTPException
 
 from ..analysis.seasonal import analyze_seasonal_patterns
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/stocks", tags=["seasonal"])
 
@@ -36,4 +40,5 @@ async def get_seasonal_analysis(
 
         return {"success": True, "data": result}
     except Exception as e:
+        logger.exception("get_seasonal_analysis failed for %s", symbol)
         raise HTTPException(status_code=500, detail=str(e))

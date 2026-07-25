@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, Body, HTTPException
 from pydantic import BaseModel
 
 from ..ai_agent.signal_generator import build_market_snapshot
 from ..signal_rules.engine import SignalRuleCreate, SignalRuleUpdate, rule_engine
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/signal-rules", tags=["signal-rules"])
 
@@ -28,6 +32,7 @@ async def create_signal_rule(payload: SignalRuleCreate = Body(...)):
         rule = await rule_engine.create_rule(payload)
         return {"success": True, "data": rule.model_dump()}
     except Exception as exc:
+        logger.exception("create_signal_rule failed")
         raise HTTPException(status_code=500, detail=str(exc))
 
 
@@ -39,6 +44,7 @@ async def update_signal_rule(id: str, payload: SignalRuleUpdate = Body(...)):
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
     except Exception as exc:
+        logger.exception("update_signal_rule failed for %s", id)
         raise HTTPException(status_code=500, detail=str(exc))
 
 
@@ -50,6 +56,7 @@ async def delete_signal_rule(id: str):
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     except Exception as exc:
+        logger.exception("delete_signal_rule failed for %s", id)
         raise HTTPException(status_code=500, detail=str(exc))
 
 
@@ -61,6 +68,7 @@ async def activate_signal_rule(id: str):
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
     except Exception as exc:
+        logger.exception("activate_signal_rule failed for %s", id)
         raise HTTPException(status_code=500, detail=str(exc))
 
 
@@ -89,4 +97,5 @@ async def test_signal_rule(payload: SignalRuleTestRequest = Body(...)):
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     except Exception as exc:
+        logger.exception("test_signal_rule failed for %s", payload.symbol)
         raise HTTPException(status_code=500, detail=str(exc))

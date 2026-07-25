@@ -193,7 +193,7 @@ import DataLineage from '../components/DataLineage.vue'
 import InfoTooltip from '../components/InfoTooltip.vue'
 import MetricScale from '../components/MetricScale.vue'
 import { metricGlossary } from '../lib/metricGlossary'
-import { loadJournal, journalWinStats, riskAmount as journalRiskAmount, kellyFraction, JOURNAL_KEY } from '../lib/tradeMath'
+import { loadJournal, journalWinStats, riskAmount as journalRiskAmount, kellyFraction, riskPerShare, JOURNAL_KEY } from '../lib/tradeMath'
 import { tvChartUrl } from '../lib/tradingview'
 
 const route = useRoute()
@@ -236,7 +236,9 @@ const btStrategy = ref('ma_crossover')
 const btLoading = ref(false)
 const btError = ref('')
 
-const perShareRisk = computed(() => Math.abs((entry.value || 0) - (stop.value || 0)))
+// EE7：跟 lib/tradeMath.js 匯出的 riskPerShare() 是同一條公式，改成直接呼叫
+// 共用函式，避免又變成第二處要手動同步的地方（該模組的存在理由正是這個）。
+const perShareRisk = computed(() => riskPerShare({ entry: entry.value, stop: stop.value }))
 const valid = computed(() => account.value > 0 && entry.value > 0 && stop.value > 0 && perShareRisk.value > 0)
 const riskBudget = computed(() => (account.value || 0) * (riskPct.value || 0) / 100)
 const rawShares = computed(() => (perShareRisk.value > 0 ? riskBudget.value / perShareRisk.value : 0))

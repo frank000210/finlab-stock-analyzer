@@ -91,6 +91,10 @@
     <div class="graph-grid" v-reveal>
       <div class="canvas-well">
         <div ref="graphHost" class="graph-canvas"></div>
+        <div v-if="loading" class="canvas-loading" role="status" aria-live="polite">
+          <div class="loading-spinner canvas-spinner"></div>
+          <span>重算圖譜中…</span>
+        </div>
         <span v-if="usingMockData" class="badge-estimated canvas-mock-badge">示意資料</span>
         <div v-if="!hasGraphData && !loading" class="canvas-empty">
           目前區間查無可視化資料，已自動嘗試以單日快照回補。請調整日期區間或降低門檻。
@@ -753,8 +757,11 @@ async function reloadTimeline() {
       useMockFallback()
     }
   } catch (error) {
-    // API 失敗一律降級到示意假資料，而不是留一張空圖
-    useMockFallback()
+    // EE5：先前不管什麼原因失敗（含真正的後端錯誤/網路逾時）都一律降級到
+    // 示意假資料，畫面只會顯示「示意資料」而不會露出任何線索——正式環境
+    // 真的出問題時，使用者看到的跟本機沒資料時一模一樣。改成跟同一份功能
+    // 的另一個實作 GraphView.vue 一致：顯示真正的錯誤訊息，不假裝是示意資料。
+    errorMessage.value = error?.message || '關聯圖載入失敗'
   } finally {
     loading.value = false
     nextTick(renderGraph)
@@ -1138,6 +1145,24 @@ function offsetISO(days) {
   inset: 0;
   width: 100%;
   height: 100%;
+}
+.canvas-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: rgba(10, 15, 26, 0.62);
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  z-index: 5;
+}
+.canvas-spinner {
+  width: 40px;
+  height: 40px;
+  border-width: 3px;
 }
 .canvas-mock-badge {
   position: absolute;

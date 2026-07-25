@@ -1123,21 +1123,23 @@ const scoreBreakdown = computed(() => [
   },
 ])
 
+// EE9：這幾個 label 先前是英文散文（不是像 RSI/MACD 這種業界通用縮寫），
+// 跟頁面其他地方全繁體中文不一致。
 const keyMetrics = computed(() => [
   {
-    label: 'Current Price',
+    label: '現價',
     value: formatPrice(latestClose.value),
     note: lastUpdatedText.value,
     tone: priceChangeClass.value,
   },
   {
-    label: 'Change %',
+    label: '漲跌幅',
     value: formatSignedPercent(priceChangePercent.value),
     note: `價差 ${formatSigned(priceChange.value)}`,
     tone: priceChangeClass.value,
   },
   {
-    label: 'Volume vs Avg',
+    label: '量能倍數',
     value: volumeRatio.value ? `${formatNumber(volumeRatio.value, 2)}x` : '--',
     note: `量能 ${formatLargeNumber(currentPoint.value.volume)}`,
     tone: volumeRatio.value >= 1 ? 'up' : '',
@@ -1149,19 +1151,19 @@ const keyMetrics = computed(() => [
     tone: latestRsi.value > 70 ? 'down' : latestRsi.value < 35 ? 'up' : '',
   },
   {
-    label: 'MACD Signal',
+    label: 'MACD 訊號線',
     value: formatNumber(latestMacdSignal.value, 2),
     note: latestMacd.value > latestMacdSignal.value ? 'DIF 在上' : 'DIF 在下',
     tone: latestMacd.value > latestMacdSignal.value ? 'up' : 'down',
   },
   {
-    label: 'Foreign Net Buy (5D)',
+    label: '外資近5日淨買超',
     value: formatSignedCompact(foreignNetBuy5.value),
     note: `連買 ${foreignBuyStreak.value} 日`,
     tone: valueTone(foreignNetBuy5.value),
   },
   {
-    label: 'EPS Growth',
+    label: 'EPS 成長率',
     value: formatSignedPercent(epsGrowth.value),
     note: `毛利率 ${formatPercent(grossMargin.value)}`,
     tone: valueTone(epsGrowth.value),
@@ -2176,7 +2178,13 @@ function saveRecent() {
     { symbol: current, name },
     ...normalized.filter(item => item.symbol !== current)
   ].slice(0, 10)
-  localStorage.setItem('recentStocks', JSON.stringify(next))
+  // EE4：跟上面的 JSON.parse 一樣要包——寫入也可能丟例外（例如無痕模式的
+  // storage 配額已滿的 QuotaExceededError），沒包就會讓 saveRecent 整段
+  // throw，連帶讓呼叫它的 onMounted/route watcher 中斷，後面的 loadAnalysis()
+  // 都不會執行。
+  try {
+    localStorage.setItem('recentStocks', JSON.stringify(next))
+  } catch { /* 存不進去就算了，不影響分析頁本身要做的事 */ }
 }
 
 function normalizeTrustTrend(value) {

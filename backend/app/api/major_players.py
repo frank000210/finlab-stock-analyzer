@@ -1,8 +1,12 @@
 """Major Players (主力動向) API endpoint."""
 
+import logging
+
 from fastapi import APIRouter, Query, HTTPException
 
 from ..analysis.major_players import analyze_major_players
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/stocks", tags=["major-players"])
 
@@ -34,4 +38,5 @@ async def get_major_players_analysis(
 
         return {"success": True, "data": result}
     except Exception as e:
+        logger.exception("get_major_players_analysis failed for %s", symbol)
         raise HTTPException(status_code=500, detail=str(e))

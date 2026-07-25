@@ -1,8 +1,12 @@
 """Lead-Lag analysis API endpoint."""
 
+import logging
+
 from fastapi import APIRouter, Query, HTTPException
 
 from ..analysis.lead_lag import analyze_lead_lag, SECTOR_LEADERS
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/stocks", tags=["lead-lag"])
 
@@ -36,6 +40,7 @@ async def get_lead_lag_analysis(
 
         return {"success": True, "data": result}
     except Exception as e:
+        logger.exception("get_lead_lag_analysis failed for %s vs %s", symbol, benchmark)
         raise HTTPException(status_code=500, detail=str(e))
 
 

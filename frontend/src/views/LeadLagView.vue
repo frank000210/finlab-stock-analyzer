@@ -116,6 +116,19 @@ const leaders = ref([
   { symbol: '1301', name: '台塑', sector: '傳產' },
 ])
 
+// EE2：先前寫死 5 檔龍頭股，跟後端 SECTOR_LEADERS（實際 8 檔，含鋼鐵/中鋼、
+// 電信/中華電、食品/統一）對不上——這裡改成開頁時打真正的端點拿完整清單，
+// 抓失敗就保留原本寫死的 5 檔當退路，不影響頁面能不能用。
+async function loadLeaders() {
+  try {
+    const res = await fetch('/api/v1/stocks/lead-lag/leaders')
+    const json = await res.json()
+    if (json.success && Array.isArray(json.data) && json.data.length) {
+      leaders.value = json.data.map(item => ({ symbol: item.symbol, name: item.name, sector: item.sector }))
+    }
+  } catch { /* 保留寫死的預設清單 */ }
+}
+
 async function fetchData() {
   loading.value = true
   error.value = ''
@@ -143,7 +156,10 @@ function rollingBarStyle(lag) {
   }
 }
 
-onMounted(fetchData)
+onMounted(() => {
+  loadLeaders()
+  fetchData()
+})
 
 // 側欄搜尋／路由換股（同一子頁面重用元件實例時 onMounted 不會重跑）：
 // 重新取代號並重抓，讓內容連動顯示新股票。

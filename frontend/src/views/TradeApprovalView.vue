@@ -121,11 +121,17 @@ async function logToJournal(trade) {
   const side = trade.type === 'SELL' ? 'short' : 'long'
   // 停損比照作戰台/部位風控的「穩健」慣例：2×ATR；查不到 ATR 退 5%。
   // F5：這支 API 順便回傳中文名，日誌不用再多打一次名稱查詢 API。
+  // EE8：距離改直接讀後端 suggested_stops 裡「穩健」那筆的 distance
+  // （=mult×atr，跟乘數方向無關的純距離），不要自己重算 2*atr——這裡故意
+  // 不是用同一筆的 stop_price（= price - mult*atr），因為那個公式只支援多單，
+  // 用在下面 side==='short' 分支（entry+dist）會整個算反。
   let dist = entry * 0.05
   let name = trade.symbol
   try {
     const payload = await apiRequest(`/api/v1/risk/sizing/${encodeURIComponent(trade.symbol)}`)
-    if (Number(payload?.atr) > 0) dist = 2 * Number(payload.atr)
+    const robust = payload?.suggested_stops?.find(s => s.label === '穩健')
+    if (Number(robust?.distance) > 0) dist = Number(robust.distance)
+    else if (Number(payload?.atr) > 0) dist = 2 * Number(payload.atr)
     if (payload?.name) name = payload.name
   } catch { /* 用 5% fallback、代號當名稱 */ }
   const stop = Math.round((side === 'short' ? entry + dist : entry - dist) * 100) / 100

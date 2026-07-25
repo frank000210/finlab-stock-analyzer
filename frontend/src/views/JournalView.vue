@@ -62,6 +62,7 @@
       <p v-if="formError" class="error-text">{{ formError }}</p>
       <p v-if="importMsg" class="muted small">{{ importMsg }}</p>
       <p v-if="catalystAssessment" class="muted small">🤖 {{ catalystAssessment }}</p>
+      <p v-if="catalystError" class="error-text">{{ catalystError }}</p>
     </section>
 
     <!-- 進行中 -->
@@ -258,6 +259,7 @@ const aiCoachInsightHtml = computed(() => renderAiMarkdown(aiCoachInsight.value)
 const { copied: aiCoachCopied, copy: copyAiCoach } = useClipboard()
 const catalystChecking = ref(false)
 const catalystAssessment = ref('')
+const catalystError = ref('') // EE3：跟 aiCoachError 一樣獨立出來，成功/失敗訊息不能共用同一個欄位、同一種樣式
 
 async function loadAiCoach() {
   aiCoachLoading.value = true
@@ -288,6 +290,7 @@ async function checkCatalystQuality() {
   if (!catalyst) return
   catalystChecking.value = true
   catalystAssessment.value = ''
+  catalystError.value = ''
   try {
     const res = await fetch('/api/v1/journal/catalyst-quality', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -297,7 +300,7 @@ async function checkCatalystQuality() {
     if (!res.ok || !json.success) throw new Error(json.detail || '檢查失敗')
     catalystAssessment.value = json.data.assessment
   } catch (e) {
-    catalystAssessment.value = e?.message || '檢查失敗'
+    catalystError.value = e?.message || '檢查失敗'
   } finally {
     catalystChecking.value = false
   }
@@ -753,6 +756,7 @@ function addTrade() {
   resolveName(id, symbol) // 補上股票名稱（背景，代號伴隨名稱）
   form.symbol = ''; form.entry = null; form.stop = null; form.target = null; form.lots = 1; form.tag = ''; form.catalyst = ''
   catalystAssessment.value = ''
+  catalystError.value = ''
 }
 
 // 手動輸入只有代號 → 用搜尋 API 補中文名（best-effort，不阻塞新增）

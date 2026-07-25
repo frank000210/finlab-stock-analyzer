@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Query
 
 from ..ai_agent import DEFAULT_SYMBOLS, generate_signals, get_alpha_scores
 from ..signal_rules import rule_engine
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/agent", tags=["ai-agent"])
 
@@ -23,6 +26,7 @@ async def get_agent_signals(
         items = await generate_signals(symbols=target_symbols, signal_type=type, rule_id=ruleId)
         return {"success": True, "data": {"items": [item.model_dump() for item in items]}}
     except Exception as exc:
+        logger.exception("get_agent_signals failed (type=%s, ruleId=%s)", type, ruleId)
         raise HTTPException(status_code=500, detail=str(exc))
 
 
@@ -36,6 +40,7 @@ async def get_agent_alpha_scores(
         scores = await get_alpha_scores(symbols=target_symbols, rule_id=ruleId)
         return {"success": True, "data": {"items": scores}}
     except Exception as exc:
+        logger.exception("get_agent_alpha_scores failed (ruleId=%s)", ruleId)
         raise HTTPException(status_code=500, detail=str(exc))
 
 
@@ -44,4 +49,5 @@ async def get_active_rule():
     try:
         return {"success": True, "data": rule_engine.get_active_rule().model_dump()}
     except Exception as exc:
+        logger.exception("get_active_rule failed")
         raise HTTPException(status_code=500, detail=str(exc))

@@ -1,9 +1,13 @@
 """Analysis API endpoints."""
 
+import logging
+
 from fastapi import APIRouter, Query, HTTPException
 from datetime import date, timedelta
 from ..crawler import StockPriceCrawler, FundamentalCrawler, InstitutionalCrawler
 from ..analysis import TechnicalAnalyzer
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/analysis", tags=["analysis"])
 
@@ -61,6 +65,9 @@ async def get_technical_analysis(
     except HTTPException:
         raise
     except Exception as e:
+        # EE1：先前完全沒有伺服器端記錄，出錯時只能靠回應內容猜——比照
+        # Z3/AA4/H1 的作法補上 log，回應內容維持既有的 str(e) 不變。
+        logger.exception("get_technical_analysis failed for %s", symbol)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -101,6 +108,7 @@ async def get_fundamental(
 
         return {"success": True, "data": {"symbol": symbol, **result}}
     except Exception as e:
+        logger.exception("get_fundamental failed for %s", symbol)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -338,4 +346,5 @@ async def get_chip_analysis(
         data = await crawler.get_chip_data(symbol, str(start), str(end))
         return {"success": True, "data": {"symbol": symbol, **data}}
     except Exception as e:
+        logger.exception("get_chip_analysis failed for %s", symbol)
         raise HTTPException(status_code=500, detail=str(e))

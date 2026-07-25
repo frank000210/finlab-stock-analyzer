@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, Body, HTTPException, Query
 
 from ..signal_rules import rule_engine
 from ..trade.approval import TradeApprovalAction, trade_approval_service
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/trade", tags=["trade"])
 
@@ -17,6 +21,7 @@ async def get_pending_trades(status: str = Query(default="ALL")):
         items = await trade_approval_service.list_pending(status=status.upper(), rule_id=active_rule.id)
         return {"success": True, "data": {"items": [item.model_dump() for item in items]}}
     except Exception as exc:
+        logger.exception("get_pending_trades failed (status=%s)", status)
         raise HTTPException(status_code=500, detail=str(exc))
 
 
@@ -28,4 +33,5 @@ async def approve_trade(payload: TradeApprovalAction = Body(...)):
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
     except Exception as exc:
+        logger.exception("approve_trade failed")
         raise HTTPException(status_code=500, detail=str(exc))

@@ -1,5 +1,7 @@
 """Backtest API endpoints."""
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from typing import Optional
@@ -15,6 +17,8 @@ from ..backtest.strategies import ALL_STRATEGIES
 from ..backtest.strategies.custom_expression import CUSTOM_STRATEGY_ID, CustomExpressionStrategy
 from ..backtest.expr_lang import ExpressionError, parse_condition
 from ..llm import LLMUnavailable, check_llm_rate_limit, is_llm_configured
+
+logger = logging.getLogger(__name__)
 
 # 過擬合防護（A3）門檻：樣本外交易數低於此值視為不可靠，不下判斷。
 _MIN_OOS_TRADES = 5
@@ -233,6 +237,7 @@ async def run_backtest(req: BacktestRequest):
     except HTTPException:
         raise
     except Exception as e:
+        logger.exception("run_backtest failed for %s/%s", req.symbol, req.strategy_id)
         raise HTTPException(status_code=500, detail=str(e))
 
 

@@ -1,6 +1,7 @@
 """籌碼分析 (Chip Analysis) API — 主力 / 散戶 / 大戶進出."""
 
 import asyncio
+import logging
 
 from fastapi import APIRouter, HTTPException, Query
 
@@ -10,6 +11,8 @@ from ..analysis.chip_signals import compute_sync_buy, compute_margin_ratio
 from ..analysis.chip_health import compute_chip_health
 from ..analysis.day_trade import analyze_day_trade
 from ..analysis.major_players import analyze_major_players
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/stocks", tags=["chip"])
 
@@ -82,6 +85,7 @@ async def get_chip_analysis(
         result = await _build_chip_analysis(symbol, days)
         return {"success": True, "data": result}
     except Exception as e:
+        logger.exception("get_chip_analysis failed for %s", symbol)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -95,6 +99,7 @@ async def get_chip_score(
         result = await _build_chip_analysis(symbol, days)
         return {"success": True, "data": result.get("chip_health")}
     except Exception as e:
+        logger.exception("get_chip_score failed for %s", symbol)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -135,6 +140,7 @@ async def get_chip_summary(
     except HTTPException:
         raise
     except Exception as e:
+        logger.exception("get_chip_summary failed for %s", symbol)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -180,5 +186,6 @@ async def get_major_cost(
 
         return {"success": True, "data": summary}
     except Exception as e:
+        logger.exception("get_major_cost failed for %s", symbol)
         raise HTTPException(status_code=500, detail=str(e))
 
