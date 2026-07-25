@@ -128,30 +128,42 @@ const financialSummaryEntries = computed(() => {
   })
 })
 
+// II8：symbol 切換快時，前一檔的回應可能晚於新一檔回來。三個函式各自
+// 獨立抓不同區塊的資料、也各自獨立被 onMounted/symbol watch 觸發，各用
+// 自己的 token 擋過期回應，避免任何一區塊顯示成舊代號的內容。
+let dataToken = 0
+let fundamentalToken = 0
+let priceHistoryToken = 0
+
 async function fetchData() {
   const sym = route.params.symbol || stockStore.symbol
+  const token = ++dataToken
   loading.value = true
   error.value = ''
   try {
     const res = await fetchWithRetry(`/api/v1/stocks/${sym}/public-data`)
     const json = await res.json()
+    if (token !== dataToken) return
     if (json.success) {
       data.value = json.data
     } else {
       error.value = json.error || '載入失敗'
     }
   } catch (e) {
+    if (token !== dataToken) return
     error.value = '無法連線到伺服器'
   } finally {
-    loading.value = false
+    if (token === dataToken) loading.value = false
   }
 }
 
 async function fetchFundamental() {
   const sym = route.params.symbol || stockStore.symbol
+  const token = ++fundamentalToken
   try {
     const res = await fetchWithRetry(`/api/v1/analysis/${sym}/fundamental?metrics=revenue,eps`)
     const json = await res.json()
+    if (token !== fundamentalToken) return
     if (json.success) fundamental.value = json.data
   } catch (e) {
     // 基本面圖表失敗不影響公開資訊其他區塊
@@ -160,6 +172,7 @@ async function fetchFundamental() {
 
 async function fetchPriceHistory() {
   const sym = route.params.symbol || stockStore.symbol
+  const token = ++priceHistoryToken
   const end = new Date()
   const start = new Date()
   start.setFullYear(start.getFullYear() - 5)
@@ -169,6 +182,7 @@ async function fetchPriceHistory() {
       `/api/v1/stocks/${sym}/price?start=${fmt(start)}&end=${fmt(end)}&period=1mo`
     )
     const json = await res.json()
+    if (token !== priceHistoryToken) return
     if (json.success) priceHistory.value = json.data.items
   } catch (e) {
     // 河流圖失敗不影響公開資訊其他區塊

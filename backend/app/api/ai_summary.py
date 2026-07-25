@@ -1,10 +1,14 @@
 """個股 AI 摘要 API — W2 試點。"""
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException
 
 from ..analysis.ai_summary import build_ai_summary
 from ..data.us_symbols import is_tw_symbol, normalize_symbol
 from ..llm import LLMUnavailable, check_llm_rate_limit, is_llm_configured
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/stocks", tags=["ai-summary"])
 
@@ -26,6 +30,7 @@ async def ai_summary(symbol: str):
     except LLMUnavailable as exc:
         raise HTTPException(status_code=503, detail=str(exc))
     except Exception as exc:  # noqa: BLE001
+        logger.exception("ai_summary failed for %s", symbol)
         raise HTTPException(status_code=502, detail=f"AI 摘要產生失敗：{exc}")
 
 

@@ -67,6 +67,13 @@ async function mockAdminBootstrap(page) {
   await page.route('**/api/v1/settings', (route) => route.fulfill({
     status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, data: { foo: 'bar' } }),
   }))
+  // II6：AdminView 的 loadSettings() 打的是 /api/v1/admin/settings（不是上面
+  // 那支公開端點），先前這裡沒 mock，請求會直接打到真實後端，用假 token 拿到
+  // 真的 401——過去這個 401 沒人檢查，畫面照樣正常顯示；II6 加了 401 就登出
+  // 的處理後，沒 mock 到的這支會讓整頁被判定 session 過期而跳回登入畫面。
+  await page.route('**/api/v1/admin/settings', (route) => route.fulfill({
+    status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, data: { foo: 'bar' } }),
+  }))
   await page.route('**/api/v1/admin/allowed-admins', (route) => {
     if (route.request().method() === 'GET') {
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, data: ['frank210@gmail.com'] }) })

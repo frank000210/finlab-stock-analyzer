@@ -356,6 +356,14 @@ async function analyzeCorr() {
 // storage 事件監聽。
 function onJournalStorage(e) {
   if (!e.key || e.key === JOURNAL_KEY) journalTrades.value = loadJournal()
+  // II7：帳戶資金/風險%跟部位風控頁共用同一組 key，但這裡原本沒有跟著聽，
+  // 另一分頁改了之後這頁的熔斷/半凱利建議會繼續用舊值，直到手動整理。
+  if (e.key === 'portfolio_heat_account') {
+    const a = Number(localStorage.getItem('portfolio_heat_account')); if (a > 0) account.value = a
+  }
+  if (e.key === 'finlab_risk_pct') {
+    const rp = Number(localStorage.getItem('finlab_risk_pct')); if (rp > 0) riskPct.value = rp
+  }
 }
 
 onMounted(() => {

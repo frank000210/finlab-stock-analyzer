@@ -16,10 +16,22 @@ const props = defineProps({ symbol: { type: String, required: true } })
 const host = ref(null)
 const failed = ref(false)
 
+// II2：symbol 來自路由參數（使用者可完全控制網址），如果不經檢查就塞進
+// script.innerHTML 組成的 JSON，惡意值可以用「script 結束標籤」提早結束
+// 這個 script 節點、後面接的 markup 會被當成真實 DOM 插入並執行（已用
+// 瀏覽器實測「結束標籤 + <img onerror=...>」會觸發）。這裡先用白名單擋
+// 掉，只放行台股數字代號、美股字母代號、指數（^ 開頭）等合法格式會出現
+// 的字元。
+const SAFE_SYMBOL = /^[A-Za-z0-9^.-]{1,15}$/
+
 function render() {
   const el = host.value
   if (!el) return
   el.querySelectorAll('.tv-widget').forEach(n => n.remove())
+  if (!SAFE_SYMBOL.test(props.symbol || '')) {
+    failed.value = true
+    return
+  }
   failed.value = false
   const container = document.createElement('div')
   container.className = 'tv-widget tradingview-widget-container'

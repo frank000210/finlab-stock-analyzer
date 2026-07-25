@@ -188,7 +188,12 @@ onBeforeUnmount(() => {
   destroyChart()
 })
 
+// II8：股票切換得快時，前一檔的回應可能晚於新一檔回來，沒防護的話價格
+// 走勢圖會顯示新代號的標題但實際畫的是舊代號的線。
+let requestToken = 0
+
 async function loadDashboard() {
+  const token = ++requestToken
   loading.value = true
   errorMessage.value = ''
   reloadJournalRisk()
@@ -197,6 +202,8 @@ async function loadDashboard() {
     apiGet('/api/v1/agent/signals'),
     apiGet(`/api/v1/stocks/${stockStore.symbol}/price`),
   ])
+
+  if (token !== requestToken) return
 
   if (signalsResp.status === 'fulfilled') {
     signals.value = normalizeSignals(signalsResp.value)
@@ -210,6 +217,7 @@ async function loadDashboard() {
   }
 
   await nextTick()
+  if (token !== requestToken) return
   renderChart()
   renderSankey()
   loading.value = false

@@ -238,9 +238,22 @@ function authHeaders() {
   return { 'X-Admin-Token': authStore.token || '', 'Content-Type': 'application/json' }
 }
 
+// II6：以下 6 個初始載入函式原本完全沒檢查 r.ok，admin_token 過期
+// （auth.py 簽發的 JWT 12 小時到期）或無效時，後端回傳的 401 錯誤 body
+// 會被當成正常資料直接塞進 UI 狀態顯示。401 代表整個 session 已經失效，
+// 而不是單一功能失敗，所以統一登出、清空狀態、回登入畫面，而不是各自
+// 顯示技術性錯誤訊息。
+function handleAdminAuthFailure(status) {
+  if (status !== 401) return false
+  authStore.logout()
+  loginError.value = '登入已過期，請重新登入'
+  return true
+}
+
 async function loadStats() {
   try {
     const r = await fetch('/api/v1/admin/logs/stats', { headers: authHeaders() })
+    if (handleAdminAuthFailure(r.status)) return
     const d = await r.json()
     stats.value = d.data || d
   } catch {}
@@ -250,6 +263,7 @@ async function loadLogs() {
   try {
     const q = logFilter.value ? `?type=${logFilter.value}` : ''
     const r = await fetch(`/api/v1/admin/logs${q}`, { headers: authHeaders() })
+    if (handleAdminAuthFailure(r.status)) return
     const d = await r.json()
     logs.value = d.data || d || []
   } catch {}
@@ -258,6 +272,7 @@ async function loadLogs() {
 async function loadPageviews() {
   try {
     const r = await fetch('/api/v1/analytics/pageviews', { headers: authHeaders() })
+    if (handleAdminAuthFailure(r.status)) return
     const d = await r.json()
     pageviewMap.value = d || {}
   } catch {}
@@ -266,6 +281,7 @@ async function loadPageviews() {
 async function loadLlmUsage() {
   try {
     const r = await fetch('/api/v1/admin/llm-usage', { headers: authHeaders() })
+    if (handleAdminAuthFailure(r.status)) return
     const d = await r.json()
     if (d.success) llmUsage.value = d.data
   } catch {}
@@ -277,6 +293,7 @@ async function loadSettings() {
     // require_admin 驗證的（公開的 /api/v1/settings 現在只回傳安全子集，
     // 不再包含 telegram_bot_token 等機密，這裡才拿得到完整內容）。
     const r = await fetch('/api/v1/admin/settings', { headers: authHeaders() })
+    if (handleAdminAuthFailure(r.status)) return
     const d = await r.json()
     const data = d.data || {}
     Object.keys(settingsMap).forEach(k => delete settingsMap[k])
@@ -290,6 +307,7 @@ async function loadSettings() {
 async function loadAdmins() {
   try {
     const r = await fetch('/api/v1/admin/allowed-admins', { headers: authHeaders() })
+    if (handleAdminAuthFailure(r.status)) return
     const d = await r.json()
     adminEmails.value = d.data || d || []
   } catch {}

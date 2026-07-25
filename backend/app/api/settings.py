@@ -1,10 +1,14 @@
 """Settings API endpoints with MongoDB storage."""
 
+import logging
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional
 
 from ..crawler import FinMindClient
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/settings", tags=["settings"])
 
@@ -70,7 +74,10 @@ async def get_settings():
         if settings:
             return {"success": True, "data": settings}
     except Exception:
-        pass
+        # II9：Mongo 讀取失敗時原本完全沒有 log，只會靜靜掉到下面的預設值
+        # ——使用者感覺不到異狀（畫面正常顯示預設設定），但 Mongo 若真的
+        # 掛了，這是唯一會留下痕跡的地方。
+        logger.exception("get_settings: failed to read from MongoDB, falling back to defaults")
 
     # Fallback defaults
     return {
@@ -98,6 +105,7 @@ async def update_settings(settings: AppSettings):
             await set_setting(key, value)
         return {"success": True, "data": {"message": "設定已儲存"}}
     except Exception as e:
+        logger.exception("update_settings failed")
         return {"success": False, "error": f"儲存失敗: {str(e)}"}
 
 

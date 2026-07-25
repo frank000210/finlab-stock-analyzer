@@ -242,7 +242,12 @@ if frontend_dist.exists():
         # index.html with HTTP 200, which masks backend/deploy failures.
         if full_path.startswith("api/"):
             raise HTTPException(status_code=404, detail=f"Not found: /{full_path}")
-        file_path = frontend_dist / full_path
-        if file_path.is_file():
+        # II1：full_path 是 URL 路徑直接轉成的字串，Starlette 的 path
+        # convertor 不會處理 `..`。沒有這層防護的話 frontend_dist/full_path
+        # 可以逃出 dist 目錄，讀到任意伺服器檔案（已用 GET /../../backend/
+        # app/config/settings.py 實測成功讀出源碼）。resolve() 後確認仍在
+        # frontend_dist 底下才放行，其餘一律當成 SPA 路由回 index.html。
+        file_path = (frontend_dist / full_path).resolve()
+        if file_path.is_relative_to(frontend_dist.resolve()) and file_path.is_file():
             return FileResponse(str(file_path))
         return FileResponse(str(frontend_dist / "index.html"))

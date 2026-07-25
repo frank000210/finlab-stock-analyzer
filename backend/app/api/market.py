@@ -1,8 +1,12 @@
 """大盤多空儀表板 API — V1."""
 
+import logging
+
 from fastapi import APIRouter, HTTPException
 
 from ..analysis.market_lights import build_market_lights
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/market", tags=["market"])
 
@@ -14,4 +18,5 @@ async def market_lights():
     try:
         return {"success": True, "data": await build_market_lights()}
     except Exception as exc:
+        logger.exception("market_lights failed")
         raise HTTPException(status_code=502, detail=f"大盤多空儀表板查詢失敗：{exc}")

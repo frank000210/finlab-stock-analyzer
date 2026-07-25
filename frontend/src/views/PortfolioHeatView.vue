@@ -288,6 +288,13 @@ function exportPositionsCsv() {
 const journalVersion = ref(0)
 function onJournalStorage(e) {
   if (!e.key || e.key === JOURNAL_KEY) journalVersion.value++
+  // II7：帳戶資金在風控監控頁(useJournalRisk.js)/部位風控頁都會被改，
+  // 這頁原本只聽 JOURNAL_KEY，別的分頁改帳戶資金後這頁的總風險熱度%還是
+  // 用舊值算，且沒有任何跡象顯示數字已經過時。
+  if (e.key === LS_ACCT) {
+    const a = Number(localStorage.getItem(LS_ACCT))
+    if (a > 0) account.value = a
+  }
 }
 const journalOnlyPositions = computed(() => {
   journalVersion.value // eslint-disable-line no-unused-expressions

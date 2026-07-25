@@ -278,6 +278,15 @@ function loadExistingPositions() {
 const journalVersion = ref(0)
 function onJournalStorage(e) {
   if (!e.key || e.key === JOURNAL_KEY) journalVersion.value++
+  // II7：這頁自己的註解已經寫明帳戶資金/風險%要跟投組風險頁/作戰台同步
+  // （同一組 localStorage key），但這裡的 handler 只聽 JOURNAL_KEY，另一
+  // 分頁改帳戶資金或風險%時，這頁的半凱利建議與熔斷判定會繼續用舊值算。
+  if (e.key === 'portfolio_heat_account') {
+    const a = Number(localStorage.getItem('portfolio_heat_account')); if (a > 0) account.value = a
+  }
+  if (e.key === 'finlab_risk_pct') {
+    const rp = Number(localStorage.getItem('finlab_risk_pct')); if (rp > 0) riskPct.value = rp
+  }
 }
 const journalOnlyForHeat = computed(() => {
   journalVersion.value // eslint-disable-line no-unused-expressions
@@ -362,14 +371,20 @@ function fmtMarketCap(v) {
 function fmtInt(v) { return (v == null || isNaN(v)) ? '—' : Math.round(v).toLocaleString('en-US') }
 function setupClass(total) { return total >= 70 ? 'good' : total >= 45 ? 'mid' : 'bad' }
 
+// II8：代碼切換得快時，前一檔的回應可能晚於新一檔回來，沒防護的話畫面
+// 顯示新代號但現價/ATR停損建議其實是舊代號的。
+let requestToken = 0
+
 async function loadMarket() {
   const sym = String(symbolInput.value || '').trim().toUpperCase()
   if (!sym) { errorMessage.value = '請輸入股票代碼'; return }
+  const token = ++requestToken
   loading.value = true
   errorMessage.value = ''
   try {
     const resp = await fetch(`${API_BASE}/api/v1/risk/sizing/${sym}?lookback_days=365`)
     const payload = await resp.json().catch(() => ({}))
+    if (token !== requestToken) return
     if (!resp.ok || payload?.success === false) {
       throw new Error(payload?.detail || '查詢失敗')
     }
@@ -379,10 +394,11 @@ async function loadMarket() {
     const moderate = (market.value.suggested_stops || []).find(s => s.label === '穩健')
     stop.value = moderate ? moderate.stop_price : Math.round((market.value.price - market.value.atr * 2) * 100) / 100
   } catch (e) {
+    if (token !== requestToken) return
     market.value = null
     errorMessage.value = e?.message || '查詢失敗'
   } finally {
-    loading.value = false
+    if (token === requestToken) loading.value = false
   }
 }
 

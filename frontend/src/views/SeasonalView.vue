@@ -126,21 +126,28 @@ const error = ref('')
 const data = ref(null)
 const boxplotEl = ref(null)
 
+// II8：symbol 切換快時，前一檔的回應可能晚於新一檔回來，沒防護會讓畫面
+// 顯示新代號但箱型圖其實是舊代號的季節性分析。
+let requestToken = 0
+
 async function fetchData() {
+  const token = ++requestToken
   loading.value = true
   error.value = ''
   try {
     const res = await fetchWithRetry(`/api/v1/stocks/${symbol.value}/seasonal?years=${years.value}`)
     const json = await res.json()
+    if (token !== requestToken) return
     if (json.success) {
       data.value = json.data
     } else {
       error.value = json.error || '分析失敗'
     }
   } catch (e) {
+    if (token !== requestToken) return
     error.value = '無法連線到伺服器'
   } finally {
-    loading.value = false
+    if (token === requestToken) loading.value = false
   }
 }
 

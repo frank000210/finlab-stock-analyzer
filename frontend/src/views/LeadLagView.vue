@@ -130,21 +130,28 @@ async function loadLeaders() {
   } catch { /* 保留寫死的預設清單 */ }
 }
 
+// II8：symbol 切換快時，前一檔的回應可能晚於新一檔回來，沒防護會讓畫面
+// 顯示新代號但內容其實是舊代號的領先/落後分析。
+let requestToken = 0
+
 async function fetchData() {
+  const token = ++requestToken
   loading.value = true
   error.value = ''
   try {
     const res = await fetchWithRetry(`/api/v1/stocks/${symbol.value}/lead-lag?benchmark=${benchmark.value}&days=365&max_lag=20`)
     const json = await res.json()
+    if (token !== requestToken) return
     if (json.success) {
       data.value = json.data
     } else {
       error.value = json.error || '分析失敗'
     }
   } catch (e) {
+    if (token !== requestToken) return
     error.value = '無法連線到伺服器'
   } finally {
-    loading.value = false
+    if (token === requestToken) loading.value = false
   }
 }
 

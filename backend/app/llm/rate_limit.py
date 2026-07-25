@@ -31,20 +31,19 @@ async def check_llm_rate_limit(request: Request) -> None:
     if not ip or ip == "unknown":
         return
 
-    from ..db.cache import get_cache, set_cache
+    from ..db.cache import increment_rate_limit
 
     key = f"llm_rate:{ip}"
     try:
-        count = await get_cache(key)
+        # II4：read-then-write 改成原子 $inc（見 db/cache.py 的
+        # increment_rate_limit）——回傳值已經是遞增後的次數，門檻比對要
+        # 用 > 而不是 >=，才會維持「10 分鐘內最多放行 IP_MAX_CALLS 次」的
+        # 原本語意（第 IP_MAX_CALLS+1 次才擋）。
+        count = await increment_rate_limit(key, "rate_limit")
     except Exception:
         return
-    count = int(count or 0)
-    if count >= IP_MAX_CALLS:
+    if count > IP_MAX_CALLS:
         raise HTTPException(
             status_code=429,
             detail=f"AI 功能呼叫過於頻繁，請 {IP_WINDOW_MINUTES} 分鐘後再試。",
         )
-    try:
-        await set_cache(key, count + 1, "rate_limit")
-    except Exception:
-        pass

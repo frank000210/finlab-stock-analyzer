@@ -132,11 +132,20 @@ async function loadAll() {
   loading.value = false
 }
 
+// II8：loadSignals() 同時被 30 秒自動刷新（loadAll）跟切換篩選 tab
+// （watch selectedFilter）觸發，兩者可能並行——使用者切到「買進」的當下
+// 剛好遇到自動刷新的「全部」還沒回來，較慢的回應如果晚到，畫面會變回
+// 「全部」的訊號但 tab 還停在「買進」。用 token 擋掉過期回應。
+let signalsToken = 0
+
 async function loadSignals() {
+  const token = ++signalsToken
   try {
     const payload = await apiGet(`/api/v1/agent/signals?type=${selectedFilter.value}`)
+    if (token !== signalsToken) return
     signals.value = normalizeSignals(payload)
   } catch {
+    if (token !== signalsToken) return
     signals.value = []
   }
 }

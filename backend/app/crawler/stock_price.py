@@ -1,5 +1,6 @@
 """Stock price crawler with FinMind primary and yfinance fallback."""
 
+import asyncio
 import logging
 
 import pandas as pd
@@ -50,8 +51,13 @@ class StockPriceCrawler:
             except Exception as e:
                 logger.warning("FinMind price fetch failed for %s (%s~%s): %s", symbol, start, end, e)
 
-        # yfinance：台股備援（.TW/.TWO）或美股直查
-        df = self._fetch_yfinance(symbol, start, end, period)
+        # yfinance：台股備援（.TW/.TWO）或美股直查。II3：_fetch_yfinance 是
+        # 同步方法，yf.download() 是阻塞的網路 I/O——這是所有美股/指數查詢
+        # 唯一的資料來源，也是 FinMind 失敗/額度用盡時台股的備援路徑，若
+        # 直接在 async 函式裡同步呼叫，Yahoo 端一慢（或被限流重試）就會卡住
+        # 整個事件迴圈，讓同一個 worker 上其他所有並行請求一起被拖住。丟到
+        # 執行緒池跑，不佔用事件迴圈。
+        df = await asyncio.to_thread(self._fetch_yfinance, symbol, start, end, period)
         if not df.empty:
             self.last_source = "yfinance"
         return df

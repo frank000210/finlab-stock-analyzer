@@ -158,6 +158,34 @@ async def increment_setting(key: str, amount: int = 1) -> int:
     return int(doc.get("value", 0))
 
 
+async def increment_rate_limit(key: str, category: str = "rate_limit") -> int:
+    """Atomically increment a sliding-window rate-limit counter and refresh
+    its TTL, returning the new (post-increment) count.
+
+    II4：llm/rate_limit.py 原本是 get_cache() 讀值、比對門檻、再 set_cache()
+    寫回，跟 HH6 修過的全域額度是同一種 race——並行請求可能同時讀到同一個
+    舊值，單一 IP 就能繞過限流打穿全站共用的每日額度。不能直接沿用
+    increment_setting()：那是寫進不會過期的 settings collection，如果拿來
+    存「每個 IP 各一筆」的計數器，會變成另一種無上限成長（每個出現過的 IP
+    留一筆設定，永遠不刪）。這裡改在本來就有 TTL 索引的 cache collection
+    上做原子 $inc，且每次呼叫都順便刷新 expires_at，維持原本「滑動視窗」
+    的語意。
+    """
+    db = await _get_db()
+    ttl_minutes = CACHE_TTL.get(category, 60)
+    expires_at = datetime.utcnow() + timedelta(minutes=ttl_minutes)
+    doc = await db.cache.find_one_and_update(
+        {"key": key},
+        {
+            "$inc": {"count": 1},
+            "$set": {"category": category, "expires_at": expires_at, "updated_at": datetime.utcnow()},
+        },
+        upsert=True,
+        return_document=ReturnDocument.AFTER,
+    )
+    return int(doc.get("count", 0))
+
+
 async def get_all_settings() -> dict:
     """Get all settings as a dictionary."""
     db = await _get_db()

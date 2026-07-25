@@ -7,11 +7,15 @@
 
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, Body, Depends, HTTPException
 from pydantic import BaseModel, field_validator
 
 from ..analysis.journal_coach import build_ai_coach, check_catalyst_quality
 from ..llm import LLMUnavailable, check_llm_rate_limit
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/journal", tags=["journal-ai"])
 
@@ -75,6 +79,7 @@ async def ai_coach(payload: CoachRequest = Body(...)):
     except LLMUnavailable as exc:
         raise HTTPException(status_code=503, detail=str(exc))
     except Exception as exc:
+        logger.exception("ai_coach failed")
         raise HTTPException(status_code=502, detail=f"AI 複盤失敗：{exc}")
 
 
@@ -91,4 +96,5 @@ async def catalyst_quality(payload: CatalystRequest = Body(...)):
     except LLMUnavailable as exc:
         raise HTTPException(status_code=503, detail=str(exc))
     except Exception as exc:
+        logger.exception("catalyst_quality failed")
         raise HTTPException(status_code=502, detail=f"理由品質檢查失敗：{exc}")

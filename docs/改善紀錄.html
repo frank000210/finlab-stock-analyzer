@@ -1,0 +1,599 @@
+<title>finlab-stock-analyzer 改善紀錄</title>
+<style>
+:root{
+  --bg:#F1F4EF; --surface:#FFFFFF; --surface-2:#E9EEE6;
+  --ink:#1A2420; --ink-muted:#5C6B62; --ink-faint:#8A9690;
+  --line:#DCE3D8;
+  --accent:#1F5F5B; --accent-soft:#DCEAE8; --accent-ink:#0E3735;
+  --critical:#B3261E; --critical-soft:#F6DEDC;
+  --warn:#9C6A17; --warn-soft:#F3E6CE;
+  --good:#2F6F4E; --good-soft:#DCEEE3;
+  --neutral-tag:#57616C; --neutral-soft:#E7EAED;
+  --shadow: 0 1px 2px rgba(20,30,25,0.06), 0 8px 24px -12px rgba(20,30,25,0.18);
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#121815; --surface:#1A211D; --surface-2:#212923;
+    --ink:#E7EDE9; --ink-muted:#97A69D; --ink-faint:#6C7A72;
+    --line:#2B3530;
+    --accent:#4FBDB6; --accent-soft:#1B3634; --accent-ink:#B7E9E4;
+    --critical:#E5766E; --critical-soft:#3A211F;
+    --warn:#D9A24E; --warn-soft:#3A2E17;
+    --good:#7DC79B; --good-soft:#1C3327;
+    --neutral-tag:#A7B0B8; --neutral-soft:#242B30;
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px -12px rgba(0,0,0,0.5);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#121815; --surface:#1A211D; --surface-2:#212923;
+  --ink:#E7EDE9; --ink-muted:#97A69D; --ink-faint:#6C7A72;
+  --line:#2B3530;
+  --accent:#4FBDB6; --accent-soft:#1B3634; --accent-ink:#B7E9E4;
+  --critical:#E5766E; --critical-soft:#3A211F;
+  --warn:#D9A24E; --warn-soft:#3A2E17;
+  --good:#7DC79B; --good-soft:#1C3327;
+  --neutral-tag:#A7B0B8; --neutral-soft:#242B30;
+  --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px -12px rgba(0,0,0,0.5);
+}
+:root[data-theme="light"]{
+  --bg:#F1F4EF; --surface:#FFFFFF; --surface-2:#E9EEE6;
+  --ink:#1A2420; --ink-muted:#5C6B62; --ink-faint:#8A9690;
+  --line:#DCE3D8;
+  --accent:#1F5F5B; --accent-soft:#DCEAE8; --accent-ink:#0E3735;
+  --critical:#B3261E; --critical-soft:#F6DEDC;
+  --warn:#9C6A17; --warn-soft:#F3E6CE;
+  --good:#2F6F4E; --good-soft:#DCEEE3;
+  --neutral-tag:#57616C; --neutral-soft:#E7EAED;
+  --shadow: 0 1px 2px rgba(20,30,25,0.06), 0 8px 24px -12px rgba(20,30,25,0.18);
+}
+
+*{box-sizing:border-box;}
+html,body{background:var(--bg);color:var(--ink);}
+body{
+  font-family: -apple-system, "Segoe UI", "Noto Sans TC", "PingFang TC", system-ui, sans-serif;
+  line-height:1.55;
+  max-width:920px;
+  margin:0 auto;
+  padding:32px 20px 96px;
+}
+.serif{ font-family: ui-serif, Georgia, "Iowan Old Style", "Noto Serif TC", "PingFang TC", serif; }
+.mono{ font-family: ui-monospace, "Cascadia Code", "SFMono-Regular", Consolas, monospace; font-variant-numeric: tabular-nums; }
+
+header.top{
+  position:sticky; top:0; z-index:10;
+  background:var(--bg);
+  padding:20px 0 16px;
+  border-bottom:1px solid var(--line);
+  margin-bottom:28px;
+}
+h1{
+  font-size:1.7rem; margin:0 0 4px; text-wrap:balance;
+  letter-spacing:-0.01em;
+}
+.subtitle{ color:var(--ink-muted); font-size:0.92rem; margin:0 0 16px; }
+
+.stats{
+  display:flex; gap:10px; flex-wrap:wrap; margin-bottom:14px;
+}
+.stat{
+  background:var(--surface); border:1px solid var(--line); border-radius:10px;
+  padding:8px 14px; display:flex; flex-direction:column; gap:2px; min-width:88px;
+}
+.stat b{ font-size:1.15rem; }
+.stat span{ font-size:0.72rem; color:var(--ink-muted); text-transform:uppercase; letter-spacing:0.04em; }
+
+.search-row{ display:flex; gap:8px; align-items:center; }
+#search{
+  flex:1; font-size:0.95rem; padding:10px 14px; border-radius:10px;
+  border:1px solid var(--line); background:var(--surface); color:var(--ink);
+  font-family:inherit;
+}
+#search:focus{ outline:2px solid var(--accent); outline-offset:1px; }
+#count{ font-size:0.8rem; color:var(--ink-muted); white-space:nowrap; }
+
+.legend{ display:flex; gap:14px; flex-wrap:wrap; margin-top:12px; font-size:0.76rem; color:var(--ink-muted); }
+.legend .dot{ display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:5px; vertical-align:middle; }
+
+main{ display:flex; flex-direction:column; gap:18px; }
+
+.series{
+  background:var(--surface); border:1px solid var(--line); border-radius:14px;
+  padding:18px 20px; box-shadow:var(--shadow);
+}
+.series.hidden{ display:none; }
+.series-head{ display:flex; justify-content:space-between; align-items:baseline; gap:12px; flex-wrap:wrap; margin-bottom:6px;}
+.series-head-left{ display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; }
+.date{ font-size:0.8rem; color:var(--accent-ink); background:var(--accent-soft); padding:2px 9px; border-radius:999px; font-weight:600; }
+.range{ font-size:0.78rem; color:var(--ink-faint); }
+.inprogress{ font-size:0.75rem; color:var(--warn); background:var(--warn-soft); padding:2px 9px; border-radius:999px; font-weight:600; }
+h2{ font-size:1.12rem; margin:2px 0 8px; text-wrap:balance; }
+.summary{ font-size:0.88rem; color:var(--ink-muted); margin:0 0 12px; max-width:70ch; }
+
+ul.items{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:1px; }
+li.item{
+  display:grid; grid-template-columns: 20px 52px 1fr; gap:10px; align-items:start;
+  padding:7px 6px; border-radius:6px;
+}
+li.item:hover{ background:var(--surface-2); }
+li.item.hidden{ display:none; }
+.stripe{ width:6px; height:6px; border-radius:50%; margin-top:7px; justify-self:center; }
+.stripe.critical{ background:var(--critical); }
+.stripe.warn{ background:var(--warn); }
+.stripe.good{ background:var(--good); }
+.stripe.neutral{ background:var(--neutral-tag); }
+.code{ font-size:0.78rem; color:var(--ink-faint); padding-top:1px; }
+.text{ font-size:0.89rem; }
+.text mark{ background:var(--accent-soft); color:var(--accent-ink); border-radius:3px; padding:0 2px; }
+
+footer{ margin-top:36px; font-size:0.78rem; color:var(--ink-faint); text-align:center; }
+
+@media (max-width: 560px){
+  li.item{ grid-template-columns: 16px 44px 1fr; }
+  .stats{ gap:6px; }
+  .stat{ min-width:76px; padding:6px 10px; }
+}
+</style>
+
+<header class="top">
+  <h1 class="serif">finlab-stock-analyzer 改善紀錄</h1>
+  <p class="subtitle">自主循環優化 A → II 系列，逐項列出改善日期（取自 git commit 時間戳）與項目說明。日期新到舊排列。</p>
+  <div class="stats">
+    <div class="stat"><b class="mono" id="stat-items">–</b><span>已完成項目</span></div>
+    <div class="stat"><b class="mono" id="stat-series">–</b><span>批次系列</span></div>
+    <div class="stat"><b class="mono">06-27→07-25</b><span>涵蓋日期</span></div>
+    <div class="stat"><b class="mono" id="stat-critical">–</b><span>關鍵安全修復</span></div>
+  </div>
+  <div class="search-row">
+    <input id="search" type="text" placeholder="搜尋項目、檔名、關鍵字…（例如 XSS、settings、graph.py）" autocomplete="off" />
+    <span id="count" class="mono"></span>
+  </div>
+  <div class="legend">
+    <span><i class="dot" style="background:var(--critical)"></i>安全性關鍵修復</span>
+    <span><i class="dot" style="background:var(--warn)"></i>資料完整性/資源耗盡/競態</span>
+    <span><i class="dot" style="background:var(--good)"></i>新功能</span>
+    <span><i class="dot" style="background:var(--neutral-tag)"></i>UX／一致性／測試／文件</span>
+  </div>
+</header>
+
+<main id="main"></main>
+
+<footer>本頁由 Claude 於本次自主循環優化工作階段整理；日期來源為對應 commit 的實際時間戳，非人工回填。</footer>
+
+<script>
+const DATA = [
+{date:'進行中', range:'II1–II10', inProgress:true, title:'路徑遍歷／DOM XSS 修復 + 資料完整性強化（尚在出貨驗證中）',
+ summary:'3 個平行稽核 agent（後端／前端／測試涵蓋率）掃描後，親自逐一驗證每項發現——包含用真實瀏覽器測試證實 TradingView 元件的 XSS 可執行、用 curl 證實路徑遍歷可讀出後端原始碼——再排出優先序、3 輪自我審查後實作。',
+ items:[
+  {code:'II1', tag:'critical', text:'main.py 的 SPA fallback 路由把網址路徑直接接進檔案系統路徑，沒有做 <mark>..</mark> 正規化防護，已實測用 <mark>GET /../../backend/app/config/settings.py</mark> 讀出後端原始碼。改用 resolve() + 目錄歸屬檢查。'},
+  {code:'II2', tag:'critical', text:'TradingViewChart.vue 把路由參數（使用者完全可控）直接塞進 script.innerHTML 組出的 JSON，惡意值可提早結束 script 標籤並插入可執行的 DOM——已用瀏覽器實測驗證會觸發。改用白名單規則過濾代號格式。'},
+  {code:'II3', tag:'warn', text:'crawler/stock_price.py 的 yfinance 備援呼叫是同步阻塞的網路 I/O，卻直接在 async 函式裡呼叫，沒有丟進執行緒——Yahoo 端一慢就會卡住整個事件迴圈，拖累同一 worker 上所有並行請求。'},
+  {code:'II4', tag:'warn', text:'llm/rate_limit.py 的每 IP 節流器是「讀值→比較→寫回」的非原子操作，並行請求可同時讀到同一舊值繞過限流——跟 HH6 修過的全域額度是同一種 race，改用 Mongo 原子 $inc。'},
+  {code:'II5', tag:'warn', text:'graph.py 的 GET /snapshot、/timeline、/alerts 端點的 symbols 參數沒有上限（POST /build 早就有），異常長的清單可觸發無上限的序列 FinMind 抓取。'},
+  {code:'II6', tag:'warn', text:'AdminView.vue 六個初始載入函式完全沒檢查回應是否成功，admin JWT 過期（12 小時）後，401 的錯誤內容會被當成正常資料塞進畫面。改為偵測 401 就登出並提示重新登入。'},
+  {code:'II7', tag:'warn', text:'投組風險頁／部位風控頁／作戰台的跨分頁同步機制原本各自只監聽交易日誌變動，帳戶資金與風險%改動在別的分頁不會即時反映，即使程式碼註解早就寫明要同步。'},
+  {code:'II8', tag:'warn', text:'9 個個股頁面（籌碼分析、社群熱度、領先落後、主力進出、季節性、公開資訊、交易儀表板、部位風控、AI 訊號）在快速切換代號或篩選條件時，較慢的舊回應可能覆蓋較新的資料，畫面代號與內容對不上。補上分析頁既有的 requestToken 防護。'},
+  {code:'II9', tag:'neutral', text:'graph.py、rotation.py、market.py、journal.py、screener.py、ai_summary.py、peers.py、settings.py 八個檔案完全沒有伺服器端錯誤 logging，補齊跟其餘 12 個檔案一致的規範。'},
+  {code:'II10', tag:'neutral', text:'HH1 修的設定寫入白名單漏洞當時只用手動 curl 驗證過，沒有留下自動化回歸測試，補上 e2e 測試鎖定這個行為。'},
+ ]},
+
+{date:'2026-07-25 19:30', range:'HH1–HH10', title:'設定寫入端漏洞 + 資料完整性/韌性強化',
+ summary:'HH1 是本輪最嚴重的發現：PUT /api/v1/settings 從未套用 GG1 讀取端的白名單，仍會原樣寫入 finmind_token/line_token，且此端點無驗證。已確認 admin.py 會把 line_token 當成 LINE 測試通知的備援來源，證實可被實際利用而非僅止於理論風險。',
+ items:[
+  {code:'HH1', tag:'critical', text:'PUT /api/v1/settings 寫入端未套用 GG1 的白名單，任何人可寫入 finmind_token/line_token 竄改管理員的 LINE 通知目標。補上 _WRITABLE_SETTING_KEYS 白名單。'},
+  {code:'HH2', tag:'warn', text:'AdminView.vue 的新增設定/更新設定/新增管理員動作沒有錯誤處理，也沒有防止連續點擊造成重複送出。'},
+  {code:'HH3', tag:'neutral', text:'tradeMath.js、watchlist.js、PortfolioHeatView.vue 補上 localStorage.setItem 的例外防護（無痕模式/超額配額會直接中斷操作）。'},
+  {code:'HH4', tag:'neutral', text:'social_buzz.py 補齊 EE1 掃過但漏掉的 logging。'},
+  {code:'HH5', tag:'warn', text:'graph.py／rotation.py 的 /build 端點補上 60 秒冷卻，避免使用者連續觸發打爆 FinMind 額度。'},
+  {code:'HH6', tag:'warn', text:'LLM 每日額度追蹤的「讀值→比較→寫回」有競態，改用 Mongo find_one_and_update 的原子 $inc。'},
+  {code:'HH7', tag:'neutral', text:'sector_rotation.py 的逐列 Mongo update_one 改成批次 bulk_write（同 AA10 的作法）。'},
+  {code:'HH8', tag:'neutral', text:'剩餘頁面（Graph01View、GraphView、RotationView、OverviewView、SignalsView）套用 fetchWithRetry。'},
+  {code:'HH9', tag:'neutral', text:'SettingsView.vue 刪除主題預設值前補上 confirm() 確認。'},
+  {code:'HH10', tag:'neutral', text:'trade.py 的 GET /pending、POST /approve 先前只被完全 mock 過的測試覆蓋，補上打真實後端的 e2e 測試。'},
+ ]},
+
+{date:'2026-07-25 18:09', range:'GG1–GG10', title:'設定讀取端洩漏 + 無上限成長修復',
+ summary:'GG1 確認 GET /api/v1/settings 無驗證即回傳整個 Mongo 設定集合，包含 Telegram/LINE 憑證與管理員白名單——已對運行中容器實測確認洩漏內容。根因是 AdminView.vue 誤呼叫公開端點，改導向既有的、已受 require_admin 保護的 /api/v1/admin/settings。',
+ items:[
+  {code:'GG1', tag:'critical', text:'GET/PUT /api/v1/settings 無驗證即可讀寫整個 Mongo 設定集合，含管理員機密（Telegram/LINE token、管理員白名單）。加上讀取白名單並修正前端呼叫的端點。'},
+  {code:'GG2', tag:'warn', text:'TradeApprovalService._trades 無上限成長（每次未驗證的 GET /trade/pending 都會觸發同步），改 FIFO 上限。'},
+  {code:'GG3', tag:'warn', text:'ai_agent/signal_generator._signal_cache 無上限，且快取鍵可被使用者操控，改 FIFO 上限。'},
+  {code:'GG4', tag:'neutral', text:'risk.py（912 行、驅動 Telegram 警報）、admin.py（含 require_admin 失敗路徑）、day_trade.py 補齊 logging。'},
+  {code:'GG5', tag:'neutral', text:'FF1 的 AST 驗證安全修復先前零自動化測試，補上 e2e 測試鎖定合法腳本可執行、逃逸/import/getattr 繞過嘗試皆被擋下。'},
+  {code:'GG6', tag:'warn', text:'SettingsView.vue 儲存失敗時（後端回 200 但 success:false）仍顯示「已儲存」，修正為檢查實際回應內容。'},
+  {code:'GG7', tag:'neutral', text:'剩餘頁面套用 fetchWithRetry；審查時攔下兩個非幂等 POST 誤套用重試的風險（新增警報、新增規則皆會建立新資源）。'},
+  {code:'GG8', tag:'neutral', text:'DecisionView、AdminView、RotationView、AnalysisView 剩餘英文字串翻譯。'},
+  {code:'GG9', tag:'neutral', text:'SignalRulesView 初始載入規則列表補上載入中狀態。'},
+  {code:'GG10', tag:'neutral', text:'cache.py、signal_rules.py 的異動端點補上 API 層級測試。'},
+ ]},
+
+{date:'2026-07-25 14:15', range:'FF1–FF10', title:'自訂規則 RCE 沙箱逃逸 + XFF 偽造修復',
+ summary:'FF1 是嚴重的遠端執行漏洞：signal_rules.py 的自訂規則用 exec() 執行使用者程式碼，僅靠受限的 __builtins__ 字典防護——已用獨立測試證實可透過 ().__class__.__bases__[0].__subclasses__() 逃逸，且相關端點完全無驗證。修法是在 exec() 前用 AST 靜態驗證腳本，而非替端點加上 admin 驗證（後者會直接弄壞這支給一般使用者用的正常功能）。',
+ items:[
+  {code:'FF1', tag:'critical', text:'signal_rules.py 用 exec() 執行使用者腳本可被逃逸執行任意程式碼，且端點無驗證。改為執行前用 AST 驗證擋下 import／dunder 屬性存取／危險內建函式。順手修正發現的第二個 bug：ThreadPoolExecutor 逾時會讓整個事件迴圈卡死。'},
+  {code:'FF2', tag:'critical', text:'analytics.py 的 _get_client_ip（LLM 節流共用）取 X-Forwarded-For 最左值（使用者可偽造），改取最右值（反向代理附加的可信值）。'},
+  {code:'FF3', tag:'neutral', text:'cache.py 三個處理函式、stock.py 的 search_stocks 補齊 logging；補上未設限的 days 參數上限。'},
+  {code:'FF4', tag:'warn', text:'ai_agent.py 的 symbols 參數無上限（其餘模組早有 [:30] 慣例），且逐檔序列處理，改為加上限並平行化。'},
+  {code:'FF5', tag:'neutral', text:'watch_graph.py 整個模組零 logging，靜默吞掉逐檔抓取失敗。'},
+  {code:'FF6', tag:'warn', text:'AdminView 的刪除設定/移除管理員動作沒有 confirm()，且從未檢查回應是否成功——失敗的刪除會顯示成功。'},
+  {code:'FF7', tag:'neutral', text:'DecisionView 大盤脈動面板、AISignalsView 分頁、三個頁面的播放/暫停按鈕的剩餘英文字串翻譯。'},
+  {code:'FF8', tag:'neutral', text:'缺少可存取名稱的範圍滑桿補上 aria-label。'},
+  {code:'FF9', tag:'neutral', text:'剩餘打外部資料、容易 flaky 的頁面套用 fetchWithRetry。'},
+  {code:'FF10', tag:'neutral', text:'README 補上大盤多空儀表板、領先落後、同業比較的文件；補完 交接SOP.md 被截斷的頁面對照表。'},
+ ]},
+
+{date:'2026-07-25 09:06', range:'EE1–EE10', title:'後端錯誤 logging 掃描 + 小型 UI/UX 修復',
+ items:[
+  {code:'EE1', tag:'neutral', text:'analysis、backtest、chip、lead_lag、major_players、seasonal、ai_agent、signal_rules、trade 九個 API 模組補上 logger.exception()。'},
+  {code:'EE2', tag:'warn', text:'LeadLagView 領先股清單改為向後端動態抓取，取代過時的寫死 5 檔清單。'},
+  {code:'EE3', tag:'neutral', text:'JournalView 進場理由品質檢查的錯誤訊息改為獨立顯示，不再蓋掉評估結果文字。'},
+  {code:'EE4', tag:'neutral', text:'AnalysisView 補上「最近瀏覽」localStorage 寫入的防呆；剩餘英文指標標籤翻譯。'},
+  {code:'EE5', tag:'warn', text:'Graph01View 先前把「真的請求失敗」跟「真的沒資料」都當成同一種情況退回假資料，掩蓋真實錯誤，改為區分兩者。'},
+  {code:'EE6', tag:'neutral', text:'Graph01View 補上跟同類頁面一致的載入中動畫。'},
+  {code:'EE7', tag:'neutral', text:'RiskSizingView 的每股風險公式改用共用的 tradeMath.riskPerShare()。'},
+  {code:'EE8', tag:'warn', text:'TradeApprovalView 重新推導的 ATR 停損距離算錯方向——空單會被算成多單方向，屬於方向性正確性錯誤，非僅顯示問題。'},
+  {code:'EE9', tag:'neutral', text:'AnalysisView 剩餘英文指標標籤翻譯。'},
+  {code:'EE10', tag:'warn', text:'send_telegram() 補上例外處理，避免 Telegram API 故障往上冒泡打斷呼叫端流程。'},
+ ]},
+
+{date:'2026-07-24 00:51', range:'DD1–DD10', title:'自主循環優化：10 項可驗證的真實缺陷修復',
+ items:[
+  {code:'DD1', tag:'warn', text:'SignalRulesView 的「停用」按鈕是靜默的 no-op——前端送 is_active，後端只認得 isActive，Pydantic 直接忽略這個欄位，自訂規則一旦啟用就無法真正停用。'},
+  {code:'DD2', tag:'warn', text:'交易日誌的權益曲線／最大連虧統計依陣列插入順序算，而非平倉時間順序，新交易插入最前面會讓統計錯亂。'},
+  {code:'DD3', tag:'neutral', text:'後台管理頁 11 個需要 admin token 的端點先前零測試覆蓋，補上真打後端的 401/403 驗證 + mock 過的前端 CRUD 互動測試。'},
+  {code:'DD4', tag:'neutral', text:'移除 3 段確認無人使用的死代碼（無用裝飾器、假通知設定端點、重複的輪動排名端點）。'},
+  {code:'DD5', tag:'neutral', text:'補齊回測頁單一策略模式與類股輪動頁 RRG 匯出先前漏掉的 CSV 匯出測試。'},
+  {code:'DD6', tag:'warn', text:'觀察清單頁移除項目沒有確認對話框，跟投組風險頁/交易日誌的既有作法不一致，手滑就整筆消失。'},
+  {code:'DD7', tag:'warn', text:'觀察清單在分組篩選狀態下排序會靜默錯亂——上移/下移算的是未篩選清單的絕對位置，實際順序在背後已經跟其他分組互換。'},
+  {code:'DD8', tag:'warn', text:'公開資訊頁財務摘要卡片直接攤開後端回傳的每個欄位，未對應的英文 key 與物件會直接漏到畫面上。'},
+  {code:'DD9', tag:'neutral', text:'補齊籌碼分析/主力進出/領先落後頁的 aria-label；交易日誌獲利因子、作戰台半凱利建議補上 InfoTooltip。'},
+  {code:'DD10', tag:'neutral', text:'作戰台與投組風險頁各自手刻一份觀察清單解析邏輯，先強化共用函式的舊格式相容性，再統一改用共用版本。'},
+ ]},
+
+{date:'2026-07-23 07:40', range:'CC1–CC10', title:'自主循環優化：10 項可驗證的真實缺陷修復',
+ summary:'審查中修正兩個過大/有風險的初版方案：設定頁改成只接回真正有讀寫的欄位，不把 FinMind/LINE Token 也存進去；ADX 修復從「抽出三檔共用指標模組」降階為單檔修正，避免動到風控/回測引擎目前正常運作的路徑。',
+ items:[
+  {code:'CC1', tag:'warn', text:'設定頁「儲存設定」按鈕先前是純裝飾，按下去只閃一下「已儲存」，從未真的送出。'},
+  {code:'CC2', tag:'warn', text:'technical.py 的 ADX 在沒裝 talib 時整段回傳 NaN——而 talib 從未進 requirements.txt，這其實是正式環境唯一會跑到的路徑。改用已驗證正確的 Wilder ADX 公式。'},
+  {code:'CC3', tag:'neutral', text:'新聞信度檢查端點補上跟其他 LLM 端點一致的節流；AI 生成運算式端點補上字數上限。'},
+  {code:'CC4', tag:'warn', text:'價格警報的「讀取→併發抓價→整份寫回」有空窗期，會蓋掉同時間新增/刪除警報的變更。'},
+  {code:'CC5', tag:'warn', text:'_backtest_results 是無上限成長的字典，改成有上限的 FIFO。'},
+  {code:'CC6', tag:'neutral', text:'兩處 localStorage JSON.parse 沒包 try/catch（全站其餘地方都有），壞掉的值會直接讓功能整段中斷。'},
+  {code:'CC7', tag:'neutral', text:'風控監控/交易儀表板的熔斷狀態徽章顯示英文列舉值，跟全中文介面不一致，改共用中文對照表。'},
+  {code:'CC8', tag:'warn', text:'回測頁策略清單載入失敗先前完全沉默，且失敗仍可送出後端不認得的預設值；單一/自訂模式回測失敗用 alert() 擋住整個瀏覽器。'},
+  {code:'CC9', tag:'neutral', text:'交易明細表的 MFE%/MAE% 欄位補上 InfoTooltip。'},
+  {code:'CC10', tag:'neutral', text:'README 補上自訂條件回測模式與 AI 生成運算式功能說明。'},
+ ]},
+
+{date:'2026-07-23 06:24', range:'BB1–BB7', title:'自訂條件回測（類 Pine Script 運算式 + AI 生成）',
+ summary:'新增「自訂條件模式」：用「指標(參數) 比較符 指標(參數)」搭配 AND/OR/NOT 組合買賣觸發條件，比選內建策略範本更有彈性，同時比「AI 直接生成可執行程式碼」安全——沒有 eval/exec/ast.compile，語法外的東西一律解析失敗。',
+ items:[
+  {code:'BB1', tag:'good', text:'打造運算式 tokenizer + 遞迴下降 parser，輸出純資料 AST（dict），不是可執行程式碼。'},
+  {code:'BB2', tag:'good', text:'打造運算式 evaluator + CustomExpressionStrategy，直接從原始 OHLCV 用 pandas 算指標序列。'},
+  {code:'BB3', tag:'good', text:'新增驗證＋執行自訂條件回測的後端 API，ExpressionError 轉 400，回測引擎本身完全不用改。'},
+  {code:'BB4', tag:'good', text:'新增 AI 生成運算式端點——LLM 只輸出結構化 JSON，執行前一定先用 parser 驗證過。'},
+  {code:'BB5', tag:'good', text:'回測頁新增第 4 種模式（跟單一/比較/掃描並列互斥）。'},
+  {code:'BB6', tag:'neutral', text:'補上運算式語法的詞彙表說明。'},
+  {code:'BB7', tag:'neutral', text:'補上自訂條件回測模式的 e2e 測試。'},
+ ]},
+
+{date:'2026-07-23 04:40', range:'AA1–AA10', title:'自主循環優化第二輪：10 項自我稽核修復',
+ items:[
+  {code:'AA1', tag:'warn', text:'回測頁參數掃描模式先算完整笛卡兒積才套用上限，極小步長配寬範圍會在使用者按下「執行」前就先凍結分頁。'},
+  {code:'AA2', tag:'warn', text:'graph.py 的 BuildGraphRequest 的 symbols 清單無上限，補上 max_length=100。'},
+  {code:'AA3', tag:'warn', text:'rotation.py 的 BuildRotationRequest 的 symbols 清單無上限，補上 max_length=100。'},
+  {code:'AA4', tag:'neutral', text:'news_checker.py 兩個處理函式洩漏原始例外文字，且零伺服器端 logging。'},
+  {code:'AA5', tag:'neutral', text:'risk.py 的 True Range/ATR 公式在兩處各自重算一次，抽出共用的 _compute_atr()。'},
+  {code:'AA6', tag:'neutral', text:'DecisionView.vue 寫死的英文 aria-label 修正。'},
+  {code:'AA7', tag:'neutral', text:'SignalsView 代碼輸入框補上 aria-label。'},
+  {code:'AA8', tag:'neutral', text:'JournalView 每列出場價儲存格補上 aria-label。'},
+  {code:'AA9', tag:'neutral', text:'補上 Z5/Z6 後端行為的 API 層級測試（依 X-Forwarded-For 分桶節流、跨端點 ATR 一致性）。'},
+  {code:'AA10', tag:'warn', text:'watch_graph.py 的 ingest_watchlist_raw 逐列序列 Mongo update_one（單檔股票一年資料可達近 250 次），改成每檔一次 bulk_write。'},
+ ]},
+
+{date:'2026-07-22 23:59', range:'Z1–Z10', title:'自主循環優化第一輪：10 項自我稽核修復',
+ items:[
+  {code:'Z1', tag:'warn', text:'scheduler.py 的 start_scheduler() 遺漏 global _alert_task 宣告，拋出 UnboundLocalError，讓自動價格警報排程（每 20 分鐘、盤中）從未真正啟動，只有手動「立即檢查」按鈕有效。'},
+  {code:'Z2', tag:'warn', text:'移除無驗證、零前後端引用的 /api/v1/ml/predict、/api/v1/ml/models 端點（每次呼叫要做 2 年期資料抓取+隨機森林推論）。'},
+  {code:'Z3', tag:'neutral', text:'stock.py 兩支最常用端點補上伺服器端錯誤 logging。'},
+  {code:'Z4', tag:'critical', text:'auth.py 管理員登入端點在 google-auth/pyjwt 匯入失敗時，直接洩漏原始例外訊息給客戶端。'},
+  {code:'Z5', tag:'neutral', text:'risk.py 同一套 RSI(14)+量能比公式重複計算三次，抽出共用實作，行為不變。'},
+  {code:'Z6', tag:'critical', text:'llm/rate_limit.py 直接用 request.client.host 而非優先看 X-Forwarded-For，部署在反向代理後方時所有使用者的「每 IP」節流形同對全站共用一個額度。'},
+  {code:'Z7', tag:'neutral', text:'StockCompareView 圖表沒有 resize handler，旋轉/縮放視窗後圖表卡在初始寬度。'},
+  {code:'Z8', tag:'neutral', text:'clearLivePriceCache() 是死代碼，接上首頁/觀察清單頁的手動重新整理動作。'},
+  {code:'Z9', tag:'neutral', text:'回測頁比較/掃描模式的表頭補上跟單一結果卡片一致的 InfoTooltip。'},
+  {code:'Z10', tag:'neutral', text:'用 375px 瀏覽器實測（而非僅憑「沒有 media query」推測）確認觀察清單頁/多股比較頁手機版面正常。'},
+ ]},
+
+{date:'2026-07-22 07:34', range:'Y1–Y10', title:'觀察清單管理、警報擴充、多股比較、回測比較與掃描等 10 項新功能',
+ items:[
+  {code:'Y1', tag:'good', text:'觀察清單管理頁面（整合先前散落的重複實作）。'},
+  {code:'Y2', tag:'warn', text:'修復假通知勾選框；擴充警報類型（成交量爆量、RSI 極端值、MACD）。'},
+  {code:'Y3', tag:'good', text:'通知/警報歷史中心。'},
+  {code:'Y4', tag:'good', text:'最近瀏覽股票管理；修復報價占位文字。'},
+  {code:'Y5', tag:'good', text:'CSV 匯出（分析頁/回測頁/類股輪動頁/投組風險頁）。'},
+  {code:'Y6', tag:'good', text:'多檔股票同圖比較頁面。'},
+  {code:'Y7', tag:'good', text:'回測策略並列比較模式。'},
+  {code:'Y8', tag:'good', text:'回測參數掃描/最佳化模式。'},
+  {code:'Y9', tag:'good', text:'Command Palette（Ctrl+K 快速切換）路由覆蓋率擴充至全站 28 條路由。'},
+  {code:'Y10', tag:'good', text:'作戰台/總覽頁面版面自訂（顯示/隱藏/排序卡片）。'},
+ ]},
+
+{date:'2026-07-21 23:16', range:'X1–X10', title:'AI 功能濫用防護、管理可視性、去重與細節打磨',
+ items:[
+  {code:'X1', tag:'warn', text:'LLM 端點加上 per-IP 速率限制，防止單一來源耗盡全站共用的每日額度。'},
+  {code:'X2', tag:'good', text:'管理後台新增 LLM 用量面板。'},
+  {code:'X3', tag:'neutral', text:'抽出共用 composable（useAiStatus + useAiMarkdown）套用到所有 AI 功能頁面。'},
+  {code:'X4', tag:'neutral', text:'（同上，X3+X4 為同一項工作）。'},
+  {code:'X5', tag:'neutral', text:'新頁面套用 fetchWithRetry。'},
+  {code:'X6', tag:'warn', text:'複盤教練/journal AI 端點對 TradeItem 補上合理性檢查，防止異常值污染 LLM prompt。'},
+  {code:'X7', tag:'neutral', text:'W4/W5/W6/W8 補齊 InfoTooltip 詞條。'},
+  {code:'X8', tag:'neutral', text:'盤後日報頁顯示 ai_generated 標記。'},
+  {code:'X9', tag:'neutral', text:'AI 文字區塊加上「複製」按鈕。'},
+  {code:'X10', tag:'good', text:'AI 選股候選池可擴大。'},
+ ]},
+
+{date:'2026-07-21 08:04', range:'W1, W3–W9', title:'完整 LLM 強化功能集',
+ items:[
+  {code:'W1', tag:'good', text:'AI 選同業自動化（取代手動複製貼上流程）。'},
+  {code:'W3', tag:'good', text:'財報矛盾偵測（規則式，免 LLM 成本，自動顯示）。'},
+  {code:'W4', tag:'good', text:'新聞摘要與多空判讀（社群熱度頁）。'},
+  {code:'W5', tag:'good', text:'新聞可信度加上 LLM 語意層，並補建缺失的前端頁面。'},
+  {code:'W6', tag:'good', text:'複盤教練 AI 升級。'},
+  {code:'W7', tag:'good', text:'進場理由品質檢查。'},
+  {code:'W8', tag:'good', text:'自然語言選股。'},
+  {code:'W9', tag:'good', text:'盤後日報自然語言化。'},
+ ]},
+
+{date:'2026-07-20 21:54', range:'W0 + W2', title:'LLM client 抽象層 + 個股 AI 摘要試點',
+ items:[
+  {code:'W0', tag:'good', text:'LLM client 抽象層——後續所有 AI 功能的共用基礎。'},
+  {code:'W2', tag:'good', text:'個股 AI 摘要試點功能（後端 + 前端）。'},
+ ]},
+
+{date:'2026-07-19 06:33', range:'V1–V3', title:'三燈大盤多空儀表板',
+ items:[
+  {code:'V1', tag:'good', text:'後端大盤多空儀表板模組與端點。'},
+  {code:'V2', tag:'good', text:'前端三燈大盤多空儀表板頁面。'},
+  {code:'V3', tag:'neutral', text:'大盤多空儀表板 e2e 測試。'},
+ ]},
+
+{date:'2026-07-18 15:56', range:'U1–U3', title:'同業比較功能（含 AI 輔助選同業）',
+ items:[
+  {code:'U1', tag:'good', text:'後端同業解析與比較端點。'},
+  {code:'U2', tag:'good', text:'分析頁新增同業比較區塊。'},
+  {code:'U3', tag:'neutral', text:'e2e 測試 + 詞彙表 + 手機版面確認。'},
+ ]},
+
+{date:'2026-07-17 23:56', range:'S1–S10', title:'資料持久化、韌性、無障礙與 PWA 打磨',
+ items:[
+  {code:'S1', tag:'warn', text:'自訂訊號規則改為持久化存進 MongoDB（原本只存在記憶體）。'},
+  {code:'S2', tag:'warn', text:'修復價格警報在通知失敗時的觸發旗標錯誤。'},
+  {code:'S3', tag:'warn', text:'新聞信度檢查歷史改為持久化存進 MongoDB。'},
+  {code:'S4', tag:'neutral', text:'健康檢查端點補上相依服務檢查。'},
+  {code:'S5', tag:'neutral', text:'前端 fetch 呼叫補上重試/退避機制。'},
+  {code:'S6', tag:'neutral', text:'圖示型刪除按鈕補上 aria-label。'},
+  {code:'S7', tag:'neutral', text:'僅用 placeholder 當標籤的表單欄位補上正式 label。'},
+  {code:'S8', tag:'neutral', text:'Service worker 新版本可用時的更新提示。'},
+  {code:'S9', tag:'neutral', text:'README.md 與 交接SOP.md 內容更新。'},
+  {code:'S10', tag:'neutral', text:'補上 3 個既有互動流程的深度 e2e 測試。'},
+ ]},
+
+{date:'2026-07-17 01:03', range:'R1–R10', title:'cache 端點驗證漏洞、錯誤洩漏、換手率資料品質',
+ items:[
+  {code:'R1', tag:'critical', text:'cache.py 的快取管理端點補上 admin 驗證（先前無驗證即可清除/檢視全站快取）。'},
+  {code:'R2', tag:'warn', text:'social_buzz.py 錯誤回應洩漏完整 stack trace，改為通用訊息。'},
+  {code:'R3', tag:'warn', text:'換手率分析在股本變動、樣本數過少時會產生誤導性百分位，補上邊界情況處理。'},
+  {code:'R4', tag:'neutral', text:'跨訊號敘事補上日期對齊的但書說明。'},
+  {code:'R5', tag:'neutral', text:'get_turnover 的價格+股數抓取改為平行處理。'},
+  {code:'R6', tag:'neutral', text:'換手率/大戶趨勢區塊補上載入中狀態。'},
+  {code:'R7', tag:'neutral', text:'抽出共用的 sparkline composable。'},
+  {code:'R8', tag:'neutral', text:'統一集保戶股權分散表的日期格式化邏輯。'},
+  {code:'R9', tag:'neutral', text:'FINMIND_TOKEN 未設定時補上啟動警告。'},
+  {code:'R10', tag:'neutral', text:'補上剩餘 6 條路由的 e2e 測試。'},
+ ]},
+
+{date:'2026-07-16 23:43', range:'Q1–Q4', title:'換手率分析 + 大戶持股趨勢',
+ items:[
+  {code:'Q1', tag:'good', text:'後端換手率計算與端點。'},
+  {code:'Q2', tag:'good', text:'後端輕量籌碼摘要端點。'},
+  {code:'Q3', tag:'good', text:'分析頁新增換手率分析區塊。'},
+  {code:'Q4', tag:'good', text:'分析頁新增大戶持股趨勢卡片。'},
+ ]},
+
+{date:'2026-07-15 21:31', range:'獨立修復', title:'類股輪動/大盤指數資料延遲一天的問題',
+ items:[
+  {code:'—', tag:'warn', text:'類股輪動與美股指數頁面把「尚未公布」的當日資料快取成永久空白，導致畫面固定停留在前一交易日，修復快取失效邏輯。'},
+ ]},
+
+{date:'2026-07-15 08:19', range:'P1–P10', title:'安全確認、FinMind 連線重用、快取去重、手機/無障礙修復',
+ items:[
+  {code:'P1', tag:'warn', text:'破壞性刪除/清除動作補上 confirm() 確認。'},
+  {code:'P2', tag:'neutral', text:'FinMindClient 呼叫共用同一個 httpx.AsyncClient。'},
+  {code:'P3', tag:'neutral', text:'價格警報檢查改用 asyncio.gather 平行處理。'},
+  {code:'P4', tag:'neutral', text:'投組風險頁/分析頁改走共用的 livePriceCache。'},
+  {code:'P5', tag:'neutral', text:'risk.py 重複的市值輔助函式抽出共用。'},
+  {code:'P6', tag:'warn', text:'修復價格警報頁刪除失敗卻無提示的問題。'},
+  {code:'P7', tag:'warn', text:'投組風險頁補上資料補充失敗的警示。'},
+  {code:'P8', tag:'neutral', text:'回測頁/季節性頁補上手機版表格黏性欄位處理。'},
+  {code:'P9', tag:'neutral', text:'決策面板/總覽頁補上鍵盤可及性。'},
+  {code:'P10', tag:'neutral', text:'補上未測試高流量頁面的 e2e 覆蓋。'},
+ ]},
+
+{date:'2026-07-15 05:29', range:'O1–O4', title:'波段交易：市值分級篩選、進場理由、VWAP、今日精選',
+ items:[
+  {code:'O1', tag:'good', text:'觀察清單訊號補上市值與分級跳空篩選。'},
+  {code:'O2', tag:'good', text:'交易紀錄補上選填的進場理由/催化劑欄位。'},
+  {code:'O3', tag:'good', text:'分析頁 K 線圖新增 VWAP 指標。'},
+  {code:'O4', tag:'good', text:'作戰台「今日精選」前 N 名視覺區隔。'},
+ ]},
+
+{date:'2026-07-15 00:55', range:'N1–N5', title:'波段交易紀律訊號',
+ items:[
+  {code:'N1', tag:'good', text:'交易日誌新增財報/除息等地雷日事件行事曆警示。'},
+  {code:'N2', tag:'good', text:'未實現獲利峰值/回吐追蹤。'},
+  {code:'N3', tag:'good', text:'個股 200 日均線波段濾網徽章。'},
+  {code:'N4', tag:'good', text:'8 日 EMA 持有/出場訊號。'},
+  {code:'N5', tag:'neutral', text:'市值/流動性資料可行性調查（信心度低，僅作評估）。'},
+ ]},
+
+{date:'2026-07-15 00:02', range:'M1–M4', title:'全站不透明指標補上說明工具提示',
+ items:[
+  {code:'M1', tag:'good', text:'打造可重用的 InfoTooltip 元件、MetricScale 元件、共用詞彙表資料模組。'},
+  {code:'M2', tag:'neutral', text:'套用到複合分數（AI決策評分、籌碼健診、主力綜合分數、熱度分數、總覽雷達圖）。'},
+  {code:'M3', tag:'neutral', text:'套用到專業術語（ATR、MDD、RSI、MACD、OBV、RS-Ratio/Momentum、R²、Sharpe、R值、融資維持率、ROE/ROA、PE percentile）。'},
+  {code:'M4', tag:'neutral', text:'補齊價值判讀缺口（相關係數矩陣、訊號權重、籌碼集中度）。'},
+ ]},
+
+{date:'2026-07-13 23:39', range:'L1–L5', title:'導覽重整：個股分析分組、修正內容錯位',
+ items:[
+  {code:'L1', tag:'neutral', text:'側欄「個股」分組重新命名為「個股分析」，總覽移入其中。'},
+  {code:'L2', tag:'neutral', text:'類股熱力圖從總覽頁移到類股輪動頁。'},
+  {code:'L3', tag:'neutral', text:'補上 6 條孤兒路由到側欄分組。'},
+  {code:'L4', tag:'warn', text:'修復交易儀表板寫死顯示 2330 的圖表。'},
+  {code:'L5', tag:'neutral', text:'更新內容搬移後對應的 e2e 測試。'},
+ ]},
+
+{date:'2026-07-12 23:50', range:'K1', title:'社群熱度頁新增日期排序切換',
+ items:[
+  {code:'K1', tag:'good', text:'社群熱度頁 PTT/新聞/財經媒體/事實查核清單新增由近至遠/由遠至近排序切換。'},
+ ]},
+
+{date:'2026-07-12 22:20 – 23:03', range:'I1, I2, J1, J4, J5, J2+J3', title:'社群熱度：發布日期、PTT 情緒分析、新聞來源擴充、趨勢基準',
+ items:[
+  {code:'I1', tag:'good', text:'社群熱度新增發布日期顯示（後端+前端）。'},
+  {code:'I2', tag:'neutral', text:'社群熱度來源擴充分析報告（僅提案，未實作）。'},
+  {code:'J1', tag:'warn', text:'修復 PTT 抓取的資料對位錯誤，改為推文數加權情緒分析。'},
+  {code:'J4', tag:'neutral', text:'修正 Google News 查詢精準度。'},
+  {code:'J5', tag:'good', text:'新增財經媒體來源（鉅亨網/MoneyDJ/CMoney）。'},
+  {code:'J2', tag:'good', text:'持久化熱度歷史紀錄。'},
+  {code:'J3', tag:'good', text:'基準相對趨勢判讀。'},
+ ]},
+
+{date:'2026-07-12 18:31', range:'H1–H2', title:'FinMind token 洩漏修復 + 風控算式去重',
+ items:[
+  {code:'H1', tag:'critical', text:'修復 FinMind API token 在錯誤回應中洩漏的問題。'},
+  {code:'H2', tag:'neutral', text:'蒙地卡羅模擬頁重複內嵌的風控算式改用共用模組。'},
+ ]},
+
+{date:'2026-07-12 15:04', range:'G1–G2', title:'作戰台跨分頁同步 + 移除引導插圖',
+ items:[
+  {code:'G1', tag:'warn', text:'作戰台的交易日誌讀取補上跨分頁即時反應。'},
+  {code:'G2', tag:'neutral', text:'移除新手引導的插圖（Guizang 風格圖示，改回文字引導）。'},
+ ]},
+
+{date:'2026-07-11 22:29 – 2026-07-12 08:00', range:'F1–F5', title:'交易日誌時區、半凱利公式、跨分頁同步、多視窗隔離',
+ items:[
+  {code:'F1', tag:'warn', text:'修復交易日誌日期戳記用 UTC 而非本地日曆日的時區錯誤。'},
+  {code:'F2', tag:'neutral', text:'半凱利公式整併進 tradeMath.js 共用模組。'},
+  {code:'F3', tag:'warn', text:'投組風險頁的交易日誌交叉引用補上跨分頁即時反應。'},
+  {code:'F4', tag:'neutral', text:'記錄多重 Docker 隔離的開發慣例（run-local.ps1 參數化支援平行工作階段）。'},
+  {code:'F5', tag:'neutral', text:'自動記錄交易的中文名稱解析；CSV 匯入補上檔案大小上限。'},
+ ]},
+
+{date:'2026-07-11 22:30 – 23:54', range:'D1, E1–E5', title:'TradingView 圖表嵌入 + 投組風險交叉引用',
+ items:[
+  {code:'D1', tag:'good', text:'新增 TradingView Advanced Chart 官方嵌入切換模式。'},
+  {code:'E1', tag:'good', text:'投組風險頁交叉引用交易日誌的進行中部位。'},
+  {code:'E2', tag:'neutral', text:'即時報價抓取跨頁面共用同一份快取，避免重複打 FinMind。'},
+  {code:'E3', tag:'neutral', text:'D1/C1 相關文件更新。'},
+  {code:'E4', tag:'neutral', text:'TradingView 嵌入的響應式高度與手機版面確認。'},
+  {code:'E5', tag:'good', text:'紙上交易預設帶入目標價。'},
+ ]},
+
+{date:'2026-07-11 22:29 – 22:30', range:'A1–A3, B1–B2, C1–C2', title:'交易核准流程 → 紙上交易日誌，統一風控門檻',
+ items:[
+  {code:'A1', tag:'neutral', text:'移除orphan的模擬風控後端（改用真實交易日誌驅動）。'},
+  {code:'A2', tag:'neutral', text:'統一風控門檻（MDD 圖例、熔斷判定、當日交易上限三套先前互相矛盾的數字）為可自訂設定。'},
+  {code:'A3', tag:'good', text:'交易日誌新增 CSV 匯入。'},
+  {code:'B1', tag:'neutral', text:'抽出共用的交易數學模組（tradeMath.js）。'},
+  {code:'B2', tag:'warn', text:'跨分頁同步（storage 事件）。'},
+  {code:'C1', tag:'good', text:'交易核准中心核准後寫入交易日誌成為紙上交易。'},
+  {code:'C2', tag:'good', text:'未實現損益納入回撤（MDD）與權益曲線計算。'},
+ ]},
+];
+
+const main = document.getElementById('main');
+const search = document.getElementById('search');
+const countEl = document.getElementById('count');
+
+let totalItems = 0, totalSeries = DATA.length, totalCritical = 0;
+DATA.forEach(s => s.items.forEach(it => { totalItems++; if (it.tag === 'critical') totalCritical++; }));
+document.getElementById('stat-items').textContent = totalItems;
+document.getElementById('stat-series').textContent = totalSeries;
+document.getElementById('stat-critical').textContent = totalCritical;
+
+function render() {
+  main.innerHTML = '';
+  DATA.forEach((s, si) => {
+    const el = document.createElement('section');
+    el.className = 'series';
+    el.dataset.si = si;
+
+    const head = document.createElement('div');
+    head.className = 'series-head';
+    head.innerHTML = `
+      <div class="series-head-left">
+        <span class="date mono">${s.date}</span>
+        <span class="range mono">${s.range}</span>
+        ${s.inProgress ? '<span class="inprogress">審查完成・出貨驗證中</span>' : ''}
+      </div>
+    `;
+    el.appendChild(head);
+
+    const h2 = document.createElement('h2');
+    h2.className = 'serif';
+    h2.textContent = s.title;
+    el.appendChild(h2);
+
+    if (s.summary) {
+      const p = document.createElement('p');
+      p.className = 'summary';
+      p.textContent = s.summary;
+      el.appendChild(p);
+    }
+
+    const ul = document.createElement('ul');
+    ul.className = 'items';
+    s.items.forEach(it => {
+      const li = document.createElement('li');
+      li.className = 'item';
+      li.dataset.search = (it.code + ' ' + it.text).toLowerCase();
+      li.innerHTML = `
+        <span class="stripe ${it.tag}"></span>
+        <span class="code mono">${it.code}</span>
+        <span class="text">${it.text}</span>
+      `;
+      ul.appendChild(li);
+    });
+    el.appendChild(ul);
+    main.appendChild(el);
+  });
+}
+render();
+
+function highlight(text, q) {
+  if (!q) return text;
+  const idx = text.toLowerCase().indexOf(q);
+  if (idx === -1) return text;
+  return text.slice(0, idx) + '<mark>' + text.slice(idx, idx + q.length) + '</mark>' + text.slice(idx + q.length);
+}
+
+search.addEventListener('input', () => {
+  const q = search.value.trim().toLowerCase();
+  let visibleItems = 0;
+  document.querySelectorAll('.series').forEach(sec => {
+    let anyVisible = false;
+    sec.querySelectorAll('li.item').forEach(li => {
+      const match = !q || li.dataset.search.includes(q);
+      li.classList.toggle('hidden', !match);
+      if (match) { anyVisible = true; visibleItems++; }
+    });
+    const titleMatch = !q || sec.querySelector('h2').textContent.toLowerCase().includes(q);
+    sec.classList.toggle('hidden', !anyVisible && !titleMatch);
+    if (titleMatch && !anyVisible) {
+      sec.querySelectorAll('li.item').forEach(li => li.classList.remove('hidden'));
+    }
+  });
+  countEl.textContent = q ? `符合 ${visibleItems} 項` : '';
+});
+</script>

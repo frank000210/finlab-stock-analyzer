@@ -1,11 +1,15 @@
 """同業比較 (Peer Comparison) API — U1."""
 
+import logging
+
 from fastapi import APIRouter, Body, Depends, HTTPException
 from pydantic import BaseModel
 
 from ..analysis.peer_compare import ai_suggest_peers, build_comparison, get_peer_group, set_peer_group
 from ..data.us_symbols import is_tw_symbol, normalize_symbol
 from ..llm import check_llm_rate_limit
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/stocks", tags=["peers"])
 
@@ -34,6 +38,7 @@ async def list_peers(symbol: str):
     except HTTPException:
         raise
     except Exception as exc:
+        logger.exception("list_peers failed for %s", symbol)
         raise HTTPException(status_code=502, detail=f"同業群組查詢失敗：{exc}")
 
 
@@ -45,6 +50,7 @@ async def save_peers(symbol: str, payload: PeerGroupPayload = Body(...)):
         await set_peer_group(symbol, [p.model_dump() for p in payload.peers])
         return {"success": True, "data": await get_peer_group(symbol)}
     except Exception as exc:
+        logger.exception("save_peers failed for %s", symbol)
         raise HTTPException(status_code=502, detail=f"同業群組儲存失敗：{exc}")
 
 
@@ -61,6 +67,7 @@ async def suggest_peers(symbol: str):
     except ValueError as exc:
         raise HTTPException(status_code=503, detail=str(exc))
     except Exception as exc:
+        logger.exception("suggest_peers failed for %s", symbol)
         raise HTTPException(status_code=502, detail=f"AI 建議同業失敗：{exc}")
 
 
@@ -72,4 +79,5 @@ async def peer_comparison(symbol: str):
     except HTTPException:
         raise
     except Exception as exc:
+        logger.exception("peer_comparison failed for %s", symbol)
         raise HTTPException(status_code=502, detail=f"同業比較查詢失敗：{exc}")

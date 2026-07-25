@@ -785,13 +785,20 @@ function formatNet(v) {
 }
 
 
+// II8：symbol 切換得快時，前一個 symbol 的回應可能晚於新一個回應才回來，
+// 沒有防護的話畫面會顯示新代號但資料其實是舊代號的（連 stockStore 都會被
+// 過時的請求覆蓋回去）。用一個遞增 token 擋掉過期回應，沿用分析頁的作法。
+let requestToken = 0
+
 async function fetchData() {
   if (!symbol.value) return
+  const token = ++requestToken
   loading.value = true
   error.value = ''
   try {
     const res = await fetchWithRetry(`/api/v1/stocks/${symbol.value}/chip-analysis`)
     const json = await res.json()
+    if (token !== requestToken) return
     if (json.success) {
       data.value = json.data
       if (symbol.value && symbol.value !== stockStore.symbol) {
@@ -804,9 +811,10 @@ async function fetchData() {
       error.value = json.detail || '分析失敗'
     }
   } catch (e) {
+    if (token !== requestToken) return
     error.value = '無法連線到伺服器'
   } finally {
-    loading.value = false
+    if (token === requestToken) loading.value = false
   }
 }
 

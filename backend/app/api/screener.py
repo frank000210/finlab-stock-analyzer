@@ -1,10 +1,14 @@
 """自然語言選股 API — W8."""
 
+import logging
+
 from fastapi import APIRouter, Body, Depends, HTTPException
 from pydantic import BaseModel
 
 from ..analysis.nl_screener import run_screener
 from ..llm import LLMUnavailable, check_llm_rate_limit, is_llm_configured
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/screener", tags=["screener"])
 
@@ -33,4 +37,5 @@ async def query_screener(payload: ScreenerQuery = Body(...)):
     except LLMUnavailable as exc:
         raise HTTPException(status_code=503, detail=str(exc))
     except Exception as exc:
+        logger.exception("query_screener failed")
         raise HTTPException(status_code=502, detail=f"選股查詢失敗：{exc}")

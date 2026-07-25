@@ -296,7 +296,13 @@ const gaugeColor = computed(() => {
   return 'var(--text-muted)'
 })
 
+// II8：symbol 切換快時，前一檔的回應可能晚到，沒防護會讓畫面顯示新代號
+// 但內容其實是舊代號的熱度分析。fetchHistory() 是 fetchData() 內部觸發、
+// 不等待的次要請求，兩者共用同一個 token 一起擋。
+let requestToken = 0
+
 async function fetchData() {
+  const token = ++requestToken
   loading.value = true
   error.value = ''
   aiNewsSummary.value = null
@@ -304,25 +310,28 @@ async function fetchData() {
   try {
     const res = await fetchWithRetry(`/api/v1/stocks/${symbol.value}/social-buzz`)
     const json = await res.json()
+    if (token !== requestToken) return
     if (json.success) {
       data.value = json.data
     } else {
       error.value = json.error || '查詢失敗'
     }
   } catch (e) {
+    if (token !== requestToken) return
     error.value = '無法連線到伺服器'
   } finally {
-    loading.value = false
+    if (token === requestToken) loading.value = false
   }
-  fetchHistory()
+  fetchHistory(token)
 }
 
-async function fetchHistory() {
+async function fetchHistory(token) {
   history.value = []
   try {
     const res = await fetchWithRetry(`/api/v1/stocks/${symbol.value}/social-buzz/history?days=30`)
     const json = await res.json()
-    if (json.success) history.value = json.data
+    if (token !== requestToken) return
+    history.value = json.success ? json.data : []
   } catch (e) {
     // 走勢圖是附加資訊，抓不到就不顯示，不影響主要熱度分析
   }

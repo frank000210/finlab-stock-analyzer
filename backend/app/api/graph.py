@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import time
 from datetime import date, timedelta
 
@@ -15,6 +16,8 @@ from ..analysis.watch_graph import (
     get_watchlist_timeline,
 )
 from ..db.memcache import mem_clear, mem_get, mem_set
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/graph/watchlist", tags=["watch-graph"])
 
@@ -39,13 +42,33 @@ class BuildGraphRequest(BaseModel):
     gamma: float = Field(default=0.20, ge=0.0, le=1.0)
 
 
+# II5：POST /build 的 symbols 已經用 max_length=100 擋過大量代碼
+# （AA2/HH5），但下面幾支 GET 端點都是透過這支 helper 各自解析查詢字串，
+# 完全沒有上限——/snapshot 在沒有現成 Mongo 快照時會 force_ingest=True，
+# 一個異常長的 symbols 清單一樣能觸發序列打 FinMind 的重量級抓取。統一在
+# 這裡加上限，三支 GET 端點都受益。
+_MAX_SYMBOLS = 100
+
+
 def _parse_symbols(symbols: str | None) -> list[str]:
     if not symbols:
         return []
-    return [segment.strip().upper() for segment in symbols.split(",") if segment.strip()]
+    parsed = [segment.strip().upper() for segment in symbols.split(",") if segment.strip()]
+    if len(parsed) > _MAX_SYMBOLS:
+        raise HTTPException(status_code=400, detail=f"股票代碼數量不可超過 {_MAX_SYMBOLS} 檔。")
+    return parsed
 
 
 def _raise_graph_error(exc: Exception) -> None:
+    # II5：_parse_symbols() 現在會丟 HTTPException(400)——這裡如果照樣把
+    # 所有例外都吃成通用 500，400 會被蓋掉。既有的 HTTPException（含狀態碼
+    # 與訊息）原樣往外拋，只有真正未預期的例外才轉成通用錯誤訊息。
+    if isinstance(exc, HTTPException):
+        raise exc
+    # II9：這支是所有 GET/POST 端點例外處理的唯一出口，之前完全沒有
+    # logger 呼叫——FinMind 授權失敗、資料格式異常等問題發生時，客戶端只看
+    # 得到「請稍後重試」，伺服器端的 log 什麼都沒留下，難以事後排查。
+    logger.exception("watch-graph endpoint failed")
     message = str(exc or "")
     lower = message.lower()
     if "payment required" in lower or "token=" in lower or "finmind" in lower:

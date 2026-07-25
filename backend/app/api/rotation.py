@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import time
 from datetime import date, timedelta
 
@@ -16,6 +17,8 @@ from ..analysis.sector_rotation import (
 )
 from ..analysis.watch_graph import ingest_watchlist_raw
 from ..db.memcache import mem_clear, mem_get, mem_set
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/rotation", tags=["sector-rotation"])
 
@@ -43,6 +46,10 @@ def _parse_symbols(symbols: str | None) -> list[str]:
 
 
 def _raise_rotation_error(exc: Exception) -> None:
+    # II9：四支端點共用的例外出口原本沒有任何 logger 呼叫，FinMind 授權
+    # 失敗或計算異常時伺服器端完全沒有留下線索，只有客戶端看到「請稍後
+    # 重試」。
+    logger.exception("sector-rotation endpoint failed")
     message = str(exc or "").lower()
     if "payment required" in message or "token=" in message or "finmind" in message:
         raise HTTPException(status_code=502, detail="輪動資料源授權失敗，請稍後再試。")
