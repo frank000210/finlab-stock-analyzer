@@ -140,7 +140,7 @@ footer{ margin-top:36px; font-size:0.78rem; color:var(--ink-faint); text-align:c
   <div class="stats">
     <div class="stat"><b class="mono" id="stat-items">–</b><span>已完成項目</span></div>
     <div class="stat"><b class="mono" id="stat-series">–</b><span>批次系列</span></div>
-    <div class="stat"><b class="mono">06-27→07-25</b><span>涵蓋日期</span></div>
+    <div class="stat"><b class="mono">07-11→07-26</b><span>涵蓋日期</span></div>
     <div class="stat"><b class="mono" id="stat-critical">–</b><span>關鍵安全修復</span></div>
   </div>
   <div class="search-row">
@@ -161,8 +161,23 @@ footer{ margin-top:36px; font-size:0.78rem; color:var(--ink-faint); text-align:c
 
 <script>
 const DATA = [
-{date:'進行中', range:'II1–II10', inProgress:true, title:'路徑遍歷／DOM XSS 修復 + 資料完整性強化（尚在出貨驗證中）',
- summary:'3 個平行稽核 agent（後端／前端／測試涵蓋率）掃描後，親自逐一驗證每項發現——包含用真實瀏覽器測試證實 TradingView 元件的 XSS 可執行、用 curl 證實路徑遍歷可讀出後端原始碼——再排出優先序、3 輪自我審查後實作。',
+{date:'進行中', range:'JJ1–JJ10', inProgress:true, title:'類股輪動 DoS、警報競態、社群熱度硬化、前端過期回應修復（尚在出貨驗證中）',
+ summary:'3 個平行稽核 agent 掃描後，7/10 項親自逐行讀 code 直接驗證（其餘 3 項為套用既有已驗證過的修法模式，如 II5 的 symbols 上限、requestToken 防護）。審查中把「完整驗證身分」的範圍縮小為「加上頻率限制」——完整驗證 user-identify 端點的 email 需要改動登入流程本身，超出這輪範圍。',
+ items:[
+  {code:'JJ1', tag:'warn', text:'graph.py 的 GET /timeline 沒有日期區間上限，get_watchlist_timeline() 是「每個日曆日一次」的迴圈，每次都在事件迴圈 coroutine 上做同步的 O(symbols²) 相關係數運算——start=2000-01-01 這種請求可以讓單一 worker 卡住很長一段時間。補上 180 天上限。'},
+  {code:'JJ2', tag:'neutral', text:'II 系列最嚴重的兩個修復（路徑遍歷、TradingView XSS）先前都只有手動驗證過，沒有自動化回歸測試。補上真的打真實路由/元件的測試，鎖定這兩個行為。'},
+  {code:'JJ3', tag:'warn', text:'analytics.py 的 pageview/user-identify 兩支公開端點零頻率限制、user_logs 集合沒有 TTL 索引，且任何人都能冒充任意 email 寫進 admin 後台看到的登入稽核紀錄。補上 TTL 索引與 per-IP 節流。'},
+  {code:'JJ4', tag:'warn', text:'risk.py 的 create_alert/delete_alert 是「讀整份→改→整份寫回」，兩個並行請求可能讓其中一筆警報平白消失（跟 CC4 修過的是不同一組競態）。改用 Mongo 原子 $push/$pull。'},
+  {code:'JJ5', tag:'warn', text:'social_buzz.py 的 PTT/查核中心爬蟲 URL 沒做編碼；主要端點沒有頻率限制，且快取鍵用未正規化的原始代號，攻擊者可用不同無效代號無限次繞過快取逼後端重抓，有共用對外 IP 被封鎖的風險。補上 URL 編碼與節流。'},
+  {code:'JJ6', tag:'warn', text:'DecisionView.vue「立即更新」按鈕沒有 :disabled 防呆，配合 60 秒自動輪詢，兩個並行執行緒可能把較新的資料被較舊、較慢的請求蓋掉。補上 requestToken 防護與按鈕防呆。'},
+  {code:'JJ7', tag:'warn', text:'RotationView.vue 拖拉時間軸滑桿/自動播放（間隔可低至 350ms）觸發的 loadSnapshot 沒有過期回應防護，較早日期的請求可能在較晚的之後才 resolve，畫面顯示錯的日期內容。'},
+  {code:'JJ8', tag:'warn', text:'OverviewView.vue 沒有 :symbol 路由參數，透過側欄切換全站個股時不會換頁，先前完全沒有監聽 stockStore.symbol，六張卡片與雷達圖會停在切換前的舊股票資料。'},
+  {code:'JJ9', tag:'neutral', text:'rotation.py 的 GET 端點 symbols 參數沒有上限，是 II5 幫 graph.py 補過的同一種缺口，這裡沒跟進。統一補上限。'},
+  {code:'JJ10', tag:'neutral', text:'admin.py/analytics.py/analysis.py 三處補齊漏掉的伺服器端 logging；移除 auth.py 確認無人呼叫、且驗證方式（Bearer header）跟全站其餘管理端點（X-Admin-Token）不相容的死代碼端點 GET /me、POST /logout。'},
+ ]},
+
+{date:'2026-07-26 07:00', range:'II1–II10', title:'路徑遍歷／DOM XSS 修復 + 資料完整性強化',
+ summary:'3 個平行稽核 agent（後端／前端／測試涵蓋率）掃描後，親自逐一驗證每項發現——包含用真實瀏覽器測試證實 TradingView 元件的 XSS 可執行、用 curl 證實路徑遍歷可讀出後端原始碼——再排出優先序、3 輪自我審查後實作。全套 Playwright 驗證時意外抓到 admin-panel.spec.js 的既有測試 mock 漏掉 GET /api/v1/admin/settings：先前這個洞沒人檢查回應狀態所以無害，II6 加上 401 就登出的處理後，未 mock 到的這支端點讓測試的假 session 被判定過期，已一併補上 mock。',
  items:[
   {code:'II1', tag:'critical', text:'main.py 的 SPA fallback 路由把網址路徑直接接進檔案系統路徑，沒有做 <mark>..</mark> 正規化防護，已實測用 <mark>GET /../../backend/app/config/settings.py</mark> 讀出後端原始碼。改用 resolve() + 目錄歸屬檢查。'},
   {code:'II2', tag:'critical', text:'TradingViewChart.vue 把路由參數（使用者完全可控）直接塞進 script.innerHTML 組出的 JSON，惡意值可提早結束 script 標籤並插入可執行的 DOM——已用瀏覽器實測驗證會觸發。改用白名單規則過濾代號格式。'},

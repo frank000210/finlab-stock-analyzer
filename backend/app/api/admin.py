@@ -52,6 +52,7 @@ async def _get_db():
     try:
         return await get_mongodb()
     except Exception as exc:
+        logger.exception("admin._get_db failed")
         raise HTTPException(status_code=503, detail=f"MongoDB is unavailable: {exc}") from exc
 
 
@@ -193,6 +194,7 @@ async def get_settings_list(_admin: dict = Depends(require_admin)):
     except HTTPException:
         raise
     except Exception as exc:
+        logger.exception("get_settings_list failed")
         raise HTTPException(status_code=503, detail=f"Unable to load settings: {exc}") from exc
 
 
@@ -203,6 +205,7 @@ async def update_setting(key: str, payload: SettingValuePayload, _admin: dict = 
         await set_setting(key, payload.value)
         return {"success": True, "data": {"key": key, "value": payload.value}}
     except Exception as exc:
+        logger.exception("update_setting failed for key=%s", key)
         raise HTTPException(status_code=503, detail=f"Unable to update setting: {exc}") from exc
 
 

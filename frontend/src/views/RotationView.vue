@@ -658,16 +658,25 @@ async function reloadTimeline() {
   }
 }
 
+// JJ7：拖拉時間軸滑桿或自動播放（間隔可低至 350ms）都會呼叫這裡，每次
+// 都是新的一次請求。沒有防護的話，較早日期的請求若在較晚日期的請求
+// 之後才 resolve（正常網路延遲下並非不可能，快速播放時更明顯），畫面
+// 會顯示錯的日期內容，但滑桿/標籤已經停在別的日期上。
+let snapshotToken = 0
+
 async function loadSnapshot(dateValue) {
+  const token = ++snapshotToken
   try {
     const params = buildCommonParams(dateValue)
     params.set('trail_length', String(trailLength.value))
     params.set('edge_threshold', String(edgeThreshold.value))
     const data = await apiGet(`/api/v1/rotation/snapshot?${params.toString()}`)
+    if (token !== snapshotToken) return
     snapshot.value = data
     if (!selectedId.value && data?.points?.length) selectedId.value = data.points[0].id
     selectedEdgeKey.value = ''
   } catch (error) {
+    if (token !== snapshotToken) return
     snapshot.value = null
     errorMessage.value = error?.message || '快照載入失敗'
   }

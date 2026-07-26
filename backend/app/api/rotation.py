@@ -39,13 +39,28 @@ class BuildRotationRequest(BaseModel):
     lookback_days: int = Field(default=400, ge=60, le=1100)
 
 
+# JJ9：graph.py 的 GET 端點在 II5 補過同一種上限（POST /build 早就有，
+# GET 端點沒跟進）——這裡是同一個缺口，只是沒有觸發外部重抓（只讀已存的
+# Mongo 資料），風險較低，但異常長的 symbols 清單一樣會餵進下游的
+# Mongo $in 查詢，統一補上限一致比較安全。
+_MAX_SYMBOLS = 100
+
+
 def _parse_symbols(symbols: str | None) -> list[str]:
     if not symbols:
         return []
-    return [segment.strip().upper() for segment in symbols.split(",") if segment.strip()]
+    parsed = [segment.strip().upper() for segment in symbols.split(",") if segment.strip()]
+    if len(parsed) > _MAX_SYMBOLS:
+        raise HTTPException(status_code=400, detail=f"股票代碼數量不可超過 {_MAX_SYMBOLS} 檔。")
+    return parsed
 
 
 def _raise_rotation_error(exc: Exception) -> None:
+    # JJ9：_parse_symbols() 現在會丟 HTTPException(400)——沒有這個
+    # isinstance 檢查的話，這裡會把它跟其他未預期例外一樣吃成通用 500
+    # （同 graph.py 的 II5 修法）。
+    if isinstance(exc, HTTPException):
+        raise exc
     # II9：四支端點共用的例外出口原本沒有任何 logger 呼叫，FinMind 授權
     # 失敗或計算異常時伺服器端完全沒有留下線索，只有客戶端看到「請稍後
     # 重試」。

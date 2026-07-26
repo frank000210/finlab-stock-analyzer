@@ -1,5 +1,6 @@
 """Analytics API endpoints backed by MongoDB."""
 
+import logging
 from datetime import datetime
 from typing import Optional
 
@@ -10,6 +11,8 @@ try:
     from ..db.mongodb import get_mongodb
 except Exception:
     get_mongodb = None
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/analytics", tags=["analytics"])
 
@@ -31,6 +34,7 @@ async def _get_db():
     try:
         return await get_mongodb()
     except Exception as exc:
+        logger.exception("analytics._get_db failed")
         raise HTTPException(status_code=503, detail=f"MongoDB is unavailable: {exc}") from exc
 
 
@@ -53,8 +57,36 @@ async def _insert_user_log(db, payload: dict) -> None:
     await db.user_logs.insert_one(payload)
 
 
+# JJ3：這兩支端點完全公開、零驗證，先前也沒有任何頻率限制——一支迴圈
+# script 可以無限次呼叫，讓 user_logs 無上限成長（已另外補 TTL 索引），
+# identify_user 更是能讓任何人冒充任意 email 寫進 admin 後台會看到的
+# 「登入」稽核紀錄。門檻刻意設得比 LLM 節流（X1，10 分鐘 6 次）寬鬆很多
+# ——正常瀏覽在 10 分鐘內換好幾十頁是合理的，這裡只是要擋掉明顯異常的
+# 洗量，不是要限制正常使用。
+_ANALYTICS_WINDOW_MINUTES = 10
+_ANALYTICS_MAX_CALLS = 120
+
+
+async def _check_analytics_rate_limit(request: Request) -> None:
+    from ..db.cache import increment_rate_limit
+
+    ip = _get_client_ip(request)
+    if not ip or ip == "unknown":
+        return
+    try:
+        count = await increment_rate_limit(f"analytics_rate:{ip}", "rate_limit")
+    except Exception:
+        return
+    if count > _ANALYTICS_MAX_CALLS:
+        raise HTTPException(
+            status_code=429,
+            detail=f"請求過於頻繁，請 {_ANALYTICS_WINDOW_MINUTES} 分鐘後再試。",
+        )
+
+
 @router.post("/pageview")
 async def track_pageview(payload: PageViewPayload, request: Request):
+    await _check_analytics_rate_limit(request)
     db = await _get_db()
     now = datetime.utcnow()
     await db.pageviews.update_one(
@@ -98,6 +130,7 @@ async def get_pageview_count(page: str):
 
 @router.post("/user-identify")
 async def identify_user(payload: UserIdentifyPayload, request: Request):
+    await _check_analytics_rate_limit(request)
     db = await _get_db()
     await _insert_user_log(
         db,

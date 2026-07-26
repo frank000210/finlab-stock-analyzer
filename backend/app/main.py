@@ -90,6 +90,12 @@ async def lifespan(app: FastAPI):
         await db.pageviews.create_index([("page", 1)], unique=True)
         await db.user_logs.create_index([("timestamp", -1)])
         await db.user_logs.create_index("type")
+        # JJ3：user_logs 先前只有排序/篩選用的一般索引，沒有 TTL——
+        # POST /pageview、/user-identify 兩支公開端點沒有任何頻率限制，
+        # 這個 collection 會無上限成長。90 天足夠 admin 後台的訪客統計/
+        # 稽核用途，用另一支獨立的升冪 TTL 索引（跟既有的降冪排序索引
+        # 分開，不衝突）讓舊資料自動過期。
+        await db.user_logs.create_index([("timestamp", 1)], expireAfterSeconds=7776000)
     except Exception as exc:
         logging.warning(f"MongoDB init skipped: {exc}")
 

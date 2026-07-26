@@ -149,7 +149,7 @@
         </button>
       </div>
 
-      <button type="button" class="action-button ghost" @click="loadDashboard(true)">
+      <button type="button" class="action-button ghost" :disabled="loading" @click="loadDashboard(true)">
         <span v-if="loading" class="button-spinner"></span>
         <span>{{ loading ? '同步中' : '立即更新' }}</span>
       </button>
@@ -500,8 +500,16 @@ onBeforeUnmount(() => {
   destroyAllSparklines()
 })
 
+// JJ6：手動「立即更新」按鈕先前沒有 :disabled 防呆，配合 60 秒自動輪詢
+// 計時器，兩個 loadDashboard 執行緒可能同時在飛，各自把結果寫進同一批
+// 共用 ref（rawSignals/profiles/histories/costs/healths）——沒有先後
+// 順序保證的話，較舊、較慢的那次執行緒可能在較新的之後才 resolve，把
+// 剛更新好的資料蓋回舊的。用遞增 token 擋掉過期執行緒的寫入。
+let requestToken = 0
+
 async function loadDashboard(force = false) {
   if (loading.value && !force) return
+  const token = ++requestToken
 
   loading.value = true
   errorMessage.value = ''
@@ -513,25 +521,29 @@ async function loadDashboard(force = false) {
     }
 
     const payload = await apiGet(`/api/v1/agent/signals?${query.toString()}`)
+    if (token !== requestToken) return
     const items = normalizeSignals(payload)
     rawSignals.value = items
 
-    await Promise.allSettled(uniqueSymbols(items.map(item => item.symbol)).map(symbol => hydrateSymbol(symbol)))
+    await Promise.allSettled(uniqueSymbols(items.map(item => item.symbol)).map(symbol => hydrateSymbol(symbol, token)))
+    if (token !== requestToken) return
     lastFetchedAt.value = new Date()
   } catch (error) {
+    if (token !== requestToken) return
     errorMessage.value = error instanceof Error ? error.message : '無法取得決策資料'
   } finally {
-    loading.value = false
+    if (token === requestToken) loading.value = false
   }
 }
 
-async function hydrateSymbol(symbol) {
+async function hydrateSymbol(symbol, token) {
   const [profileResult, historyResult, costResult, healthResult] = await Promise.allSettled([
     fetchProfile(symbol),
     fetchHistory(symbol),
     fetchMajorCost(symbol),
     fetchChipScore(symbol),
   ])
+  if (token !== requestToken) return
 
   if (profileResult.status === 'fulfilled' && profileResult.value) {
     profiles.value = {

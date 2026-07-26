@@ -148,6 +148,14 @@ async def graph_timeline(
         parsed_symbols = _parse_symbols(symbols)
         end_date = end or date.today()
         start_date = start or (end_date - timedelta(days=30))
+        # JJ1：get_watchlist_timeline() 是「每個日曆日一次」的迴圈，每次都
+        # 做同步的 O(symbols^2) numpy 相關係數運算，整段直接跑在事件迴圈的
+        # coroutine 上（沒有丟執行緒）。start/end 先前完全沒有範圍上限，
+        # 只有 lookback_days 有——一個 start=2000-01-01 的請求可以讓單一
+        # worker 卡住很長一段時間。180 天遠超過正常「每日粒度時間軸」的
+        # 使用情境（預設就是 30 天），純粹是防呆上限。
+        if (end_date - start_date).days > 180:
+            raise HTTPException(status_code=400, detail="時間軸區間不可超過 180 天。")
         cache_key = f"graph:timeline:{','.join(parsed_symbols)}:{start_date}:{end_date}:{edge_threshold}:{lookback_days}"
         cached = mem_get(cache_key)
         if cached is not None:

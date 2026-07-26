@@ -323,6 +323,9 @@ async def get_stock_calendar(symbol: str):
             _revenue_events(), _financial_events(), _dividend_events()
         )
     except Exception as exc:
+        # JJ10：本檔案其餘三支端點（technical/fundamental/chip）EE1 掃過都有
+        # logger.exception()，這支當時漏掉了。
+        logger.exception("get_stock_calendar failed for %s", symbol)
         raise HTTPException(status_code=502, detail=f"行事曆資料取得失敗：{exc}")
 
     events = sorted(revenue + financials + dividends, key=lambda e: e["date"])

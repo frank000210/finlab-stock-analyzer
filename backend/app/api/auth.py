@@ -2,9 +2,8 @@
 
 import logging
 from datetime import datetime, timedelta, timezone
-from typing import Optional
 
-from fastapi import APIRouter, Header, HTTPException
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from ..config.settings import get_settings
@@ -23,10 +22,6 @@ class GoogleVerifyPayload(BaseModel):
     id_token: str
 
 
-class LogoutPayload(BaseModel):
-    ok: bool = True
-
-
 def _get_secret() -> str:
     return get_settings().admin_secret
 
@@ -43,24 +38,6 @@ async def _get_allowed_admins() -> list[str]:
         return default_admins
     cleaned = [str(email).strip().lower() for email in admins if str(email).strip()]
     return cleaned or default_admins
-
-
-def _extract_bearer_token(authorization: Optional[str]) -> str:
-    if not authorization:
-        raise HTTPException(status_code=401, detail="Missing Authorization header.")
-    parts = authorization.split(" ", 1)
-    if len(parts) == 2 and parts[0].lower() == "bearer":
-        return parts[1].strip()
-    return authorization.strip()
-
-
-def _decode_token(token: str) -> dict:
-    try:
-        import jwt
-
-        return jwt.decode(token, _get_secret(), algorithms=["HS256"])
-    except Exception as exc:
-        raise HTTPException(status_code=401, detail="Invalid or expired admin token.") from exc
 
 
 @router.post("/google/verify")
@@ -126,20 +103,3 @@ async def verify_google_token(payload: GoogleVerifyPayload):
         "avatar": avatar,
         "token": session_token,
     }
-
-
-@router.get("/me")
-async def get_me(authorization: Optional[str] = Header(default=None, alias="Authorization")):
-    token = _extract_bearer_token(authorization)
-    payload = _decode_token(token)
-    return {
-        "email": payload.get("email", ""),
-        "name": payload.get("name", ""),
-        "avatar": payload.get("avatar", ""),
-        "is_admin": bool(payload.get("is_admin", False)),
-    }
-
-
-@router.post("/logout")
-async def logout() -> LogoutPayload:
-    return LogoutPayload()

@@ -139,6 +139,50 @@ async def set_setting(key: str, value: Any) -> None:
     )
 
 
+async def push_to_setting_array(key: str, item: Any) -> None:
+    """Atomically append an item to a list-valued setting via Mongo $push.
+
+    JJ4：risk.py 的 create_alert/delete_alert 先前是「get_setting() 讀出
+    整個 list、在 Python 端修改、set_setting() 整份寫回」，兩個並行請求
+    （雙擊、兩個分頁）可能各自讀到同一份舊 list，其中一個的寫入會被另一
+    個覆蓋掉——不是「同時新增兩筆各自成功」，而是其中一筆平白消失。改用
+    $push 讓新增本身是原子操作，不管多少個並行請求同時打進來都不會互相
+    覆蓋。
+    """
+    db = await _get_db()
+    await db.settings.find_one_and_update(
+        {"key": key},
+        {
+            "$push": {"value": item},
+            "$set": {"updated_at": datetime.utcnow()},
+            "$setOnInsert": {"key": key},
+        },
+        upsert=True,
+    )
+
+
+async def pull_from_setting_array(key: str, match_field: str, match_value: Any) -> bool:
+    """Atomically remove the array element(s) where item[match_field] ==
+    match_value from a list-valued setting via Mongo $pull.
+
+    Returns True if a matching element existed immediately before the pull
+    (and was therefore removed), False otherwise — lets the caller
+    distinguish "deleted" from "already gone" (e.g. for a 404) without a
+    separate, non-atomic read.
+    """
+    db = await _get_db()
+    before = await db.settings.find_one_and_update(
+        {"key": key},
+        {"$pull": {"value": {match_field: match_value}}, "$set": {"updated_at": datetime.utcnow()}},
+    )
+    if not before:
+        return False
+    return any(
+        isinstance(item, dict) and item.get(match_field) == match_value
+        for item in before.get("value", [])
+    )
+
+
 async def increment_setting(key: str, amount: int = 1) -> int:
     """Atomically increment a numeric setting and return the new (post-increment) value.
 

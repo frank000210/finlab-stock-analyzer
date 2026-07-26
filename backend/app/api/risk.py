@@ -446,7 +446,7 @@ async def create_alert(req: PriceAlertReq):
     from datetime import datetime
 
     from ..data.us_symbols import normalize_symbol
-    from ..db.cache import get_setting, set_setting
+    from ..db.cache import get_setting, push_to_setting_array
 
     alert_type = req.alert_type.strip().lower()
     if alert_type not in _ALERT_TYPES:
@@ -464,6 +464,10 @@ async def create_alert(req: PriceAlertReq):
     if not symbol:
         raise HTTPException(status_code=400, detail="請提供股票代碼")
 
+    # JJ4：這裡的上限檢查跟底下的 $push 不是同一個原子操作，極端情況下
+    # 兩個並行請求仍可能同時通過檢查、各自成功推入一筆，讓總數超過上限
+    # 一筆——跟修好之前「其中一筆平白消失」的資料遺失比起來是低很多的
+    # 風險（頂多筆數多一筆，不會有資料不見），值得用簡單一點的寫法換取。
     alerts = await get_setting("price_alerts", []) or []
     if len(alerts) >= _MAX_PRICE_ALERTS:
         raise HTTPException(status_code=400, detail=f"警報數量已達上限（{_MAX_PRICE_ALERTS} 筆），請先刪除不需要的警報")
@@ -482,8 +486,9 @@ async def create_alert(req: PriceAlertReq):
         "last_price": None,
         "last_checked_at": None,
     }
-    alerts.append(alert)
-    await set_setting("price_alerts", alerts)
+    # 新增本身用原子 $push（見 db/cache.py push_to_setting_array），不再是
+    # 「讀整份→改→整份寫回」，兩個並行新增不會互相蓋掉對方的那一筆。
+    await push_to_setting_array("price_alerts", alert)
     return {"success": True, "data": alert}
 
 
@@ -500,13 +505,15 @@ async def get_alert_history(limit: int = 50):
 @router.delete("/alerts/{alert_id}")
 async def delete_alert(alert_id: str):
     """刪除一筆價格警報。"""
-    from ..db.cache import get_setting, set_setting
+    from ..db.cache import pull_from_setting_array
 
-    alerts = await get_setting("price_alerts", []) or []
-    remaining = [a for a in alerts if a.get("id") != alert_id]
-    if len(remaining) == len(alerts):
+    # JJ4：原本是「讀整份→在 Python 端濾掉這筆→整份寫回」，跟 create_alert
+    # 或另一個 delete_alert 並行時可能互相蓋掉對方的寫入。改用原子 $pull
+    # （見 db/cache.py pull_from_setting_array），回傳值就是「刪除前這筆
+    # 是否存在」，不用另外多一次非原子的讀取來判斷 404。
+    existed = await pull_from_setting_array("price_alerts", "id", alert_id)
+    if not existed:
         raise HTTPException(status_code=404, detail="警報不存在")
-    await set_setting("price_alerts", remaining)
     return {"success": True}
 
 

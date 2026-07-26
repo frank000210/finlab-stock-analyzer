@@ -164,7 +164,7 @@
 <script setup>
 import PageFocusBanner from '../components/PageFocusBanner.vue'
 import InfoTooltip from '../components/InfoTooltip.vue'
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useStockStore } from '../stores/stock.js'
 import { loadLayoutPrefs, saveLayoutPrefs } from '../lib/layoutPrefs'
@@ -321,16 +321,25 @@ function goTo(page) {
   }
 }
 
+// JJ8：這頁沒有 :symbol 路由參數，透過側欄搜尋/QuickSwitcher 切換全站
+// 目前個股時不會換頁——先前完全沒有 watch stockStore.symbol，六張卡片
+// 跟雷達圖會停在切換前的舊股票資料，只有標題會即時更新，容易誤導。補上
+// 跟 TradeDashboardView 等頁面一致的 watch，並比照 requestToken 慣例，
+// 避免快速連續切換股票時較慢的舊請求覆蓋新股票的資料。
+let requestToken = 0
+
 async function loadAll() {
   loading.value = true
+  const token = ++requestToken
   const sym = stockStore.symbol
   const fetches = [
-    fetchWithRetry(`/api/v1/stocks/${sym}/seasonal?years=5`).then(r => r.json()).then(d => { seasonal.value = d.data }).catch(() => {}),
-    fetchWithRetry(`/api/v1/stocks/${sym}/lead-lag?benchmark=TAIEX&days=365`).then(r => r.json()).then(d => { leadLag.value = d.data }).catch(() => {}),
-    fetchWithRetry(`/api/v1/stocks/${sym}/major-players?days=60`).then(r => r.json()).then(d => { majorPlayers.value = d.data }).catch(() => {}),
-    fetchWithRetry(`/api/v1/stocks/${sym}/social-buzz`).then(r => r.json()).then(d => { socialBuzz.value = d.data }).catch(() => {}),
-    fetchWithRetry(`/api/v1/stocks/${sym}/public-data`).then(r => r.json()).then(d => { publicData.value = d.data }).catch(() => {}),
+    fetchWithRetry(`/api/v1/stocks/${sym}/seasonal?years=5`).then(r => r.json()).then(d => { if (token === requestToken) seasonal.value = d.data }).catch(() => {}),
+    fetchWithRetry(`/api/v1/stocks/${sym}/lead-lag?benchmark=TAIEX&days=365`).then(r => r.json()).then(d => { if (token === requestToken) leadLag.value = d.data }).catch(() => {}),
+    fetchWithRetry(`/api/v1/stocks/${sym}/major-players?days=60`).then(r => r.json()).then(d => { if (token === requestToken) majorPlayers.value = d.data }).catch(() => {}),
+    fetchWithRetry(`/api/v1/stocks/${sym}/social-buzz`).then(r => r.json()).then(d => { if (token === requestToken) socialBuzz.value = d.data }).catch(() => {}),
+    fetchWithRetry(`/api/v1/stocks/${sym}/public-data`).then(r => r.json()).then(d => { if (token === requestToken) publicData.value = d.data }).catch(() => {}),
     fetchWithRetry(`/api/v1/stocks/${sym}/price?period=1d`).then(r => r.json()).then(d => {
+      if (token !== requestToken) return
       if (d.data?.items?.length > 14) {
         const items = d.data.items
         const closes = items.map(i => i.close)
@@ -343,12 +352,14 @@ async function loadAll() {
     }).catch(() => {}),
   ]
   await Promise.allSettled(fetches)
-  loading.value = false
+  if (token === requestToken) loading.value = false
 }
 
 onMounted(() => {
   loadAll()
 })
+
+watch(() => stockStore.symbol, loadAll)
 </script>
 
 <style scoped>

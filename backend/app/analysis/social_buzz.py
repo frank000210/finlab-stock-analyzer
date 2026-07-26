@@ -324,7 +324,11 @@ async def _scrape_ptt(search_terms: list[str]) -> dict:
         async with httpx.AsyncClient(timeout=10, follow_redirects=True) as client:
             # Search PTT Stock board
             for term in search_terms[:2]:  # Limit to 2 terms
-                url = f"https://www.ptt.cc/bbs/Stock/search?q={term}"
+                # JJ5：term 是股票代號或中文股名，先前直接用 f-string 接進
+                # 網址，沒有做 URL 編碼——跟同檔案 _fetch_google_news_rss
+                # 已經正確使用 quote_plus 的作法不一致，含 & # + 空白等字元
+                # 的值會把查詢字串弄壞。
+                url = f"https://www.ptt.cc/bbs/Stock/search?q={urllib.parse.quote_plus(term)}"
                 headers = {
                     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
                     "Cookie": "over18=1",
@@ -515,7 +519,8 @@ async def _scrape_factcheck(search_terms: list[str]) -> dict:
     try:
         async with httpx.AsyncClient(timeout=10, follow_redirects=True) as client:
             for term in name_terms[:2]:
-                url = f"https://tfc-taiwan.org.tw/?s={term}&feed=rss2"
+                # JJ5：同 _scrape_ptt，補上先前漏掉的 URL 編碼。
+                url = f"https://tfc-taiwan.org.tw/?s={urllib.parse.quote_plus(term)}&feed=rss2"
                 headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
                 resp = await client.get(url, headers=headers)
                 if resp.status_code != 200:
