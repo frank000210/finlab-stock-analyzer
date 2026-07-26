@@ -4,18 +4,43 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
+
+from ..llm import check_llm_rate_limit
 
 router = APIRouter(prefix="/api/v1/risk", tags=["risk"])
 logger = logging.getLogger(__name__)
+
+# LL1：/notify 是公開、無驗證的端點（PortfolioHeatView 任何訪客都能觸發），
+# 會實際推播到站主自己設定的單一 Telegram/LINE——先前完全沒有節流，任何人
+# 都能無限次觸發推播騷擾站主本人的通知。門檻比 LLM 節流寬鬆（這裡沒有
+# LLM 成本，只是防止洗版騷擾）。
+_NOTIFY_WINDOW_MINUTES = 10
+_NOTIFY_MAX_CALLS = 20
+
+
+async def _check_notify_rate_limit(request: Request) -> None:
+    from ..api.analytics import _get_client_ip
+    from ..db.cache import increment_rate_limit
+
+    ip = _get_client_ip(request)
+    try:
+        count = await increment_rate_limit(f"risk_notify_rate:{ip}", "rate_limit")
+    except Exception:
+        return
+    if count > _NOTIFY_MAX_CALLS:
+        raise HTTPException(
+            status_code=429,
+            detail=f"推播請求過於頻繁，請 {_NOTIFY_WINDOW_MINUTES} 分鐘後再試。",
+        )
 
 
 class NotifyReq(BaseModel):
     message: str
 
 
-@router.post("/notify")
+@router.post("/notify", dependencies=[Depends(_check_notify_rate_limit)])
 async def notify(req: NotifyReq):
     """把前端組好的風險摘要透過 Telegram 推播（需設定 TELEGRAM_BOT_TOKEN/CHAT_ID）。"""
     from ..config.settings import get_settings
@@ -194,9 +219,16 @@ async def send_daily_brief() -> dict:
         return {"sent": False, "error": str(exc)[:200], **brief}
 
 
-@router.get("/daily-brief")
+@router.get("/daily-brief", dependencies=[Depends(check_llm_rate_limit)])
 async def daily_brief():
-    """盤後日報（隨叫隨到版；排程版由 scheduler 於收盤後自動推播）。"""
+    """盤後日報（隨叫隨到版；排程版由 scheduler 於收盤後自動推播）。
+
+    LL2：build_daily_brief() 內部一定會呼叫 rewrite_brief_prose()（LLM），但
+    這支端點先前完全沒有掛 check_llm_rate_limit——是全站唯一沒有這個
+    dependency 的 LLM 端點。因為每日 LLM 額度是全站共用的單一計數器，沒有
+    節流代表任何人都能無限次呼叫這支公開端點，單獨把當天額度耗光，波及
+    AI 摘要／新聞可信度／自然語言選股等所有其他功能。
+    """
     try:
         return {"success": True, "data": await build_daily_brief()}
     except Exception as exc:  # noqa: BLE001
@@ -204,7 +236,10 @@ async def daily_brief():
         raise HTTPException(status_code=502, detail=f"日報產生失敗：{exc}")
 
 
-@router.post("/daily-brief/send")
+@router.post(
+    "/daily-brief/send",
+    dependencies=[Depends(check_llm_rate_limit), Depends(_check_notify_rate_limit)],
+)
 async def daily_brief_send():
     """手動觸發：產生日報並推播 Telegram。"""
     try:

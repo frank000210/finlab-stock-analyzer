@@ -173,6 +173,9 @@ function handleResize() {
 }
 onMounted(() => window.addEventListener('resize', handleResize))
 onBeforeUnmount(() => window.removeEventListener('resize', handleResize))
+// LL8：debounce 計時器先前沒有清掉，切走頁面時若還在 debounce 等待中，
+// 逾時觸發的搜尋仍會寫入已卸載元件的 searchResults。
+onBeforeUnmount(() => clearTimeout(searchTimer))
 
 function renderChart() {
   if (!chartHost.value) return

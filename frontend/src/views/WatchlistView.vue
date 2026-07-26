@@ -238,7 +238,12 @@ onMounted(() => {
   refreshPrices()
   window.addEventListener('storage', onStorageChange)
 })
-onBeforeUnmount(() => window.removeEventListener('storage', onStorageChange))
+onBeforeUnmount(() => {
+  window.removeEventListener('storage', onStorageChange)
+  // LL8：debounce 計時器先前沒有清掉，切走頁面時若還在 debounce 等待中，
+  // 逾時觸發的 searchStocks() 仍會寫入已卸載元件的 searchResults。
+  clearTimeout(searchTimer)
+})
 </script>
 
 <style scoped>

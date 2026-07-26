@@ -94,10 +94,13 @@ const result = ref(null)
 const history = ref([])
 const { aiConfigured, checkAiConfigured } = useAiStatus()
 
+// LL6：後端 LayerResult 的 layer 欄位實際是 "content_quality"（見
+// news_checker/analyzer.py 的 _content_layer），這裡原本寫的是
+// "content"——對不上，所以這個層級一直落回顯示原始英文 key。
 const LAYER_LABELS = {
   media_source: '媒體來源',
   cofacts: 'Cofacts 查核',
-  content: '內容特徵',
+  content_quality: '內容特徵',
   cross_validation: '交叉驗證',
   timeliness: '時效性',
 }

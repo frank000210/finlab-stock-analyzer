@@ -107,6 +107,39 @@ test('籌碼分析頁：AI 服務未設定時「問問AI」按鈕不顯示', asy
   await expect(costSection.getByRole('button', { name: '🤖 問問AI' })).toHaveCount(0)
 })
 
+// LL9：ChipAnalysisView/AnalysisView/SocialBuzzView 的 AI 說明/摘要載入函式
+// 都靠 `if (symbol.value !== sym) return` 擋掉「使用者已經換股，AI 回應卻
+// 晚到」的過期結果，但先前沒有任何測試真的驗證過這個防護——只是碰巧沒有
+// 測試在 AI 呼叫飛行中換過股，不代表這個防護真的有效。
+test('籌碼分析頁：AI 呼叫尚未回應時切換股票，較晚回來的舊股票說明會被捨棄', async ({ page }) => {
+  await mockAiConfigured(page)
+  let resolveSlow
+  const slow = new Promise((resolve) => { resolveSlow = resolve })
+  await page.route('**/api/v1/stocks/2330/major-cost/ai-explain**', async (route) => {
+    await slow
+    await route.fulfill({
+      status: 200, contentType: 'application/json',
+      body: JSON.stringify({ success: true, data: EXPLAIN }),
+    })
+  })
+
+  await page.goto('/stocks/2330/chip')
+  const costSection = page.locator('section.card', { has: page.getByRole('heading', { name: '主力成本區' }) })
+  await expect(costSection).toBeVisible({ timeout: 15_000 })
+  await costSection.getByRole('button', { name: '🤖 問問AI' }).click()
+  await expect(page.locator('.ai-hint')).toContainText('AI 正在')
+
+  // 慢回應還沒解析前，先換一檔股票重新分析。
+  await page.locator('.input-symbol').fill('2317')
+  await page.getByRole('button', { name: '重新分析' }).click()
+  await expect(page.locator('.health-num')).toBeVisible({ timeout: 15_000 })
+
+  // 現在才讓 2330 的慢回應解析——修復前會把 2330 的說明畫到 2317 的畫面上。
+  resolveSlow()
+  await page.waitForTimeout(500)
+  await expect(page.locator('.ai-text')).toHaveCount(0)
+})
+
 test('籌碼分析頁：AI 說明產生失敗時顯示錯誤訊息，不影響其他區塊', async ({ page }) => {
   await mockAiConfigured(page)
   await page.route('**/api/v1/stocks/2330/major-cost/ai-explain**', async (route) => {

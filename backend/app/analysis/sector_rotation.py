@@ -281,7 +281,12 @@ def compute_rrg_series(
         if sector_id == BENCHMARK_ID:
             continue
         curve = _resample_weekly(raw_curve) if freq == "weekly" else raw_curve
-        aligned_dates = [d for d in bench_dates if d in curve]
+        # LL5：_safe_float() 對缺漏/非數字的 close 值預設回傳 0.0——單一一天
+        # 的基準指數（TAIEX）資料異常，先前會讓下面的除法對這個日期拋出
+        # ZeroDivisionError，直接中斷整個函式，波及所有類股（不只是資料有
+        # 問題的那個類股）。把這類日期直接排除在對齊區間外，跟其他地方
+        # 「資料不足就跳過」的處理方式一致。
+        aligned_dates = [d for d in bench_dates if d in curve and bench.get(d)]
         if len(aligned_dates) < window + momentum:
             continue
         rs = np.array([100.0 * curve[d] / bench[d] for d in aligned_dates])

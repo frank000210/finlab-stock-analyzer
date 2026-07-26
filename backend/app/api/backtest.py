@@ -1,8 +1,9 @@
 """Backtest API endpoints."""
 
+import asyncio
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from typing import Optional
 from collections import OrderedDict
@@ -80,6 +81,30 @@ def _check_overfit(engine: BacktestEngine, df: pd.DataFrame, strategy, capital: 
     }
 
 router = APIRouter(prefix="/api/v1/backtest", tags=["backtest"])
+
+# LL4：/run 先前完全沒有節流，且 engine.run() 是同步、CPU-bound 的 pandas/
+# numpy 運算，直接在 async handler 裡呼叫（連同 _check_overfit() 內部的兩次
+# 樣本內/外重跑，一次請求實際共跑 3 次），會卡住整個 event loop、拖累同一
+# worker 上所有其他使用者的請求。門檻比 LLM 節流寬鬆（互動式調參數是正常
+# 使用情境，不像 AI 呼叫有實質成本），只擋真正異常的洗量。
+_BACKTEST_RUN_WINDOW_MINUTES = 10
+_BACKTEST_RUN_MAX_CALLS = 30
+
+
+async def _check_backtest_run_rate_limit(request: Request) -> None:
+    from ..api.analytics import _get_client_ip
+    from ..db.cache import increment_rate_limit
+
+    ip = _get_client_ip(request)
+    try:
+        count = await increment_rate_limit(f"backtest_run_rate:{ip}", "rate_limit")
+    except Exception:
+        return
+    if count > _BACKTEST_RUN_MAX_CALLS:
+        raise HTTPException(
+            status_code=429,
+            detail=f"回測請求過於頻繁，請 {_BACKTEST_RUN_WINDOW_MINUTES} 分鐘後再試。",
+        )
 
 # In-memory store for backtest results (replace with DB in production)
 # CC5：先前是普通 dict，每次 /run 都塞一筆、從不清——長時間跑下去 process
@@ -159,7 +184,7 @@ async def generate_expression_endpoint(req: GenerateExpressionRequest):
         raise HTTPException(status_code=503, detail=str(exc))
 
 
-@router.post("/run")
+@router.post("/run", dependencies=[Depends(_check_backtest_run_rate_limit)])
 async def run_backtest(req: BacktestRequest):
     """Execute a backtest."""
     # BB3：自訂條件策略不在 ALL_STRATEGIES 註冊表裡（它的合法性要在建構當下
@@ -195,10 +220,18 @@ async def run_backtest(req: BacktestRequest):
         commission = max(req.commission, 0.0)
         slippage = max(req.slippage, 0.0)
         engine = BacktestEngine()
-        result = engine.run(df, strategy, capital=req.capital, commission=commission, slippage=slippage)
+        # LL4：engine.run() 是同步、CPU-bound 的 pandas/numpy 運算，跟 II3
+        # 修過的 yfinance 阻塞呼叫是同一類問題——丟進執行緒，不要卡住
+        # event loop。
+        result = await asyncio.to_thread(
+            engine.run, df, strategy, capital=req.capital, commission=commission, slippage=slippage,
+        )
 
-        # 過擬合防護（A3）：同一份資料切樣本內/外重跑同一策略同一組參數。
-        overfit_check = _check_overfit(engine, df, strategy, req.capital, commission, slippage)
+        # 過擬合防護（A3）：同一份資料切樣本內/外重跑同一策略同一組參數
+        # （內部再跑兩次 engine.run()，一併丟進同一個執行緒）。
+        overfit_check = await asyncio.to_thread(
+            _check_overfit, engine, df, strategy, req.capital, commission, slippage,
+        )
         total_trades = result["performance"].get("total_trades", 0)
         if total_trades < _MIN_TOTAL_TRADES_FOR_STATS:
             overfit_check = {

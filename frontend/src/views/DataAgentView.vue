@@ -153,6 +153,22 @@ async function apiRequest(path, options = {}, { retry = false } = {}) {
   return payload?.data ?? payload
 }
 
+// LL6：後端 LayerResult 只有 layer/score/weight/detail 欄位，從來沒有
+// label/name——先前這裡的 item.label || item.name 一定是 undefined，
+// 永遠落回位置性的 labels 陣列。真實回傳順序是 media_source/cofacts/
+// content_quality/cross_validation/timeliness，跟這裡原本寫死的
+// ['來源可信度','文本一致性','事實交叉驗證','情緒偏誤','時間有效性'] 對不
+// 上——cofacts 查核分數被標成「文本一致性」、content_quality 被標成
+// 「事實交叉驗證」、cross_validation 被標成後端根本沒有的「情緒偏誤」。
+// 改用跟 NewsCheckerView 一致、依真實 layer 欄位查表的做法。
+const LAYER_LABELS = {
+  media_source: '來源可信度',
+  cofacts: 'Cofacts 查核',
+  content_quality: '內容特徵',
+  cross_validation: '交叉驗證',
+  timeliness: '時效性',
+}
+
 function normalizeCredibilityResult(payload) {
   const overallScore = normalizePercent(payload?.overall_score ?? payload?.score ?? payload?.overallScore)
   const verdict = payload?.verdict || (overallScore >= 75 ? '高可信' : overallScore >= 50 ? '待確認' : '高風險')
@@ -164,13 +180,10 @@ function normalizeCredibilityResult(payload) {
         ? Object.entries(payload.layer_scores).map(([label, score]) => ({ label, score }))
         : []
 
-  const labels = ['來源可信度', '文本一致性', '事實交叉驗證', '情緒偏誤', '時間有效性']
-  const layers = (layersSource.length ? layersSource : labels.map(label => ({ label, score: overallScore })))
-    .slice(0, 5)
-    .map((item, index) => ({
-      label: item.label || item.name || labels[index] || `層級 ${index + 1}`,
-      score: normalizePercent(item.score ?? item.value),
-    }))
+  const layers = layersSource.slice(0, 5).map((item, index) => ({
+    label: LAYER_LABELS[item.layer] || item.label || item.name || `層級 ${index + 1}`,
+    score: normalizePercent(item.score ?? item.value),
+  }))
 
   return { overallScore, verdict, layers }
 }

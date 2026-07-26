@@ -107,8 +107,15 @@ function goToStock(symbol) {
   router.push(`/stocks/${symbol}`)
 }
 
+// LL7：textarea 的 Enter 快捷鍵先前沒有跟送出按鈕一樣檢查 loading，連續
+//按兩次 Enter 會在同一支 20~60 秒的 AI 查詢還在飛時就疊加發出下一次請求
+// ——較舊、較慢的那次可能在較新的之後才 resolve，把剛編輯過的新查詢結果
+// 蓋回舊的。用遞增 token 擋掉過期回應，同時在最前面就擋掉重複觸發。
+let requestToken = 0
+
 async function runQuery(expand = false) {
-  if (!query.value.trim()) return
+  if (!query.value.trim() || loading.value) return
+  const token = ++requestToken
   loading.value = true
   error.value = ''
   try {
@@ -118,12 +125,14 @@ async function runQuery(expand = false) {
       body: JSON.stringify({ query: query.value.trim(), expand }),
     })
     const json = await res.json()
+    if (token !== requestToken) return
     if (!res.ok || !json.success) throw new Error(json.detail || '查詢失敗')
     result.value = json.data
   } catch (e) {
+    if (token !== requestToken) return
     error.value = e?.message || '查詢失敗'
   } finally {
-    loading.value = false
+    if (token === requestToken) loading.value = false
   }
 }
 
