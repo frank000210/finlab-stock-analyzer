@@ -136,7 +136,7 @@ footer{ margin-top:36px; font-size:0.78rem; color:var(--ink-faint); text-align:c
 
 <header class="top">
   <h1 class="serif">finlab-stock-analyzer 改善紀錄</h1>
-  <p class="subtitle">自主循環優化 A → II 系列，逐項列出改善日期（取自 git commit 時間戳）與項目說明。日期新到舊排列。</p>
+  <p class="subtitle">自主循環優化 A → JJ 系列，逐項列出改善日期（取自 git commit 時間戳）與項目說明。日期新到舊排列。</p>
   <div class="stats">
     <div class="stat"><b class="mono" id="stat-items">–</b><span>已完成項目</span></div>
     <div class="stat"><b class="mono" id="stat-series">–</b><span>批次系列</span></div>
@@ -161,7 +161,7 @@ footer{ margin-top:36px; font-size:0.78rem; color:var(--ink-faint); text-align:c
 
 <script>
 const DATA = [
-{date:'進行中', range:'JJ1–JJ10', inProgress:true, title:'類股輪動 DoS、警報競態、社群熱度硬化、前端過期回應修復（尚在出貨驗證中）',
+{date:'2026-07-26 15:52', range:'JJ1–JJ10', title:'類股輪動 DoS、警報競態、社群熱度硬化、前端過期回應修復',
  summary:'3 個平行稽核 agent 掃描後，7/10 項親自逐行讀 code 直接驗證（其餘 3 項為套用既有已驗證過的修法模式，如 II5 的 symbols 上限、requestToken 防護）。審查中把「完整驗證身分」的範圍縮小為「加上頻率限制」——完整驗證 user-identify 端點的 email 需要改動登入流程本身，超出這輪範圍。',
  items:[
   {code:'JJ1', tag:'warn', text:'graph.py 的 GET /timeline 沒有日期區間上限，get_watchlist_timeline() 是「每個日曆日一次」的迴圈，每次都在事件迴圈 coroutine 上做同步的 O(symbols²) 相關係數運算——start=2000-01-01 這種請求可以讓單一 worker 卡住很長一段時間。補上 180 天上限。'},
