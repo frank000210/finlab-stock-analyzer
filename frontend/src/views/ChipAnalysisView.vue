@@ -109,7 +109,19 @@
       <section v-if="cost" class="card">
         <div class="card-head">
           <h2>主力成本區</h2>
-          <span class="verdict-tag sm" :class="costTagClass">{{ cost.cost_verdict }}</span>
+          <div class="card-head-actions">
+            <span class="verdict-tag sm" :class="costTagClass">{{ cost.cost_verdict }}</span>
+            <button
+              v-if="aiConfigured && cost.cost !== null"
+              class="btn btn-secondary xs ai-btn"
+              type="button"
+              :disabled="costAiLoading"
+              @click="loadCostAiExplain"
+            >
+              <span v-if="costAiLoading" class="spinner sm" aria-hidden="true"></span>
+              {{ costAiLoading ? '分析中…' : (costAiExplain ? '🤖 重新問問AI' : '🤖 問問AI') }}
+            </button>
+          </div>
         </div>
         <div class="cost-grid">
           <div class="cost-metric">
@@ -142,6 +154,31 @@
         </div>
         <p class="cost-desc">{{ cost.cost_description }}</p>
         <p class="cost-desc">{{ cost.conc_description }}</p>
+
+        <!-- 「問問AI」：大戶成本計算公式、逐步試算、5 日可能情境（教育性質，非預測）。
+             使用者主動觸發，不自動載入——每次呼叫有 LLM 成本、需 15~40 秒。 -->
+        <div v-if="aiConfigured && cost.cost !== null" class="ai-explain-panel">
+          <p v-if="costAiError" class="error-text">{{ costAiError }}</p>
+          <p v-if="costAiLoading && !costAiExplain" class="ai-hint muted">
+            AI 正在依這檔股票的實際籌碼數字，說明大戶成本的算法與試算過程，約需 15～40 秒…
+          </p>
+          <p v-else-if="!costAiExplain && !costAiError" class="ai-hint muted">
+            點「問問AI」，用這檔股票的真實數字，讓 AI 白話說明大戶成本怎麼算、算給你看，並用新手聽得懂的話說明籌碼位置常見的解讀情境（非預測）。
+          </p>
+
+          <div v-if="costAiExplain" class="ai-body">
+            <div class="ai-text" v-html="costAiHtml"></div>
+            <div class="ai-note-row">
+              <p class="ai-note muted">
+                {{ costAiExplain.model_note }}　資料日 {{ costAiExplain.as_of }}
+                <span v-if="costAiExplain.cached">（快取結果）</span>
+              </p>
+              <button class="btn xs" type="button" @click="copyCostAiExplain(costAiExplain.explanation)">
+                {{ costAiCopied ? '已複製！' : '📋 複製' }}
+              </button>
+            </div>
+          </div>
+        </div>
       </section>
 
       <!-- ===== 主力同步買 / 融資維持率 ===== -->
@@ -490,6 +527,11 @@ import { createChart } from 'lightweight-charts'
 import { useStockStore } from '../stores/stock.js'
 import { formatYyyymmdd as formatDate } from '../lib/dateFormat'
 import { fetchWithRetry } from '../lib/apiFetch'
+import { useAiStatus } from '../composables/useAiStatus'
+import { renderAiMarkdown } from '../composables/useAiMarkdown'
+import { useClipboard } from '../composables/useClipboard'
+
+const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 
 const route = useRoute()
 const stockStore = useStockStore()
@@ -497,6 +539,33 @@ const symbol = ref(route.params.symbol || stockStore.symbol)
 const loading = ref(false)
 const error = ref('')
 const data = ref(null)
+
+// 大戶（主力）成本「問問AI」：使用者主動觸發，不自動載入，同 W2 AI 摘要的設計原則。
+const { aiConfigured, checkAiConfigured } = useAiStatus()
+const costAiExplain = ref(null)
+const costAiLoading = ref(false)
+const costAiError = ref('')
+const costAiHtml = computed(() => renderAiMarkdown(costAiExplain.value?.explanation))
+const { copied: costAiCopied, copy: copyCostAiExplain } = useClipboard()
+
+async function loadCostAiExplain() {
+  costAiLoading.value = true
+  costAiError.value = ''
+  const sym = symbol.value
+  try {
+    // AI 呼叫本身就慢（15~40 秒），重試只會讓使用者等更久，故不套用重試包裝。
+    const resp = await fetch(`${API_BASE}/api/v1/stocks/${sym}/major-cost/ai-explain`)
+    const payload = await resp.json().catch(() => ({}))
+    if (!resp.ok || !payload?.data) throw new Error(payload?.detail || 'AI 說明產生失敗')
+    if (symbol.value !== sym) return // 產生期間使用者已換股，丟棄過期結果
+    costAiExplain.value = payload.data
+  } catch (e) {
+    if (symbol.value !== sym) return
+    costAiError.value = e instanceof Error ? e.message : 'AI 說明產生失敗'
+  } finally {
+    if (symbol.value === sym) costAiLoading.value = false
+  }
+}
 
 const dist = computed(() => data.value?.distribution || null)
 const major = computed(() => data.value?.major_players || null)
@@ -795,6 +864,9 @@ async function fetchData() {
   const token = ++requestToken
   loading.value = true
   error.value = ''
+  // 換股重新分析時，上一檔的 AI 說明已經對不上新股票的數字，清掉避免誤導。
+  costAiExplain.value = null
+  costAiError.value = ''
   try {
     const res = await fetchWithRetry(`/api/v1/stocks/${symbol.value}/chip-analysis`)
     const json = await res.json()
@@ -825,7 +897,10 @@ watch(() => route.params.symbol, (s) => {
   }
 })
 
-onMounted(fetchData)
+onMounted(() => {
+  checkAiConfigured()
+  fetchData()
+})
 </script>
 
 <style scoped>
@@ -936,6 +1011,28 @@ onMounted(fetchData)
 .ct-price span { position: absolute; top: 16px; left: 50%; transform: translateX(-50%); font-size: 0.68rem; color: var(--text-secondary); white-space: nowrap; }
 @media (prefers-reduced-motion: reduce) { .ct-price { transition: none; } }
 .cost-desc { font-size: 0.84rem; line-height: 1.6; color: var(--text-secondary); margin-top: 6px; }
+
+/* 「問問AI」：大戶成本公式說明 + 逐步試算 + 5 日可能情境 */
+.card-head-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ai-btn { white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; }
+.spinner.sm { width: 12px; height: 12px; border-width: 2px; }
+.ai-explain-panel { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border-color); }
+.error-text { font-size: 0.82rem; color: var(--accent-red); margin: 0; }
+.ai-hint { font-size: 0.8rem; line-height: 1.6; margin: 0; }
+.ai-body { display: flex; flex-direction: column; gap: 8px; }
+.ai-text {
+  font-size: 0.86rem;
+  line-height: 1.85;
+  color: var(--text-secondary);
+  background: var(--bg-well, rgba(148, 163, 184, 0.06));
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 14px 16px;
+}
+.ai-text :deep(strong) { color: var(--text-primary); }
+.ai-note-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.ai-note { font-size: 0.7rem; margin: 0; }
+.btn.xs { padding: 4px 10px; font-size: 0.78rem; }
 
 /* ---- 進階訊號：同步買 / 維持率 ---- */
 .signal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); }

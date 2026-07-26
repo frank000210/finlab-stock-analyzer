@@ -34,6 +34,7 @@ def compute_major_cost(major: dict | None) -> dict | None:
     buy_cost = 0.0
     cum_net = 0.0
     total_vol = 0.0
+    buy_days: list[dict] = []
 
     for dt in dates:
         close = close_map[dt]
@@ -44,6 +45,7 @@ def compute_major_cost(major: dict | None) -> dict | None:
         if net > 0:
             buy_shares += net
             buy_cost += net * close
+            buy_days.append({"date": dt, "close": close, "net": int(net)})
 
     last_close = close_map[dates[-1]]
     cost = round(buy_cost / buy_shares, 2) if buy_shares > 0 else None
@@ -95,4 +97,12 @@ def compute_major_cost(major: dict | None) -> dict | None:
         "conc_verdict": conc_verdict,
         "conc_description": conc_desc,
         "cum_net": int(cum_net),
+        # 以下欄位供「問問 AI」逐步試算說明使用（見 analysis/major_cost_ai.py）：
+        # 只暴露既有計算的中間值，不需要額外抓資料或重算。
+        "days_analyzed": len(dates),
+        "buy_days_count": len(buy_days),
+        "buy_shares": int(buy_shares),
+        "buy_cost": round(buy_cost, 0),
+        "buy_days_sample": buy_days[-8:],
+        "total_vol": int(total_vol),
     }

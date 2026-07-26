@@ -3,7 +3,7 @@
 import asyncio
 import logging
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from ..analysis.chip_distribution import analyze_chip_distribution
 from ..analysis.chip_cost import compute_major_cost
@@ -11,6 +11,7 @@ from ..analysis.chip_signals import compute_sync_buy, compute_margin_ratio
 from ..analysis.chip_health import compute_chip_health
 from ..analysis.day_trade import analyze_day_trade
 from ..analysis.major_players import analyze_major_players
+from ..llm import LLMUnavailable, check_llm_rate_limit, is_llm_configured
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +20,10 @@ router = APIRouter(prefix="/api/v1/stocks", tags=["chip"])
 
 async def _build_chip_analysis(symbol: str, days: int) -> dict:
     """建立完整籌碼分析結果 (含快取)，供完整端點與輕量評分端點共用."""
-    cache_key = f"chip_analysis:v5:{symbol}:{days}"
+    # v6：compute_major_cost() 新增 buy_shares/buy_cost/buy_days_sample 等欄位
+    # （供「問問AI」逐步試算使用）——v5 快取的舊資料沒有這些欄位，沿用舊版
+    # cache_key 會讓 major_cost_ai.py 對 None 值做千分位格式化炸掉。
+    cache_key = f"chip_analysis:v6:{symbol}:{days}"
     try:
         from ..db.cache import get_cache
         cached = await get_cache(cache_key)
@@ -188,4 +192,27 @@ async def get_major_cost(
     except Exception as e:
         logger.exception("get_major_cost failed for %s", symbol)
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/{symbol}/major-cost/ai-explain", dependencies=[Depends(check_llm_rate_limit)])
+async def get_major_cost_ai_explain(
+    symbol: str,
+    days: int = Query(default=90, ge=20, le=365),
+):
+    """大戶（主力）估計成本 AI 說明：公式、逐步試算、5 日可能情境（教育性質，非預測）。
+
+    使用者主動點擊「問問AI」觸發，非頁面自動載入路徑，同 W2 AI 摘要的設計原則。
+    """
+    if not is_llm_configured():
+        raise HTTPException(status_code=503, detail="AI 服務尚未設定")
+    try:
+        from ..analysis.major_cost_ai import explain_major_cost
+        return {"success": True, "data": await explain_major_cost(symbol, days)}
+    except LLMUnavailable as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except Exception as exc:
+        logger.exception("major_cost_ai_explain failed for %s", symbol)
+        raise HTTPException(status_code=502, detail=f"AI 說明產生失敗：{exc}")
 
