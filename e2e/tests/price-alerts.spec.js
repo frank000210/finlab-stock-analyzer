@@ -66,3 +66,77 @@ test('價格警報頁：新增顯示於清單並可刪除', async ({ page }) => 
   await page.locator('.alert-table .del').click()
   await expect(page.locator('.alert-table tbody tr')).toHaveCount(0)
 })
+
+// KK2：JJ4 把 create_alert/delete_alert 從「讀整份→改→整份寫回」改成 Mongo
+// 原子 $push/$pull，但先前沒有測試真的並行打過這兩支端點，沒辦法鎖定原子性
+// 行為本身——只是碰巧沒有並行呼叫，不代表 race 真的修好了。
+
+test('JJ4 回歸：並行新增警報不會互相蓋掉（atomic $push）', async ({ request }) => {
+  const existing = await request.get('/api/v1/risk/alerts')
+  for (const a of (await existing.json()).data.items) {
+    await request.delete(`/api/v1/risk/alerts/${a.id}`)
+  }
+
+  const creates = await Promise.all(
+    Array.from({ length: 10 }, (_, i) =>
+      request.post('/api/v1/risk/alerts', {
+        data: { symbol: '2330', direction: 'above', target_price: 100000 + i, note: `並行測試 ${i}` },
+      })
+    )
+  )
+  expect(creates.every((r) => r.ok())).toBeTruthy()
+  const ids = new Set(await Promise.all(creates.map(async (r) => (await r.json()).data.id)))
+  // 修好前的 read-modify-write race 下，並行寫入可能互相蓋掉，最終筆數會少於 10。
+  expect(ids.size).toBe(10)
+
+  const list = await request.get('/api/v1/risk/alerts')
+  const items = (await list.json()).data.items
+  expect(items.length).toBe(10)
+
+  await Promise.all(items.map((a) => request.delete(`/api/v1/risk/alerts/${a.id}`)))
+})
+
+test('JJ4 回歸：並行刪除警報都確實生效（atomic $pull）', async ({ request }) => {
+  const creates = await Promise.all(
+    Array.from({ length: 8 }, (_, i) =>
+      request.post('/api/v1/risk/alerts', {
+        data: { symbol: '2330', direction: 'above', target_price: 200000 + i },
+      })
+    )
+  )
+  const ids = await Promise.all(creates.map(async (r) => (await r.json()).data.id))
+
+  const deletes = await Promise.all(ids.map((id) => request.delete(`/api/v1/risk/alerts/${id}`)))
+  expect(deletes.every((r) => r.ok())).toBeTruthy()
+
+  const list = await request.get('/api/v1/risk/alerts')
+  const remaining = (await list.json()).data.items
+  expect(ids.every((id) => !remaining.some((a) => a.id === id))).toBeTruthy()
+})
+
+test('新增警報數量達上限（50 筆）會被擋下，刪除不存在的警報回傳 404', async ({ request }) => {
+  test.setTimeout(60_000)
+  const existing = await request.get('/api/v1/risk/alerts')
+  for (const a of (await existing.json()).data.items) {
+    await request.delete(`/api/v1/risk/alerts/${a.id}`)
+  }
+
+  const created = []
+  for (let i = 0; i < 50; i++) {
+    const r = await request.post('/api/v1/risk/alerts', {
+      data: { symbol: '2330', direction: 'above', target_price: 300000 + i },
+    })
+    expect(r.ok()).toBeTruthy()
+    created.push((await r.json()).data.id)
+  }
+
+  const overCap = await request.post('/api/v1/risk/alerts', {
+    data: { symbol: '2330', direction: 'above', target_price: 999999 },
+  })
+  expect(overCap.status()).toBe(400)
+
+  const del404 = await request.delete('/api/v1/risk/alerts/does-not-exist-12345')
+  expect(del404.status()).toBe(404)
+
+  await Promise.all(created.map((id) => request.delete(`/api/v1/risk/alerts/${id}`)))
+})

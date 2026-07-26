@@ -60,3 +60,83 @@ test('Z5：/risk/watchlist-signals 與 /risk/sizing 對同一檔股票的 ATR �
   const impliedAtr = (item.stop_dist_pct / 100) * item.price / 2
   expect(Math.abs(impliedAtr - sizing.atr)).toBeLessThan(Math.max(sizing.atr * 0.05, 0.5))
 })
+
+// KK3：JJ3 幫 analytics.py 的 pageview/user-identify 補上跟 Z6 同一種
+// X-Forwarded-For 分桶節流，但先前沒有測試真的打滿門檻驗證 429 會不會觸發，
+// 也沒驗證這裡的 _get_client_ip 是不是真的跟 Z6 一樣取最右邊那一段。
+test('JJ3 回歸：analytics pageview 端點依 X-Forwarded-For 分桶節流（120 次/10 分鐘）', async ({ request }) => {
+  test.setTimeout(60_000)
+  const ipA = `203.0.113.${Math.floor(Math.random() * 250) + 1}`
+  const ipB = `203.0.113.${Math.floor(Math.random() * 250) + 1}`
+
+  // 最左邊放一個假的偽造值，只有取最右邊那段才會正確分桶到 ipA/ipB。
+  const hitOnce = async (ip) => request.post('/api/v1/analytics/pageview', {
+    data: { page: '/e2e-jj3-test' },
+    headers: { 'X-Forwarded-For': `1.2.3.4, ${ip}` },
+  })
+
+  let last
+  for (let i = 0; i < 120; i++) {
+    last = await hitOnce(ipA)
+  }
+  expect(last.status()).not.toBe(429)
+
+  const over = await hitOnce(ipA)
+  expect(over.status()).toBe(429)
+
+  // 換一個不同的（最右邊）X-Forwarded-For，應該是全新的桶。
+  const otherIp = await hitOnce(ipB)
+  expect(otherIp.status()).not.toBe(429)
+})
+
+// KK4：JJ5 幫 social_buzz.py 的 GET /social-buzz 補上 60 次/10 分鐘的節流，
+// 先前沒有測試真的打滿驗證過。用同一檔股票代號重複打，第一次之後的請求
+// 會命中快取（不會真的重打 PTT/Google/查核中心），測試才跑得快。
+test('JJ5 回歸：social-buzz 端點依 IP 節流（60 次/10 分鐘）', async ({ request }) => {
+  test.setTimeout(90_000)
+  const ip = `203.0.113.${Math.floor(Math.random() * 250) + 1}`
+  const hitOnce = () => request.get('/api/v1/stocks/2330/social-buzz', {
+    headers: { 'X-Forwarded-For': ip },
+  })
+
+  let last
+  for (let i = 0; i < 60; i++) {
+    last = await hitOnce()
+  }
+  expect(last.status()).not.toBe(429)
+
+  const over = await hitOnce()
+  expect(over.status()).toBe(429)
+})
+
+// KK5：JJ1 幫 graph.py 的 GET /timeline 補上 180 天區間上限，先前沒有測試
+// 驗證過——每個日曆日一次的同步 O(symbols²) 運算，超長區間會讓 worker
+// 卡住很長一段時間，是真正的 DoS 風險，值得鎖定回歸。
+test('JJ1 回歸：類股輪動 timeline 端點超過 180 天區間會被擋下', async ({ request }) => {
+  const resp = await request.get(
+    '/api/v1/graph/watchlist/timeline?symbols=2330&start=2020-01-01&end=2020-12-31'
+  )
+  expect(resp.status()).toBe(400)
+})
+
+// KK6：CC3 對 backtest 的 AI 生成運算式與 screener 的自然語言選股端點都補上
+// 200 字的查詢長度上限（避免 LLM 成本被灌爆），但先前只有其中一支（screener，
+// 見 Z6 測試裡故意留空字串繞開真的呼叫 LLM 的手法）有驗證過，backtest 那支
+// 從未測過是否真的套用了同一個上限。
+test('CC3 回歸：AI 生成運算式與自然語言選股端點都擋下超過 200 字的查詢', async ({ request }) => {
+  const longQuery = 'A'.repeat(201)
+  // 用隨機測試 IP 避開跟其他 AI 功能測試共用同一把 LLM per-IP 節流額度。
+  const ip = `203.0.113.${Math.floor(Math.random() * 250) + 1}`
+
+  const exprResp = await request.post('/api/v1/backtest/generate-expression', {
+    data: { query: longQuery },
+    headers: { 'X-Forwarded-For': ip },
+  })
+  expect(exprResp.status()).toBe(400)
+
+  const screenerResp = await request.post('/api/v1/screener/query', {
+    data: { query: longQuery },
+    headers: { 'X-Forwarded-For': ip },
+  })
+  expect(screenerResp.status()).toBe(400)
+})

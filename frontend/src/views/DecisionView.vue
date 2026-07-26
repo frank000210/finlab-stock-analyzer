@@ -525,7 +525,7 @@ async function loadDashboard(force = false) {
     const items = normalizeSignals(payload)
     rawSignals.value = items
 
-    await Promise.allSettled(uniqueSymbols(items.map(item => item.symbol)).map(symbol => hydrateSymbol(symbol, token)))
+    await Promise.allSettled(uniqueSymbols(items.map(item => item.symbol)).map(symbol => hydrateSymbol(symbol, token, force)))
     if (token !== requestToken) return
     lastFetchedAt.value = new Date()
   } catch (error) {
@@ -536,12 +536,16 @@ async function loadDashboard(force = false) {
   }
 }
 
-async function hydrateSymbol(symbol, token) {
+// KK1：fetchMajorCost/fetchChipScore 原本一律優先讀 costs/healths 裡的既有值，
+// 一旦某檔股票第一次抓到資料後就永久不再重抓——不管是「立即更新」按鈕還是
+// 60 秒自動輪詢，之後每次都只是原地回傳同一份舊資料，主力成本／籌碼分數
+// 實質上停在第一次載入當下，不會真的更新。force 為 true 時略過快取直接重抓。
+async function hydrateSymbol(symbol, token, force = false) {
   const [profileResult, historyResult, costResult, healthResult] = await Promise.allSettled([
     fetchProfile(symbol),
     fetchHistory(symbol),
-    fetchMajorCost(symbol),
-    fetchChipScore(symbol),
+    fetchMajorCost(symbol, force),
+    fetchChipScore(symbol, force),
   ])
   if (token !== requestToken) return
 
@@ -574,8 +578,8 @@ async function hydrateSymbol(symbol, token) {
   }
 }
 
-async function fetchMajorCost(symbol) {
-  if (costs.value[symbol]) return costs.value[symbol]
+async function fetchMajorCost(symbol, force = false) {
+  if (!force && costs.value[symbol]) return costs.value[symbol]
   try {
     const payload = await apiGet(`/api/v1/stocks/${symbol}/major-cost`)
     // apiGet unwraps `.data`; when data is null it falls back to the wrapper, so validate shape
@@ -586,8 +590,8 @@ async function fetchMajorCost(symbol) {
   }
 }
 
-async function fetchChipScore(symbol) {
-  if (healths.value[symbol]) return healths.value[symbol]
+async function fetchChipScore(symbol, force = false) {
+  if (!force && healths.value[symbol]) return healths.value[symbol]
   try {
     const payload = await apiGet(`/api/v1/stocks/${symbol}/chip-score`)
     // apiGet unwraps `.data`; validate shape before使用
