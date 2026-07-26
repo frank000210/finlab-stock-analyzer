@@ -136,7 +136,7 @@ footer{ margin-top:36px; font-size:0.78rem; color:var(--ink-faint); text-align:c
 
 <header class="top">
   <h1 class="serif">finlab-stock-analyzer 改善紀錄</h1>
-  <p class="subtitle">自主循環優化 A → KK 系列，逐項列出改善日期（取自 git commit 時間戳）與項目說明。日期新到舊排列。</p>
+  <p class="subtitle">自主循環優化 A → LL 系列，逐項列出改善日期（取自 git commit 時間戳）與項目說明。日期新到舊排列。</p>
   <div class="stats">
     <div class="stat"><b class="mono" id="stat-items">–</b><span>已完成項目</span></div>
     <div class="stat"><b class="mono" id="stat-series">–</b><span>批次系列</span></div>
@@ -161,6 +161,21 @@ footer{ margin-top:36px; font-size:0.78rem; color:var(--ink-faint); text-align:c
 
 <script>
 const DATA = [
+{date:'2026-07-27 04:11', range:'LL1–LL10', title:'Telegram 推播注入、LLM 節流破口、類股輪動除零當機修復',
+ summary:'3 個平行稽核 agent 掃描後，最嚴重的幾項親自逐行讀 code 直接驗證（含實際 curl 打過確認）。這輪出貨過程本身也很值得記一筆：先後撞到 2 次自己新增的節流門檻設得太緊，把既有測試打壞——每次都是先直接懷疑「是不是我自己的改動」而非預設是外部資料源的雜訊，實測後才確認根因、對症下藥（分別是幫測試補上跟既有慣例一致的假來源 IP、以及把不合理的門檻放寬），而不是回退安全修復本身。',
+ items:[
+  {code:'LL1', tag:'critical', text:'send_telegram() 用 parse_mode="HTML"，POST /risk/notify（從公開、無驗證的投組風險頁就能觸發）把使用者傳入、完全沒跳脫的文字原樣塞進去——任何訪客都能在站主自己的 Telegram 裡插入粗體/可點擊連結，還能無限次觸發推播騷擾。改成純文字（沒有任何呼叫端真的需要 HTML 格式），並補上頻率限制。'},
+  {code:'LL2', tag:'critical', text:'GET /risk/daily-brief、POST /daily-brief/send 都會呼叫 LLM，卻是全站唯一沒有掛 check_llm_rate_limit 的 LLM 端點——每日 LLM 額度是全站共用的單一計數器，沒有節流代表任何人都能無限次呼叫這支公開端點，把當天額度替所有人耗光。補上跟其他 LLM 端點一致的節流。'},
+  {code:'LL3', tag:'warn', text:'POST /notifications/line/test 接受呼叫端任意帶入的 token 且無節流，等於一個公開的「LINE Notify token 有效性驗證機」，能拿來批次驗證大量竊取/猜測來的 token。補上頻率限制，同時保留設定頁「測試我自己的 token」這個合法用途。'},
+  {code:'LL4', tag:'warn', text:'POST /backtest/run 先前完全沒有節流，且 engine.run() 是同步、CPU-bound 的 pandas/numpy 運算，一次請求還會連著過擬合檢查再跑兩次，直接卡住整個 event loop、拖累同一 worker 上所有使用者。丟進 asyncio.to_thread（同 II3 的作法），並補上節流。'},
+  {code:'LL5', tag:'warn', text:'_load_twse_series() 對缺漏/異常的基準指數（TAIEX）收盤價預設回傳 0.0，RRG 計算對這個值直接除，單一一天的壞資料會讓 ZeroDivisionError 中斷整個計算——波及所有類股，不只是資料有問題的那一個。改成排除掉這類日期，不再整段當機。'},
+  {code:'LL6', tag:'warn', text:'資料爬蟲頁的新聞可信度五層分數標籤永遠落回位置性猜測（後端真實欄位只有 layer/score/weight，從沒有 label/name）——實測發現三層對不上：Cofacts 查核分數被標成「文本一致性」、內容特徵被標成「事實交叉驗證」、交叉驗證被標成後端根本不存在的「情緒偏誤」。改成依真實 layer 欄位查表；新聞可信度頁自己也有一個較小版本的同類 bug（對照表少一個底線）一併修掉。'},
+  {code:'LL7', tag:'neutral', text:'AI 選股頁的 Enter 快捷鍵沒有跟送出按鈕一樣檢查 loading，連按兩次 Enter 會在 20~60 秒的 AI 查詢還在飛時疊加發出下一次請求，較舊的回應可能蓋掉剛編輯過的新查詢結果。補上 requestToken 防護。'},
+  {code:'LL8', tag:'neutral', text:'觀察清單頁、多股比較頁的搜尋 debounce 計時器沒有在卸載時清掉，切走頁面若還在 debounce 等待中，逾時觸發的搜尋仍會寫入已卸載元件。'},
+  {code:'LL9', tag:'neutral', text:'ChipAnalysisView/AnalysisView/SocialBuzzView 共用的「AI 呼叫飛行中換股，過期回應要丟棄」防護先前沒有測試真的驗證過——補上真的用慢回應+中途換股鎖定這個行為的測試。'},
+  {code:'LL10', tag:'neutral', text:'季節性分析頁、公開資訊頁先前只有 smoke 測試，從未斷言過實際算出來的數值——補上年度合計加總的自我一致性檢查，以及 DD8 那個物件洩漏/原始英文欄位名 bug 的回歸測試。'},
+ ]},
+
 {date:'2026-07-27 01:28', range:'獨立功能', title:'籌碼分析頁「大戶成本」新增「問問AI」——公式、逐步試算、5 日情境教學',
  summary:'使用者直接指定的功能請求。延續 W2 AI 摘要「LLM 只解讀既有數字、不自行生成」的防幻覺原則：公式試算用的每一筆買超日資料都是網站已經算好的真實數字，AI 只負責把算法講成人話、代入數字示範試算過程。第三部分「5 日可能情境」刻意寫成教育性質的情境說明而非預測——系統提示詞明文禁止目標價與買賣建議、要求結尾附上非投資建議聲明，比既有 AI 摘要功能的措辭再收緊一層，因為服務對象明確是投資新手。live 驗證時意外挖到一個真缺陷：MongoDB 裡舊版快取（改動前寫入）缺少新增的欄位，直接讓格式化字串對 None 值出錯——bump 快取版本號並加上防呆修復。',
  items:[
