@@ -140,7 +140,7 @@ footer{ margin-top:36px; font-size:0.78rem; color:var(--ink-faint); text-align:c
   <div class="stats">
     <div class="stat"><b class="mono" id="stat-items">–</b><span>已完成項目</span></div>
     <div class="stat"><b class="mono" id="stat-series">–</b><span>批次系列</span></div>
-    <div class="stat"><b class="mono">07-11→07-26</b><span>涵蓋日期</span></div>
+    <div class="stat"><b class="mono">07-11→07-27</b><span>涵蓋日期</span></div>
     <div class="stat"><b class="mono" id="stat-critical">–</b><span>關鍵安全修復</span></div>
   </div>
   <div class="search-row">
@@ -161,6 +161,13 @@ footer{ margin-top:36px; font-size:0.78rem; color:var(--ink-faint); text-align:c
 
 <script>
 const DATA = [
+{date:'2026-07-27 01:28', range:'獨立功能', title:'籌碼分析頁「大戶成本」新增「問問AI」——公式、逐步試算、5 日情境教學',
+ summary:'使用者直接指定的功能請求。延續 W2 AI 摘要「LLM 只解讀既有數字、不自行生成」的防幻覺原則：公式試算用的每一筆買超日資料都是網站已經算好的真實數字，AI 只負責把算法講成人話、代入數字示範試算過程。第三部分「5 日可能情境」刻意寫成教育性質的情境說明而非預測——系統提示詞明文禁止目標價與買賣建議、要求結尾附上非投資建議聲明，比既有 AI 摘要功能的措辭再收緊一層，因為服務對象明確是投資新手。live 驗證時意外挖到一個真缺陷：MongoDB 裡舊版快取（改動前寫入）缺少新增的欄位，直接讓格式化字串對 None 值出錯——bump 快取版本號並加上防呆修復。',
+ items:[
+  {code:'—', tag:'good', text:'ChipAnalysisView 主力成本區新增「問問AI」按鈕：白話說明大戶成本公式、用這檔股票真實的法人買超數字逐步試算給你看、並用新手聽得懂的話說明籌碼位置常見的市場解讀情境（非預測，附非投資建議聲明）。新增 GET /api/v1/stocks/{symbol}/major-cost/ai-explain，套用既有的 LLM 節流／快取／未設定時隱藏規則。'},
+  {code:'—', tag:'warn', text:'live 驗證時發現：chip_analysis 的 v5 版 MongoDB 快取沒有這次新增的 buy_shares/buy_cost 欄位，讓新端點的千分位格式化對 None 值噴出例外。修法：cache_key 升版到 v6，並在組 prompt 時加上防呆預設值，避免舊快取殘留時再次炸掉。'},
+ ]},
+
 {date:'2026-07-26 20:35', range:'KK1–KK10', title:'DecisionView 更新失效修復 + JJ 系列補測試',
  summary:'這輪原訂 3 個平行稽核 agent（後端／前端／測試涵蓋率）分頭掃描，但其中後端與前端兩個 agent 在執行中途碰到帳號的 session 額度上限而提前終止，只有測試涵蓋率那個 agent 完整跑完。後端／前端缺口改成親自直接讀 code 補查——包括驗證測試涵蓋率 agent 回報的幾個線索（ChipAnalysisView、DecisionView 的計算值），過程中親自發現 DecisionView 的主力成本／籌碼分數快取永遠不會過期這個真的缺陷。10 項裡有 9 項是補測試，是這輪資源受限下刻意的取捨：與其硬找出 10 個新缺陷勉強湊數，不如把上一輪（JJ）修好但從沒被測試鎖定的行為（頻率限制、原子寫入競態、180 天上限）確實補上回歸測試。',
  items:[
