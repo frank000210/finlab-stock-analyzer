@@ -88,7 +88,12 @@ router = APIRouter(prefix="/api/v1/backtest", tags=["backtest"])
 # worker 上所有其他使用者的請求。門檻比 LLM 節流寬鬆（互動式調參數是正常
 # 使用情境，不像 AI 呼叫有實質成本），只擋真正異常的洗量。
 _BACKTEST_RUN_WINDOW_MINUTES = 10
-_BACKTEST_RUN_MAX_CALLS = 30
+# 30 太緊：event loop 被卡住的核心問題已經被 asyncio.to_thread 解決，這裡
+# 只是防呆用的第二道防線，不像 LLM/Telegram/LINE 那樣有實質外部成本或
+# 騷擾風險。實測時發現光是一輪 e2e 全套件（多個 backtest-*.spec.js 各自
+# 真的打一次、加上互動式手動調參數/掃描模式的正常使用情境）就會逼近甚至
+# 超過 30 次，門檻放寬到只擋真正誇張的高頻洗量。
+_BACKTEST_RUN_MAX_CALLS = 200
 
 
 async def _check_backtest_run_rate_limit(request: Request) -> None:
