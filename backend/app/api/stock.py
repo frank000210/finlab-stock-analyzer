@@ -43,10 +43,13 @@ async def search_stocks(q: str = Query(..., min_length=1)):
         if df.empty:
             return {"success": True, "data": {"items": us_items}}
 
-        # Filter by query
+        # MM5：.str.contains() 預設 regex=True，使用者打 ( ) + * [ 這類一般
+        # 符號會讓 pandas 內部 re.compile 噴 re.error，被下面的 except Exception
+        # 吃掉、悄悄退化成只回內建美股清單，真正的 FinMind 搜尋結果整批消失。
+        # 這裡是單純子字串搜尋，不需要正則語法，改 regex=False 用字面比對。
         mask = (
-            df["stock_id"].str.contains(q, case=False, na=False) |
-            df.get("stock_name", df.get("Industry_category", "")).str.contains(q, case=False, na=False)
+            df["stock_id"].str.contains(q, case=False, na=False, regex=False) |
+            df.get("stock_name", df.get("Industry_category", "")).str.contains(q, case=False, na=False, regex=False)
         )
         filtered = df[mask].head(20)
 

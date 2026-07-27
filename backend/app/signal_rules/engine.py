@@ -20,6 +20,16 @@ from ..ai_agent.signal_generator import (
 
 _SCRIPT_TIMEOUT_SECONDS = 5
 
+# MM2：_rules 先前沒有數量上限，SignalRuleCreate 的 name/description/script
+# 也沒有長度上限——跟已經加過上限的姊妹儲存（CC5 backtest 結果、GG2
+# pending trades、GG3 signal cache）不一致。_persist() 每次異動都把整份
+# 規則清單塞進同一個 Mongo 設定文件，無上限成長除了佔用行程記憶體，還會
+# 逼近 16MB BSON 文件上限、悄悄弄壞往後所有規則的存檔。
+_MAX_RULES = 50
+_MAX_NAME_LENGTH = 100
+_MAX_DESCRIPTION_LENGTH = 1000
+_MAX_SCRIPT_LENGTH = 20_000
+
 # FF1：限制 __builtins__ 字典本身擋不住屬性走訪型的沙箱逃逸——
 # ().__class__.__bases__[0].__subclasses__() 完全不需要呼叫任何 builtin，
 # 純粹靠語言本身的屬性/索引存取就能拿到目前行程載入的所有 object 子類別
@@ -64,16 +74,16 @@ class SignalRule(BaseModel):
 
 
 class SignalRuleCreate(BaseModel):
-    name: str
-    description: str = ""
-    script: str
+    name: str = Field(..., max_length=_MAX_NAME_LENGTH)
+    description: str = Field("", max_length=_MAX_DESCRIPTION_LENGTH)
+    script: str = Field(..., max_length=_MAX_SCRIPT_LENGTH)
     isActive: bool = False
 
 
 class SignalRuleUpdate(BaseModel):
-    name: str | None = None
-    description: str | None = None
-    script: str | None = None
+    name: str | None = Field(None, max_length=_MAX_NAME_LENGTH)
+    description: str | None = Field(None, max_length=_MAX_DESCRIPTION_LENGTH)
+    script: str | None = Field(None, max_length=_MAX_SCRIPT_LENGTH)
     isActive: bool | None = None
 
 
@@ -170,6 +180,8 @@ class SignalRuleEngine:
         return sorted(self._rules.values(), key=lambda item: item.createdAt)
 
     async def create_rule(self, payload: SignalRuleCreate) -> SignalRule:
+        if len(self._rules) >= _MAX_RULES:
+            raise ValueError(f"已達自訂規則上限（{_MAX_RULES} 筆），請先刪除不需要的規則")
         now = datetime.utcnow()
         rule = SignalRule(
             id=str(uuid4()),

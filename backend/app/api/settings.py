@@ -2,7 +2,7 @@
 
 import logging
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from typing import Optional
 
@@ -11,6 +11,30 @@ from ..crawler import FinMindClient
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/settings", tags=["settings"])
+
+# MM4：跟 LL3（notifications.py 的 line/test）同一種漏洞——這支端點讓呼叫端
+# 自己傳入任意 FinMind/LINE token 並回報有效與否，等於公開無驗證的「token
+# 有效性 oracle」，且比 LL3 涵蓋範圍更廣（同時擋 FinMind 跟 LINE 兩種）。
+# 合法用途（設定頁「驗證」按鈕）需要接受任意 token，不能直接擋掉，比照
+# LL3 加頻率限制。
+_VALIDATE_TOKEN_WINDOW_MINUTES = 10
+_VALIDATE_TOKEN_MAX_CALLS = 10
+
+
+async def _check_validate_token_rate_limit(request: Request) -> None:
+    from ..api.analytics import _get_client_ip
+    from ..db.cache import increment_rate_limit
+
+    ip = _get_client_ip(request)
+    try:
+        count = await increment_rate_limit(f"validate_token_rate:{ip}", "rate_limit")
+    except Exception:
+        return
+    if count > _VALIDATE_TOKEN_MAX_CALLS:
+        raise HTTPException(
+            status_code=429,
+            detail=f"驗證請求過於頻繁，請 {_VALIDATE_TOKEN_WINDOW_MINUTES} 分鐘後再試。",
+        )
 
 # GG1：這支端點沒有掛任何驗證（App.vue 讀 google_client_id 給登入前的
 # Google 按鈕用、SettingsView.vue 讀寫 default_period/default_capital，
@@ -116,7 +140,7 @@ class TokenValidationRequest(BaseModel):
     token: str
 
 
-@router.post("/validate-token")
+@router.post("/validate-token", dependencies=[Depends(_check_validate_token_rate_limit)])
 async def validate_token(payload: TokenValidationRequest):
     """Validate a third-party token.(token 由 body 傳入,不走 query string)"""
     token_type, token = payload.token_type, payload.token

@@ -140,3 +140,57 @@ test('CC3 回歸：AI 生成運算式與自然語言選股端點都擋下超過 
   })
   expect(screenerResp.status()).toBe(400)
 })
+
+// MM9：LL1 把 /risk/notify 從完全無節流的公開端點加上 20 次/10 分鐘限制，
+// 且把 Telegram 訊息從 parse_mode=HTML 改回純文字（防注入）——但先前唯一
+// 碰到這支端點的測試（portfolio-heat.spec.js）整支用 page.route mock 掉，
+// 從未真的打過後端，兩項修正都沒有回歸鎖定。本機未設 TELEGRAM_BOT_TOKEN，
+// 故無法驗證訊息本身內容，但節流門檻本身（在真的嘗試送出 Telegram 之前
+// 就先擋）跟「未設定時優雅回應」兩者都能對真實後端驗證。
+test('LL1 回歸：risk/notify 依 IP 節流（20 次/10 分鐘）且未設定 Telegram 時優雅回應', async ({ request }) => {
+  test.setTimeout(60_000)
+  const ip = `203.0.113.${Math.floor(Math.random() * 250) + 1}`
+  const hitOnce = () => request.post('/api/v1/risk/notify', {
+    data: { message: 'e2e LL1 regression <b>test</b>' },
+    headers: { 'X-Forwarded-For': ip },
+  })
+
+  let last
+  for (let i = 0; i < 20; i++) {
+    last = await hitOnce()
+  }
+  expect(last.status()).not.toBe(429)
+  // notify() 直接回傳 {success, sent, error}，不像多數端點包一層 "data"。
+  const body = await last.json()
+  expect(typeof body.sent).toBe('boolean')
+  if (!body.sent) expect(body.error.length).toBeGreaterThan(0)
+
+  const over = await hitOnce()
+  expect(over.status()).toBe(429)
+})
+
+// MM10：LL3 幫 POST /notifications/line/test 加上 10 次/10 分鐘節流，防止
+// 這支端點被當成公開無驗證的「LINE token 有效性 oracle」批次驗證——但這支
+// 端點先前完全沒有任何 e2e 測試覆蓋（grep e2e/tests/ 找不到任何一處），
+// 節流有沒有真的生效、合法的「測試我自己的 token」用途有沒有維持正常運作，
+// 兩者都從未被驗證過。
+test('LL3 回歸：notifications/line/test 依 IP 節流（10 次/10 分鐘）且正常回應', async ({ request }) => {
+  test.setTimeout(60_000)
+  const ip = `203.0.113.${Math.floor(Math.random() * 250) + 1}`
+  const hitOnce = () => request.post('/api/v1/notifications/line/test', {
+    data: { token: 'e2e-fake-token-for-mm10-regression' },
+    headers: { 'X-Forwarded-For': ip },
+  })
+
+  let last
+  for (let i = 0; i < 10; i++) {
+    last = await hitOnce()
+  }
+  // 假 token 預期回 400（驗證失敗，見 test_line_notification 的
+  // HTTPException(400, "LINE notification failed...")），不是被節流擋下的
+  // 429——確認節流本身沒有誤傷合法的「測試我自己的 token」用途。
+  expect(last.status()).toBe(400)
+
+  const over = await hitOnce()
+  expect(over.status()).toBe(429)
+})

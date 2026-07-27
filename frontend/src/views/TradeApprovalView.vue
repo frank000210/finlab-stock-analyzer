@@ -81,15 +81,22 @@ const logMsg = ref('')
 
 onMounted(loadTrades)
 
+// MM8：快速連續切換狀態分頁時，較慢的舊分頁回應可能晚於新分頁回應才回來。
+// 比照 OverviewView 等頁面既有的 requestToken 慣例。
+let requestToken = 0
+
 watch(selectedStatus, async () => {
   await loadTrades()
 })
 
 async function loadTrades() {
+  const token = ++requestToken
   try {
     const payload = await apiRequest(`/api/v1/trade/pending?status=${selectedStatus.value}`)
+    if (token !== requestToken) return
     trades.value = normalizeTrades(payload)
   } catch {
+    if (token !== requestToken) return
     trades.value = []
   }
 }

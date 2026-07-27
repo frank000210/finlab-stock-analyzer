@@ -548,7 +548,15 @@ const costAiError = ref('')
 const costAiHtml = computed(() => renderAiMarkdown(costAiExplain.value?.explanation))
 const { copied: costAiCopied, copy: copyCostAiExplain } = useClipboard()
 
+// MM6：原本用 symbol.value !== sym 判斷是否過期——但 finally 裡也用同一個
+// 條件才會重置 costAiLoading，換股後這個條件永遠不成立，costAiLoading 卡在
+// true 再也不會變回 false，問問AI 按鈕從此對任何股票都永久停用。改用獨立
+// 遞增 token（跟頁面主要的 requestToken 分開，避免兩種語意混在一起），
+// 換股時在 fetchData() 裡連同 costAiLoading 一併重置並讓舊 token 失效。
+let costAiToken = 0
+
 async function loadCostAiExplain() {
+  const token = ++costAiToken
   costAiLoading.value = true
   costAiError.value = ''
   const sym = symbol.value
@@ -557,13 +565,13 @@ async function loadCostAiExplain() {
     const resp = await fetch(`${API_BASE}/api/v1/stocks/${sym}/major-cost/ai-explain`)
     const payload = await resp.json().catch(() => ({}))
     if (!resp.ok || !payload?.data) throw new Error(payload?.detail || 'AI 說明產生失敗')
-    if (symbol.value !== sym) return // 產生期間使用者已換股，丟棄過期結果
+    if (token !== costAiToken) return // 產生期間使用者已換股/重新觸發，丟棄過期結果
     costAiExplain.value = payload.data
   } catch (e) {
-    if (symbol.value !== sym) return
+    if (token !== costAiToken) return
     costAiError.value = e instanceof Error ? e.message : 'AI 說明產生失敗'
   } finally {
-    if (symbol.value === sym) costAiLoading.value = false
+    if (token === costAiToken) costAiLoading.value = false
   }
 }
 
@@ -864,9 +872,12 @@ async function fetchData() {
   const token = ++requestToken
   loading.value = true
   error.value = ''
-  // 換股重新分析時，上一檔的 AI 說明已經對不上新股票的數字，清掉避免誤導。
+  // 換股重新分析時，上一檔的 AI 說明已經對不上新股票的數字，清掉避免誤導；
+  // 讓舊 costAiToken 失效並重置 costAiLoading，避免問問AI 按鈕卡在停用狀態（MM6）。
   costAiExplain.value = null
   costAiError.value = ''
+  costAiLoading.value = false
+  ++costAiToken
   try {
     const res = await fetchWithRetry(`/api/v1/stocks/${symbol.value}/chip-analysis`)
     const json = await res.json()

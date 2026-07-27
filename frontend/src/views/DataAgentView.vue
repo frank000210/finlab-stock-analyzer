@@ -109,6 +109,11 @@ const overallColor = computed(() => scoreColor(credibilityResult.value?.overallS
 
 onMounted(loadCrawledData)
 
+// MM8：快速連續切換來源分頁時，較慢的舊分頁回應可能晚於新分頁回應才回來，
+// 沒有防護的話畫面會顯示新分頁但資料其實是舊分頁的。比照 OverviewView 等
+// 頁面既有的 requestToken 慣例。
+let requestToken = 0
+
 watch(selectedSource, async () => {
   await loadCrawledData()
 })
@@ -128,11 +133,14 @@ async function submitCredibilityCheck() {
 }
 
 async function loadCrawledData() {
+  const token = ++requestToken
   try {
     const source = selectedSource.value === 'ALL' ? '' : selectedSource.value
     const payload = await apiRequest(`/api/v1/news/crawled-data?source=${encodeURIComponent(source)}&limit=50`, {}, { retry: true })
+    if (token !== requestToken) return
     crawledItems.value = normalizeCrawledItems(payload)
   } catch {
+    if (token !== requestToken) return
     crawledItems.value = []
   }
 }

@@ -40,6 +40,10 @@ class NotifyReq(BaseModel):
     message: str
 
 
+# MM3：/correlation 跟 graph.py(II5)/rotation.py(JJ9) 同款的 symbols 上限缺口。
+_MAX_CORRELATION_SYMBOLS = 100
+
+
 @router.post("/notify", dependencies=[Depends(_check_notify_rate_limit)])
 async def notify(req: NotifyReq):
     """把前端組好的風險摘要透過 Telegram 推播（需設定 TELEGRAM_BOT_TOKEN/CHAT_ID）。"""
@@ -770,6 +774,10 @@ async def portfolio_correlation(
     ]
     if len(syms) < 2:
         raise HTTPException(status_code=400, detail="至少需要 2 檔股票才能計算相關性")
+    # MM3：跟 graph.py(II5)/rotation.py(JJ9)/ai_agent.py(FF4) 一樣的缺口——
+    # 這裡少了上限，過長的 symbols 會餵進無上限的並行抓價 + O(n^2) 相關矩陣。
+    if len(syms) > _MAX_CORRELATION_SYMBOLS:
+        raise HTTPException(status_code=400, detail=f"股票代碼數量不可超過 {_MAX_CORRELATION_SYMBOLS} 檔。")
 
     end = date.today()
     start = end - timedelta(days=lookback_days + 15)

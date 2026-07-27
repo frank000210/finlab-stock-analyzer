@@ -31,6 +31,8 @@
         </div>
       </header>
 
+      <div v-if="loadError" class="login-error">{{ loadError }}</div>
+
       <!-- Stats Cards -->
       <div class="stats-grid">
         <div class="stat-card">
@@ -192,6 +194,10 @@ import { useAuthStore } from '../stores/auth.js'
 
 const authStore = useAuthStore()
 const loginError = ref('')
+// MM7：loadStats/loadLogs/loadPageviews/loadLlmUsage/loadSettings/loadAdmins
+// 先前都是空的 catch {}，網路/解析失敗時畫面會跟「本來就沒資料」長得一模
+// 一樣（顯示「尚無紀錄」等空狀態），管理員完全看不出東西是不是真的壞了。
+const loadError = ref('')
 const activeTab = ref('logs')
 const tabs = [
   { key: 'logs', icon: '📋', label: '訪客紀錄' },
@@ -256,7 +262,9 @@ async function loadStats() {
     if (handleAdminAuthFailure(r.status)) return
     const d = await r.json()
     stats.value = d.data || d
-  } catch {}
+  } catch {
+    loadError.value = '統計數字載入失敗，請重新整理頁面再試'
+  }
 }
 
 async function loadLogs() {
@@ -266,7 +274,9 @@ async function loadLogs() {
     if (handleAdminAuthFailure(r.status)) return
     const d = await r.json()
     logs.value = d.data || d || []
-  } catch {}
+  } catch {
+    loadError.value = '訪客紀錄載入失敗，請重新整理頁面再試'
+  }
 }
 
 async function loadPageviews() {
@@ -275,7 +285,9 @@ async function loadPageviews() {
     if (handleAdminAuthFailure(r.status)) return
     const d = await r.json()
     pageviewMap.value = d || {}
-  } catch {}
+  } catch {
+    loadError.value = '瀏覽統計載入失敗，請重新整理頁面再試'
+  }
 }
 
 async function loadLlmUsage() {
@@ -284,7 +296,9 @@ async function loadLlmUsage() {
     if (handleAdminAuthFailure(r.status)) return
     const d = await r.json()
     if (d.success) llmUsage.value = d.data
-  } catch {}
+  } catch {
+    loadError.value = 'AI 用量載入失敗，請重新整理頁面再試'
+  }
 }
 
 async function loadSettings() {
@@ -301,7 +315,9 @@ async function loadSettings() {
     telegramToken.value = data.telegram_bot_token || ''
     telegramChatId.value = data.telegram_chat_id || ''
     lineToken.value = data.line_token || ''
-  } catch {}
+  } catch {
+    loadError.value = '系統設定載入失敗，請重新整理頁面再試'
+  }
 }
 
 async function loadAdmins() {
@@ -310,7 +326,9 @@ async function loadAdmins() {
     if (handleAdminAuthFailure(r.status)) return
     const d = await r.json()
     adminEmails.value = d.data || d || []
-  } catch {}
+  } catch {
+    loadError.value = '管理員清單載入失敗，請重新整理頁面再試'
+  }
 }
 
 async function addSetting() {
