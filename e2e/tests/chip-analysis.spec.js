@@ -55,6 +55,7 @@ const EXPLAIN = {
     '**③ 股價之後可能的情境（僅供參考，非預測）**：現價貼近成本區，市場上常見的解讀是多空拉鋸，實際走勢可能因各種原因而不同，不構成投資建議。',
   as_of: '2026-07-27',
   model_note: '由 AI 依網站已計算好的大戶成本數據生成說明；所有數字均來自網站計算結果，AI 僅負責解讀與教學，不構成投資建議。',
+  prompt: { system: '你是台股籌碼分析教學助理…', user: '股票代碼：2330\n分析區間：近 90 個交易日…' },
   cached: false,
 }
 
@@ -96,6 +97,19 @@ test('籌碼分析頁：主力成本區「問問AI」需手動觸發，點擊後
   // markdown 粗體有被渲染成 <strong>
   await expect(costSection.locator('.ai-text strong').first()).toContainText('大戶成本怎麼算')
   await expect(costSection).toContainText('不構成投資建議')
+
+  // MM 後續反饋：秀出的資訊除了 AI 回覆外，也要能看到送給 AI 的提示詞本身
+  // （透明度），預設收合、點開才顯示，不佔用一般使用者的畫面空間。
+  const promptDetails = costSection.locator('.ai-prompt-details')
+  await expect(promptDetails).toBeVisible()
+  const promptBlocks = promptDetails.locator('.ai-prompt-text')
+  // details 預設收合：內容仍在 DOM 裡但不可見，展開後才可見。
+  await expect(promptBlocks.first()).not.toBeVisible()
+  await promptDetails.locator('summary').click()
+  await expect(promptBlocks).toHaveCount(2)
+  await expect(promptBlocks.nth(0)).toBeVisible()
+  await expect(promptBlocks.nth(0)).toContainText('籌碼分析教學助理')
+  await expect(promptBlocks.nth(1)).toContainText('股票代碼：2330')
 })
 
 test('籌碼分析頁：AI 服務未設定時「問問AI」按鈕不顯示', async ({ page }) => {

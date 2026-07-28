@@ -113,13 +113,14 @@
             <span class="verdict-tag sm" :class="costTagClass">{{ cost.cost_verdict }}</span>
             <button
               v-if="aiConfigured && cost.cost !== null"
-              class="btn btn-secondary xs ai-btn"
+              class="btn ai-btn"
+              :class="{ 'ai-btn-pulse': !costAiExplain && !costAiLoading }"
               type="button"
               :disabled="costAiLoading"
               @click="loadCostAiExplain"
             >
               <span v-if="costAiLoading" class="spinner sm" aria-hidden="true"></span>
-              {{ costAiLoading ? '分析中…' : (costAiExplain ? '🤖 重新問問AI' : '🤖 問問AI') }}
+              {{ costAiLoading ? '分析中…' : (costAiExplain ? '🤖 重新問問AI' : '🤖 問問AI：公式・試算・情境說明') }}
             </button>
           </div>
         </div>
@@ -177,6 +178,17 @@
                 {{ costAiCopied ? '已複製！' : '📋 複製' }}
               </button>
             </div>
+
+            <!-- 透明度：秀出實際送給 AI 的提示詞，不是只有回覆結果。 -->
+            <details v-if="costAiExplain.prompt" class="ai-prompt-details">
+              <summary>🔍 查看給 AI 的提示詞（System + 這檔股票的實際數字）</summary>
+              <div class="ai-prompt-block">
+                <p class="ai-prompt-label">System Prompt</p>
+                <pre class="ai-prompt-text">{{ costAiExplain.prompt.system }}</pre>
+                <p class="ai-prompt-label">User Prompt</p>
+                <pre class="ai-prompt-text">{{ costAiExplain.prompt.user }}</pre>
+              </div>
+            </details>
           </div>
         </div>
       </section>
@@ -1025,7 +1037,23 @@ onMounted(() => {
 
 /* 「問問AI」：大戶成本公式說明 + 逐步試算 + 5 日可能情境 */
 .card-head-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.ai-btn { white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; }
+/* MM-系列反饋：原本用 .btn-secondary.xs，跟旁邊的判讀標籤大小相近、容易被忽略。
+   改成漸層底色的實心按鈕，未點擊過時加上呼吸光暈吸引注意，回應內容出現後光暈停止。 */
+.ai-btn {
+  white-space: nowrap; display: inline-flex; align-items: center; gap: 7px;
+  background: linear-gradient(135deg, var(--accent-purple, #8b5cf6), var(--accent-cyan, #06b6d4));
+  color: #fff; border: none; font-weight: 700;
+  padding: 9px 18px; font-size: 0.88rem; border-radius: 999px;
+  box-shadow: 0 2px 10px -2px rgba(139, 92, 246, 0.5);
+}
+.ai-btn:hover:not(:disabled) { filter: brightness(1.08); }
+.ai-btn:disabled { opacity: 0.75; cursor: default; }
+.ai-btn-pulse { animation: ai-btn-pulse 2.2s ease-in-out infinite; }
+@keyframes ai-btn-pulse {
+  0%, 100% { box-shadow: 0 2px 10px -2px rgba(139, 92, 246, 0.5), 0 0 0 0 rgba(139, 92, 246, 0.4); }
+  50% { box-shadow: 0 2px 10px -2px rgba(139, 92, 246, 0.5), 0 0 0 7px rgba(139, 92, 246, 0); }
+}
+@media (prefers-reduced-motion: reduce) { .ai-btn-pulse { animation: none; } }
 .spinner.sm { width: 12px; height: 12px; border-width: 2px; }
 .ai-explain-panel { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border-color); }
 .error-text { font-size: 0.82rem; color: var(--accent-red); margin: 0; }
@@ -1044,6 +1072,19 @@ onMounted(() => {
 .ai-note-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
 .ai-note { font-size: 0.7rem; margin: 0; }
 .btn.xs { padding: 4px 10px; font-size: 0.78rem; }
+
+/* 透明度：秀出實際送給 AI 的提示詞 */
+.ai-prompt-details { font-size: 0.78rem; }
+.ai-prompt-details summary { cursor: pointer; color: var(--text-muted); padding: 4px 0; user-select: none; }
+.ai-prompt-details summary:hover { color: var(--text-secondary); }
+.ai-prompt-block { margin-top: 8px; display: flex; flex-direction: column; gap: 6px; }
+.ai-prompt-label { margin: 0; font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.ai-prompt-text {
+  margin: 0; font-family: var(--font-mono); font-size: 0.74rem; line-height: 1.6;
+  color: var(--text-secondary); background: var(--bg-well, rgba(148, 163, 184, 0.06));
+  border: 1px solid var(--border-color); border-radius: 8px; padding: 10px 12px;
+  white-space: pre-wrap; word-break: break-word;
+}
 
 /* ---- 進階訊號：同步買 / 維持率 ---- */
 .signal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); }

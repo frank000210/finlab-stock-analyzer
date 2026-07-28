@@ -76,7 +76,9 @@ async def explain_major_cost(symbol: str, days: int = 90) -> dict:
     from ..db.cache import get_cache, set_cache
     from ..llm import llm_complete
 
-    cache_key = f"major_cost_ai:v1:{symbol}:{days}:{date.today().isoformat()}"
+    # v2：回傳內容新增 prompt 欄位（原始 system/user prompt，供前端「查看提示詞」
+    # 透明度功能顯示），舊版 v1 快取沒有這個欄位，版號一併升級避免舊快取殘留。
+    cache_key = f"major_cost_ai:v2:{symbol}:{days}:{date.today().isoformat()}"
     try:
         cached = await get_cache(cache_key)
         if cached:
@@ -102,6 +104,7 @@ async def explain_major_cost(symbol: str, days: int = 90) -> dict:
         "explanation": text,
         "as_of": dist.get("data_date") or date.today().isoformat(),
         "model_note": "由 AI 依網站已計算好的大戶成本數據生成說明；所有數字均來自網站計算結果，AI 僅負責解讀與教學，不構成投資建議。",
+        "prompt": {"system": SYSTEM_PROMPT, "user": user_prompt},
         "cached": False,
     }
     try:
