@@ -161,6 +161,21 @@ footer{ margin-top:36px; font-size:0.78rem; color:var(--ink-faint); text-align:c
 
 <script>
 const DATA = [
+{date:'2026-08-02 02:23', range:'NN1–NN10', title:'kb-web 知識庫網頁：登入防暴力破解、SSRF 防護、LLM 備援機制修復',
+ summary:'第一次對新建置的 kb-web（知識庫網頁）做自主循環優化，範圍跟先前 AA–MM 系列（主站 finlab-stock-analyzer）不同。盤點時先實際讀過現有程式碼驗證每一項（不是憑空列清單），初稿有一項（domain 欄位格式驗證）在自我審查時因影響力太低被換掉，改成後來發現的真安全問題（NN10 SSRF）。這次還撞上一次真實的維運事故：先前把 sentence-transformers（連帶 torch）加回 kb-web 的 Docker image 修語意搜尋時，在資源有限（US$20/月方案）的自架 K3s 伺服器上把整個叢集擠到離線，波及主站等所有服務——K3s 後來自行恢復，過程中沒有做任何破壞性操作（沒有點重啟/升級伺服器），先跟使用者確認再等待。',
+ items:[
+  {code:'NN1', tag:'critical', text:'/api/login 沒有失敗延遲/鎖定機制——規格書寫了要防暴力破解但從未真的實作，任何人可以無限次猜密碼。補上同一 IP 5 次失敗後鎖定 5 分鐘。'},
+  {code:'NN10', tag:'critical', text:'/api/import/url 讓已登入者指定任意網址，由伺服器代為抓取，沒有擋內網/本機/雲端 metadata 位址——理論上可被用來探測同一台機器上跑的其他內部服務（SSRF）。解析主機名稱後用 ipaddress 檢查，擋掉 private/loopback/link-local/reserved/multicast。'},
+  {code:'NN6', tag:'critical', text:'主模型/備援模型重試機制原本只 catch HTTPException，但 httpx 的網路層例外（逾時、DNS 失敗、連線被拒）不是 HTTPException，會直接變成未攔截的例外、跳過備援機制，使用者只看到不友善的 500。補上 httpx.RequestError 的攔截，正確觸發備援模型。'},
+  {code:'NN2', tag:'warn', text:'/api/ask 沒有每日呼叫上限，而 kb-web 是跟主站共用同一把 OpenCode key——濫用或程式錯誤迴圈會把主站正式環境的 AI 額度一起燒光。用 Mongo 原子 $inc（同 LL2/主站既有手法）加上 kb-web 自己的每日上限。'},
+  {code:'NN4', tag:'warn', text:'檔案上傳沒有大小限制，異常或誤觸的超大檔案會被整個讀進記憶體。加上 20MB 上限。'},
+  {code:'NN3', tag:'neutral', text:'每個請求都重新建立一個 MongoClient，沒有連線池重用，效能浪費。改成處理程序生命週期內的單例（lru_cache）。'},
+  {code:'NN5', tag:'neutral', text:'沒有獨立的 /api/health 健康檢查端點，監控工具只能打 / 混雜前端靜態檔案的可用性判斷。新增免驗證的 /api/health。'},
+  {code:'NN7', tag:'neutral', text:'LLM 呼叫失敗完全沒有伺服器端 log，出問題難排查（主站的 llm/client.py 特意記錄方便除錯，kb-web 沒有比照）。補上狀態碼、截斷內容、空回應原因的記錄。'},
+  {code:'NN8', tag:'neutral', text:'sentence-transformers 語意模型是第一次請求才 lazy load，服務重啟後第一位使用者要多等好幾秒。改成應用程式啟動時（lifespan）就預先載入。'},
+  {code:'NN9', tag:'neutral', text:'前端登入後沒有登出功能，只能手動清 localStorage。導覽列加上登出按鈕。'},
+ ]},
+
 {date:'2026-07-27 04:11', range:'LL1–LL10', title:'Telegram 推播注入、LLM 節流破口、類股輪動除零當機修復',
  summary:'3 個平行稽核 agent 掃描後，最嚴重的幾項親自逐行讀 code 直接驗證（含實際 curl 打過確認）。這輪出貨過程本身也很值得記一筆：先後撞到 2 次自己新增的節流門檻設得太緊，把既有測試打壞——每次都是先直接懷疑「是不是我自己的改動」而非預設是外部資料源的雜訊，實測後才確認根因、對症下藥（分別是幫測試補上跟既有慣例一致的假來源 IP、以及把不合理的門檻放寬），而不是回退安全修復本身。',
  items:[
