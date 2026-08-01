@@ -1,12 +1,17 @@
+import logging
+from datetime import date
+
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from pymongo import ReturnDocument
 from pymongo.database import Database
 
 from ..config import get_settings
 from ..deps import get_db, require_auth
 from knowledge_base.query import search_knowledge
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["ask"])
 
 # OpenCode Go sits behind Cloudflare; the default httpx/Python UA gets
@@ -35,6 +40,30 @@ class AskResponse(BaseModel):
     citations: list[Citation]
 
 
+def _check_and_bump_daily_quota(db: Database) -> None:
+    # NN2: atomic $inc so concurrent requests can't both read the same
+    # under-limit count before either writes back (same race class as the
+    # main app's read-modify-write fix -- see backend/app/llm/client.py).
+    settings = get_settings()
+    key = f"kb_web_llm_calls:{date.today().isoformat()}"
+    try:
+        doc = db.sync_state.find_one_and_update(
+            {"key": key},
+            {"$inc": {"value": 1}},
+            upsert=True,
+            return_document=ReturnDocument.AFTER,
+        )
+        used = doc.get("value", 1) if doc else 1
+    except Exception:
+        logger.warning("Daily quota counter unavailable; allowing call through.")
+        return
+    if used > settings.llm_daily_call_limit:
+        raise HTTPException(
+            status_code=429,
+            detail=f"今日問答次數已達上限（{settings.llm_daily_call_limit} 次），請明日再試。",
+        )
+
+
 async def _complete_once(model: str, system: str, user: str) -> str:
     settings = get_settings()
     url = f"{settings.llm_base_url.rstrip('/')}/chat/completions"
@@ -47,23 +76,33 @@ async def _complete_once(model: str, system: str, user: str) -> str:
             {"role": "user", "content": user},
         ],
     }
-    async with httpx.AsyncClient(timeout=settings.llm_timeout_seconds) as client:
-        resp = await client.post(
-            url,
-            headers={
-                "Authorization": f"Bearer {settings.opencode_api_key}",
-                "Content-Type": "application/json",
-                "User-Agent": _USER_AGENT,
-            },
-            json=payload,
-        )
+    try:
+        async with httpx.AsyncClient(timeout=settings.llm_timeout_seconds) as client:
+            resp = await client.post(
+                url,
+                headers={
+                    "Authorization": f"Bearer {settings.opencode_api_key}",
+                    "Content-Type": "application/json",
+                    "User-Agent": _USER_AGENT,
+                },
+                json=payload,
+            )
+    except httpx.RequestError as exc:
+        # NN6/NN7: network-layer failures (timeout, DNS, connection reset)
+        # are not HTTPException, so without this they'd bypass the
+        # fallback-model retry below and surface as an unhandled 500.
+        logger.warning("LLM request to %s failed: %s", model, exc)
+        raise HTTPException(status_code=502, detail="AI 服務暫時無法連線") from exc
+
     if resp.status_code != 200:
+        logger.warning("LLM upstream %s (%s): %s", resp.status_code, model, resp.text[:300])
         raise HTTPException(status_code=502, detail=f"AI 服務暫時無法使用（上游狀態 {resp.status_code}）")
 
     data = resp.json()
     choices = data.get("choices") or []
     content = (choices[0].get("message", {}).get("content") or "").strip() if choices else ""
     if not content:
+        logger.warning("LLM %s returned empty content (finish_reason=%s)", model, choices[0].get("finish_reason") if choices else None)
         raise HTTPException(status_code=502, detail="AI 回應內容為空")
     return content
 
@@ -72,9 +111,11 @@ async def _complete_with_fallback(system: str, user: str) -> str:
     settings = get_settings()
     try:
         return await _complete_once(settings.llm_model, system, user)
-    except HTTPException:
+    except HTTPException as first_err:
         if not settings.llm_fallback_model or settings.llm_fallback_model == settings.llm_model:
             raise
+        logger.warning("Primary model %s failed (%s), trying fallback %s",
+                       settings.llm_model, first_err.detail, settings.llm_fallback_model)
         return await _complete_once(settings.llm_fallback_model, system, user)
 
 
@@ -87,6 +128,8 @@ async def ask(
     settings = get_settings()
     if not settings.opencode_api_key:
         raise HTTPException(status_code=503, detail="OPENCODE_API_KEY 未設定，問答功能暫時無法使用。")
+
+    _check_and_bump_daily_quota(db)
 
     tags = [payload.domain] if payload.domain else None
     results = search_knowledge(db=db, query_text=payload.question, top_k=6, include_tags=tags, scope="spec")

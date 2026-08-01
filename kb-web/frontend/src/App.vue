@@ -1,12 +1,18 @@
 <script setup>
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 const route = useRoute()
+const router = useRouter()
 
 const navItems = [
   { path: '/', label: 'Notebook 總覽' },
   { path: '/import', label: '資料匯入' },
   { path: '/ask', label: '問答' },
 ]
+
+function logout() {
+  localStorage.removeItem('kb_token')
+  router.push('/login')
+}
 </script>
 
 <template>
@@ -26,6 +32,7 @@ const navItems = [
           {{ item.label }}
         </router-link>
       </nav>
+      <button class="secondary logout-btn" @click="logout">登出</button>
     </div>
   </header>
   <main class="app-main">
@@ -90,6 +97,12 @@ nav a:hover {
 nav a.active {
   color: var(--text);
   background: var(--accent-dim);
+}
+
+.logout-btn {
+  margin-left: auto;
+  padding: 6px 14px;
+  font-size: 13px;
 }
 
 .app-main {

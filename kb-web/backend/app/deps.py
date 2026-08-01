@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from functools import lru_cache
 from typing import Optional
 
 import jwt
@@ -10,10 +11,15 @@ from pymongo.database import Database
 from .config import get_settings
 
 
+@lru_cache
+def _get_client() -> MongoClient:
+    # NN3: one pooled client for the process lifetime instead of opening a
+    # fresh MongoClient (and its connection pool) on every single request.
+    return MongoClient(get_settings().kb_mongo_uri)
+
+
 def get_db() -> Database:
-    settings = get_settings()
-    client = MongoClient(settings.kb_mongo_uri)
-    return client[settings.kb_mongo_db]
+    return _get_client()[get_settings().kb_mongo_db]
 
 
 def require_auth(authorization: Optional[str] = Header(default=None)) -> str:

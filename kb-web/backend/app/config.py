@@ -25,6 +25,10 @@ class Settings(BaseSettings):
     llm_model: str = "minimax-m2.5"
     llm_fallback_model: str = "qwen3.7-plus"
     llm_timeout_seconds: float = 90.0
+    # NN2: kb-web shares the OpenCode key with the main finlab backend, so a
+    # bug or abuse loop here could burn through the account's shared quota.
+    # Cap kb-web's own contribution independently of the main app's limit.
+    llm_daily_call_limit: int = 100
 
     cors_origins: str = "http://localhost:5173"
 
