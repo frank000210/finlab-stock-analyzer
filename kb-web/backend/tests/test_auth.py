@@ -1,0 +1,31 @@
+import os
+
+from fastapi.testclient import TestClient
+
+from app.main import app
+
+client = TestClient(app)
+
+
+def test_login_wrong_password_returns_401():
+    response = client.post("/api/login", json={"password": "wrong"})
+    assert response.status_code == 401
+
+
+def test_login_correct_password_returns_token():
+    response = client.post("/api/login", json={"password": os.environ["KB_WEB_PASSWORD"]})
+    assert response.status_code == 200
+    assert "token" in response.json()
+
+
+def test_protected_route_without_token_returns_401():
+    response = client.get("/api/notebooks")
+    assert response.status_code == 401
+
+
+def test_protected_route_with_cli_token_succeeds():
+    response = client.get(
+        "/api/notebooks",
+        headers={"Authorization": f"Bearer {os.environ['KB_API_TOKEN']}"},
+    )
+    assert response.status_code == 200
