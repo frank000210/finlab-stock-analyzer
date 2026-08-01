@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from functools import lru_cache
 
-from pydantic_settings import BaseSettings
+from pydantic import AliasChoices, Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -11,11 +12,23 @@ class Settings(BaseSettings):
     kb_web_password: str = ""
     kb_api_token: str = ""
     jwt_secret: str = "dev-secret-change-me"
-    anthropic_api_key: str = ""
+
+    # LLM: OpenCode Go, OpenAI-compatible /chat/completions. Same gateway
+    # already used (and proven in production) by the main finlab backend --
+    # see backend/app/llm/client.py. Accepts both env var spellings since
+    # the main app's Zeabur config uses OPENCODE_APIKEY (no underscore)
+    # while local dev conventionally uses OPENCODE_API_KEY.
+    opencode_api_key: str = Field(
+        default="", validation_alias=AliasChoices("OPENCODE_API_KEY", "OPENCODE_APIKEY")
+    )
+    llm_base_url: str = "https://opencode.ai/zen/go/v1"
+    llm_model: str = "minimax-m2.5"
+    llm_fallback_model: str = "qwen3.7-plus"
+    llm_timeout_seconds: float = 90.0
+
     cors_origins: str = "http://localhost:5173"
 
-    class Config:
-        env_file = ".env"
+    model_config = SettingsConfigDict(env_file=".env")
 
     @property
     def cors_origin_list(self) -> list[str]:

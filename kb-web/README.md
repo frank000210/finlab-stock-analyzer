@@ -1,6 +1,6 @@
 # 知識庫網頁 (kb-web)
 
-Vue + FastAPI 網頁，讓知識庫（patent / finlab / 未來更多領域）可以透過網頁匯入資料、並用 Claude 做對話式問答。規格書見 [`docs/08-知識庫網頁規格.md`](../docs/08-知識庫網頁規格.md)。
+Vue + FastAPI 網頁，讓知識庫（patent / finlab / 未來更多領域）可以透過網頁匯入資料、並做對話式問答。問答走 OpenCode Go（`https://opencode.ai/zen/go/v1`，OpenAI 相容 `/chat/completions`），跟主站 `backend/app/llm/client.py` 用同一個閘道，不是直接打 Anthropic API。規格書見 [`docs/08-知識庫網頁規格.md`](../docs/08-知識庫網頁規格.md)。
 
 ## 本機開發
 
@@ -16,7 +16,7 @@ $env:KB_MONGO_DB="knowledge_base"
 $env:KB_WEB_PASSWORD="<選一個密碼>"
 $env:KB_API_TOKEN="<選一個 token>"
 $env:JWT_SECRET="<隨機字串>"
-$env:ANTHROPIC_API_KEY="<你的 Claude API key，留空則問答功能回 503>"
+$env:OPENCODE_API_KEY="<跟主站共用的 OpenCode Go key，留空則問答功能回 503>"
 .\.venv\Scripts\python.exe -m uvicorn app.main:app --port 8090 --reload
 ```
 
@@ -41,7 +41,7 @@ npm run dev
 | `KB_WEB_PASSWORD` | 網頁登入密碼 |
 | `KB_API_TOKEN` | 給 CLI/AI 工具用的獨立 token |
 | `JWT_SECRET` | 簽 session token 用，隨機字串 |
-| `ANTHROPIC_API_KEY` | 問答功能用 |
+| `OPENCODE_API_KEY`（或 `OPENCODE_APIKEY`） | 問答功能用，跟主站共用同一把 OpenCode Go key |
 | `CORS_ORIGINS` | 允許的前端來源，逗號分隔 |
 
 ## CLI / AI 工具怎麼查詢
