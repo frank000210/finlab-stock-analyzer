@@ -1,19 +1,20 @@
+# Build context is kb-web/ (Zeabur service root directory = kb-web).
 # Build frontend
 FROM node:20-alpine AS frontend-build
 WORKDIR /app/frontend
-COPY kb-web/frontend/package.json kb-web/frontend/package-lock.json* ./
+COPY frontend/package.json frontend/package-lock.json* ./
 RUN npm install
-COPY kb-web/frontend/ ./
+COPY frontend/ ./
 RUN npm run build
 
 # Python backend
 FROM python:3.11-slim
 WORKDIR /app
 
-COPY kb-web/backend/requirements.txt ./
+COPY backend/requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY kb-web/backend/ ./backend/
+COPY backend/ ./backend/
 COPY --from=frontend-build /app/frontend/dist ./backend/frontend_dist
 
 ENV PYTHONPATH=/app/backend
