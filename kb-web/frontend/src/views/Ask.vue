@@ -1,6 +1,12 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
+import MarkdownIt from 'markdown-it'
 import api from '../api.js'
+
+// html:false -- any raw HTML in the LLM's answer is escaped to literal
+// text rather than parsed as markup, so a malicious/injected answer can't
+// render arbitrary tags via v-html.
+const md = new MarkdownIt({ html: false, linkify: true, breaks: true })
 
 const domain = ref('')
 const question = ref('')
@@ -9,6 +15,8 @@ const citations = ref([])
 const loading = ref(false)
 const error = ref('')
 const asked = ref(false)
+
+const renderedAnswer = computed(() => md.render(answer.value))
 
 async function ask() {
   error.value = ''
@@ -57,7 +65,7 @@ async function ask() {
 
     <div v-else-if="asked && answer" class="card answer-card">
       <h3>答案</h3>
-      <p class="answer-text">{{ answer }}</p>
+      <div class="answer-text" v-html="renderedAnswer"></div>
       <div v-if="citations.length" class="citations">
         <span class="label" style="margin-bottom: 8px; display: block">引用來源</span>
         <div class="chips">
@@ -83,8 +91,98 @@ async function ask() {
   color: var(--text);
   font-size: 14px;
   line-height: 1.7;
-  white-space: pre-wrap;
   margin-bottom: 16px;
+}
+
+.answer-text :deep(h1),
+.answer-text :deep(h2),
+.answer-text :deep(h3) {
+  color: var(--text);
+  margin: 16px 0 8px;
+}
+
+.answer-text :deep(h1:first-child),
+.answer-text :deep(h2:first-child),
+.answer-text :deep(h3:first-child) {
+  margin-top: 0;
+}
+
+.answer-text :deep(p) {
+  color: var(--text);
+  margin: 0 0 10px;
+}
+
+.answer-text :deep(strong) {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.answer-text :deep(ul),
+.answer-text :deep(ol) {
+  margin: 0 0 10px;
+  padding-left: 20px;
+}
+
+.answer-text :deep(li) {
+  margin-bottom: 4px;
+}
+
+.answer-text :deep(code) {
+  background: var(--surface-2);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-family: var(--mono);
+  font-size: 13px;
+}
+
+.answer-text :deep(pre) {
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  overflow-x: auto;
+  margin: 0 0 10px;
+}
+
+.answer-text :deep(pre code) {
+  background: none;
+  padding: 0;
+}
+
+.answer-text :deep(table) {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0 0 10px;
+  font-size: 13px;
+}
+
+.answer-text :deep(th),
+.answer-text :deep(td) {
+  border: 1px solid var(--border);
+  padding: 6px 10px;
+  text-align: left;
+}
+
+.answer-text :deep(th) {
+  background: var(--surface-2);
+  color: var(--text-dim);
+}
+
+.answer-text :deep(a) {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.answer-text :deep(blockquote) {
+  border-left: 2px solid var(--border);
+  padding-left: 12px;
+  color: var(--text-dim);
+  margin: 0 0 10px;
+}
+
+.answer-text :deep(hr) {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 12px 0;
 }
 
 .chips {
