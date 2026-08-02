@@ -136,11 +136,11 @@ footer{ margin-top:36px; font-size:0.78rem; color:var(--ink-faint); text-align:c
 
 <header class="top">
   <h1 class="serif">finlab-stock-analyzer 改善紀錄</h1>
-  <p class="subtitle">自主循環優化 A → LL 系列，逐項列出改善日期（取自 git commit 時間戳）與項目說明。日期新到舊排列。</p>
+  <p class="subtitle">自主循環優化 A → SS 系列，逐項列出改善日期（取自 git commit 時間戳）與項目說明。日期新到舊排列。</p>
   <div class="stats">
     <div class="stat"><b class="mono" id="stat-items">–</b><span>已完成項目</span></div>
     <div class="stat"><b class="mono" id="stat-series">–</b><span>批次系列</span></div>
-    <div class="stat"><b class="mono">07-11→07-27</b><span>涵蓋日期</span></div>
+    <div class="stat"><b class="mono">07-11→08-02</b><span>涵蓋日期</span></div>
     <div class="stat"><b class="mono" id="stat-critical">–</b><span>關鍵安全修復</span></div>
   </div>
   <div class="search-row">
@@ -161,6 +161,22 @@ footer{ margin-top:36px; font-size:0.78rem; color:var(--ink-faint); text-align:c
 
 <script>
 const DATA = [
+{date:'2026-08-02 23:30', range:'SS1–SS10＋BONUS', title:'自主循環優化：凱利準則、毀滅門檻、處置效應、樣本不足保護、目標R達成、過度自信警示',
+ summary:'以投資界標準心法為準則，盤點 10 項可優化項目，3 輪自我審查後實作。橫跨 MonteCarloView、PortfolioHeatView、JournalView 三個前端元件。修正模擬路徑在觸及毀滅後繼續恢復的邏輯謬誤（SS1）；Portfolio Heat 改用現值而非成本計算部位規模（SS2）；R直方圖改為固定 [-4R,+8R] 區間顯示極端值數量（SS3）；低樣本策略分組顯示⚠警示（SS4）；賠比超過20倍上限防止異常凱利估算（SS5）；新增目標R達成率複盤教練提示（SS6）；市價平倉加二次確認對話框（SS7）；連勝4筆以上觸發過度自信警示（SS8）；蒙地卡羅結果加入凱利最佳/半凱利卡片與清單檢查（SS9）；已平倉表格改為最新在上排列（SS10）。BONUS：修正 cl.map(pnl) 將陣列索引誤傳為 exitPrice 導致累積損益與獲利因子錯誤計算。',
+ items:[
+  {code:'SS1', tag:'warn', text:'蒙地卡羅模擬路徑觸及毀滅門檻後未停止，路徑可繼續「恢復」——低估了毀滅機率的持久性。在迴圈內加入 break，確保觸及毀滅的路徑當場停止，不再繼續交易。'},
+  {code:'SS2', tag:'warn', text:'Portfolio Heat 的部位規模使用成本（entry price）而非現值（current market price）——持倉期間獲利或虧損均會導致 Heat 計算偏離實際。posValue() 改為優先取 p.price（現值），回退 p.entry。'},
+  {code:'SS3', tag:'good', text:'交易日誌 R 直方圖的 x 軸範圍未固定，極端值導致分佈壓縮難以閱讀。改為固定 [-4R, +8R] 16 等分區間，超出範圍的極端值以「←N筆」「N筆→」標示於軸端。'},
+  {code:'SS4', tag:'neutral', text:'byTag 分組統計在樣本 <3 筆時勝率/期望值不具統計意義但未提示。計數欄位加上 ⚠ 標記（淡黃色），並以 muted 樣式顯示不可靠數字，tooltip 說明樣本不足。'},
+  {code:'SS5', tag:'warn', text:'蒙地卡羅的賠比（payoff ratio）在平均虧損趨近零時可無限膨脹，凱利估算失控。加入 Math.min(rawPayoff, 20) 上限，並在超限時顯示警語說明已使用 20 倍上限及原始值。'},
+  {code:'SS6', tag:'good', text:'複盤教練未能偵測「贏了但沒賺夠」的處置效應（砍贏過早）。新增 targetShortfall 計算：有填目標價的獲利交易，若實際獲利 R 低於目標 R 的 75%（樣本≥5），觸發提示。'},
+  {code:'SS7', tag:'neutral', text:'「市價平倉」按鈕點一下即執行，無二次確認——誤觸無法還原。加入 window.confirm() 確認框，顯示現價與股票代號，用戶取消時不執行。'},
+  {code:'SS8', tag:'good', text:'複盤教練可偵測連敗警示，但缺乏連勝過度自信警示。新增追蹤 maxConsecWin，連勝≥4 筆時顯示「連贏後最容易輕敵」教練提示（🔥）；連敗圖示改為 🌊 以示區別。'},
+  {code:'SS9', tag:'good', text:'蒙地卡羅結果無法直觀對應凱利準則建議。新增 kellyOptimal / halfKellyPct computed，在結果區顯示「凱利最佳風險% / 半凱利建議」卡片；清單加入 ✓/✗ 半凱利達標檢查項。'},
+  {code:'SS10', tag:'neutral', text:'交易日誌已平倉表格以開倉日期升序顯示，最新交易沉底——回顧近期交易需捲到最下方。新增 closedTradesSorted（按 exitDate 降序），v-for 改用排序後資料；統計計算仍用原始陣列。'},
+  {code:'BONUS', tag:'critical', text:'cl.map(pnl) 將 Array.prototype.map 的第二參數（索引）誤傳為 exitPrice——導致所有已平倉交易的累積損益顯示為極大負值（如 -4,817,000），獲利因子固定顯示 0.00。改以箭頭函式 cl.map(t => pnl(t)) 封裝，消除索引污染。'},
+ ]},
+
 {date:'2026-08-02 22:00', range:'RR1–RR10', title:'自主循環優化：API 鑑權補齊、計時安全比較、原子操作、async 阻塞修復、Symbol 正規化、棄用 API 更新',
  summary:'盤點 10 項可驗證的真實缺陷，3 輪自我審查後實作。橫跨 6 個後端 API 模組與 3 個前端 Vue 元件：補齊 trade/risk/alerts/sync-watchlist 端點的 admin 驗證並補上前端 authHeaders（RR1–RR3）；kb-web 的同步 PyMongo 呼叫移至執行緒池（RR4）；timing oracle 防護改用 hmac.compare_digest（RR5）；allowed_admin_emails 改用 MongoDB 原子 $addToSet/$pull（RR6）；Google OAuth verify 端點補上 IP 節流（RR7）；kb-web 對話歷史列表加 Pydantic max_length=20 上限（RR8）；social_buzz 快取鍵改用 normalize_symbol 避免 .TW/.TWO 重複快取（RR9）；asyncio.get_event_loop() 換為 Python 3.10+ 標準的 get_running_loop()（RR10）。',
  items:[
