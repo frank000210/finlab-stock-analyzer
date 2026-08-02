@@ -35,6 +35,10 @@
             <div class="rcard"><span>差路徑 (p5) / 好路徑 (p95) <InfoTooltip label="p5 / p95" text="把所有模擬路徑的最終報酬由差到好排序，p5 是最差的 5% 分位（100 條路徑裡第 5 差），p95 是最好的 5% 分位。兩者的落差越大，代表這套系統的結果越不穩定、運氣成分越重。" /></span><strong><span :class="result.p5 >= 0 ? 'up' : 'down'">{{ pct(result.p5) }}</span> / <span class="up">{{ pct(result.p95) }}</span></strong></div>
             <div class="rcard"><span>平均最大回撤</span><strong class="warn">{{ (result.avgMaxDD * 100).toFixed(1) }}%</strong></div>
             <div class="rcard"><span>最差單條回撤</span><strong class="warn">{{ (result.worstDD * 100).toFixed(1) }}%</strong></div>
+            <div class="rcard" :class="riskPct <= halfKellyPct ? 'ok-card' : 'danger'">
+              <span>凱利最佳風險% / 半凱利建議 <InfoTooltip label="凱利公式" text="凱利公式計算長期複利最大化的最佳下注比例。實務上建議用「半凱利」（凱利的一半），避免因估計誤差導致過度下注。" /></span>
+              <strong>{{ (kellyOptimal * 100).toFixed(1) }}% / {{ halfKellyPct.toFixed(1) }}%</strong>
+            </div>
           </div>
 
           <div class="hist">
@@ -50,6 +54,7 @@
 
           <ul class="checklist">
             <li :class="result.ruinProb <= 0.05 ? 'ok' : 'bad'">{{ result.ruinProb <= 0.05 ? '✓' : '✗' }} 破產機率 {{ (result.ruinProb * 100).toFixed(1) }}%（建議 ≤ 5%；太高就把風險% 調低）</li>
+            <li :class="riskPct <= halfKellyPct ? 'ok' : 'bad'">{{ riskPct <= halfKellyPct ? '✓' : '✗' }} 單筆風險 {{ riskPct }}% {{ riskPct <= halfKellyPct ? '≤' : '>' }} 半凱利 {{ halfKellyPct.toFixed(1) }}%（超過半凱利長期會增加殘殺波動、侵蝕複利成長）</li>
           </ul>
           <p class="disclaimer">※ 固定比例下注模擬，隨機序列每次略有不同。本工具僅為風險試算，非投資建議。</p>
         </template>
@@ -91,10 +96,13 @@ function loadFromJournal() {
   const avgWinR = wins.reduce((a, b) => a + b, 0) / wins.length
   const avgLossR = losses.reduce((a, b) => a + b, 0) / losses.length
   winRate.value = Math.round(wins.length / closed.length * 100)
-  payoff.value = Math.round((avgWinR / Math.abs(avgLossR)) * 100) / 100
+  // SS5: 平均虧損極小時賺賠比可達 100+，導致凱利試算出危險大部位，上限 20
+  const rawPayoff = avgWinR / Math.abs(avgLossR)
+  payoff.value = Math.round(Math.min(rawPayoff, 20) * 100) / 100
+  const payoffCapped = rawPayoff > 20 ? `；賺賠比已限制為 20（原始值 ${rawPayoff.toFixed(1)}，虧損樣本極小，建議累積更多資料）` : ''
   journalMsg.value = closed.length < 20
-    ? `已帶入你 ${closed.length} 筆實戰統計（勝率 ${winRate.value}%、賺賠比 ${payoff.value}）；樣本 <20 筆，模擬僅供參考。`
-    : `已帶入你 ${closed.length} 筆實戰統計：勝率 ${winRate.value}%、賺賠比 ${payoff.value}。`
+    ? `已帶入你 ${closed.length} 筆實戰統計（勝率 ${winRate.value}%、賺賠比 ${payoff.value}）；樣本 <20 筆，模擬僅供參考。${payoffCapped}`
+    : `已帶入你 ${closed.length} 筆實戰統計：勝率 ${winRate.value}%、賺賠比 ${payoff.value}。${payoffCapped}`
 }
 
 const edgeText = computed(() => {
@@ -117,6 +125,16 @@ const ruinClass = computed(() => {
   if (!result.value) return ''
   return result.value.ruinProb > 0.05 ? 'danger' : 'ok-card'
 })
+
+// SS9: 凱利公式（二元輸贏模型）f* = w - (1-w)/r，供使用者對照自己設定的單筆風險
+const kellyOptimal = computed(() => {
+  const w = winRate.value / 100
+  const r = payoff.value
+  if (w <= 0 || w >= 1 || r <= 0) return 0
+  return Math.max(0, w - (1 - w) / r)
+})
+// 半凱利百分比（建議實際使用值）
+const halfKellyPct = computed(() => kellyOptimal.value * 50)
 
 function pct(v) { return (v == null || isNaN(v)) ? '—' : (v >= 0 ? '+' : '') + (v * 100).toFixed(1) + '%' }
 
@@ -146,7 +164,9 @@ function run() {
       if (eq > peak) peak = eq
       const dd = (peak - eq) / peak
       if (dd > mdd) mdd = dd
-      if (eq <= ruinLevel) hitRuin = true
+      // SS1: 觸及破產門檻後立即停止——繼續跑會讓固定比例下注「自然復原」，
+      // 使 profitableProb / median / p5 全部被高估。
+      if (eq <= ruinLevel) { hitRuin = true; break }
     }
     finals.push(eq - 1)
     maxDDs.push(mdd)

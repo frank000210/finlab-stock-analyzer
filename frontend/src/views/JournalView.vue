@@ -141,7 +141,7 @@
         <table class="j-table">
           <thead><tr><th>代碼</th><th>方向</th><th>進場</th><th>停損</th><th>出場</th><th>張</th><th>R 倍數</th><th>損益</th><th></th></tr></thead>
           <tbody>
-            <tr v-for="t in closedTrades" :key="t.id">
+            <tr v-for="t in closedTradesSorted" :key="t.id">
               <td class="sym">
                 {{ t.symbol }}<small>{{ t.name && t.name !== t.symbol ? ' ' + t.name : '' }}</small>
                 <span v-if="t.catalyst" class="catalyst-tag" :title="`進場理由：${t.catalyst}`">📝</span>
@@ -172,7 +172,11 @@
             <line :x1="rHist.zeroX" y1="0" :x2="rHist.zeroX" :y2="eqH" class="rh-zero" />
             <rect v-for="(b, i) in rHist.bars" :key="i" :x="b.x" :y="eqH - b.h" :width="b.w" :height="b.h" :class="b.mid >= 0 ? 'bar-up' : 'bar-down'" />
           </svg>
-          <div class="rhist-axis"><span>{{ rHist.min.toFixed(1) }}R</span><span>0</span><span>+{{ rHist.max.toFixed(1) }}R</span></div>
+          <div class="rhist-axis">
+            <span>{{ rHist.lowOutliers ? `←${rHist.lowOutliers}筆 ` : '' }}{{ rHist.min.toFixed(0) }}R</span>
+            <span>0</span>
+            <span>+{{ rHist.max.toFixed(0) }}R{{ rHist.highOutliers ? ` ${rHist.highOutliers}筆→` : '' }}</span>
+          </div>
         </div>
         <div class="an-block">
           <span class="slabel">依型態統計（哪種設定最會賺，就多做那種）</span>
@@ -182,8 +186,9 @@
               <tbody>
                 <tr v-for="g in byTag" :key="g.tag">
                   <td class="sym">{{ g.tag }}</td>
-                  <td>{{ g.count }}</td>
-                  <td>{{ (g.winRate * 100).toFixed(0) }}%</td>
+                  <!-- SS4: 樣本 < 3 筆時統計不顯著，加⚠提示 -->
+                  <td :class="{ 'muted': g.count < 3 }" :title="g.count < 3 ? '樣本不足 3 筆，勝率/期望值不可靠' : ''">{{ g.count }}<span v-if="g.count < 3" class="sample-warn"> ⚠</span></td>
+                  <td :class="g.count < 3 ? 'muted' : ''">{{ (g.winRate * 100).toFixed(0) }}%</td>
                   <td :class="g.expectancyR >= 0 ? 'up' : 'down'">{{ g.expectancyR >= 0 ? '+' : '' }}{{ g.expectancyR.toFixed(2) }}R</td>
                   <td><strong :class="g.totalR >= 0 ? 'up' : 'down'">{{ g.totalR >= 0 ? '+' : '' }}{{ g.totalR.toFixed(2) }}R</strong></td>
                 </tr>
@@ -470,17 +475,24 @@ function stopBreached(t) {
 function closeAtMarket(t) {
   const price = livePrice(t)
   if (price == null) return
+  // SS7: 現價平倉是不可逆操作，需確認避免誤觸
+  if (!window.confirm(`確定用現價 ${fmt(price)} 對 ${t.symbol} 平倉嗎？平倉後無法還原。`)) return
   t._exitInput = price
   closeTrade(t)
 }
 const closedTrades = computed(() => trades.value.filter(t => t.status === 'closed'))
+// SS10: 顯示用的排序版本（出場日降序），不影響所有依賴 closedTrades 的統計
+// computed（stats/byTag/equityPoints 等都各自再排序，不依賴這裡的順序）
+const closedTradesSorted = computed(() =>
+  [...closedTrades.value].sort((a, b) => new Date(b.exitDate || 0) - new Date(a.exitDate || 0))
+)
 
 const stats = computed(() => {
   const cl = closedTrades.value
   const n = cl.length
-  if (!n) return { count: 0, winRate: 0, expectancyR: 0, profitFactor: 0, totalR: 0, totalPnl: 0, maxConsecLoss: 0, avgWinR: 0, avgLossR: 0 }
-  const Rs = cl.map(realizedR)
-  const pnls = cl.map(pnl)
+  if (!n) return { count: 0, winRate: 0, expectancyR: 0, profitFactor: 0, totalR: 0, totalPnl: 0, maxConsecLoss: 0, maxConsecWin: 0, avgWinR: 0, avgLossR: 0 }
+  const Rs = cl.map(t => realizedR(t))
+  const pnls = cl.map(t => pnl(t))
   const wins = Rs.filter(r => r > 0)
   const losses = Rs.filter(r => r <= 0)
   const grossWin = pnls.filter(p => p > 0).reduce((a, b) => a + b, 0)
@@ -491,7 +503,12 @@ const stats = computed(() => {
   // 不去動 closedTrades 本身（避免影響其他依賴它目前順序的地方）。
   const chronoRs = [...cl].sort((a, b) => new Date(a.exitDate || 0) - new Date(b.exitDate || 0)).map(realizedR)
   let maxConsec = 0, cur = 0
-  for (const r of chronoRs) { if (r <= 0) { cur += 1; maxConsec = Math.max(maxConsec, cur) } else cur = 0 }
+  // SS8: 同時追蹤連勝，供「連勝後過度自信」的複盤教練規則使用
+  let maxConsecW = 0, curW = 0
+  for (const r of chronoRs) {
+    if (r <= 0) { cur += 1; maxConsec = Math.max(maxConsec, cur); curW = 0 }
+    else { curW += 1; maxConsecW = Math.max(maxConsecW, curW); cur = 0 }
+  }
   return {
     count: n,
     winRate: wins.length / n,
@@ -500,6 +517,7 @@ const stats = computed(() => {
     totalR: Rs.reduce((a, b) => a + b, 0),
     totalPnl: pnls.reduce((a, b) => a + b, 0),
     maxConsecLoss: maxConsec,
+    maxConsecWin: maxConsecW,
     avgWinR: wins.length ? wins.reduce((a, b) => a + b, 0) / wins.length : 0,
     avgLossR: losses.length ? losses.reduce((a, b) => a + b, 0) / losses.length : 0,
   }
@@ -521,18 +539,30 @@ const { points: equityPolyline, toY: eqToY } = useSparkline(equityPoints, { widt
 const eqZeroY = computed(() => eqToY.value(0))
 
 // R-multiple distribution histogram
+// SS3: 固定顯示範圍 [-4R, +8R] 避免單筆極端 R 把整個直方圖壓扁，超出範圍的
+// 交易計為 outlier 顯示在軸標籤，不影響 bin 分布的可讀性。
+const HIST_R_MIN = -4, HIST_R_MAX = 8
 const rHist = computed(() => {
   const Rs = closedTrades.value.map(realizedR)
   if (!Rs.length) return null
-  const min = Math.min(-1, ...Rs), max = Math.max(1, ...Rs)
+  const min = HIST_R_MIN, max = HIST_R_MAX
+  const lowOutliers = Rs.filter(r => r < min).length
+  const highOutliers = Rs.filter(r => r > max).length
   const bins = 16
-  const range = (max - min) || 1
+  const range = max - min
   const counts = new Array(bins).fill(0)
-  for (const r of Rs) { let idx = Math.floor(((r - min) / range) * bins); if (idx >= bins) idx = bins - 1; if (idx < 0) idx = 0; counts[idx] += 1 }
+  for (const r of Rs) {
+    const clipped = Math.max(min, Math.min(max, r))
+    let idx = Math.floor(((clipped - min) / range) * bins)
+    if (idx >= bins) idx = bins - 1
+    if (idx < 0) idx = 0
+    counts[idx] += 1
+  }
   const maxC = Math.max(...counts, 1)
   const bw = eqW / bins
   return {
-    min, max, zeroX: ((0 - min) / range) * eqW,
+    min, max, lowOutliers, highOutliers,
+    zeroX: ((0 - min) / range) * eqW,
     bars: counts.map((c, i) => ({ x: i * bw, w: Math.max(bw - 1, 1), h: (c / maxC) * eqH, mid: min + (i + 0.5) * (range / bins) })),
   }
 })
@@ -653,6 +683,27 @@ const holdingDisposition = computed(() => {
   return { winHold, lossHold, ratio, winN: winHolds.length, lossN: lossHolds.length }
 })
 
+// SS6: 贏單實際 R vs 目標 R — 偵測是否習慣提前出場而沒到達設定目標
+const targetShortfall = computed(() => {
+  const winsWithTarget = closedTrades.value.filter(t =>
+    realizedR(t) > 0 && t.target != null && Number(t.target) > 0
+  )
+  const paired = winsWithTarget.map(t => {
+    const risk = riskPerShare(t)
+    if (risk <= 0) return null
+    const tR = Math.abs((Number(t.target) - Number(t.entry)) / risk)
+    if (tR <= 0.5) return null  // 目標太接近進場，不計入
+    return { actual: realizedR(t), target: tR }
+  }).filter(Boolean)
+  if (paired.length < 5) return null
+  const avgTargetR = paired.reduce((a, b) => a + b.target, 0) / paired.length
+  const avgActualWinR = paired.reduce((a, b) => a + b.actual, 0) / paired.length
+  if (avgTargetR <= 1) return null
+  const ratio = avgActualWinR / avgTargetR
+  if (ratio >= 0.75) return null  // 達成率 75% 以上算正常
+  return { avgTargetR, avgActualWinR, ratio, count: paired.length }
+})
+
 // E15 複盤教練：純用既有統計（stats/byTag）產生規則式建議，不打任何 API。
 // tone 排序 bad > warn > good > info；最多顯示 6 條，避免資訊過載。
 const coachInsights = computed(() => {
@@ -689,8 +740,25 @@ const coachInsights = computed(() => {
   // 3. 連續虧損過多：情緒最容易在此時被放大成報復性下單
   if (s.maxConsecLoss >= 4) {
     out.push({
-      tone: 'warn', icon: '🔥',
+      tone: 'warn', icon: '🌊',
       text: `最長連續虧損 ${s.maxConsecLoss} 筆。連虧到第 3 筆之後最容易報復性下單、越做越大——建議連虧 3 筆就強制停手一天，冷靜後再上場。`,
+    })
+  }
+
+  // SS8: 連勝後過度自信偵測
+  if (s.maxConsecWin >= 4) {
+    out.push({
+      tone: 'warn', icon: '🔥',
+      text: `最長連續獲利 ${s.maxConsecWin} 筆。連勝後最容易「感覺很好」而輕敵——不自覺放大部位、跳過進場條件、追高進場。建議連勝後仍嚴格對照每筆是否符合原本的進場條件，把連勝視為測試紀律的時刻，而非「我悟了」的訊號。`,
+    })
+  }
+
+  // SS6: 贏單實際 R vs 設定目標 R — 提前出場偵測
+  const ts = targetShortfall.value
+  if (ts) {
+    out.push({
+      tone: 'warn', icon: '🎯',
+      text: `設有目標價的 ${ts.count} 筆獲利交易，平均目標 +${ts.avgTargetR.toFixed(1)}R，實際卻只達到 +${ts.avgActualWinR.toFixed(1)}R（達成率 ${(ts.ratio * 100).toFixed(0)}%）——代表你習慣在到達目標之前提前出場（恐懼回吐獲利）。建議按目標執行或預設分批出場，避免因短期波動砍掉本來可以跑到的獲利。`,
     })
   }
 
@@ -1011,6 +1079,7 @@ onMounted(() => {
 .catalyst-tag { display: inline-block; margin-left: 4px; font-size: 0.72rem; cursor: help; }
 .giveback-tag { display: inline-block; margin-left: 4px; font-size: 0.68rem; color: #f59e0b; white-space: nowrap; cursor: help; }
 .ema-tag { display: inline-block; margin-left: 4px; font-size: 0.68rem; color: #f59e0b; white-space: nowrap; cursor: help; }
+.sample-warn { font-size: 0.7rem; color: #f59e0b; }
 
 .analytics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 8px; }
 @media (max-width: 900px) { .analytics-grid { grid-template-columns: 1fr; } }

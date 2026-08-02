@@ -263,7 +263,9 @@ async function notifyRisk() {
 }
 
 function posShares(p) { return (Number(p.lots) || 0) * 1000 }
-function posValue(p) { return posShares(p) * (Number(p.entry) || 0) }
+// SS2: 部位金額應以現時市值計算，不是進場成本（Entry price）。
+// 用現價 p.price（查價後填入），查不到才退回進場價，避免低估曝險。
+function posValue(p) { return posShares(p) * (Number(p.price) || Number(p.entry) || 0) }
 function posRisk(p) { return posShares(p) * Math.abs((Number(p.entry) || 0) - (Number(p.stop) || 0)) }
 function posRiskPct(p) { return account.value > 0 ? posRisk(p) / account.value * 100 : 0 }
 function posUnreal(p) { return p.price ? posShares(p) * (Number(p.price) - Number(p.entry)) : 0 }
