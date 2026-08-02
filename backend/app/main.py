@@ -192,17 +192,16 @@ app.include_router(feedback_router)
 BUILD_INFO_PATH = Path(__file__).parent / "build_info.json"
 
 
-def _load_build_info() -> dict:
-    # Baked into the image at Docker build time (see Dockerfile). Missing
-    # in local/dev runs that don't go through the Docker build -- that's
-    # fine, the frontend treats a null build_time as "dev environment".
+def _read_build_info_once() -> dict:
+    """AA1: Read once at import time; no per-request I/O."""
     try:
         return json.loads(BUILD_INFO_PATH.read_text(encoding="utf-8"))
     except Exception:
         return {}
 
 
-def _git_commit_hash() -> str | None:
+def _git_commit_hash_once() -> str | None:
+    """AA1: Run git at import time so health_check() is non-blocking."""
     import subprocess
     try:
         result = subprocess.run(
@@ -215,15 +214,18 @@ def _git_commit_hash() -> str | None:
         return None
 
 
+_BUILD_INFO = _read_build_info_once()
+_COMMIT_HASH = _BUILD_INFO.get("commit") or _git_commit_hash_once()
+
+
 @app.get("/api/health")
 async def health_check():
-    build = _load_build_info()
     return {
         "status": "ok",
         "version": settings.app_version,
         "routes": len(app.routes),
-        "build_time": build.get("build_time"),
-        "commit": build.get("commit") or _git_commit_hash(),
+        "build_time": _BUILD_INFO.get("build_time"),
+        "commit": _COMMIT_HASH,
     }
 
 

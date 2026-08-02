@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import logging
 from functools import lru_cache
 
 from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+logger = logging.getLogger(__name__)
 
 
 class Settings(BaseSettings):
@@ -50,4 +53,15 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
-    return Settings()
+    s = Settings()
+    if s.jwt_secret == "dev-secret-change-me":
+        logger.warning(
+            "KB_WEB JWT_SECRET is the insecure default. "
+            "Set JWT_SECRET env var before production deployment."
+        )
+    if not s.opencode_api_key:
+        logger.warning(
+            "OPENCODE_API_KEY / OPENCODE_APIKEY is not set. "
+            "LLM calls will fail until this is configured."
+        )
+    return s

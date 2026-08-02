@@ -1,7 +1,7 @@
 """Admin management API endpoints."""
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Literal, Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
@@ -133,7 +133,8 @@ async def get_logs(
 @router.get("/logs/stats")
 async def get_log_stats(_admin: dict = Depends(require_admin)):
     db = await _get_db()
-    today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+    now_utc = datetime.now(timezone.utc)
+    today_start = now_utc.replace(hour=0, minute=0, second=0, microsecond=0)
     today_visitors = await db.user_logs.distinct(
         "ip",
         {"type": "pageview", "timestamp": {"$gte": today_start}},
@@ -216,7 +217,7 @@ async def create_setting(payload: SettingCreatePayload, _admin: dict = Depends(r
     if existing:
         raise HTTPException(status_code=400, detail=f"Setting '{payload.key}' already exists.")
     await db.settings.insert_one(
-        {"key": payload.key, "value": payload.value, "updated_at": datetime.utcnow()}
+        {"key": payload.key, "value": payload.value, "updated_at": datetime.now(timezone.utc)}
     )
     return {"success": True, "data": {"key": payload.key, "value": payload.value}}
 

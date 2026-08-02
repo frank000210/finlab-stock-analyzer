@@ -56,7 +56,8 @@ def test_ask_returns_answer_with_citations(db):
         "httpx.AsyncClient.post", new_callable=AsyncMock
     ) as mock_post:
         _mock_settings(mock_get_settings)
-        mock_post.return_value = _fake_response()
+        # AA7: answer must include [1] so PP5 citation parsing picks up Widget Guide
+        mock_post.return_value = _fake_response(content="Widgets are small testable things. See [1].")
 
         response = client.post(
             "/api/ask",
@@ -66,12 +67,12 @@ def test_ask_returns_answer_with_citations(db):
 
     assert response.status_code == 200
     body = response.json()
-    assert body["answer"] == "Widgets are small testable things."
+    assert "Widgets are small testable things" in body["answer"]
     # PP7：回應現在包含 steps 和 question_id
     assert "steps" in body
     assert "question_id" in body
     assert len(body["question_id"]) > 0
-    # citations 至少含 Widget Guide（PP5 fallback：模型未用 [N] 時回傳全部）
+    # PP5: [1] 在答案中 → citations 應含 Widget Guide
     assert any(c["title"] == "Widget Guide" for c in body["citations"])
 
 

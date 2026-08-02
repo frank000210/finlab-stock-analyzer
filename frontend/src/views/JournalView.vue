@@ -323,14 +323,22 @@ const openSymbols = computed(() => [...new Set(openTrades.value.map(t => t.symbo
 const livePrices = ref({}) // symbol -> { price, as_of, loading, error }
 const pricesLoading = ref(false)
 
+// AA4: debounce the three openSymbols watchers so a CSV import that adds
+// N positions in a loop doesn't fire N×3 parallel API bursts.
+let _openSymDebounce = null
+function _onOpenSymbolsChange(fn) {
+  clearTimeout(_openSymDebounce)
+  _openSymDebounce = setTimeout(fn, 300)
+}
+
 // 進行中交易的代號組合一變（新增/帶入/刪除），就重新查一次現價。
-watch(openSymbols, () => { fetchLivePricesForOpenTrades() })
+watch(openSymbols, () => { _onOpenSymbolsChange(fetchLivePricesForOpenTrades) })
 
 // N1：波段留倉最怕撞上財報/除息等「地雷日」——當沖不用管這個，因為當天就平倉了。
 // 進行中部位的代號一變就查一次行事曆，7 天內有事件就在該筆旁標警示。
 const EVENT_WARN_DAYS = 7
 const upcomingEvents = ref({}) // symbol -> [{date, type, label, estimated}]
-watch(openSymbols, () => { fetchUpcomingEventsForOpenTrades() })
+watch(openSymbols, () => { _onOpenSymbolsChange(fetchUpcomingEventsForOpenTrades) })
 
 async function fetchUpcomingEventsForOpenTrades() {
   const symbols = [...new Set(openTrades.value.map(t => t.symbol))]
@@ -361,7 +369,7 @@ function nextEvent(t) {
 // 日K實體收盤跌破 8EMA（多單）或站上 8EMA（空單）就是趨勢轉弱的訊號。
 const EMA_PERIOD = 8
 const emaTrend = ref({}) // symbol -> { ema8, lastClose, broken }
-watch(openSymbols, () => { fetchEmaTrendForOpenTrades() })
+watch(openSymbols, () => { _onOpenSymbolsChange(fetchEmaTrendForOpenTrades) })
 
 function computeEma(closes, period) {
   if (closes.length < period) return null
@@ -488,7 +496,7 @@ const stats = computed(() => {
     count: n,
     winRate: wins.length / n,
     expectancyR: Rs.reduce((a, b) => a + b, 0) / n,
-    profitFactor: grossLoss > 0 ? grossWin / grossLoss : (grossWin > 0 ? 99.99 : 0),
+    profitFactor: grossLoss > 0 ? grossWin / grossLoss : (grossWin > 0 ? Infinity : 0),
     totalR: Rs.reduce((a, b) => a + b, 0),
     totalPnl: pnls.reduce((a, b) => a + b, 0),
     maxConsecLoss: maxConsec,
@@ -629,6 +637,7 @@ const stopAdherence = computed(() => {
 const holdingDisposition = computed(() => {
   const cl = closedTrades.value
   const holdDays = (t) => {
+    if (!t.openDate || !t.exitDate) return null  // AA3: guard missing dates
     const o = new Date(t.openDate).getTime(), e = new Date(t.exitDate).getTime()
     if (isNaN(o) || isNaN(e)) return null
     return Math.max(0, Math.round((e - o) / 86400000))
@@ -751,7 +760,7 @@ const coachInsights = computed(() => {
   if (!out.some(x => x.tone === 'bad' || x.tone === 'warn') && s.count >= 10 && s.expectancyR > 0 && s.profitFactor >= 1.5) {
     out.push({
       tone: 'good', icon: '✅',
-      text: `期望值 +${s.expectancyR.toFixed(2)}R、獲利因子 ${s.profitFactor.toFixed(2)}，目前紀律執行得不錯——繼續保持，別因為手癢而破壞已經有效的作法。`,
+      text: `期望值 +${s.expectancyR.toFixed(2)}R、獲利因子 ${s.profitFactor === Infinity ? '∞' : s.profitFactor.toFixed(2)}，目前紀律執行得不錯——繼續保持，別因為手癢而破壞已經有效的作法。`,
     })
   }
 
@@ -759,7 +768,11 @@ const coachInsights = computed(() => {
   return out.sort((a, b) => order[a.tone] - order[b.tone]).slice(0, 6)
 })
 
-function fmt(v) { return (v == null || isNaN(v)) ? '—' : Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }
+function fmt(v) {
+  if (v == null || (typeof v === 'number' && isNaN(v))) return '—'
+  if (v === Infinity) return '∞'
+  return Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
 function fmtInt(v) { return (v == null || isNaN(v)) ? '—' : Math.round(v).toLocaleString('en-US') }
 
 function save() { saveJournal(trades.value) }
@@ -936,11 +949,13 @@ async function importOpenPositions() {
   let added = 0
   for (const p of positions) {
     const symbol = String(p.symbol || '').trim().toUpperCase()
+    const entryN = Number(p.entry), stopN = Number(p.stop)
     if (!symbol || existing.has(symbol)) continue
+    if (!entryN || !stopN || entryN === stopN) continue  // AA6: R=0 would break downstream calcs
     trades.value.unshift({
       id: Date.now() + '-' + Math.random().toString(36).slice(2, 7),
-      symbol, name: p.name || symbol, side: (Number(p.entry) >= Number(p.stop)) ? 'long' : 'short',
-      entry: Number(p.entry), stop: Number(p.stop), target: null,
+      symbol, name: p.name || symbol, side: entryN >= stopN ? 'long' : 'short',
+      entry: entryN, stop: stopN, target: null,
       lots: Math.max(1, Math.floor(Number(p.lots) || 1)),
       openDate: localDateStr(), status: 'open', exit: null, exitDate: null,
     })

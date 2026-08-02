@@ -249,7 +249,8 @@ def _build_numbered_context(passages: list[dict[str, Any]]) -> str:
 
 
 def _parse_citations(answer: str, passages: list[dict[str, Any]]) -> list[Citation]:
-    """PP5：從答案文字解析 [N] 引用。若模型未引用任何段落則回傳全部（向下相容）。"""
+    """PP5：從答案文字解析 [N] 引用。未引用任何段落時回傳空列表（AA7: 移除
+    fallback-all 行為，避免把所有段落誤標為引用來源誤導使用者）。"""
     indices = sorted(set(int(m) for m in re.findall(r'\[(\d+)\]', answer)))
     result: list[Citation] = []
     for idx in indices:
@@ -257,14 +258,6 @@ def _parse_citations(answer: str, passages: list[dict[str, Any]]) -> list[Citati
             doc = passages[idx - 1]["doc"]
             result.append(Citation(
                 index=idx,
-                title=doc.get("title") or doc.get("doc_id", "unknown"),
-                source=doc.get("source_url") or doc.get("relative_path") or doc.get("source_path"),
-            ))
-    if not result and passages:
-        for i, item in enumerate(passages, start=1):
-            doc = item["doc"]
-            result.append(Citation(
-                index=i,
                 title=doc.get("title") or doc.get("doc_id", "unknown"),
                 source=doc.get("source_url") or doc.get("relative_path") or doc.get("source_path"),
             ))

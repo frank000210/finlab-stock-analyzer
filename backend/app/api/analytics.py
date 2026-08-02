@@ -1,11 +1,12 @@
 """Analytics API endpoints backed by MongoDB."""
 
 import logging
-from datetime import datetime
+import re
+from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Request
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, Header, HTTPException, Request
+from pydantic import BaseModel, field_validator
 
 try:
     from ..db.mongodb import get_mongodb
@@ -26,6 +27,22 @@ class UserIdentifyPayload(BaseModel):
     email: str
     name: str
     avatar: Optional[str] = None
+
+    @field_validator("email")
+    @classmethod
+    def _validate_email(cls, v: str) -> str:
+        if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", v.strip()):
+            raise ValueError("invalid email format")
+        if len(v) > 254:
+            raise ValueError("email too long")
+        return v.strip().lower()
+
+    @field_validator("name")
+    @classmethod
+    def _validate_name(cls, v: str) -> str:
+        if len(v.strip()) > 120:
+            raise ValueError("name too long")
+        return v.strip()
 
 
 async def _get_db():
@@ -55,6 +72,15 @@ def _get_client_ip(request: Request) -> str:
 
 async def _insert_user_log(db, payload: dict) -> None:
     await db.user_logs.insert_one(payload)
+
+
+async def _require_admin_token(x_admin_token: str = Header(default="")) -> None:
+    """AA10: Lightweight token gate for read-only analytics endpoints.
+    Uses the same admin secret as the admin panel — no new credential needed."""
+    from ..config.settings import get_settings as _gs
+    expected = _gs().admin_secret
+    if not expected or x_admin_token != expected:
+        raise HTTPException(status_code=401, detail="Admin token required.")
 
 
 # JJ3：這兩支端點完全公開、零驗證，先前也沒有任何頻率限制——一支迴圈
@@ -88,7 +114,7 @@ async def _check_analytics_rate_limit(request: Request) -> None:
 async def track_pageview(payload: PageViewPayload, request: Request):
     await _check_analytics_rate_limit(request)
     db = await _get_db()
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     await db.pageviews.update_one(
         {"page": payload.page},
         {
@@ -112,7 +138,7 @@ async def track_pageview(payload: PageViewPayload, request: Request):
     return {"ok": True, "page": payload.page}
 
 
-@router.get("/pageviews")
+@router.get("/pageviews", dependencies=[Depends(_require_admin_token)])
 async def get_pageviews():
     db = await _get_db()
     pageviews = {}
@@ -121,7 +147,7 @@ async def get_pageviews():
     return pageviews
 
 
-@router.get("/pageviews/{page}")
+@router.get("/pageviews/{page}", dependencies=[Depends(_require_admin_token)])
 async def get_pageview_count(page: str):
     db = await _get_db()
     doc = await db.pageviews.find_one({"page": page}, {"_id": 0, "count": 1})
@@ -141,7 +167,7 @@ async def identify_user(payload: UserIdentifyPayload, request: Request):
             "avatar": payload.avatar,
             "ip": _get_client_ip(request),
             "user_agent": request.headers.get("user-agent", ""),
-            "timestamp": datetime.utcnow(),
+            "timestamp": datetime.now(timezone.utc),
         },
     )
     return {"ok": True, "email": payload.email}
