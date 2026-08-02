@@ -11,6 +11,19 @@
           <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
           使用 Google 登入
         </button>
+        <div class="divider"><span>或</span></div>
+        <div class="direct-login-form">
+          <input
+            v-model="directSecret"
+            type="password"
+            class="secret-input"
+            placeholder="管理員密碼 (ADMIN_SECRET)"
+            @keydown.enter="directLogin"
+          />
+          <button class="direct-login-btn" :disabled="directLogging || !directSecret" @click="directLogin">
+            {{ directLogging ? '登入中…' : '直接登入' }}
+          </button>
+        </div>
         <p class="login-hint">僅限授權帳號 (frank210@gmail.com) 進入</p>
       </div>
     </div>
@@ -429,6 +442,42 @@ async function testNotify(channel) {
   }
 }
 
+const directSecret = ref('')
+const directLogging = ref(false)
+
+async function directLogin() {
+  if (!directSecret.value || directLogging.value) return
+  directLogging.value = true
+  loginError.value = ''
+  try {
+    const API_BASE = import.meta.env.VITE_API_BASE ?? ''
+    const r = await fetch(`${API_BASE}/api/v1/auth/direct-login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ secret: directSecret.value }),
+    })
+    const data = await r.json()
+    if (!r.ok) {
+      loginError.value = data.detail || '密碼錯誤'
+      return
+    }
+    if (data.valid) {
+      authStore.token = data.token
+      authStore.user = { email: data.email, name: data.name, avatar: data.avatar, is_admin: data.is_admin }
+      localStorage.setItem('admin_token', data.token)
+      localStorage.setItem('admin_user', JSON.stringify({ email: data.email, name: data.name, avatar: data.avatar, is_admin: data.is_admin }))
+      directSecret.value = ''
+      await Promise.all([loadStats(), loadLogs(), loadPageviews(), loadLlmUsage(), loadSettings(), loadAdmins()])
+    } else {
+      loginError.value = '密碼錯誤'
+    }
+  } catch {
+    loginError.value = '網路錯誤，請稍後再試'
+  } finally {
+    directLogging.value = false
+  }
+}
+
 function startGoogleLogin() {
   const clientId = window.__GOOGLE_CLIENT_ID__ || ''
   if (!clientId) {
@@ -494,6 +543,25 @@ onMounted(async () => {
 .login-card h2 { margin: 0 0 8px; font-size: 1.5rem; }
 .login-card p { color: var(--text-secondary, #aaa); font-size: 0.9rem; margin-bottom: 24px; }
 .login-hint { font-size: 0.75rem; color: var(--text-muted, #666); margin-top: 16px; }
+
+.divider { display: flex; align-items: center; gap: 10px; margin: 16px 0 12px; color: var(--text-muted, #888); font-size: 0.78rem; }
+.divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: var(--border-color, rgba(255,255,255,0.12)); }
+
+.direct-login-form { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+.secret-input {
+  width: 100%; padding: 10px 14px; border-radius: 10px;
+  border: 1px solid var(--border-color, rgba(255,255,255,0.15));
+  background: var(--surface-secondary, rgba(255,255,255,0.06));
+  color: var(--text-primary, #fff); font-size: 0.9rem; font-family: inherit;
+}
+.secret-input:focus { outline: 2px solid var(--accent-blue, #4f8cff); outline-offset: 1px; }
+.direct-login-btn {
+  width: 100%; padding: 10px; border-radius: 10px; border: none;
+  background: var(--accent-blue, #4f8cff); color: #fff;
+  font-size: 0.9rem; font-weight: 600; cursor: pointer; transition: opacity 0.15s;
+}
+.direct-login-btn:hover:not(:disabled) { opacity: 0.88; }
+.direct-login-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 .login-error { color: #f87171; background: var(--down-soft); border-radius: 8px; padding: 8px 12px; margin-bottom: 16px; font-size: 0.85rem; }
 .google-login-btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 10px;

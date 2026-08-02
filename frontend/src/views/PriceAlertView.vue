@@ -101,7 +101,7 @@
 import { computed, reactive, ref, onMounted } from 'vue'
 import { loadNotificationPrefs } from '../lib/notificationPrefs'
 import { fetchWithRetry } from '../lib/apiFetch'
-import { useAuthStore } from '../stores/authStore'
+import { useAuthStore } from '../stores/auth'
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 const authStore = useAuthStore()

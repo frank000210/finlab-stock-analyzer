@@ -121,7 +121,7 @@ import InfoTooltip from '../components/InfoTooltip.vue'
 import { metricGlossary } from '../lib/metricGlossary'
 import { realizedR, journalWinStats, halfKellyRiskPct, loadJournal, saveJournal, localDateStr, JOURNAL_KEY } from '../lib/tradeMath'
 import { fetchWithRetry } from '../lib/apiFetch'
-import { useAuthStore } from '../stores/authStore'
+import { useAuthStore } from '../stores/auth'
 import { loadLayoutPrefs, saveLayoutPrefs } from '../lib/layoutPrefs'
 import { loadWatchlist } from '../lib/watchlist'
 

@@ -77,7 +77,7 @@ import PageFocusBanner from '../components/PageFocusBanner.vue'
 import { onMounted, ref, watch } from 'vue'
 import { loadJournal, saveJournal, localDateStr } from '../lib/tradeMath'
 import { fetchWithRetry } from '../lib/apiFetch'
-import { useAuthStore } from '../stores/authStore'
+import { useAuthStore } from '../stores/auth'
 
 const authStore = useAuthStore()
 function authHeaders() {

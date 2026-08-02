@@ -44,6 +44,45 @@ class GoogleVerifyPayload(BaseModel):
     id_token: str
 
 
+class DirectLoginPayload(BaseModel):
+    secret: str
+
+
+@router.post("/direct-login")
+async def direct_login(payload: DirectLoginPayload):
+    """ADMIN_SECRET 直接登入（Google OAuth 未設定時的備用方式）。"""
+    import hmac
+    import jwt
+
+    settings = get_settings()
+    if not settings.admin_secret:
+        raise HTTPException(status_code=503, detail="ADMIN_SECRET 尚未設定。")
+
+    if not hmac.compare_digest(payload.secret, settings.admin_secret):
+        raise HTTPException(status_code=401, detail="密碼錯誤。")
+
+    email = settings.default_allowed_admins[0] if settings.default_allowed_admins else ""
+    session_token = jwt.encode(
+        {
+            "email": email,
+            "name": "管理員",
+            "avatar": "",
+            "is_admin": True,
+            "exp": datetime.now(timezone.utc) + timedelta(hours=12),
+        },
+        settings.admin_secret,
+        algorithm="HS256",
+    )
+    return {
+        "valid": True,
+        "is_admin": True,
+        "email": email,
+        "name": "管理員",
+        "avatar": "",
+        "token": session_token,
+    }
+
+
 def _get_secret() -> str:
     return get_settings().admin_secret
 
