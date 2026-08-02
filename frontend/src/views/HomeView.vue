@@ -140,8 +140,33 @@
     </section>
 
     <footer class="version-footer" v-if="versionInfo">
-      <span>版本 v{{ versionInfo.version }}</span>
-      <span v-if="versionInfo.buildTimeText">· 更新於 {{ versionInfo.buildTimeText }}</span>
+      <span class="vf-item">
+        <span class="vf-label">版本</span>
+        <span class="vf-value">v{{ versionInfo.version }}</span>
+      </span>
+      <span class="vf-sep" aria-hidden="true">·</span>
+      <span class="vf-item">
+        <span class="vf-label">Commit</span>
+        <span class="vf-value vf-mono">{{ versionInfo.commit || '—' }}</span>
+      </span>
+      <span class="vf-sep" aria-hidden="true">·</span>
+      <span class="vf-item">
+        <span class="vf-label">API 端點</span>
+        <span class="vf-value">{{ versionInfo.routes }}</span>
+      </span>
+      <template v-if="versionInfo.buildTimeText">
+        <span class="vf-sep" aria-hidden="true">·</span>
+        <span class="vf-item">
+          <span class="vf-label">更新於</span>
+          <span class="vf-value">{{ versionInfo.buildTimeText }}</span>
+        </span>
+      </template>
+      <template v-else>
+        <span class="vf-sep" aria-hidden="true">·</span>
+        <span class="vf-item vf-env-dev">
+          <span class="vf-dot" aria-hidden="true">●</span> 開發環境
+        </span>
+      </template>
     </footer>
   </div>
 </template>
@@ -395,6 +420,8 @@ async function loadVersionInfo() {
     const data = await res.json()
     versionInfo.value = {
       version: data?.version || '—',
+      commit: data?.commit || null,
+      routes: data?.routes ?? null,
       buildTimeText: data?.build_time ? formatBuildTime(data.build_time) : null,
     }
   } catch {
@@ -1074,11 +1101,57 @@ onBeforeUnmount(() => {
 .version-footer {
   display: flex;
   justify-content: center;
-  gap: 8px;
+  align-items: center;
+  gap: 10px;
   flex-wrap: wrap;
-  color: var(--text-secondary);
+  color: var(--text-muted, var(--text-secondary));
   font-size: 0.78rem;
+  opacity: 0.75;
+  padding: 4px 0 2px;
+  user-select: none;
+}
+
+.vf-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.vf-label {
+  color: var(--text-muted, var(--text-secondary));
   opacity: 0.7;
+}
+
+.vf-value {
+  color: var(--text-secondary);
+}
+
+.vf-mono {
+  font-family: 'Menlo', 'Consolas', monospace;
+  font-size: 0.76rem;
+  letter-spacing: 0.02em;
+}
+
+.vf-sep {
+  opacity: 0.4;
+}
+
+.vf-env-dev {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--accent-cyan, #06b6d4);
+  opacity: 0.8;
+}
+
+.vf-dot {
+  font-size: 0.5rem;
+  animation: pulse-dot 2.4s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
 }
 
 @keyframes floatBlue {

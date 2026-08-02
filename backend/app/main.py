@@ -202,13 +202,28 @@ def _load_build_info() -> dict:
         return {}
 
 
+def _git_commit_hash() -> str | None:
+    import subprocess
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            capture_output=True, text=True, timeout=2,
+            cwd=Path(__file__).parent,
+        )
+        return result.stdout.strip() or None
+    except Exception:
+        return None
+
+
 @app.get("/api/health")
 async def health_check():
+    build = _load_build_info()
     return {
         "status": "ok",
         "version": settings.app_version,
         "routes": len(app.routes),
-        "build_time": _load_build_info().get("build_time"),
+        "build_time": build.get("build_time"),
+        "commit": build.get("commit") or _git_commit_hash(),
     }
 
 
