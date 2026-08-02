@@ -186,6 +186,11 @@ const routes = [
     name: 'feedback',
     component: () => import('./views/FeedbackView.vue'),
   },
+  {
+    path: '/kb-qa',
+    name: 'kb-qa',
+    component: () => import('./views/KbQaView.vue'),
+  },
 ]
 
 const router = createRouter({

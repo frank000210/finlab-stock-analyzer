@@ -201,6 +201,7 @@ const navGroups = [
       { key: 'signal-rules', icon: '🧩', label: '信號規則編輯器', to: () => '/signal-rules' },
       { key: 'settings', icon: '⚙️', label: '設定', to: () => '/settings' },
       { key: 'admin', icon: '🔧', label: '後台', to: () => '/admin' },
+      { key: 'kb-qa', icon: '🧠', label: '知識庫問答', to: () => '/kb-qa' },
       { key: 'feedback', icon: '💡', label: '意見回饋', to: () => '/feedback' },
     ],
   },

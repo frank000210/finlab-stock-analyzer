@@ -1,0 +1,33 @@
+name: KB Source Sync
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - "frontend/src/views/*.vue"
+      - "frontend/src/components/AppSidebar.vue"
+      - "backend/app/api/*.py"
+      - "backend/app/analysis/*.py"
+      - "backend/app/config/settings.py"
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install httpx
+
+      - name: Sync source code to KB
+        env:
+          KB_API_TOKEN: ${{ secrets.KB_API_TOKEN }}
+          KB_WEB_URL: https://frank210-kb-web.zeabur.app
+        run: python scripts/kb-sync-source.py
