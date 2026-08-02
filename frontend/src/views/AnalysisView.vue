@@ -674,6 +674,9 @@ async function loadAiSummary() {
     if (symbol.value !== sym) return // 產生期間使用者已換股，丟棄過期結果
     aiSummary.value = payload.data
   } catch (e) {
+    // OO5：先前只有成功路徑檢查換股，失敗路徑沒檢查——舊股票的請求若在
+    // 使用者已換股後才失敗，會把新股票畫面蓋成「AI 摘要產生失敗」。
+    if (symbol.value !== sym) return
     aiError.value = e?.message || 'AI 摘要產生失敗'
   } finally {
     aiLoading.value = false

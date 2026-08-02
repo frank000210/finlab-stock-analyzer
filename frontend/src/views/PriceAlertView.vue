@@ -165,6 +165,11 @@ async function loadHistory() {
 }
 
 async function addAlert() {
+  // OO7：表單三個欄位都綁 @keyup.enter="addAlert"，先前只有送出按鈕有
+  // :disabled="adding"，函式本身沒擋在途請求——在 A 欄按 Enter（請求飛行中）
+  // 期間再到 B 欄按 Enter，會在同一份未清空的表單資料上送出第二次非冪等的
+  // POST，建立重複警報。
+  if (adding.value) return
   formError.value = ''
   const symbol = String(form.symbol || '').trim().toUpperCase()
   if (!symbol) {

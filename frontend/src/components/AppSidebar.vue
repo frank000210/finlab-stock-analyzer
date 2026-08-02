@@ -99,18 +99,23 @@ const query = ref('')
 const results = ref([])
 const showResults = ref(false)
 let searchTimer = null
+// OO8：debounce 只避免每個按鍵都發請求，不保證回應順序——同款修法見
+// WatchlistView.vue 的 searchStocks。
+let searchSeq = 0
 
 function onInput() {
   clearTimeout(searchTimer)
   const q = query.value.trim()
   if (!q) { results.value = []; return }
   searchTimer = setTimeout(async () => {
+    const seq = ++searchSeq
     try {
       const resp = await fetch(`${API_BASE}/api/v1/stocks/search?q=${encodeURIComponent(q)}`)
       const data = await resp.json()
+      if (seq !== searchSeq) return
       results.value = data?.data?.items || []
     } catch {
-      results.value = []
+      if (seq === searchSeq) results.value = []
     }
   }, 250)
 }
@@ -196,6 +201,7 @@ const navGroups = [
       { key: 'signal-rules', icon: '🧩', label: '信號規則編輯器', to: () => '/signal-rules' },
       { key: 'settings', icon: '⚙️', label: '設定', to: () => '/settings' },
       { key: 'admin', icon: '🔧', label: '後台', to: () => '/admin' },
+      { key: 'feedback', icon: '💡', label: '意見回饋', to: () => '/feedback' },
     ],
   },
 ]

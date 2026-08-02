@@ -87,21 +87,27 @@ function defaultStartDate() {
   return d.toISOString().slice(0, 10)
 }
 
+// OO8：debounce 只避免每個按鍵都發請求，不保證回應順序——同款修法見
+// WatchlistView.vue 的 searchStocks。
+let searchSeq = 0
+
 function onSearchInput() {
   clearTimeout(searchTimer)
   searchTimer = setTimeout(async () => {
     const q = searchInput.value.trim()
     if (!q) { searchResults.value = []; return }
+    const seq = ++searchSeq
     try {
       const resp = await fetch(`${API_BASE}/api/v1/stocks/search?q=${encodeURIComponent(q)}`)
       const payload = await resp.json().catch(() => ({}))
+      if (seq !== searchSeq) return
       const items = payload?.data?.items || []
       searchResults.value = items
         .filter(it => !symbols.value.some(s => s.symbol === it.symbol))
         .slice(0, 8)
         .map(it => ({ symbol: it.symbol, name: it.name_zh || it.name || '' }))
     } catch {
-      searchResults.value = []
+      if (seq === searchSeq) searchResults.value = []
     }
   }, 250)
 }

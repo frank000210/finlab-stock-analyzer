@@ -80,16 +80,25 @@ async def _post_once(model: str, system: str, user: str,
             {"role": "user", "content": user},
         ],
     }
-    async with httpx.AsyncClient(timeout=s.llm_timeout_seconds) as client:
-        resp = await client.post(
-            url,
-            headers={
-                "Authorization": f"Bearer {s.opencode_api_key}",
-                "Content-Type": "application/json",
-                "User-Agent": _USER_AGENT,
-            },
-            json=payload,
-        )
+    try:
+        async with httpx.AsyncClient(timeout=s.llm_timeout_seconds) as client:
+            resp = await client.post(
+                url,
+                headers={
+                    "Authorization": f"Bearer {s.opencode_api_key}",
+                    "Content-Type": "application/json",
+                    "User-Agent": _USER_AGENT,
+                },
+                json=payload,
+            )
+    except httpx.HTTPError as exc:
+        # OO1: raised as LLMUnavailable (not left as a raw httpx exception) so
+        # llm_complete()'s `except LLMUnavailable` around the *fallback* call
+        # also catches network-layer failures, not just non-200 responses --
+        # previously a timeout/DNS/connection error on the fallback model
+        # bypassed retry entirely and propagated as an unhandled exception.
+        logger.warning("LLM request to %s failed: %s", model, exc)
+        raise LLMUnavailable(f"AI 服務暫時無法連線（{model}）") from exc
     if resp.status_code != 200:
         # 不把上游回應原文外洩給前端（可能含 key/內部路徑），只留狀態碼。
         logger.warning("LLM upstream %s: %s", resp.status_code, resp.text[:300])
@@ -131,8 +140,6 @@ async def llm_complete(system: str, user: str, *, max_tokens: int = 800,
             return await _post_once(fallback, system, user, max_tokens, temperature)
         except LLMUnavailable:
             raise first_err
-    except httpx.TimeoutException as exc:
-        raise LLMUnavailable("AI 服務回應逾時") from exc
     except Exception as exc:  # noqa: BLE001
         logger.warning("LLM call failed: %s", exc)
         raise LLMUnavailable("AI 服務暫時無法使用") from exc

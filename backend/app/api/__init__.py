@@ -25,6 +25,7 @@ from .market import router as market_router
 from .ai_summary import router as ai_summary_router
 from .journal import router as journal_router
 from .screener import router as screener_router
+from .feedback import router as feedback_router
 
 __all__ = [
     "stock_router",
@@ -54,4 +55,5 @@ __all__ = [
     "ai_summary_router",
     "journal_router",
     "screener_router",
+    "feedback_router",
 ]

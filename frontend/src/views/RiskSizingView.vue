@@ -405,8 +405,14 @@ async function loadMarket() {
 // Shared risk config: keep account size + per-trade risk% in sync with the
 // 投組風險 / 作戰台 pages (same localStorage keys).
 watch([account, riskPct], () => {
-  if (account.value > 0) localStorage.setItem('portfolio_heat_account', String(account.value))
-  if (riskPct.value > 0) localStorage.setItem('finlab_risk_pct', String(riskPct.value))
+  // OO10：localStorage.setItem 可能丟出例外（quota 爆掉、private mode 停用
+  // storage），同款修法見 tradeMath.js 的 HH3。
+  try {
+    if (account.value > 0) localStorage.setItem('portfolio_heat_account', String(account.value))
+    if (riskPct.value > 0) localStorage.setItem('finlab_risk_pct', String(riskPct.value))
+  } catch {
+    // 寫入失敗至少讓畫面上的操作能繼續完成，不因為儲存失敗而整個中斷
+  }
 })
 
 // 側欄搜尋切換全站目前個股時，這頁的代號欄位跟著換並重新查詢

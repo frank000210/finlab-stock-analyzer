@@ -40,6 +40,30 @@ class NotifyReq(BaseModel):
     message: str
 
 
+# OO3：/alerts/check 先前完全沒有節流，卻會對每個啟用中的價格警報（最多
+# _MAX_PRICE_ALERTS=50）並行抓取外部報價，還可能觸發 Telegram 推播——比照
+# /notify（LL1）補上同款的 IP 節流，門檻收得更緊因為單次呼叫的外部抓取量
+# 大得多。
+_ALERTS_CHECK_WINDOW_MINUTES = 10
+_ALERTS_CHECK_MAX_CALLS = 5
+
+
+async def _check_alerts_check_rate_limit(request: Request) -> None:
+    from ..api.analytics import _get_client_ip
+    from ..db.cache import increment_rate_limit
+
+    ip = _get_client_ip(request)
+    try:
+        count = await increment_rate_limit(f"risk_alerts_check_rate:{ip}", "rate_limit")
+    except Exception:
+        return
+    if count > _ALERTS_CHECK_MAX_CALLS:
+        raise HTTPException(
+            status_code=429,
+            detail=f"警報檢查請求過於頻繁，請 {_ALERTS_CHECK_WINDOW_MINUTES} 分鐘後再試。",
+        )
+
+
 # MM3：/correlation 跟 graph.py(II5)/rotation.py(JJ9) 同款的 symbols 上限缺口。
 _MAX_CORRELATION_SYMBOLS = 100
 
@@ -327,15 +351,29 @@ async def _append_alert_history(entry: dict) -> None:
     """Y3：警報觸發的歷史紀錄——原本觸發後只是把同一筆警報的 triggered 翻
     成 true，沒有任何時間序列可查，使用者想知道「這週觸發過哪些」只能翻
     Telegram 訊息。這裡另外存一份精簡歷史（上限 200 筆，超過砍最舊的）。
+
+    OO4：原本是「get_setting() 讀出整份 → Python 端 append+裁切 → set_setting()
+    整份寫回」，跟 JJ4 修過的 price_alerts 是同一種 race——排程的 20 分鐘
+    定時檢查跟使用者手動按「立即檢查」重疊時，兩次呼叫可能各自讀到同一份
+    舊歷史，其中一次的寫入會覆蓋掉另一次剛 append 的紀錄，且沒有任何錯誤
+    浮現。改用 Mongo 的 $push + $each/$slice，讓「附加一筆＋裁到最後 N 筆」
+    在同一個原子操作內完成。
     """
-    from ..db.cache import get_setting, set_setting
+    from ..db.cache import _get_db
 
     try:
-        history = await get_setting("alert_history", []) or []
-        history.append(entry)
-        if len(history) > _MAX_ALERT_HISTORY:
-            history = history[-_MAX_ALERT_HISTORY:]
-        await set_setting("alert_history", history)
+        db = await _get_db()
+        from datetime import datetime as _dt
+
+        await db.settings.find_one_and_update(
+            {"key": "alert_history"},
+            {
+                "$push": {"value": {"$each": [entry], "$slice": -_MAX_ALERT_HISTORY}},
+                "$set": {"updated_at": _dt.utcnow()},
+                "$setOnInsert": {"key": "alert_history"},
+            },
+            upsert=True,
+        )
     except Exception:
         # 歷史紀錄是附加資訊，存失敗不影響警報本身已經觸發/推播成功
         logger.exception("_append_alert_history failed")
@@ -556,7 +594,7 @@ async def delete_alert(alert_id: str):
     return {"success": True}
 
 
-@router.post("/alerts/check")
+@router.post("/alerts/check", dependencies=[Depends(_check_alerts_check_rate_limit)])
 async def check_alerts_now():
     """手動立即檢查所有警報（排程也是呼叫同一份邏輯，預設每 20 分鐘於盤中執行）。"""
     try:

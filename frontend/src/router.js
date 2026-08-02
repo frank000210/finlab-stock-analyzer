@@ -181,6 +181,11 @@ const routes = [
     name: 'admin',
     component: () => import('./views/AdminView.vue'),
   },
+  {
+    path: '/feedback',
+    name: 'feedback',
+    component: () => import('./views/FeedbackView.vue'),
+  },
 ]
 
 const router = createRouter({

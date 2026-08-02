@@ -623,6 +623,27 @@ const stopAdherence = computed(() => {
   return { count: blownThrough.length, total: losers.length, ratio, avgBlownR }
 })
 
+// F8 持有期處置效應：贏單抱太短、輸單抱太長（disposition effect）。純看持有
+// 天數（exitDate - openDate），跟停損執行（F5）、賺賠不對稱、部位、頻率都是
+// 不同角度——問的是「該放的沒放、該砍的沒砍」。
+const holdingDisposition = computed(() => {
+  const cl = closedTrades.value
+  const holdDays = (t) => {
+    const o = new Date(t.openDate).getTime(), e = new Date(t.exitDate).getTime()
+    if (isNaN(o) || isNaN(e)) return null
+    return Math.max(0, Math.round((e - o) / 86400000))
+  }
+  const winHolds = cl.filter(t => realizedR(t) > 0).map(holdDays).filter(d => d != null)
+  const lossHolds = cl.filter(t => realizedR(t) < 0).map(holdDays).filter(d => d != null)
+  if (winHolds.length < 3 || lossHolds.length < 3) return null
+  const winHold = winHolds.reduce((a, b) => a + b, 0) / winHolds.length
+  const lossHold = lossHolds.reduce((a, b) => a + b, 0) / lossHolds.length
+  if (winHold <= 0) return null
+  const ratio = lossHold / winHold
+  if (ratio < 1.5) return null
+  return { winHold, lossHold, ratio, winN: winHolds.length, lossN: lossHolds.length }
+})
+
 // E15 複盤教練：純用既有統計（stats/byTag）產生規則式建議，不打任何 API。
 // tone 排序 bad > warn > good > info；最多顯示 6 條，避免資訊過載。
 const coachInsights = computed(() => {
@@ -644,6 +665,15 @@ const coachInsights = computed(() => {
     out.push({
       tone: 'bad', icon: '⛔',
       text: `近 ${sa.total} 筆虧損交易中，有 ${sa.count} 筆（${(sa.ratio * 100).toFixed(0)}%）實際出場價比原本設定的停損還差——代表停損常常沒有照計畫執行、放任虧損擴大（凹單）。這些凹過頭的交易平均 ${sa.avgBlownR.toFixed(2)}R，通常比乾脆照停損出場更慘。停損要嘛照設定執行、要嘛出場前先改單，別盤中臨時凹單。`,
+    })
+  }
+
+  // 2b. F8 持有期處置效應：獲利抱太短、虧損抱太長
+  const hd = holdingDisposition.value
+  if (hd) {
+    out.push({
+      tone: 'bad', icon: '⏳',
+      text: `虧損交易平均持有 ${hd.lossHold.toFixed(0)} 天，獲利交易卻只抱 ${hd.winHold.toFixed(0)} 天就了結——典型「砍贏單、凹輸單」的處置效應，長期會嚴重侵蝕期望值。建議讓獲利部位照原訂目標價運行、虧損部位到停損就出場，別反過來。`,
     })
   }
 

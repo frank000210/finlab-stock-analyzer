@@ -130,21 +130,29 @@ const filteredItems = computed(() => {
   return items.value.filter(s => (meta.value[s]?.group || '') === groupFilter.value)
 })
 
+// OO8：debounce 只避免「每個按鍵都發請求」，不保證回應順序——使用者打字
+// 打到一半（快取的舊查詢還在飛行中）再多打幾個字，若舊查詢的回應比新查詢
+// 晚回來，會用舊結果蓋掉畫面上明明已經是新查詢字串的下拉選單。用序號只採
+// 用「當下最新一次」查詢的結果。
+let searchSeq = 0
+
 async function searchStocks(query) {
   if (!query || query.trim().length < 1) {
     searchResults.value = []
     return
   }
+  const seq = ++searchSeq
   try {
     const resp = await fetch(`${API_BASE}/api/v1/stocks/search?q=${encodeURIComponent(query.trim())}`)
     const payload = await resp.json().catch(() => ({}))
+    if (seq !== searchSeq) return
     const list = payload?.data?.items || []
     searchResults.value = list
       .filter(it => !items.value.includes(String(it.symbol).toUpperCase()))
       .slice(0, 8)
       .map(it => ({ symbol: it.symbol, name: it.name_zh || it.name || '' }))
   } catch {
-    searchResults.value = []
+    if (seq === searchSeq) searchResults.value = []
   }
 }
 

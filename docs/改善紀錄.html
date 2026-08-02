@@ -161,6 +161,40 @@ footer{ margin-top:36px; font-size:0.78rem; color:var(--ink-faint); text-align:c
 
 <script>
 const DATA = [
+{date:'2026-08-02 14:00', range:'PP1–PP7', title:'kb-web 問答品質優化：多查詢 RRF 融合、Agentic 迴圈、上網搜尋、精確引用、對話歷史',
+ summary:'從使用者視角盤點問答功能的核心痛點，7 項優化分成「找得更準」（PP1 查詢改寫＋PP2 RRF 融合）、「想得更深」（PP3 多輪 Agentic 迴圈＋PP4 網路搜尋）、「引用更準確」（PP5 編號引用）、「問得更連貫」（PP6 對話歷史）、「過程更透明」（PP7 搜尋步驟展示＋回饋）。全部 7 項均有對應的自動化測試（28 tests 全過），Ask.vue 前端同步更新。',
+ items:[
+  {code:'PP1', tag:'good', text:'問句改寫——問答前先讓 LLM 把問題展開成 2-3 組不同角度的搜尋詞（同義詞、中英術語、上位概念），提升知識庫召回率；改寫失敗時靜默回退原問題，不影響既有行為。'},
+  {code:'PP2', tag:'good', text:'多查詢 RRF 融合——為每組改寫後的查詢各跑一次 search_knowledge，用標準 Reciprocal Rank Fusion（score = Σ 1/(k+rank)）合併排名，候選擴大到 20 筆再取前 8，不依賴單一查詢的詞彙偶然性。'},
+  {code:'PP3', tag:'good', text:'Agentic 迴圈——模型可在答案中輸出 TOOL_CALL JSON 指令再次查知識庫，後端解析執行、把結果塞回 messages 繼續對話；最多 N 輪（預設 3），防止無限迴圈；每輪獨立 bump 每日 quota 計數器。'},
+  {code:'PP4', tag:'good', text:'上網搜尋工具——Agentic 迴圈內模型可呼叫 web_search（DuckDuckGo Instant Answers，免 API key）或 fetch_url（trafilatura 擷取正文）；fetch_url 套用跟 imports.py 相同的 SSRF 防護（ipaddress 模組驗 resolved IP）。'},
+  {code:'PP5', tag:'good', text:'精確引用——段落以 [1][2]… 編號後傳給 LLM；答案裡出現的 [N] 以 regex 解析，只列出模型真正引用的段落；模型未引用任何編號時回退到全部段落（向下相容）。'},
+  {code:'PP6', tag:'good', text:'對話歷史——前端帶入前 3 輪 Q&A 的 {role, content}；追問時模型能引用上輪的答案，前端加上「清除對話」按鈕，history 長度徽章顯示對話輪次。'},
+  {code:'PP7', tag:'good', text:'搜尋透明度＋回饋——回應新增 steps（列出每步做了什麼：改寫/KB查詢/網路搜尋/網頁抓取）與 question_id；前端展示可摺疊的搜尋過程、👍/👎 按鈕向 /api/ask/feedback 送回饋（存入 qa_history.rating）。'},
+ ]},
+
+{date:'2026-08-02 12:00', range:'OO1–OO10', title:'主站自主循環優化：備援模型漏洞修復、節流補齊、競態消除、過期回應防護',
+ summary:'這輪著重三類同款缺陷的系統性補齊：1) 兩個 AI 相關端點（/test、/alerts/check）遺漏跟全站一致的節流機制；2) 公開資訊頁的外部爬蟲快取鍵沒有格式驗證，可繞過快取無限觸發並行爬取；3) 四個搜尋輸入框在 debounce 期間切換股票時，過期回應仍會覆蓋新查詢結果。另外補上意見回饋功能（FB）與每次 git push 後自動整理 dev note 並匯入知識庫的 hook。',
+ items:[
+  {code:'OO1', tag:'warn', text:'llm/client.py 的 _post_once 只 catch HTTP 層例外決定要不要觸發備援模型，但 httpx 網路層例外（逾時、DNS 失敗）是 HTTPError 子類但先前不在 catch 範圍內，備援完全跳過——改把所有 httpx.HTTPError 包成 LLMUnavailable，讓外層 llm_complete 的備援邏輯覆蓋網路層失敗。'},
+  {code:'OO2', tag:'warn', text:'signal_rules.py 的 /test 端點先前沒掛 _check_signal_rules_rate_limit 相依——同一個函式控制的 /evaluate 早就有節流，但「一次執行完整腳本」的 /test 反而沒有，補上。'},
+  {code:'OO3', tag:'warn', text:'/alerts/check 對每個啟用中警報（上限 50）並行抓外部報價、可能觸發 Telegram——先前零節流，加上 IP 節流（10 分鐘 5 次，比 /notify 更嚴因為單次外部呼叫量更大）。'},
+  {code:'OO4', tag:'warn', text:'_append_alert_history 是「讀整份 → Python 端 append/裁切 → 整份寫回」，跟 JJ4 修過的 price_alerts 同款競態——排程定時檢查跟手動「立即檢查」重疊時，兩次呼叫可能各自讀到同一份舊資料互相覆蓋。改用 Mongo 原子 $push + $each/$slice。'},
+  {code:'OO5', tag:'neutral', text:'AnalysisView 的 loadAiSummary 失敗路徑先前沒有 requestToken 換股檢查——舊股票的請求若在使用者已換股後才失敗，會把新股票畫面蓋成「AI 摘要產生失敗」。補上跟成功路徑一致的換股檢查。'},
+  {code:'OO6', tag:'neutral', text:'SocialBuzzView 同款，loadAiSummary 失敗路徑沒有 requestToken 換股檢查。'},
+  {code:'OO7', tag:'neutral', text:'PriceAlertView 三個欄位都綁 @keyup.enter="addAlert"，函式本身沒擋在途請求——在任一欄按 Enter 後還沒收到回應就在另一欄按 Enter，會疊送第二次請求。補上 if (adding.value) return 防護。'},
+  {code:'OO8', tag:'neutral', text:'WatchlistView / AppSidebar / StockCompareView / DecisionView 四個搜尋框的 debounce 只避免每次按鍵都發請求，不保證回應順序——debounce 等待期間換股後舊查詢仍可能蓋掉新結果。補上 requestToken 防護（跟 LL9/II8 同款）。'},
+  {code:'OO9', tag:'warn', text:'public_data.py 的 /{symbol}/public-data 對每個請求分別扇出 4 個外部爬蟲（MOPS/TWSE/FinMind），快取鍵是原始代號字串無格式驗證——攻擊者可用不同無效代號繞過快取無限觸發。補上格式驗證 regex（同 JJ5 模式）與 IP 節流。'},
+  {code:'OO10', tag:'neutral', text:'CommandView / RiskSizingView 的 localStorage.setItem 沒有包 try/catch——私密模式或 quota 滿時會直接丟出例外中斷操作。補上跟 tradeMath.js HH3 一致的例外防護。'},
+ ]},
+
+{date:'2026-08-02 11:00', range:'獨立功能', title:'使用者意見回饋頁面 + 每次 push 後自動整理 dev note',
+ summary:'兩項非安全性的新功能：一是讓使用者可以直接在網站上提交意見、管理員可以標記處理進度並回覆；二是在每次 git push 完成後，透過 Claude Code hook 機制自動整理當次優化的觀察與心得並匯入知識庫，讓 AI 的自主學習有更豐富的脈絡可查。',
+ items:[
+  {code:'—', tag:'good', text:'新增意見回饋頁面（/feedback）：使用者可提交 bug 回報/功能建議，管理員可標記狀態（open/in_progress/resolved）並填入回覆；後端 POST/GET /api/v1/feedback + admin PATCH，前端附 e2e 測試。'},
+  {code:'—', tag:'neutral', text:'新增 .claude/hooks/post_push_devnote.py：每次 git push 完成後偵測 push 指令（正規表達式錨定命令邊界防誤觸），輸出 additionalContext 指示 Claude 整理 3-section dev note（改動/觀察/教訓）並執行 scripts/import-dev-note.sh 匯入 Zeabur 上的知識庫（doc_type=dev_note）。'},
+ ]},
+
 {date:'2026-08-02 02:23', range:'NN1–NN10', title:'kb-web 知識庫網頁：登入防暴力破解、SSRF 防護、LLM 備援機制修復',
  summary:'第一次對新建置的 kb-web（知識庫網頁）做自主循環優化，範圍跟先前 AA–MM 系列（主站 finlab-stock-analyzer）不同。盤點時先實際讀過現有程式碼驗證每一項（不是憑空列清單），初稿有一項（domain 欄位格式驗證）在自我審查時因影響力太低被換掉，改成後來發現的真安全問題（NN10 SSRF）。這次還撞上一次真實的維運事故：先前把 sentence-transformers（連帶 torch）加回 kb-web 的 Docker image 修語意搜尋時，在資源有限（US$20/月方案）的自架 K3s 伺服器上把整個叢集擠到離線，波及主站等所有服務——K3s 後來自行恢復，過程中沒有做任何破壞性操作（沒有點重啟/升級伺服器），先跟使用者確認再等待。',
  items:[

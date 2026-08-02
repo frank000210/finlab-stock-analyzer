@@ -30,6 +30,15 @@ class Settings(BaseSettings):
     # Cap kb-web's own contribution independently of the main app's limit.
     llm_daily_call_limit: int = 100
 
+    # PP1: 查詢改寫——問句展開成 2-3 組檢索詞提升檢索精度，消耗 1 次 LLM 額度。
+    # 設 False 可退回舊的單查詢模式（測試 / 省 quota 用）。
+    enable_query_rewrite: bool = True
+    # PP3: agentic 迴圈最大輪數（每輪 1 次 LLM 呼叫 + 工具執行）。
+    # 最大值 = 5，含初始回答最多 5 次 LLM call / question。
+    max_agent_rounds: int = 3
+    # PP4: 是否允許模型使用 web_search / fetch_url 工具。
+    enable_web_search: bool = True
+
     cors_origins: str = "http://localhost:5173"
 
     model_config = SettingsConfigDict(env_file=".env")

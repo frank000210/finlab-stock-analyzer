@@ -246,11 +246,17 @@ function fmtInt(v) { return (v == null || isNaN(v)) ? '—' : Math.round(v).toLo
 function scoreClass(total) { return total >= 70 ? 'good' : total >= 45 ? 'mid' : 'bad' }
 
 function saveCfg() {
-  localStorage.setItem('portfolio_heat_account', String(account.value))
-  localStorage.setItem('finlab_risk_pct', String(riskPct.value))
-  localStorage.setItem('finlab_apply_regime', applyRegime.value ? '1' : '0')
-  localStorage.setItem('finlab_daily_loss_limit_r', String(dailyLimitR.value))
-  localStorage.setItem('finlab_weekly_loss_limit_r', String(weeklyLimitR.value))
+  // OO10：localStorage.setItem 可能丟出例外（quota 爆掉、private mode 停用
+  // storage），同款修法見 tradeMath.js 的 HH3——包住避免整個儲存動作中斷。
+  try {
+    localStorage.setItem('portfolio_heat_account', String(account.value))
+    localStorage.setItem('finlab_risk_pct', String(riskPct.value))
+    localStorage.setItem('finlab_apply_regime', applyRegime.value ? '1' : '0')
+    localStorage.setItem('finlab_daily_loss_limit_r', String(dailyLimitR.value))
+    localStorage.setItem('finlab_weekly_loss_limit_r', String(weeklyLimitR.value))
+  } catch {
+    // 寫入失敗至少讓畫面上的操作能繼續完成，不因為儲存失敗而整個中斷
+  }
 }
 
 // E17 決策防呆閘門：按「記錄」先開紀律檢查，確認後才寫入日誌。

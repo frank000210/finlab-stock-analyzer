@@ -280,6 +280,9 @@ async function loadAiNewsSummary() {
     if (symbol.value !== sym) return
     aiNewsSummary.value = json.data
   } catch (e) {
+    // OO6：同 AnalysisView.vue 的 loadAiSummary（OO5）——失敗路徑先前沒檢查
+    // 換股，舊股票請求若在使用者已換股後才失敗會蓋掉新股票畫面。
+    if (symbol.value !== sym) return
     aiNewsError.value = e?.message || '摘要產生失敗'
   } finally {
     aiNewsLoading.value = false

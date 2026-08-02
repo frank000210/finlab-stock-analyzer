@@ -642,9 +642,15 @@ async function fetchHistory(symbol) {
     .slice(-20)
 }
 
+// OO8：debounce 只避免每個按鍵都發請求，不保證回應順序——同款修法見
+// WatchlistView.vue 的 searchStocks。
+let searchSeq = 0
+
 async function searchSymbols(query) {
+  const seq = ++searchSeq
   try {
     const payload = await apiGet(`/api/v1/stocks/search?q=${encodeURIComponent(query)}`)
+    if (seq !== searchSeq) return
     watchSearchResults.value = extractItems(payload)
       .slice(0, 8)
       .map(item => ({
@@ -653,7 +659,7 @@ async function searchSymbols(query) {
       }))
       .filter(item => item.symbol)
   } catch {
-    watchSearchResults.value = []
+    if (seq === searchSeq) watchSearchResults.value = []
   }
 }
 

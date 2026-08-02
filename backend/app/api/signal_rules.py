@@ -101,7 +101,7 @@ async def activate_signal_rule(id: str):
         raise HTTPException(status_code=500, detail=str(exc))
 
 
-@router.post("/test")
+@router.post("/test", dependencies=[Depends(_check_signal_rules_rate_limit)])
 async def test_signal_rule(payload: SignalRuleTestRequest = Body(...)):
     try:
         snapshot = await build_market_snapshot(payload.symbol)

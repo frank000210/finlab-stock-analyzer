@@ -253,6 +253,45 @@ def search_knowledge(
     return final_results[:top_k]
 
 
+def rrf_merge(result_lists: list[list[dict[str, Any]]], k: int = 60) -> list[dict[str, Any]]:
+    """PP2: Reciprocal Rank Fusion — 把多組查詢的排名清單合併成一份。
+
+    標準 RRF 公式：score(d) = Σ 1/(k + rank_i)，k=60 是慣例常數。
+    doc 的身分鍵 = type:id（如 spec:d1），重複出現的 doc 分數疊加。
+    """
+    scores: dict[str, float] = {}
+    items_by_key: dict[str, dict[str, Any]] = {}
+
+    for result_list in result_lists:
+        for rank, item in enumerate(result_list, start=1):
+            doc = item["doc"]
+            doc_type = item["type"]
+            # 取最具體的識別欄位作為去重 key
+            doc_id = (
+                doc.get("doc_id")
+                or doc.get("slug")
+                or doc.get("decision_id")
+                or doc.get("alert_id")
+                or doc.get("run_id")
+                or doc.get("innovation_id")
+                or doc.get("screen_id")
+                or str(doc.get("_id", ""))
+            )
+            key = f"{doc_type}:{doc_id}"
+            scores[key] = scores.get(key, 0.0) + 1.0 / (k + rank)
+            if key not in items_by_key:
+                items_by_key[key] = item
+
+    ordered = sorted(scores.items(), key=lambda x: x[1], reverse=True)
+    merged = []
+    for key, rrf_score in ordered:
+        item = dict(items_by_key[key])
+        item["relevance_score"] = rrf_score * 100.0  # 縮放到跟 lexical weight 同數量級
+        item["source"] = "rrf"
+        merged.append(item)
+    return merged
+
+
 def format_knowledge_context(
     results: list[dict[str, Any]],
     max_chars: int = 2200,
