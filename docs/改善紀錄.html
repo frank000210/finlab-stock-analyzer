@@ -161,6 +161,28 @@ footer{ margin-top:36px; font-size:0.78rem; color:var(--ink-faint); text-align:c
 
 <script>
 const DATA = [
+{date:'2026-08-02 20:00', range:'QQ1–QQ10', title:'自主循環優化：async 阻塞修復、datetime 時區補正、UI 穩健性、kb-web 引用精確化與安全強化',
+ summary:'盤點 10 項可驗證的真實缺陷，3 輪自我審查後實作。橫跨主站後端（AA1 async/AA2 datetime/AA9 email 驗證/AA10 admin gate）、前端日誌（AA3 null guard/AA4 debounce 合併/AA5 Infinity sentinel/AA6 entry=stop guard）、kb-web ask（AA7 移除假引用 fallback/AA8 啟動安全警告）。全部 234 Playwright e2e tests + 13 kb-web unit tests 通過。另附版本資訊 footer，首頁下方顯示 commit hash、API 端點數量及環境指示燈。',
+ items:[
+  {code:'QQ1', tag:'warn', text:'backend/main.py 的 _git_commit_hash() 與 JSON 讀檔在 async handler 內同步呼叫——每次健康檢查都凍結 event loop。改為模組頂層一次讀取並快取，async handler 只讀全域變數。'},
+  {code:'QQ2', tag:'warn', text:'analytics.py 與 admin.py 大量使用已棄用的 datetime.utcnow()，在 Python 3.12+ 產生 DeprecationWarning 且回傳 naive datetime，與 MongoDB 的 timezone-aware 比較時行為未定義。全面換為 datetime.now(timezone.utc)。'},
+  {code:'QQ3', tag:'neutral', text:'JournalView 的 holdDays() 對 openDate/exitDate 為 null/undefined 時直接運算，回傳 NaN 顯示在 UI。補上 null guard，null 時回傳 null 再轉為「—」。'},
+  {code:'QQ4', tag:'neutral', text:'JournalView 三個 watch(openSymbols) 各自獨立 trigger，一次 symbol 切換會同時發出三批 API 請求。改為共用一個 clearTimeout/setTimeout 300ms debounce，三個 watcher 共用同一個 timer，只執行最後一次。'},
+  {code:'QQ5', tag:'neutral', text:'JournalView 的 profitFactor 在 grossLoss=0 時為 Infinity，.toFixed(2) 回傳字串 "Infinity"，coachInsights 文字也直接插入。新增 fmt() helper 將 Infinity 渲染為 ∞，同步修正 coachInsights 文字。'},
+  {code:'QQ6', tag:'warn', text:'importOpenPositions 若 entry === stop（R 分母為 0），下游 R-multiple 計算全部崩潰。補上 entryN === stopN 守衛，跳過無效部位並記錄警告。'},
+  {code:'QQ7', tag:'warn', text:'kb-web _parse_citations() 在 LLM 答案無任何 [N] 標記時，把所有段落都塞進 citations（fallback-all），造成 UI 顯示假引用、誤導使用者。改為回傳空列表，UI 誠實顯示「無引用來源」。'},
+  {code:'QQ8', tag:'neutral', text:'kb-web config.py 啟動時若 JWT_SECRET 仍是預設值或 OPENCODE_API_KEY 未設定，完全無提示——部署到正式環境前的安全問題不可見。補上 logger.warning()，讓部署前的配置問題可見於 stdout。'},
+  {code:'QQ9', tag:'warn', text:'analytics.py 的 UserIdentifyPayload.email 欄位無格式驗證，任意字串可寫入 MongoDB。加上 Pydantic field_validator：regex 格式驗證 + 254 字元上限 + strip/lowercase 正規化。'},
+  {code:'QQ10', tag:'warn', text:'analytics.py 的 GET /pageviews 與 /pageviews/{page} 端點缺少 admin token 驗證，任何人可查詢所有頁面瀏覽統計。加上 Depends(_require_admin_token) gate（X-Admin-Token header 比對 settings.admin_secret）；AdminView.vue 原已帶入 token，無需前端改動。'},
+ ]},
+
+{date:'2026-08-02 16:00', range:'獨立功能', title:'首頁版本資訊 footer',
+ summary:'首頁下方新增輕量版本 footer，顯示版本號、Git commit hash（前 7 碼）、API 端點數量，生產環境顯示最近部署時間，本地開發環境顯示橘色脈動指示燈「開發環境」。commit hash 由 /api/health 回傳，production Docker build 已在 build_info.json 預先寫入；本地無 git binary 時顯示「—」為預期行為。',
+ items:[
+  {code:'—', tag:'good', text:'HomeView.vue 新增 .version-footer 多欄位顯示：版本 · Commit（mono 字體）· API 端點數 · 更新時間（或開發環境指示燈）。'},
+  {code:'—', tag:'neutral', text:'/api/health 新增 commit（git hash）與 routes（FastAPI route count）欄位，由模組頂層快取的 _BUILD_INFO 提供，不增加每次請求的 I/O 成本。'},
+ ]},
+
 {date:'2026-08-02 14:00', range:'PP1–PP7', title:'kb-web 問答品質優化：多查詢 RRF 融合、Agentic 迴圈、上網搜尋、精確引用、對話歷史',
  summary:'從使用者視角盤點問答功能的核心痛點，7 項優化分成「找得更準」（PP1 查詢改寫＋PP2 RRF 融合）、「想得更深」（PP3 多輪 Agentic 迴圈＋PP4 網路搜尋）、「引用更準確」（PP5 編號引用）、「問得更連貫」（PP6 對話歷史）、「過程更透明」（PP7 搜尋步驟展示＋回饋）。全部 7 項均有對應的自動化測試（28 tests 全過），Ask.vue 前端同步更新。',
  items:[
