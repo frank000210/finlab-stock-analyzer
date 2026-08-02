@@ -101,8 +101,12 @@
 import { computed, reactive, ref, onMounted } from 'vue'
 import { loadNotificationPrefs } from '../lib/notificationPrefs'
 import { fetchWithRetry } from '../lib/apiFetch'
+import { useAuthStore } from '../stores/authStore'
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
+const authStore = useAuthStore()
+// RR2: alerts 端點現在需要管理員 token
+function authHeaders() { return { 'X-Admin-Token': authStore.token || '' } }
 
 // Y2：設定頁的通知偏好決定這裡能選哪些警報類型
 const notifPrefs = ref(loadNotificationPrefs())
@@ -145,7 +149,7 @@ function formatTime(iso) {
 
 async function loadAlerts() {
   try {
-    const resp = await fetchWithRetry(`${API_BASE}/api/v1/risk/alerts`)
+    const resp = await fetchWithRetry(`${API_BASE}/api/v1/risk/alerts`, { headers: authHeaders() })
     const payload = await resp.json().catch(() => ({}))
     if (resp.ok && payload?.data) alerts.value = payload.data.items || []
   } catch { /* ignore */ }
@@ -154,7 +158,7 @@ async function loadAlerts() {
 async function loadHistory() {
   historyLoading.value = true
   try {
-    const resp = await fetchWithRetry(`${API_BASE}/api/v1/risk/alerts/history?limit=50`)
+    const resp = await fetchWithRetry(`${API_BASE}/api/v1/risk/alerts/history?limit=50`, { headers: authHeaders() })
     const payload = await resp.json().catch(() => ({}))
     if (resp.ok && payload?.data) history.value = payload.data.items || []
   } catch {
@@ -188,7 +192,7 @@ async function addAlert() {
     // 刻意維持原本的 fetch()、不套用 fetchWithRetry。
     const resp = await fetch(`${API_BASE}/api/v1/risk/alerts`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
       body: JSON.stringify({
         symbol, alert_type: form.alert_type, direction: form.direction,
         target_price: form.alert_type === 'price' ? Number(form.target_price) : null,
@@ -211,7 +215,7 @@ async function addAlert() {
 async function remove(id) {
   if (!window.confirm('確定要刪除這則警報嗎？')) return
   try {
-    const resp = await fetchWithRetry(`${API_BASE}/api/v1/risk/alerts/${id}`, { method: 'DELETE' })
+    const resp = await fetchWithRetry(`${API_BASE}/api/v1/risk/alerts/${id}`, { method: 'DELETE', headers: authHeaders() })
     if (!resp.ok) throw new Error('刪除失敗')
     alerts.value = alerts.value.filter(a => a.id !== id)
   } catch {
@@ -223,7 +227,7 @@ async function checkNow() {
   checking.value = true
   checkMsg.value = ''
   try {
-    const resp = await fetchWithRetry(`${API_BASE}/api/v1/risk/alerts/check`, { method: 'POST' })
+    const resp = await fetchWithRetry(`${API_BASE}/api/v1/risk/alerts/check`, { method: 'POST', headers: authHeaders() })
     const payload = await resp.json().catch(() => ({}))
     if (!resp.ok) throw new Error(payload?.detail || '檢查失敗')
     const d = payload.data

@@ -20,7 +20,7 @@ from typing import Any, Literal
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 from pymongo import ReturnDocument
 from pymongo.database import Database
 
@@ -53,7 +53,8 @@ class HistoryItem(BaseModel):
 class AskPayload(BaseModel):
     question: str
     domain: str | None = None
-    history: list[HistoryItem] = []  # PP6
+    # RR8: 無上限的 history list 可以讓攻擊者送超大 payload 觸發大量 validator
+    history: list[HistoryItem] = Field(default_factory=list, max_length=20)  # PP6
 
     @field_validator("question")
     @classmethod
@@ -338,7 +339,8 @@ async def ask(
 
     # ── PP1: 查詢改寫 ─────────────────────────────────────────────────────────
     if settings.enable_query_rewrite:
-        _bump_daily_quota(db)
+        # RR4: _bump_daily_quota 是同步 PyMongo，直接呼叫會阻塞 event loop
+        await asyncio.to_thread(_bump_daily_quota, db)
         queries = await _query_rewrite(payload.question)
         if queries != [payload.question]:
             steps.append(SearchStep(type="rewrite", query=" | ".join(queries), hits=len(queries)))
@@ -364,7 +366,7 @@ async def ask(
     # ── PP3/PP4: Agentic 迴圈 ─────────────────────────────────────────────────
     answer_text = ""
     for _round in range(settings.max_agent_rounds + 1):
-        _bump_daily_quota(db)
+        await asyncio.to_thread(_bump_daily_quota, db)
         response = await _complete(messages)
 
         tool_call = _parse_tool_call(response)
@@ -423,7 +425,7 @@ async def ask(
     citations = _parse_citations(answer_text, passage_pool)
 
     # ── PP7: 儲存問答 ─────────────────────────────────────────────────────────
-    _store_qa(db, question_id, payload.question, answer_text, steps)
+    await asyncio.to_thread(_store_qa, db, question_id, payload.question, answer_text, steps)
 
     return AskResponse(
         answer=answer_text,

@@ -161,6 +161,21 @@ footer{ margin-top:36px; font-size:0.78rem; color:var(--ink-faint); text-align:c
 
 <script>
 const DATA = [
+{date:'2026-08-02 22:00', range:'RR1–RR10', title:'自主循環優化：API 鑑權補齊、計時安全比較、原子操作、async 阻塞修復、Symbol 正規化、棄用 API 更新',
+ summary:'盤點 10 項可驗證的真實缺陷，3 輪自我審查後實作。橫跨 6 個後端 API 模組與 3 個前端 Vue 元件：補齊 trade/risk/alerts/sync-watchlist 端點的 admin 驗證並補上前端 authHeaders（RR1–RR3）；kb-web 的同步 PyMongo 呼叫移至執行緒池（RR4）；timing oracle 防護改用 hmac.compare_digest（RR5）；allowed_admin_emails 改用 MongoDB 原子 $addToSet/$pull（RR6）；Google OAuth verify 端點補上 IP 節流（RR7）；kb-web 對話歷史列表加 Pydantic max_length=20 上限（RR8）；social_buzz 快取鍵改用 normalize_symbol 避免 .TW/.TWO 重複快取（RR9）；asyncio.get_event_loop() 換為 Python 3.10+ 標準的 get_running_loop()（RR10）。',
+ items:[
+  {code:'RR1', tag:'critical', text:'trade.py 的 GET /pending 與 POST /approve 端點完全缺少 admin 驗證——任意訪客可查看全部待審交易並核准/駁回。加上 Depends(require_admin) gate；TradeApprovalView.vue 補上 useAuthStore + authHeaders() 並加入非 admin 狀態的登入提示 UI。'},
+  {code:'RR2', tag:'critical', text:'risk.py 的 GET /alerts、POST /alerts、GET /alerts/history、DELETE /alerts/{id} 四個端點無需驗證，任何人可查看、新增、刪除全站價格警報。加上 Depends(require_admin)；PriceAlertView.vue 5 個 fetch 呼叫全補 authHeaders()。'},
+  {code:'RR3', tag:'warn', text:'risk.py 的 POST /sync-watchlist（觸發外部 API 批量爬蟲）無驗證可被匿名觸發；CommandView.vue 在送出同步請求時也沒帶 admin token。兩端同步補上驗證。'},
+  {code:'RR4', tag:'warn', text:'kb-web ask.py 的 _bump_daily_quota() 與 _store_qa() 是同步 PyMongo 函式，在 async handler 內直接呼叫——阻塞 event loop，高並發下影響整個 kb-web 服務。改以 asyncio.to_thread() 移入執行緒池執行。'},
+  {code:'RR5', tag:'warn', text:'analytics.py 的 _require_admin_token 使用 == 比較 token 字串，存在計時旁道攻擊（timing oracle）。改用 hmac.compare_digest() 進行時間恆定比較。'},
+  {code:'RR6', tag:'warn', text:'admin.py 的 add/remove allowed_admin_emails 採用讀取–修改–寫回三步驟，並行請求下存在競態條件（覆蓋彼此的修改）。改用 cache.py 新增的 add_to_setting_list（$addToSet）與 remove_from_setting_list（$pull），讓操作原子化。'},
+  {code:'RR7', tag:'warn', text:'auth.py 的 POST /google/verify 端點無 IP 節流——攻擊者可批次測試 Google token 是否屬於本站 admin。仿 _check_signal_rules_rate_limit 模式補上 IP 節流（10 分鐘內 20 次上限）。'},
+  {code:'RR8', tag:'neutral', text:'kb-web AskPayload.history 列表無長度上限，惡意用戶可送入超大歷史列表撐大 LLM prompt、增加 token 消耗。加上 Pydantic Field(max_length=20) 硬性上限。'},
+  {code:'RR9', tag:'neutral', text:'social_buzz.py 的快取鍵使用原始 symbol 字串——「2330」與「2330.TW」得到兩份快取，繞過 30 分鐘 TTL、重複觸發外部爬蟲，有 IP 被封鎖的風險。改用 normalize_symbol() 正規化後作為 cache key。'},
+  {code:'RR10', tag:'neutral', text:'signal_rules.py 使用 asyncio.get_event_loop()，在 Python 3.10+ 已棄用、3.12+ 在部分情境下拋 RuntimeError。改為 asyncio.get_running_loop()，語意更精確（只在已有事件迴圈時有效）。'},
+ ]},
+
 {date:'2026-08-02 20:00', range:'QQ1–QQ10', title:'自主循環優化：async 阻塞修復、datetime 時區補正、UI 穩健性、kb-web 引用精確化與安全強化',
  summary:'盤點 10 項可驗證的真實缺陷，3 輪自我審查後實作。橫跨主站後端（AA1 async/AA2 datetime/AA9 email 驗證/AA10 admin gate）、前端日誌（AA3 null guard/AA4 debounce 合併/AA5 Infinity sentinel/AA6 entry=stop guard）、kb-web ask（AA7 移除假引用 fallback/AA8 啟動安全警告）。全部 234 Playwright e2e tests + 13 kb-web unit tests 通過。另附版本資訊 footer，首頁下方顯示 commit hash、API 端點數量及環境指示燈。',
  items:[

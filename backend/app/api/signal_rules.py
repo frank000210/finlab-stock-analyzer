@@ -105,7 +105,8 @@ async def activate_signal_rule(id: str):
 async def test_signal_rule(payload: SignalRuleTestRequest = Body(...)):
     try:
         snapshot = await build_market_snapshot(payload.symbol)
-        loop = asyncio.get_event_loop()
+        # RR10: get_event_loop() 在 Python 3.10+ 棄用、3.12 可能 RuntimeError
+        loop = asyncio.get_running_loop()
         if payload.script:
             temp_rule = await rule_engine.create_rule(
                 SignalRuleCreate(

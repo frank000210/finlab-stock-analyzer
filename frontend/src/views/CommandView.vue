@@ -121,10 +121,12 @@ import InfoTooltip from '../components/InfoTooltip.vue'
 import { metricGlossary } from '../lib/metricGlossary'
 import { realizedR, journalWinStats, halfKellyRiskPct, loadJournal, saveJournal, localDateStr, JOURNAL_KEY } from '../lib/tradeMath'
 import { fetchWithRetry } from '../lib/apiFetch'
+import { useAuthStore } from '../stores/authStore'
 import { loadLayoutPrefs, saveLayoutPrefs } from '../lib/layoutPrefs'
 import { loadWatchlist } from '../lib/watchlist'
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
+const authStore = useAuthStore()
 
 // Y10：版面自訂——可隱藏用不到的提示條（不影響底層的紀律檢查/熔斷邏輯，純顯示層級）。
 const STRIP_DEFS = [
@@ -333,8 +335,10 @@ async function scan() {
     asOf.value = payload.data?.as_of || ''
     analyzeCorr()
     // C9：把掃描清單同步到後端，收盤排程才知道要掃誰（fire-and-forget）
+    // RR3：sync-watchlist 現在需要管理員 token
     fetch(`${API_BASE}/api/v1/risk/sync-watchlist`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Admin-Token': authStore.token || '' },
       body: JSON.stringify({ symbols: syms }),
     }).catch(() => {})
   } catch (e) {

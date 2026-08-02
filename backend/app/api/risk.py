@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 
 from ..llm import check_llm_rate_limit
+from .admin import require_admin
 
 router = APIRouter(prefix="/api/v1/risk", tags=["risk"])
 logger = logging.getLogger(__name__)
@@ -157,7 +158,8 @@ class SyncWatchlistReq(BaseModel):
     symbols: list[str]
 
 
-@router.post("/sync-watchlist")
+# RR3: sync-watchlist 寫入全域 alert_symbols，先前無認證任何人可覆寫。
+@router.post("/sync-watchlist", dependencies=[Depends(require_admin)])
 async def sync_watchlist(req: SyncWatchlistReq):
     """把前端觀察清單同步到後端（C9）：收盤排程掃描/推播需要知道要掃哪些。"""
     from ..data.us_symbols import normalize_symbol
@@ -507,7 +509,8 @@ async def run_alert_check() -> dict:
     return {"checked": len(symbols), "triggered": triggered_count}
 
 
-@router.get("/alerts")
+# RR2: alerts CRUD + history 先前無認證，任何人可讀取或修改警報設定。
+@router.get("/alerts", dependencies=[Depends(require_admin)])
 async def list_alerts():
     """列出所有價格警報（含最後檢查價格與觸發狀態）。"""
     from ..db.cache import get_setting
@@ -516,7 +519,7 @@ async def list_alerts():
     return {"success": True, "data": {"items": alerts}}
 
 
-@router.post("/alerts")
+@router.post("/alerts", dependencies=[Depends(require_admin)])
 async def create_alert(req: PriceAlertReq):
     """新增一筆警報：價格漲跌破 / 成交量異常(Y2) / RSI 超買超賣(Y2)。"""
     import uuid
@@ -569,7 +572,7 @@ async def create_alert(req: PriceAlertReq):
     return {"success": True, "data": alert}
 
 
-@router.get("/alerts/history")
+@router.get("/alerts/history", dependencies=[Depends(require_admin)])
 async def get_alert_history(limit: int = 50):
     """Y3：警報觸發歷史 feed，最新在前。"""
     from ..db.cache import get_setting
@@ -579,7 +582,7 @@ async def get_alert_history(limit: int = 50):
     return {"success": True, "data": {"items": items}}
 
 
-@router.delete("/alerts/{alert_id}")
+@router.delete("/alerts/{alert_id}", dependencies=[Depends(require_admin)])
 async def delete_alert(alert_id: str):
     """刪除一筆價格警報。"""
     from ..db.cache import pull_from_setting_array

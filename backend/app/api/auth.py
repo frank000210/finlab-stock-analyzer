@@ -3,7 +3,7 @@
 import logging
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from ..config.settings import get_settings
@@ -16,6 +16,28 @@ except Exception:
     get_setting = None
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
+
+# RR7: /google/verify 先前完全沒有頻率限制，攻擊者可批次測試 Google token
+# 是否屬於本站管理員帳號。補上比照其他認證端點的 IP 節流。
+_GOOGLE_VERIFY_WINDOW_MINUTES = 10
+_GOOGLE_VERIFY_MAX_CALLS = 20
+
+
+async def _check_google_verify_rate_limit(request: Request) -> None:
+    try:
+        from ..api.analytics import _get_client_ip
+        from ..db.cache import increment_rate_limit
+        ip = _get_client_ip(request)
+        count = await increment_rate_limit(f"auth_google_verify_rate:{ip}", "rate_limit")
+        if count > _GOOGLE_VERIFY_MAX_CALLS:
+            raise HTTPException(
+                status_code=429,
+                detail=f"驗證請求過於頻繁，請 {_GOOGLE_VERIFY_WINDOW_MINUTES} 分鐘後再試。",
+            )
+    except HTTPException:
+        raise
+    except Exception:
+        pass  # 節流輔助 DB 失敗不應阻斷正常登入
 
 
 class GoogleVerifyPayload(BaseModel):
@@ -40,7 +62,7 @@ async def _get_allowed_admins() -> list[str]:
     return cleaned or default_admins
 
 
-@router.post("/google/verify")
+@router.post("/google/verify", dependencies=[Depends(_check_google_verify_rate_limit)])
 async def verify_google_token(payload: GoogleVerifyPayload):
     settings = get_settings()
     if not settings.google_client_id:

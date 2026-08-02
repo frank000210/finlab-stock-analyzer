@@ -2,6 +2,11 @@
   <div class="approval-page">
     <PageFocusBanner text="審核 AI 交易提案：核准即寫入交易日誌成為紙上交易（不會真實下單），練習把關與追蹤成效。" />
 
+    <div v-if="!authStore.isAdmin" class="card login-gate">
+      <p>此頁面需要管理員身份。請至管理頁面登入後再回來。</p>
+    </div>
+    <template v-else>
+
     <div class="page-header">
       <div>
         <h1>交易核准中心</h1>
@@ -63,6 +68,7 @@
       </article>
     </div>
     <div v-else class="card empty-state">目前沒有符合條件的交易任務</div>
+    </template>
   </div>
 </template>
 
@@ -71,6 +77,12 @@ import PageFocusBanner from '../components/PageFocusBanner.vue'
 import { onMounted, ref, watch } from 'vue'
 import { loadJournal, saveJournal, localDateStr } from '../lib/tradeMath'
 import { fetchWithRetry } from '../lib/apiFetch'
+import { useAuthStore } from '../stores/authStore'
+
+const authStore = useAuthStore()
+function authHeaders() {
+  return { 'X-Admin-Token': authStore.token || '' }
+}
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 const statuses = ['ALL', 'PENDING', 'APPROVED', 'REJECTED']
@@ -161,7 +173,7 @@ async function logToJournal(trade) {
 
 async function apiRequest(path, options = {}) {
   const response = await fetchWithRetry(`${API_BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
+    headers: { 'Content-Type': 'application/json', ...authHeaders(), ...(options.headers || {}) },
     ...options,
   })
   const payload = await response.json().catch(() => ({}))

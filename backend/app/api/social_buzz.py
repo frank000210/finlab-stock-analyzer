@@ -84,7 +84,10 @@ async def get_news_ai_summary(symbol: str):
 async def get_social_buzz(symbol: str):
     """Analyze social media and news buzz for a stock."""
     try:
-        cache_key = f"social_buzz:v1:{symbol}"
+        # RR9: 用未正規化的 symbol 作為 cache key，2330 與 2330.TW 會得到兩份快取、
+        # 繞過 30 分鐘 TTL 並觸發重複的外部爬蟲請求，ip 可能被 PTT/新聞網站封鎖。
+        from ..data.us_symbols import normalize_symbol as _norm
+        cache_key = f"social_buzz:v1:{_norm(symbol)}"
         try:
             from ..db.cache import get_cache, set_cache
             cached = await get_cache(cache_key)

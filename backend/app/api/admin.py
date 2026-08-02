@@ -238,23 +238,22 @@ async def get_allowed_admins(_admin: dict = Depends(require_admin)):
 
 @router.post("/allowed-admins")
 async def add_allowed_admin(payload: AllowedAdminPayload, _admin: dict = Depends(require_admin)):
-    await _ensure_setting_helpers_available()
     email = payload.email.strip().lower()
     if not email:
         raise HTTPException(status_code=400, detail="Email is required.")
-    emails = await _get_allowed_admins_value()
-    if email not in emails:
-        emails.append(email)
-        await set_setting("allowed_admin_emails", emails)
+    # RR6: 原本是 read-modify-write 三步驟（非原子），並行請求可能互相覆蓋。
+    # 改用 cache.py 的 add_to_setting_list（$addToSet）讓操作原子化。
+    from ..db.cache import add_to_setting_list
+    emails = await add_to_setting_list("allowed_admin_emails", email)
     return {"success": True, "data": emails}
 
 
 @router.delete("/allowed-admins/{email}")
 async def remove_allowed_admin(email: str, _admin: dict = Depends(require_admin)):
-    await _ensure_setting_helpers_available()
     target_email = email.strip().lower()
-    emails = [item for item in await _get_allowed_admins_value() if item != target_email]
-    await set_setting("allowed_admin_emails", emails)
+    # RR6: 同款問題，改用 remove_from_setting_list（$pull）。
+    from ..db.cache import remove_from_setting_list
+    emails = await remove_from_setting_list("allowed_admin_emails", target_email)
     return {"success": True, "data": emails}
 
 

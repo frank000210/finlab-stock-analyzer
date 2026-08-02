@@ -238,3 +238,44 @@ async def get_all_settings() -> dict:
     async for doc in cursor:
         settings[doc["key"]] = doc.get("value")
     return settings
+
+
+async def add_to_setting_list(key: str, item: Any) -> list:
+    """RR6: 原子地將 item 加入清單型設定（MongoDB $addToSet）。
+
+    讀改寫三步驟在並行請求下可能互相覆蓋——例如兩個請求同時新增不同 email，
+    後寫的一方覆蓋先寫的，導致先寫的 email 消失。$addToSet 讓整個操作原子化，
+    不管多少並行請求都不會互相覆蓋，也自動去重。
+    回傳操作後的最新清單。
+    """
+    db = await _get_db()
+    doc = await db.settings.find_one_and_update(
+        {"key": key},
+        {
+            "$addToSet": {"value": item},
+            "$set": {"updated_at": datetime.utcnow()},
+            "$setOnInsert": {"key": key},
+        },
+        upsert=True,
+        return_document=ReturnDocument.AFTER,
+    )
+    return list(doc.get("value") or [])
+
+
+async def remove_from_setting_list(key: str, item: Any) -> list:
+    """RR6: 原子地從清單型設定中移除 item（MongoDB $pull）。
+
+    回傳操作後的最新清單。
+    """
+    db = await _get_db()
+    doc = await db.settings.find_one_and_update(
+        {"key": key},
+        {
+            "$pull": {"value": item},
+            "$set": {"updated_at": datetime.utcnow()},
+        },
+        return_document=ReturnDocument.AFTER,
+    )
+    if doc is None:
+        return []
+    return list(doc.get("value") or [])

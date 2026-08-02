@@ -1,5 +1,6 @@
 """Analytics API endpoints backed by MongoDB."""
 
+import hmac
 import logging
 import re
 from datetime import datetime, timezone
@@ -79,7 +80,8 @@ async def _require_admin_token(x_admin_token: str = Header(default="")) -> None:
     Uses the same admin secret as the admin panel — no new credential needed."""
     from ..config.settings import get_settings as _gs
     expected = _gs().admin_secret
-    if not expected or x_admin_token != expected:
+    # RR5: 使用時序安全比較防止 timing oracle 攻擊
+    if not expected or not hmac.compare_digest(x_admin_token, expected):
         raise HTTPException(status_code=401, detail="Admin token required.")
 
 
