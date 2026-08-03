@@ -140,7 +140,7 @@ footer{ margin-top:36px; font-size:0.78rem; color:var(--ink-faint); text-align:c
   <div class="stats">
     <div class="stat"><b class="mono" id="stat-items">–</b><span>已完成項目</span></div>
     <div class="stat"><b class="mono" id="stat-series">–</b><span>批次系列</span></div>
-    <div class="stat"><b class="mono">07-11→08-02</b><span>涵蓋日期</span></div>
+    <div class="stat"><b class="mono">07-11→08-03</b><span>涵蓋日期</span></div>
     <div class="stat"><b class="mono" id="stat-critical">–</b><span>關鍵安全修復</span></div>
   </div>
   <div class="search-row">
@@ -161,6 +161,21 @@ footer{ margin-top:36px; font-size:0.78rem; color:var(--ink-faint); text-align:c
 
 <script>
 const DATA = [
+{date:'2026-08-03 00:00', range:'TT1–TT10', title:'自主循環優化：投資界標干心法驅動的分析深化（Ed Thorp／Van Tharp／PTJ／Livermore／Dalio）',
+ summary:'參考五位投資大師的核心心法，盤點 10 項可落地的分析深化項目，3 輪自我審查後實作。橫跨 MonteCarloView、JournalView、PortfolioHeatView、RiskSizingView、RiskMonitorView 五個前端元件，共新增 303 行。MC 補齊四分位範圍（TT1）、連虧心理準備（TT6）、幾何平均成長率（TT10）；Journal 新增損益貢獻結構圖（TT2）、計畫 R:R vs 實際達成率（TT3）、月份績效季節圖（TT4）、象限 SVG 圖（TT9）；PortfolioHeat 加融資倍率警示（TT5）；RiskSizing 加三層 R:R 評級（TT7）；RiskMonitor 加 R 曲線最大回撤與 Calmar-like 比值（TT8）。全部通過 Vite HMR 即時驗證，各元件無 console 錯誤。',
+ items:[
+  {code:'TT1', tag:'good', text:'MonteCarloView 新增四分位範圍 p25/p75 卡片（Ed Thorp：了解完整報酬分布而非只看極端值）。模擬完成後顯示「中間 50% 路徑」的報酬區間，比 p5/p95 更具代表性，反映大多數情況的報酬落點。'},
+  {code:'TT2', tag:'good', text:'JournalView 新增損益貢獻結構橫向進度條（Van Tharp R 倍數系統）。以贏單 R 合計為基準（100% 寬度），輸單 R 合計的進度條寬度反映比率，並顯示獲利因子（應 > 1.5）。'},
+  {code:'TT3', tag:'good', text:'JournalView 新增計畫 R:R vs 實際 R 中位數比較卡片（Paul Tudor Jones 風報比優先）。對有設目標價的交易，計算計畫 R:R 中位數和實際 R 中位數，以達成率判斷是否習慣提前出場。'},
+  {code:'TT4', tag:'good', text:'JournalView 新增月份績效柱狀圖（Stan Weinstein 季節性週期意識）。按出場月份分組累計 R，正月為紅柱、負月為綠柱，可視覺辨別季節性強弱月。'},
+  {code:'TT5', tag:'warn', text:'PortfolioHeatView 新增槓桿倍率警示橫幅（Ray Dalio：不過度槓桿）。當 deployedPct > 100% 時顯示紅色警示，提醒使用者已動用融資或借款，任何回調都可能觸發強制回補。'},
+  {code:'TT6', tag:'good', text:'MonteCarloView 新增典型最長連虧中位數卡片（Jesse Livermore 連虧心理準備）。跑遍全部模擬路徑，統計每條路徑的最長連虧筆數後取中位數——讓使用者在連虧前就知道「遇到 N 連虧是這套系統的正常噪音，不是系統壞掉了」。'},
+  {code:'TT7', tag:'good', text:'RiskSizingView R:R 評級升為三層色彩 + 文字說明（PTJ：最低 2:1，優秀 3:1+）。原本只有 up/warn 兩色，新增 rr-ok（綠）與 down（紅）層：≥3:1 優秀、≥2:1 合格（綠）、≥1.5:1 偏低（黃）、<1.5:1 不建議（紅）。'},
+  {code:'TT8', tag:'good', text:'RiskMonitorView 新增 R 曲線最大回撤 + 報酬回撤比（CTA 風控指標，類似 Calmar Ratio）。以 R 為單位衡量累計 R 序列的峰谷回落，不受帳戶大小影響，可跨帳戶比較；報酬回撤比 = 峰值累計 R / R 曲線 MDD，數字越高代表每承受一單位連虧深度能賺到更多 R。'},
+  {code:'TT9', tag:'good', text:'JournalView 新增勝率 × 盈虧比象限 SVG 圖（Van Tharp 期望值視覺化）。以真實 stats 計算破偶期望值曲線（勝率 = 1/(1+盈虧比)），標出使用者目前位置，紅點 = 正期望值（曲線上方），綠點 = 負期望值（曲線下方）。'},
+  {code:'TT10', tag:'good', text:'MonteCarloView 新增幾何平均成長率卡片（Ed Thorp Kelly 複利哲學）。幾何均值 = exp(各路徑 ln 最終資產的均值) − 1，比算術均值更誠實：虧損 50% 後賺 50% 只剩 75%，算術均值是 0% 但幾何均值是 −25%，才是長期複利真實速度。'},
+ ]},
+
 {date:'2026-08-02 23:30', range:'SS1–SS10＋BONUS', title:'自主循環優化：凱利準則、毀滅門檻、處置效應、樣本不足保護、目標R達成、過度自信警示',
  summary:'以投資界標準心法為準則，盤點 10 項可優化項目，3 輪自我審查後實作。橫跨 MonteCarloView、PortfolioHeatView、JournalView 三個前端元件。修正模擬路徑在觸及毀滅後繼續恢復的邏輯謬誤（SS1）；Portfolio Heat 改用現值而非成本計算部位規模（SS2）；R直方圖改為固定 [-4R,+8R] 區間顯示極端值數量（SS3）；低樣本策略分組顯示⚠警示（SS4）；賠比超過20倍上限防止異常凱利估算（SS5）；新增目標R達成率複盤教練提示（SS6）；市價平倉加二次確認對話框（SS7）；連勝4筆以上觸發過度自信警示（SS8）；蒙地卡羅結果加入凱利最佳/半凱利卡片與清單檢查（SS9）；已平倉表格改為最新在上排列（SS10）。BONUS：修正 cl.map(pnl) 將陣列索引誤傳為 exitPrice 導致累積損益與獲利因子錯誤計算。',
  items:[
