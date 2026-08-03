@@ -1,5 +1,6 @@
 // @ts-check
 const { test, expect } = require('@playwright/test')
+const { getAdminToken } = require('../helpers/admin-token')
 
 // C9: watchlist sync + post-close daily brief (also the E14 foundation).
 //
@@ -13,7 +14,9 @@ const TEST_IP = `203.0.113.${Math.floor(Math.random() * 250) + 1}`
 test('同步觀察清單後可產生盤後日報', async ({ request }) => {
   test.setTimeout(120_000)
 
+  const token = await getAdminToken(request)
   const sync = await request.post('/api/v1/risk/sync-watchlist', {
+    headers: { 'X-Admin-Token': token },
     data: { symbols: ['2330', '2882'] },
   })
   expect(sync.ok()).toBeTruthy()

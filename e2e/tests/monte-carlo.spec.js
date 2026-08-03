@@ -12,8 +12,10 @@ test('風險模擬 runs and reports ruin probability', async ({ page }) => {
   await page.getByRole('button', { name: '執行模擬' }).click()
 
   // Never ruined, always profitable.
-  await expect(page.locator('.checklist li')).toContainText('破產機率 0.0%')
-  await expect(page.locator('.checklist li')).toHaveClass(/ok/)
+  // TT6 added a second checklist item (half-Kelly warning), so filter to avoid strict-mode violation.
+  const ruinItem = page.locator('.checklist li').filter({ hasText: '破產機率' })
+  await expect(ruinItem).toContainText('破產機率 0.0%')
+  await expect(ruinItem).toHaveClass(/ok/)
   await expect(page.locator('.rgrid')).toContainText('100.0%') // profitable probability
   await expect(page.locator('.hist-svg')).toBeVisible()
 })

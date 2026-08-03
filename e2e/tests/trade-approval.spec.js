@@ -1,11 +1,18 @@
 // @ts-check
 const { test, expect } = require('@playwright/test')
+const { getAdminToken } = require('../helpers/admin-token')
 
 // C1 交易核准中心接真實流程：過去「核准」只翻後端記憶體裡的狀態旗標，核准
 // 之後什麼都不會發生（也沒有任何測試覆蓋）。現在核准即寫入交易日誌成為紙上
 // 交易（停損比照「穩健」2×ATR 慣例），與作戰台「記錄」走同一條路，之後平倉
 // 就進 R 值統計、也被風控監控的真實回撤/熔斷看到。
+// RR1-RR3 added v-if="!authStore.isAdmin" gate — set localStorage before navigation.
 test.beforeEach(async ({ page }) => {
+  const token = await getAdminToken(page.request)
+  await page.addInitScript(({ adminToken }) => {
+    localStorage.setItem('admin_token', adminToken)
+    localStorage.setItem('admin_user', JSON.stringify({ is_admin: true, email: 'test@admin', name: 'Test', avatar: '' }))
+  }, { adminToken: token })
   await page.route('**/api/v1/trade/pending*', async (route) => {
     await route.fulfill({
       status: 200,

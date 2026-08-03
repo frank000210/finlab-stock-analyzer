@@ -7,6 +7,11 @@ const { test, expect } = require('@playwright/test')
 // 把 default 規則重新設回啟用），避免污染其他測試或手動操作的狀態。
 
 test('PUT /api/v1/signal-rules/{id} 與 POST /activate 對真實後端生效', async ({ request }) => {
+  // Clean up stale test rule left by a previously interrupted run.
+  const listBefore = await request.get('/api/v1/signal-rules')
+  const stale = (await listBefore.json()).data.items.find(r => r.name === 'e2e-api-test-rule')
+  if (stale) await request.delete(`/api/v1/signal-rules/${stale.id}`)
+
   const created = await request.post('/api/v1/signal-rules', {
     data: {
       name: 'e2e-api-test-rule',

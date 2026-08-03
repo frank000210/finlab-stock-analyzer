@@ -1,5 +1,6 @@
 // @ts-check
 const { test, expect } = require('@playwright/test')
+const { getAdminToken } = require('../helpers/admin-token')
 
 // E14: dedicated frontend page for the C9 daily brief, so you can read it on
 // the web instead of only via Telegram push.
@@ -15,7 +16,16 @@ test('盤後日報頁：顯示日報內容並可手動推播', async ({ page }) 
     await route.continue({ headers: { ...route.request().headers(), 'x-forwarded-for': testIp } })
   })
 
-  await page.request.post('/api/v1/risk/sync-watchlist', { data: { symbols: ['2330'] } })
+  const token = await getAdminToken(page.request)
+  await page.addInitScript(({ adminToken }) => {
+    localStorage.setItem('admin_token', adminToken)
+    localStorage.setItem('admin_user', JSON.stringify({ is_admin: true, email: 'test@admin', name: 'Test', avatar: '' }))
+  }, { adminToken: token })
+
+  await page.request.post('/api/v1/risk/sync-watchlist', {
+    data: { symbols: ['2330'] },
+    headers: { 'X-Admin-Token': token },
+  })
 
   await page.goto('/daily-brief')
   await expect(page.getByRole('heading', { name: '盤後日報' })).toBeVisible()

@@ -1,14 +1,20 @@
 // @ts-check
 const { test, expect } = require('@playwright/test')
+const { getAdminToken } = require('../helpers/admin-token')
 
 // C10: price alerts — set a per-symbol threshold, scheduler checks in the
 // background and pushes a Telegram notification once when it's breached.
+// RR1-RR3 hardened all /api/v1/risk/alerts endpoints to require admin auth.
 test('C10 價格警報 API：新增/列表/刪除', async ({ request }) => {
-  const existing = await request.get('/api/v1/risk/alerts')
+  const token = await getAdminToken(request)
+  const h = { 'X-Admin-Token': token }
+
+  const existing = await request.get('/api/v1/risk/alerts', { headers: h })
   for (const a of (await existing.json()).data.items) {
-    await request.delete(`/api/v1/risk/alerts/${a.id}`)
+    await request.delete(`/api/v1/risk/alerts/${a.id}`, { headers: h })
   }
   const create = await request.post('/api/v1/risk/alerts', {
+    headers: h,
     data: { symbol: '2330', direction: 'above', target_price: 999999, note: '測試' },
   })
   expect(create.ok()).toBeTruthy()
@@ -17,43 +23,59 @@ test('C10 價格警報 API：新增/列表/刪除', async ({ request }) => {
   expect(alert.triggered).toBe(false)
   expect(alert.active).toBe(true)
 
-  const list = await request.get('/api/v1/risk/alerts')
+  const list = await request.get('/api/v1/risk/alerts', { headers: h })
   expect(list.ok()).toBeTruthy()
   const items = (await list.json()).data.items
   expect(items.some(a => a.id === alert.id)).toBeTruthy()
 
-  const del = await request.delete(`/api/v1/risk/alerts/${alert.id}`)
+  const del = await request.delete(`/api/v1/risk/alerts/${alert.id}`, { headers: h })
   expect(del.ok()).toBeTruthy()
 
-  const list2 = await request.get('/api/v1/risk/alerts')
+  const list2 = await request.get('/api/v1/risk/alerts', { headers: h })
   const items2 = (await list2.json()).data.items
   expect(items2.some(a => a.id === alert.id)).toBeFalsy()
 })
 
 test('C10 價格警報 API：立即檢查回傳 checked/triggered 統計', async ({ request }) => {
   test.setTimeout(120_000)
-  const existing = await request.get('/api/v1/risk/alerts')
+  const token = await getAdminToken(request)
+  const h = { 'X-Admin-Token': token }
+
+  const existing = await request.get('/api/v1/risk/alerts', { headers: h })
   for (const a of (await existing.json()).data.items) {
-    await request.delete(`/api/v1/risk/alerts/${a.id}`)
+    await request.delete(`/api/v1/risk/alerts/${a.id}`, { headers: h })
   }
   const create = await request.post('/api/v1/risk/alerts', {
+    headers: h,
     data: { symbol: '2330', direction: 'above', target_price: 999999 },
   })
   const alert = (await create.json()).data
-  const check = await request.post('/api/v1/risk/alerts/check', { timeout: 90_000 })
+  const check = await request.post('/api/v1/risk/alerts/check', {
+    headers: h,
+    timeout: 90_000,
+  })
   expect(check.ok()).toBeTruthy()
   const data = (await check.json()).data
   expect(data.checked).toBeGreaterThanOrEqual(1)
   expect(data.triggered).toBe(0) // 目標價 999999 現價不可能觸發
-  await request.delete(`/api/v1/risk/alerts/${alert.id}`)
+  await request.delete(`/api/v1/risk/alerts/${alert.id}`, { headers: h })
 })
 
 test('價格警報頁：新增顯示於清單並可刪除', async ({ page }) => {
+  const token = await getAdminToken(page.request)
+  const h = { 'X-Admin-Token': token }
+
   // Mongo-backed, not localStorage — clear any leftover alerts from prior runs first.
-  const existing = await page.request.get('/api/v1/risk/alerts')
+  const existing = await page.request.get('/api/v1/risk/alerts', { headers: h })
   for (const a of (await existing.json()).data.items) {
-    await page.request.delete(`/api/v1/risk/alerts/${a.id}`)
+    await page.request.delete(`/api/v1/risk/alerts/${a.id}`, { headers: h })
   }
+
+  // Set admin auth in localStorage so the page's authHeaders() includes the token.
+  await page.addInitScript(({ adminToken }) => {
+    localStorage.setItem('admin_token', adminToken)
+    localStorage.setItem('admin_user', JSON.stringify({ is_admin: true, email: 'test@admin', name: 'Test', avatar: '' }))
+  }, { adminToken: token })
 
   await page.goto('/price-alerts')
   // Y2 把標題從「新增價格警報」改成「新增警報」（警報類型擴充到成交量/RSI，不再只有價格）
@@ -80,14 +102,18 @@ test('價格警報頁：新增顯示於清單並可刪除', async ({ page }) => 
 // 行為本身——只是碰巧沒有並行呼叫，不代表 race 真的修好了。
 
 test('JJ4 回歸：並行新增警報不會互相蓋掉（atomic $push）', async ({ request }) => {
-  const existing = await request.get('/api/v1/risk/alerts')
+  const token = await getAdminToken(request)
+  const h = { 'X-Admin-Token': token }
+
+  const existing = await request.get('/api/v1/risk/alerts', { headers: h })
   for (const a of (await existing.json()).data.items) {
-    await request.delete(`/api/v1/risk/alerts/${a.id}`)
+    await request.delete(`/api/v1/risk/alerts/${a.id}`, { headers: h })
   }
 
   const creates = await Promise.all(
     Array.from({ length: 10 }, (_, i) =>
       request.post('/api/v1/risk/alerts', {
+        headers: h,
         data: { symbol: '2330', direction: 'above', target_price: 100000 + i, note: `並行測試 ${i}` },
       })
     )
@@ -97,41 +123,49 @@ test('JJ4 回歸：並行新增警報不會互相蓋掉（atomic $push）', asyn
   // 修好前的 read-modify-write race 下，並行寫入可能互相蓋掉，最終筆數會少於 10。
   expect(ids.size).toBe(10)
 
-  const list = await request.get('/api/v1/risk/alerts')
+  const list = await request.get('/api/v1/risk/alerts', { headers: h })
   const items = (await list.json()).data.items
   expect(items.length).toBe(10)
 
-  await Promise.all(items.map((a) => request.delete(`/api/v1/risk/alerts/${a.id}`)))
+  await Promise.all(items.map((a) => request.delete(`/api/v1/risk/alerts/${a.id}`, { headers: h })))
 })
 
 test('JJ4 回歸：並行刪除警報都確實生效（atomic $pull）', async ({ request }) => {
+  const token = await getAdminToken(request)
+  const h = { 'X-Admin-Token': token }
+
   const creates = await Promise.all(
     Array.from({ length: 8 }, (_, i) =>
       request.post('/api/v1/risk/alerts', {
+        headers: h,
         data: { symbol: '2330', direction: 'above', target_price: 200000 + i },
       })
     )
   )
   const ids = await Promise.all(creates.map(async (r) => (await r.json()).data.id))
 
-  const deletes = await Promise.all(ids.map((id) => request.delete(`/api/v1/risk/alerts/${id}`)))
+  const deletes = await Promise.all(ids.map((id) => request.delete(`/api/v1/risk/alerts/${id}`, { headers: h })))
   expect(deletes.every((r) => r.ok())).toBeTruthy()
 
-  const list = await request.get('/api/v1/risk/alerts')
+  const list = await request.get('/api/v1/risk/alerts', { headers: h })
   const remaining = (await list.json()).data.items
   expect(ids.every((id) => !remaining.some((a) => a.id === id))).toBeTruthy()
 })
 
 test('新增警報數量達上限（50 筆）會被擋下，刪除不存在的警報回傳 404', async ({ request }) => {
   test.setTimeout(60_000)
-  const existing = await request.get('/api/v1/risk/alerts')
+  const token = await getAdminToken(request)
+  const h = { 'X-Admin-Token': token }
+
+  const existing = await request.get('/api/v1/risk/alerts', { headers: h })
   for (const a of (await existing.json()).data.items) {
-    await request.delete(`/api/v1/risk/alerts/${a.id}`)
+    await request.delete(`/api/v1/risk/alerts/${a.id}`, { headers: h })
   }
 
   const created = []
   for (let i = 0; i < 50; i++) {
     const r = await request.post('/api/v1/risk/alerts', {
+      headers: h,
       data: { symbol: '2330', direction: 'above', target_price: 300000 + i },
     })
     expect(r.ok()).toBeTruthy()
@@ -139,12 +173,13 @@ test('新增警報數量達上限（50 筆）會被擋下，刪除不存在的�
   }
 
   const overCap = await request.post('/api/v1/risk/alerts', {
+    headers: h,
     data: { symbol: '2330', direction: 'above', target_price: 999999 },
   })
   expect(overCap.status()).toBe(400)
 
-  const del404 = await request.delete('/api/v1/risk/alerts/does-not-exist-12345')
+  const del404 = await request.delete('/api/v1/risk/alerts/does-not-exist-12345', { headers: h })
   expect(del404.status()).toBe(404)
 
-  await Promise.all(created.map((id) => request.delete(`/api/v1/risk/alerts/${id}`)))
+  await Promise.all(created.map((id) => request.delete(`/api/v1/risk/alerts/${id}`, { headers: h })))
 })
