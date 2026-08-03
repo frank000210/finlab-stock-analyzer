@@ -25,6 +25,31 @@
       <div class="header-accent"></div>
     </header>
 
+    <!-- UU5: 今日交易計劃便條（Mark Douglas — 開場前設計劃，執行時不靠感覺）-->
+    <section class="daily-plan-card card">
+      <div class="plan-head" @click="planExpanded = !planExpanded">
+        <div class="plan-title-row">
+          <span class="plan-icon">📋</span>
+          <h2 class="plan-title">今日交易計劃</h2>
+          <span class="plan-status" :class="todayPlan.trim() ? 'plan-set' : 'plan-unset'">
+            {{ todayPlan.trim() ? '✓ 已設計劃' : '✗ 未設計劃' }}
+          </span>
+        </div>
+        <button class="plan-toggle" :aria-label="planExpanded ? '收合' : '展開'">{{ planExpanded ? '▲' : '▼' }}</button>
+      </div>
+      <div v-show="planExpanded" class="plan-body">
+        <p class="plan-hint muted">記下今天的最大損失上限、關注的進場設定、市場偏向。計劃一旦設定，盤中就照計劃執行，不因帳面漲跌臨時改變。</p>
+        <textarea
+          v-model="todayPlan"
+          class="plan-textarea"
+          placeholder="例：最大虧損 2R，今日只做站上 20 日均線且有量的突破；市場偏多但不追高，只等回測支撐進場。"
+          @input="savePlan"
+          rows="4"
+        ></textarea>
+        <p class="plan-date muted">{{ planDateLabel }}</p>
+      </div>
+    </section>
+
     <section class="top-grid">
       <article class="market-pulse card">
         <div class="panel-head">
@@ -297,6 +322,16 @@ import { createChart } from 'lightweight-charts'
 import { loadWatchlist as loadSharedWatchlist, addToWatchlist, removeFromWatchlist } from '../lib/watchlist'
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
+
+// UU5: 今日交易計劃便條——Mark Douglas 開場前儀式
+// 以當日日期為 key，每天自動清空，避免帶著昨日偏見操作今天
+const PLAN_KEY_PREFIX = 'finlab_daily_plan_'
+function todayKey() { return PLAN_KEY_PREFIX + new Date().toISOString().slice(0, 10) }
+const todayPlan = ref(localStorage.getItem(todayKey()) || '')
+const planExpanded = ref(true)
+const planDateLabel = computed(() => `計劃日期：${new Date().toISOString().slice(0, 10)}，明日自動清空`)
+function savePlan() { localStorage.setItem(todayKey(), todayPlan.value) }
+
 const filters = [
   { label: '全部', value: 'ALL' },
   { label: '買進', value: 'BUY' },
@@ -1120,6 +1155,20 @@ function toDateParam(value) {
   background: linear-gradient(90deg, rgba(59, 130, 246, 0.95), rgba(6, 182, 212, 0.8), rgba(16, 185, 129, 0.75));
   box-shadow: 0 0 24px rgba(59, 130, 246, 0.22);
 }
+
+.daily-plan-card { padding: var(--space-4) var(--space-5); }
+.plan-head { display: flex; align-items: center; justify-content: space-between; cursor: pointer; user-select: none; }
+.plan-title-row { display: flex; align-items: center; gap: 10px; }
+.plan-icon { font-size: 1.1rem; }
+.plan-title { margin: 0; font-size: 1rem; font-weight: 600; }
+.plan-status { font-size: 0.78rem; padding: 2px 8px; border-radius: 20px; font-weight: 600; }
+.plan-set { background: rgba(34,197,94,0.15); color: var(--up, #22c55e); }
+.plan-unset { background: rgba(239,68,68,0.12); color: var(--down, #ef4444); }
+.plan-toggle { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.85rem; }
+.plan-body { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+.plan-hint { font-size: 0.8rem; margin: 0; }
+.plan-textarea { width: 100%; background: var(--bg-well); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 10px; padding: 10px 12px; font-size: 0.88rem; resize: vertical; font-family: inherit; box-sizing: border-box; }
+.plan-date { font-size: 0.72rem; margin: 0; }
 
 .top-grid {
   display: grid;

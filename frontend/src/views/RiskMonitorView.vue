@@ -103,6 +103,16 @@
           <strong>{{ rCurveMdd.ratio ?? '—' }}</strong>
         </div>
       </div>
+      <!-- UU6: 近20日波動率相對歷史警示 -->
+      <div v-if="volatilityRegime" class="r-curve-stats vol-regime-row">
+        <div class="rc-stat">
+          <span class="rc-label">近20日波動率 vs 歷史均值 <InfoTooltip label="系統波動率比值" text="近20個交易日的日損益標準差，相對於全部歷史均值的倍數。≥ 1.5× 代表系統近期處於高波動狀態——Van Tharp 建議此時縮減倉位至標準的 50%，降低高波動期被連續大虧洗出的機率。" /></span>
+          <strong :class="volatilityRegime.elevated ? 'warn' : 'up'">{{ volatilityRegime.ratio.toFixed(1) }}×</strong>
+        </div>
+        <div class="rc-stat" v-if="volatilityRegime.elevated">
+          <span class="rc-label vol-warn-msg">⚠ 高波動期 — 建議縮減倉位至標準的 50%</span>
+        </div>
+      </div>
     </section>
 
     <section class="card chart-card">
@@ -163,6 +173,21 @@ async function refreshUnrealized() {
 }
 
 const returnSeries = computed(() => computeReturns(equitySeries.value))
+
+// UU6: 近20日波動率 vs 全歷史比值
+// Van Tharp: 當系統進入高波動狀態，縮減至半標準倉位可保護資金曲線
+const volatilityRegime = computed(() => {
+  const rets = returnSeries.value
+  if (rets.length < 25) return null
+  const mean = (arr) => arr.reduce((a, b) => a + b, 0) / arr.length
+  const std = (arr) => { const m = mean(arr); return Math.sqrt(arr.reduce((a, r) => a + (r - m) ** 2, 0) / arr.length) }
+  const allStd = std(rets)
+  if (!allStd) return null
+  const recent = rets.slice(-20)
+  const recentStd = std(recent)
+  const ratio = recentStd / allStd
+  return { ratio, recentStd: recentStd.toFixed(2), allStd: allStd.toFixed(2), elevated: ratio >= 1.5 }
+})
 
 // TT8: R 曲線最大回撤（單位：R，跨帳戶大小可比較）
 const rCurveMdd = computed(() => {
@@ -551,6 +576,8 @@ function statusClass(status) {
 .rc-stat { display: flex; flex-direction: column; gap: 4px; }
 .rc-label { font-size: 0.74rem; color: var(--text-muted); display: flex; align-items: center; gap: 4px; }
 .rc-stat strong { font-size: 1.25rem; }
+.vol-warn-msg { color: var(--warn, #f59e0b); font-size: 0.8rem; font-weight: 600; }
+.vol-regime-row { border-color: var(--warn, #f59e0b); }
 
 .chart-host { width: 100%; min-height: 300px; margin-top: 16px; }
 .chart-host :deep(.axis text) { fill: var(--text-muted); font-size: 0.7rem; }

@@ -54,6 +54,11 @@
               <span>幾何平均成長率 <InfoTooltip label="幾何平均（複利真實增長）" text="幾何平均 = exp(各路徑 ln 報酬均值)。比算術平均報酬更誠實：虧損 50% 後賺 50%，最終只剩 75%，算術均值是 0% 但複利實際虧損 25%。幾何平均才是長期複利的真實增長速度。" /></span>
               <strong :class="result.geoMeanReturn >= 0 ? 'up' : 'down'">{{ pct(result.geoMeanReturn) }}</strong>
             </div>
+            <!-- UU3: 損益平衡最低勝率 + 安全邊際 -->
+            <div class="rcard" :class="safetyMargin >= 10 ? 'ok-card' : safetyMargin >= 0 ? '' : 'danger'">
+              <span>損益平衡最低勝率 / 安全邊際 <InfoTooltip label="損益平衡最低勝率" text="在當前盈虧比 R 下，期望值剛好為零時的臨界勝率 = 1/(1+R)。安全邊際 = 你的勝率 − 損益平衡勝率：越大代表優勢越穩固。< 5% 代表優勢薄弱，一旦勝率稍微滑落就轉為負期望。" /></span>
+              <strong>{{ breakEvenWinRate.toFixed(1) }}% / <span :class="safetyMargin >= 10 ? 'up' : safetyMargin >= 0 ? 'warn' : 'down'">{{ safetyMargin >= 0 ? '+' : '' }}{{ safetyMargin.toFixed(1) }}%</span></strong>
+            </div>
           </div>
 
           <div class="hist">
@@ -150,6 +155,11 @@ const kellyOptimal = computed(() => {
 })
 // 半凱利百分比（建議實際使用值）
 const halfKellyPct = computed(() => kellyOptimal.value * 50)
+
+// UU3: 損益平衡最低勝率 = 1/(1+R)，安全邊際 = 當前勝率 − 損益平衡勝率
+// Howard Marks「安全邊際」——優勢越厚，策略越禁得起估計誤差
+const breakEvenWinRate = computed(() => payoff.value > 0 ? 100 / (1 + payoff.value) : 0)
+const safetyMargin = computed(() => winRate.value - breakEvenWinRate.value)
 
 function pct(v) { return (v == null || isNaN(v)) ? '—' : (v >= 0 ? '+' : '') + (v * 100).toFixed(1) + '%' }
 

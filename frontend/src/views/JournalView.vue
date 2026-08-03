@@ -22,6 +22,19 @@
         <div class="scard"><span class="slabel">累計損益</span><strong class="sval" :class="stats.totalPnl >= 0 ? 'up' : 'down'">{{ stats.count ? fmtInt(stats.totalPnl) : '—' }}</strong></div>
         <div class="scard"><span class="slabel">最大連虧</span><strong class="sval">{{ stats.count ? stats.maxConsecLoss : '—' }}</strong></div>
         <div class="scard"><span class="slabel">平均獲利 / 虧損</span><strong class="sval">{{ stats.count ? stats.avgWinR.toFixed(2) + ' / ' + stats.avgLossR.toFixed(2) + ' R' : '—' }}</strong></div>
+        <!-- UU1: Sortino Ratio -->
+        <div class="scard" v-if="sortinoRatio !== null">
+          <span class="slabel">Sortino Ratio <InfoTooltip label="Sortino Ratio（下行風險調整報酬）" text="平均 R ÷ 負R標準差。只懲罰下行波動，比 Sharpe 更貼近交易實情。≥ 1.0 代表每承受一單位下行風險能賺到超過 1R 的期望值，屬優秀水準。" /></span>
+          <strong class="sval" :class="sortinoRatio === Infinity ? 'up' : sortinoRatio >= 1 ? 'up' : sortinoRatio >= 0 ? 'warn' : 'down'">{{ sortinoRatio === Infinity ? '∞' : sortinoRatio.toFixed(2) }}</strong>
+        </div>
+        <!-- UU10: 系統健康總分 -->
+        <div class="scard health-card" v-if="systemHealth">
+          <span class="slabel">系統健康分 <InfoTooltip label="系統績效健康總分" text="五項關鍵指標各 20 分（勝率、期望值、獲利因子、最大連虧、盈虧比），總分反映系統目前的整體健康狀態。80-100 健康，60-79 需留意，< 60 建議停手複盤。" /></span>
+          <strong class="sval health-score" :class="systemHealth.score >= 80 ? 'up' : systemHealth.score >= 60 ? 'warn' : 'down'">{{ systemHealth.score }}<span class="health-total">/100</span></strong>
+          <div class="health-breakdown">
+            <span v-for="item in systemHealth.items" :key="item.label" class="health-dot" :class="item.ok ? 'dot-ok' : 'dot-no'" :title="item.label + '：' + item.detail">●</span>
+          </div>
+        </div>
       </div>
 
       <div v-if="equityPoints.length > 1" class="equity">
@@ -182,15 +195,21 @@
           <span class="slabel">依型態統計（哪種設定最會賺，就多做那種）</span>
           <div class="table-wrap">
             <table class="j-table">
-              <thead><tr><th>型態</th><th>筆數</th><th>勝率</th><th>期望值</th><th>累計 R</th></tr></thead>
+              <thead><tr><th>型態</th><th>筆數</th><th>勝率</th><th>期望值</th><th>累計 R</th><th>近5筆期望值 <InfoTooltip label="型態近5筆期望值" text="該型態最近 5 筆已平倉交易的期望值（需至少 3 筆才顯示）。若比全體期望值明顯下滑，代表這個 setup 近期可能在衰退，建議暫緩使用或縮小倉位。" /></th></tr></thead>
               <tbody>
-                <tr v-for="g in byTag" :key="g.tag">
+                <!-- UU8: 使用 byTagWithRecent 增加近5筆期望值欄 -->
+                <tr v-for="g in byTagWithRecent" :key="g.tag">
                   <td class="sym">{{ g.tag }}</td>
                   <!-- SS4: 樣本 < 3 筆時統計不顯著，加⚠提示 -->
                   <td :class="{ 'muted': g.count < 3 }" :title="g.count < 3 ? '樣本不足 3 筆，勝率/期望值不可靠' : ''">{{ g.count }}<span v-if="g.count < 3" class="sample-warn"> ⚠</span></td>
                   <td :class="g.count < 3 ? 'muted' : ''">{{ (g.winRate * 100).toFixed(0) }}%</td>
                   <td :class="g.expectancyR >= 0 ? 'up' : 'down'">{{ g.expectancyR >= 0 ? '+' : '' }}{{ g.expectancyR.toFixed(2) }}R</td>
                   <td><strong :class="g.totalR >= 0 ? 'up' : 'down'">{{ g.totalR >= 0 ? '+' : '' }}{{ g.totalR.toFixed(2) }}R</strong></td>
+                  <td v-if="g.recent5Exp !== null" :class="g.recent5Exp >= 0 ? 'up' : 'down'">
+                    {{ g.recent5Exp >= 0 ? '+' : '' }}{{ g.recent5Exp.toFixed(2) }}R
+                    <span v-if="g.expectancyR > 0.1 && g.recent5Exp < 0" class="sample-warn" title="近期轉負，原本正期望值的策略衰退信號"> ↓</span>
+                  </td>
+                  <td v-else class="muted">—</td>
                 </tr>
               </tbody>
             </table>
@@ -256,6 +275,54 @@
             <circle :cx="quadrantChart.dotX" :cy="quadrantChart.dotY" r="6" :class="quadrantChart.above ? 'dot-up' : 'dot-down'" />
           </svg>
           <p class="shint muted">盈虧比 {{ quadrantChart.px }}、勝率 {{ quadrantChart.py }}% — {{ quadrantChart.above ? '✓ 正期望值（虛線上方）' : '✗ 負期望值（虛線下方），需要改善勝率或盈虧比' }}</p>
+        </div>
+
+        <!-- UU2: 多空分開統計 -->
+        <div class="an-block" v-if="bySide.length >= 2">
+          <span class="slabel">多空分開績效（Minervini：集中資本在你有真正優勢的方向）</span>
+          <div class="table-wrap">
+            <table class="j-table">
+              <thead><tr><th>方向</th><th>筆數</th><th>勝率</th><th>期望值</th><th>累計 R</th></tr></thead>
+              <tbody>
+                <tr v-for="g in bySide" :key="g.side">
+                  <td :class="g.side === 'long' ? 'up' : 'down'">{{ g.side === 'long' ? '做多' : '做空' }}</td>
+                  <td>{{ g.count }}</td>
+                  <td>{{ (g.winRate * 100).toFixed(0) }}%</td>
+                  <td :class="g.expectancyR >= 0 ? 'up' : 'down'">{{ g.expectancyR >= 0 ? '+' : '' }}{{ g.expectancyR.toFixed(2) }}R</td>
+                  <td><strong :class="g.totalR >= 0 ? 'up' : 'down'">{{ g.totalR >= 0 ? '+' : '' }}{{ g.totalR.toFixed(2) }}R</strong></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- UU4: R 分布偏態係數 -->
+        <div class="an-block" v-if="rSkewness !== null">
+          <span class="slabel">R 分布偏態係數（正值 = 右偏 ✓ 讓利潤奔跑，負值 = 左偏 ✗ 凹單或跑太快）</span>
+          <div class="skew-row">
+            <div class="skew-val" :class="rSkewness >= 0.3 ? 'up' : rSkewness >= -0.3 ? '' : 'down'">
+              <strong>{{ rSkewness >= 0 ? '+' : '' }}{{ rSkewness.toFixed(2) }}</strong>
+            </div>
+            <p class="skew-text muted">
+              <template v-if="rSkewness > 0.5">右偏明顯 ✓ — 偶有大贏、多為小輸，符合「截斷虧損、讓利潤奔跑」的正確模式。</template>
+              <template v-else-if="rSkewness >= -0.3">分布接近對稱 — 正常範圍，持續觀察是否有讓利潤跑更遠的空間。</template>
+              <template v-else>左偏 ✗ — 偶有大輸、多為小贏，可能存在凹單（讓虧損擴大）或提早獲利了結的習慣，建議對照停損執行紀律與目標達成率。</template>
+            </p>
+          </div>
+        </div>
+
+        <!-- UU7: 依星期幾績效統計 -->
+        <div class="an-block" v-if="dayOfWeekHasData">
+          <span class="slabel">依星期幾累計 R（識別個人弱勢交易日，系統性規避）</span>
+          <div class="dow-grid">
+            <div v-for="d in byDayOfWeek" :key="d.label" class="dow-cell"
+              :class="d.count ? (d.totalR > 0.2 ? 'dow-up' : d.totalR < -0.2 ? 'dow-down' : '') : 'dow-empty'">
+              <span class="dow-label">{{ d.label }}</span>
+              <strong class="dow-r" v-if="d.count">{{ d.totalR >= 0 ? '+' : '' }}{{ d.totalR.toFixed(1) }}R</strong>
+              <span class="dow-count muted" v-if="d.count">{{ d.count }} 筆</span>
+              <span class="dow-count muted" v-else>無資料</span>
+            </div>
+          </div>
         </div>
 
         <!-- TT4: 月份績效柱狀圖 (full width) -->
@@ -1013,6 +1080,90 @@ const coachInsights = computed(() => {
   return out.sort((a, b) => order[a.tone] - order[b.tone]).slice(0, 8)
 })
 
+// UU1: Sortino Ratio — 只用下行波動（負 R）計算風險，比 Sharpe 更貼近交易實情
+// 機構標準：> 1.0 優秀，0-1 尚可，< 0 系統問題
+const sortinoRatio = computed(() => {
+  const cl = closedTrades.value
+  if (cl.length < 5) return null
+  const Rs = cl.map(realizedR)
+  const mean = Rs.reduce((a, b) => a + b, 0) / Rs.length
+  const downR = Rs.filter(r => r < 0)
+  if (!downR.length) return mean > 0 ? Infinity : null
+  const downStd = Math.sqrt(downR.reduce((a, r) => a + r * r, 0) / downR.length)
+  return downStd > 0 ? mean / downStd : null
+})
+
+// UU2: 多空分開統計 — Minervini: 知道自己在哪個方向有真正優勢，把資本集中在那裡
+const bySide = computed(() => {
+  const cl = closedTrades.value
+  return ['long', 'short'].map(side => {
+    const arr = cl.filter(t => t.side === side)
+    if (!arr.length) return null
+    const Rs = arr.map(realizedR)
+    const wins = Rs.filter(r => r > 0)
+    return { side, count: arr.length, winRate: wins.length / arr.length, expectancyR: Rs.reduce((a, b) => a + b, 0) / arr.length, totalR: Rs.reduce((a, b) => a + b, 0) }
+  }).filter(Boolean)
+})
+
+// UU4: R 分布偏態係數 — 右偏 = 截虧讓利（好），左偏 = 凹單或跑太快（差）
+// Minervini/Seykota「截斷虧損、讓利潤奔跑」的結果會反映在右偏分布上
+const rSkewness = computed(() => {
+  const Rs = closedTrades.value.map(realizedR)
+  if (Rs.length < 8) return null
+  const n = Rs.length
+  const mean = Rs.reduce((a, b) => a + b, 0) / n
+  const variance = Rs.reduce((a, r) => a + (r - mean) ** 2, 0) / n
+  const std = Math.sqrt(variance)
+  if (std < 0.001) return null
+  return Rs.reduce((a, r) => a + ((r - mean) / std) ** 3, 0) / n
+})
+
+// UU7: 依星期幾績效分析 — 識別個人化弱勢交易日，系統性規避
+const byDayOfWeek = computed(() => {
+  const labels = ['週一', '週二', '週三', '週四', '週五']
+  const groups = labels.map(() => [])
+  for (const t of closedTrades.value) {
+    if (!t.exitDate) continue
+    const d = new Date(t.exitDate).getDay() // 0=Sun
+    const idx = d - 1 // 0=Mon...4=Fri
+    if (idx >= 0 && idx <= 4) groups[idx].push(realizedR(t))
+  }
+  return labels.map((label, i) => {
+    const Rs = groups[i]
+    if (!Rs.length) return { label, count: 0, totalR: 0, winRate: null }
+    const wins = Rs.filter(r => r > 0)
+    return { label, count: Rs.length, totalR: Rs.reduce((a, b) => a + b, 0), winRate: wins.length / Rs.length }
+  })
+})
+const dayOfWeekHasData = computed(() => byDayOfWeek.value.some(d => d.count > 0))
+
+// UU8: 型態近5筆表現 — 動態資本配置，集中在近期有效策略
+const byTagWithRecent = computed(() => {
+  const cl = [...closedTrades.value].sort((a, b) => new Date(a.exitDate || 0) - new Date(b.exitDate || 0))
+  return byTag.value.map(g => {
+    const last5 = cl.filter(t => (t.tag && String(t.tag).trim() || '未分類') === g.tag).slice(-5)
+    const recent5Rs = last5.map(realizedR)
+    const recent5Exp = last5.length >= 3 ? recent5Rs.reduce((a, b) => a + b, 0) / last5.length : null
+    return { ...g, recent5Exp, recent5Count: last5.length }
+  })
+})
+
+// UU10: 系統績效健康總分（Ed Seykota 整合評估）
+// 5 個維度各 20 分，讓交易者一眼判斷目前系統狀態
+const systemHealth = computed(() => {
+  const s = stats.value
+  if (s.count < 10) return null
+  const items = [
+    { label: '勝率 ≥ 50%', ok: s.winRate >= 0.5, detail: `${(s.winRate * 100).toFixed(0)}%` },
+    { label: '期望值 > 0', ok: s.expectancyR > 0, detail: `${s.expectancyR.toFixed(2)}R` },
+    { label: '獲利因子 ≥ 1.5', ok: s.profitFactor >= 1.5, detail: s.profitFactor === Infinity ? '∞' : s.profitFactor.toFixed(2) },
+    { label: '最大連虧 ≤ 4', ok: s.maxConsecLoss <= 4, detail: `${s.maxConsecLoss} 筆` },
+    { label: '平均盈虧比 ≥ 1', ok: s.avgLossR < 0 && s.avgWinR >= Math.abs(s.avgLossR), detail: s.avgLossR < 0 ? `${(s.avgWinR / Math.abs(s.avgLossR)).toFixed(2)}` : '—' },
+  ]
+  const score = items.filter(i => i.ok).length * 20
+  return { score, items }
+})
+
 function fmt(v) {
   if (v == null || (typeof v === 'number' && isNaN(v))) return '—'
   if (v === Infinity) return '∞'
@@ -1262,6 +1413,31 @@ onMounted(() => {
 @media (max-width: 900px) { .analytics-grid { grid-template-columns: 1fr; } }
 .an-block { display: flex; flex-direction: column; gap: 8px; }
 .an-block--full { grid-column: 1 / -1; }
+
+/* UU1 Sortino + UU10 Health */
+.health-score { position: relative; }
+.health-total { font-size: 0.7rem; color: var(--text-muted); margin-left: 2px; }
+.health-breakdown { display: flex; gap: 4px; margin-top: 4px; }
+.health-dot { font-size: 0.9rem; cursor: help; }
+.dot-ok { color: var(--up, #22c55e); }
+.dot-no { color: var(--down, #ef4444); }
+
+/* UU4 Skewness */
+.skew-row { display: flex; align-items: flex-start; gap: 14px; flex-wrap: wrap; }
+.skew-val strong { font-size: 1.4rem; }
+.skew-text { font-size: 0.8rem; margin: 0; flex: 1; min-width: 160px; }
+
+/* UU7 Day-of-week grid */
+.dow-grid { display: flex; gap: 8px; flex-wrap: wrap; }
+.dow-cell { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 12px; border-radius: 10px; border: 1px solid var(--border-color); background: var(--bg-well); min-width: 60px; }
+.dow-label { font-size: 0.72rem; color: var(--text-muted); }
+.dow-r { font-size: 1rem; font-weight: 700; }
+.dow-count { font-size: 0.68rem; }
+.dow-up { border-color: rgba(34,197,94,0.5); background: rgba(34,197,94,0.08); }
+.dow-up .dow-r { color: var(--up, #22c55e); }
+.dow-down { border-color: rgba(239,68,68,0.5); background: rgba(239,68,68,0.08); }
+.dow-down .dow-r { color: var(--down, #ef4444); }
+.dow-empty .dow-r { color: var(--text-muted); }
 
 /* TT2 損益貢獻 */
 .contrib-bars { display: flex; flex-direction: column; gap: 8px; }

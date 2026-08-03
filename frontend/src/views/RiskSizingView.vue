@@ -140,6 +140,10 @@
             <li v-if="existingPositions.length || journalOnlyCount" :class="projectedHeatPct <= 6 ? 'ok' : 'bad'">
               {{ projectedHeatPct <= 6 ? '✓' : '✗' }} 加上這筆後投組總風險熱度 {{ projectedHeatPct.toFixed(1) }}%（含投組風險頁 {{ existingPositions.length }} 筆既有部位{{ journalOnlyCount ? `、交易日誌 ${journalOnlyCount} 筆進行中部位` : '' }}，建議 ≤ 6%）
             </li>
+            <!-- UU9: 停損距離 vs ATR 合理性 -->
+            <li v-if="stopVsAtr" :class="stopVsAtr.tone === 'ok' ? 'ok' : stopVsAtr.tone === 'warn' ? '' : 'bad'">
+              {{ stopVsAtr.tone === 'ok' ? '✓' : stopVsAtr.tone === 'warn' ? '⚠' : '✗' }} {{ stopVsAtr.msg }}
+            </li>
           </ul>
           <p class="disclaimer">※ 本工具僅為風險試算，非投資建議；停損/目標請自行判斷。</p>
         </template>
@@ -311,6 +315,19 @@ const directionLabel = computed(() => {
   if (!valid.value) return ''
   return (entry.value > stop.value) ? '做多情境' : '做空情境'
 })
+// UU9: 停損距離 vs ATR 合理性（Van Tharp / Larry Williams）
+// < 0.5×ATR = 過緊易被噪音洗出；> 3×ATR = 過寬風報比惡化
+const stopVsAtr = computed(() => {
+  if (!market.value?.atr || !valid.value) return null
+  const dist = Math.abs((entry.value || 0) - (stop.value || 0))
+  const atr = market.value.atr
+  if (!dist || !atr) return null
+  const ratio = dist / atr
+  if (ratio < 0.5) return { tone: 'bad', msg: `停損距離 ${dist.toFixed(2)} < 0.5×ATR(${atr.toFixed(2)})——過緊，正常日波動就會洗出` }
+  if (ratio > 3) return { tone: 'warn', msg: `停損距離 ${dist.toFixed(2)} ≈ ${ratio.toFixed(1)}×ATR——偏寬，風報比較差，建議縮窄或調高目標` }
+  return { tone: 'ok', msg: `停損距離 ${dist.toFixed(2)} ≈ ${ratio.toFixed(1)}×ATR——在合理波動範圍內` }
+})
+
 // TT7: 三層 R:R 評級（PTJ: 最低 2:1，最好 3:1+）
 const rrClass = computed(() => {
   const v = rr.value
