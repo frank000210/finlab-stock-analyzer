@@ -104,6 +104,8 @@ test('交易日誌 紙上交易：現價、未實現損益、現價平倉 (E16)'
   await expect(row.locator('.breach-tag')).toHaveCount(0) // 105 > 90，未觸停損
 
   // 現價平倉：用市價 105 直接平倉，移到已平倉表並算出對應 R
+  // SS7 added a window.confirm guard — accept it so the close proceeds
+  page.once('dialog', d => d.accept())
   await row.getByRole('button', { name: '現價平倉' }).click()
   await expect(page.getByRole('heading', { name: /進行中/ })).toBeHidden()
   const closedRow = page.locator('.j-table tbody tr', { hasText: '2330' })
