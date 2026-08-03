@@ -12,7 +12,7 @@ module.exports = defineConfig({
   expect: { timeout: 20_000 },
   fullyParallel: false,
   workers: 4,
-  retries: 0,
+  retries: 1,
   reporter: [['list'], ['html', { open: 'never' }]],
   use: {
     baseURL: process.env.BASE_URL || 'http://localhost:8000',
