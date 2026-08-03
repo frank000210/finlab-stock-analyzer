@@ -88,6 +88,21 @@
       </div>
       <div v-if="!equitySeries.length" class="empty-state">尚無已平倉交易紀錄，請先在「交易日誌」記錄並平倉交易後再回來查看權益曲線。</div>
       <div class="x-axis-label" v-if="equitySeries.length">日期</div>
+      <!-- TT8: R 曲線最大回撤 -->
+      <div v-if="rCurveMdd" class="r-curve-stats">
+        <div class="rc-stat">
+          <span class="rc-label">R 曲線最大回撤 <InfoTooltip label="R 曲線最大回撤" text="累計 R 序列從峰值到最低點的最大回落（單位：R，不受帳戶大小影響）。代表你的系統在最差連虧序列時，從高點累計虧了幾倍風險單位。< 2R 屬健康水準。" /></span>
+          <strong :class="rCurveMdd.mddR > 5 ? 'down' : rCurveMdd.mddR > 2 ? 'warn' : 'up'">{{ rCurveMdd.mddR.toFixed(1) }}R</strong>
+        </div>
+        <div class="rc-stat">
+          <span class="rc-label">累計 R 峰值</span>
+          <strong class="up">+{{ rCurveMdd.peakR.toFixed(1) }}R</strong>
+        </div>
+        <div class="rc-stat">
+          <span class="rc-label">報酬回撤比 (R) <InfoTooltip label="報酬回撤比（R 版）" text="峰值累計 R ÷ R 曲線最大回撤，類似 Calmar Ratio 但以 R 衡量。越高代表每承受一單位連虧深度能賺到更多 R。" /></span>
+          <strong>{{ rCurveMdd.ratio ?? '—' }}</strong>
+        </div>
+      </div>
     </section>
 
     <section class="card chart-card">
@@ -116,7 +131,7 @@ import { createChart } from 'lightweight-charts'
 import * as d3 from 'd3'
 import { useChartTheme } from '../composables/useChartTheme'
 import { useJournalRisk } from '../composables/useJournalRisk'
-import { tradePnl } from '../lib/tradeMath'
+import { tradePnl, realizedR } from '../lib/tradeMath'
 import { fetchLivePrices } from '../lib/livePriceCache'
 
 const theme = useChartTheme()
@@ -128,7 +143,7 @@ let chart = null
 const {
   hasJournalData, equitySeries, mddPercent, dailyTrades, dailyTradeLimit,
   mddWarnPct, mddPausePct, warnTrades, circuitBreaker, circuitBreakerLabel, reload, saveRiskConfig,
-  openTrades, unrealizedPnl,
+  openTrades, unrealizedPnl, closedTrades,
 } = useJournalRisk()
 
 // C2 未實現回撤：抓進行中部位的現價（與交易日誌同一個 sizing API），把
@@ -148,6 +163,22 @@ async function refreshUnrealized() {
 }
 
 const returnSeries = computed(() => computeReturns(equitySeries.value))
+
+// TT8: R 曲線最大回撤（單位：R，跨帳戶大小可比較）
+const rCurveMdd = computed(() => {
+  const cl = closedTrades.value
+  if (cl.length < 5) return null
+  const sorted = [...cl].sort((a, b) => new Date(a.exitDate || 0) - new Date(b.exitDate || 0))
+  let peak = 0, cum = 0, maxDD = 0
+  for (const t of sorted) {
+    cum += realizedR(t)
+    if (cum > peak) peak = cum
+    if (peak > 0) maxDD = Math.max(maxDD, peak - cum)
+  }
+  if (peak <= 0) return null
+  const ratio = maxDD > 0 ? (peak / maxDD).toFixed(1) : null
+  return { mddR: maxDD, peakR: peak, ratio }
+})
 
 const mddValue = computed(() => mddPercent.value / 100)
 const circuitStatus = circuitBreaker
@@ -514,6 +545,12 @@ function statusClass(status) {
   margin-top: 4px;
   letter-spacing: 0.04em;
 }
+
+/* TT8: R 曲線最大回撤 */
+.r-curve-stats { display: flex; gap: 24px; flex-wrap: wrap; margin-top: 14px; padding: 12px 16px; background: var(--bg-well, rgba(15,23,42,0.4)); border: 1px solid var(--border-color); border-radius: 12px; }
+.rc-stat { display: flex; flex-direction: column; gap: 4px; }
+.rc-label { font-size: 0.74rem; color: var(--text-muted); display: flex; align-items: center; gap: 4px; }
+.rc-stat strong { font-size: 1.25rem; }
 
 .chart-host { width: 100%; min-height: 300px; margin-top: 16px; }
 .chart-host :deep(.axis text) { fill: var(--text-muted); font-size: 0.7rem; }

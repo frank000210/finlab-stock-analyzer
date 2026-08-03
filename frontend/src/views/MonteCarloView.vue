@@ -39,6 +39,21 @@
               <span>凱利最佳風險% / 半凱利建議 <InfoTooltip label="凱利公式" text="凱利公式計算長期複利最大化的最佳下注比例。實務上建議用「半凱利」（凱利的一半），避免因估計誤差導致過度下注。" /></span>
               <strong>{{ (kellyOptimal * 100).toFixed(1) }}% / {{ halfKellyPct.toFixed(1) }}%</strong>
             </div>
+            <!-- TT1: 四分位範圍 p25/p75 -->
+            <div class="rcard">
+              <span>四分位範圍 p25 / p75 <InfoTooltip label="四分位範圍" text="中間 50% 路徑的報酬區間：p25 是偏差路徑（第 25% 分位），p75 是偏佳路徑（第 75% 分位）。比 p5/p95 的極端值更具代表性，反映「大多數情況」的報酬範圍。" /></span>
+              <strong><span :class="result.p25 >= 0 ? 'up' : 'down'">{{ pct(result.p25) }}</span> / <span :class="result.p75 >= 0 ? 'up' : 'down'">{{ pct(result.p75) }}</span></strong>
+            </div>
+            <!-- TT6: 典型最長連虧筆數 -->
+            <div class="rcard">
+              <span>典型最長連虧（中位數）<InfoTooltip label="典型最長連虧筆數" text="模擬所有路徑的最長連虧筆數取中位數——代表你大概率會遇到幾連虧。提前知道這個數字，遇到連虧時才不會恐慌加大或放棄策略：這只是你這套系統的正常噪音，不是系統壞掉了。" /></span>
+              <strong class="warn">{{ result.medianConsecLoss }} 筆</strong>
+            </div>
+            <!-- TT10: 幾何平均成長率 -->
+            <div class="rcard">
+              <span>幾何平均成長率 <InfoTooltip label="幾何平均（複利真實增長）" text="幾何平均 = exp(各路徑 ln 報酬均值)。比算術平均報酬更誠實：虧損 50% 後賺 50%，最終只剩 75%，算術均值是 0% 但複利實際虧損 25%。幾何平均才是長期複利的真實增長速度。" /></span>
+              <strong :class="result.geoMeanReturn >= 0 ? 'up' : 'down'">{{ pct(result.geoMeanReturn) }}</strong>
+            </div>
           </div>
 
           <div class="hist">
@@ -155,12 +170,17 @@ function run() {
 
   const finals = []
   const maxDDs = []
+  const consecLossArr = []  // TT6
+  let logSum = 0             // TT10
   let ruined = 0
   let worstDD = 0
   for (let s = 0; s < S; s += 1) {
     let eq = 1, peak = 1, mdd = 0, hitRuin = false
+    let curLoss = 0, maxConsec = 0  // TT6
     for (let t = 0; t < N; t += 1) {
-      eq *= (Math.random() < w) ? (1 + risk * r) : (1 - risk)
+      const win = Math.random() < w
+      eq *= win ? (1 + risk * r) : (1 - risk)
+      if (win) { curLoss = 0 } else { curLoss += 1; if (curLoss > maxConsec) maxConsec = curLoss }  // TT6
       if (eq > peak) peak = eq
       const dd = (peak - eq) / peak
       if (dd > mdd) mdd = dd
@@ -170,10 +190,13 @@ function run() {
     }
     finals.push(eq - 1)
     maxDDs.push(mdd)
+    consecLossArr.push(maxConsec)              // TT6
+    logSum += Math.log(Math.max(1e-10, eq))    // TT10
     if (hitRuin) ruined += 1
     if (mdd > worstDD) worstDD = mdd
   }
   const sorted = [...finals].sort((a, b) => a - b)
+  const sortedConsec = [...consecLossArr].sort((a, b) => a - b)  // TT6
   const min = sorted[0], max = sorted[sorted.length - 1]
 
   // histogram (30 bins)
@@ -200,8 +223,12 @@ function run() {
     median: quantile(sorted, 0.5),
     p5: quantile(sorted, 0.05),
     p95: quantile(sorted, 0.95),
+    p25: quantile(sorted, 0.25),                             // TT1
+    p75: quantile(sorted, 0.75),                             // TT1
     avgMaxDD: maxDDs.reduce((a, b) => a + b, 0) / maxDDs.length,
     worstDD, min, max, hist,
+    medianConsecLoss: Math.round(quantile(sortedConsec, 0.5)),  // TT6
+    geoMeanReturn: Math.exp(logSum / S) - 1,                    // TT10
   }
 }
 </script>

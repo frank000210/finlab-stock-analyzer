@@ -30,6 +30,10 @@
         <div class="scard"><span class="slabel">總部位金額</span><strong class="sval">{{ fmtInt(totalValue) }}</strong><span class="shint">佔資金 {{ deployedPct.toFixed(1) }}%</span></div>
         <div class="scard"><span class="slabel">未實現損益</span><strong class="sval" :class="totalUnrealized >= 0 ? 'up' : 'down'">{{ fmtInt(totalUnrealized) }}</strong></div>
       </div>
+      <!-- TT5: 槓桿警示 -->
+      <div v-if="deployedPct > 100" class="leverage-warn">
+        ⚠ 已動用資金達帳戶的 {{ deployedPct.toFixed(0) }}%——超過 100% 代表使用了融資或借款，任何回調都可能觸發強制回補。請確認這是有意識的決策而非操作失誤。
+      </div>
       <div v-if="positions.length" class="notify-row">
         <button class="btn" :disabled="notifying" @click="notifyRisk">🔔 推播風險摘要</button>
         <span v-if="notifyMsg" class="muted small">{{ notifyMsg }}</span>
@@ -506,6 +510,7 @@ onBeforeUnmount(() => window.removeEventListener('storage', onJournalStorage))
 .inp { background: var(--bg-well); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 10px; padding: 8px 12px; font-size: 0.9rem; }
 
 .summary-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-top: 16px; }
+.leverage-warn { background: rgba(239, 68, 68, 0.09); border: 1px solid rgba(239, 68, 68, 0.4); color: #f87171; border-radius: 10px; padding: 9px 14px; font-size: 0.86rem; margin-top: 10px; }
 .scard { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; }
 .slabel { font-size: 0.76rem; color: var(--text-muted); }
 .sval { font-size: 1.6rem; }

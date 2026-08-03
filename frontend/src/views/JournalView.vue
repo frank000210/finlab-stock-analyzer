@@ -196,6 +196,82 @@
             </table>
           </div>
         </div>
+
+        <!-- TT2: 損益貢獻結構 -->
+        <div class="an-block" v-if="grossRDecomp">
+          <span class="slabel">損益貢獻結構——贏單累計 R vs 輸單累計 R（差距越大越好）</span>
+          <div class="contrib-bars">
+            <div class="contrib-row">
+              <span class="contrib-label">贏單合計</span>
+              <div class="contrib-track">
+                <div class="contrib-fill contrib-win" style="width:100%"></div>
+              </div>
+              <strong class="up">+{{ grossRDecomp.grossWinR.toFixed(1) }}R</strong>
+            </div>
+            <div class="contrib-row">
+              <span class="contrib-label">輸單合計</span>
+              <div class="contrib-track">
+                <div class="contrib-fill contrib-loss" :style="{ width: Math.min(100, (Math.abs(grossRDecomp.grossLossR) / grossRDecomp.grossWinR) * 100).toFixed(1) + '%' }"></div>
+              </div>
+              <strong class="down">{{ grossRDecomp.grossLossR.toFixed(1) }}R</strong>
+            </div>
+          </div>
+          <p class="shint muted">獲利因子 {{ grossRDecomp.grossLossR < 0 ? (grossRDecomp.grossWinR / Math.abs(grossRDecomp.grossLossR)).toFixed(2) : '∞' }}（贏單合計 R 是輸單合計 R 的幾倍；> 1.5 算健康）</p>
+        </div>
+
+        <!-- TT3: 計畫 R:R vs 實際 R -->
+        <div class="an-block" v-if="planVsActual">
+          <span class="slabel">計畫 R:R vs 實際 R（設有目標的 {{ planVsActual.count }} 筆，中位數）</span>
+          <div class="pva-row">
+            <div class="pva-card">
+              <span class="slabel">計畫 R:R</span>
+              <strong>+{{ planVsActual.medianPlannedR.toFixed(2) }}R</strong>
+              <span class="shint">你設定的目標大小</span>
+            </div>
+            <span class="pva-arrow">→</span>
+            <div class="pva-card" :class="planVsActual.medianActualR >= planVsActual.medianPlannedR * 0.7 ? 'pva-ok' : 'pva-warn'">
+              <span class="slabel">實際 R（中位數）</span>
+              <strong :class="planVsActual.medianActualR >= 0 ? 'up' : 'down'">{{ planVsActual.medianActualR >= 0 ? '+' : '' }}{{ planVsActual.medianActualR.toFixed(2) }}R</strong>
+              <span class="shint">達成率 {{ planVsActual.medianPlannedR > 0 ? (planVsActual.medianActualR / planVsActual.medianPlannedR * 100).toFixed(0) : '—' }}%</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- TT9: 勝率 × 盈虧比象限圖 -->
+        <div class="an-block" v-if="quadrantChart">
+          <span class="slabel">勝率 × 盈虧比象限圖（虛線上方 = 正期望值）</span>
+          <svg class="quad-svg" :viewBox="`0 0 ${quadrantChart.svgW} ${quadrantChart.svgH}`" xmlns="http://www.w3.org/2000/svg">
+            <path :d="quadrantChart.curvePath + ` L${quadrantChart.ax2},${quadrantChart.ay1} L${quadrantChart.ax1},${quadrantChart.ay1} Z`" class="quad-positive" />
+            <path :d="quadrantChart.curvePath" class="quad-curve" />
+            <line :x1="quadrantChart.ax1" :y1="quadrantChart.ay2" :x2="quadrantChart.ax2" :y2="quadrantChart.ay2" class="quad-axis" />
+            <line :x1="quadrantChart.ax1" :y1="quadrantChart.ay1" :x2="quadrantChart.ax1" :y2="quadrantChart.ay2" class="quad-axis" />
+            <g v-for="t in quadrantChart.xTicks" :key="'x'+t.label">
+              <line :x1="t.x" :y1="quadrantChart.ay2" :x2="t.x" :y2="+quadrantChart.ay2 + 4" class="quad-tick" />
+              <text :x="t.x" :y="+quadrantChart.ay2 + 14" class="quad-label" text-anchor="middle">{{ t.label }}</text>
+            </g>
+            <g v-for="t in quadrantChart.yTicks" :key="'y'+t.label">
+              <line :x1="+quadrantChart.ax1 - 4" :y1="t.y" :x2="quadrantChart.ax1" :y2="t.y" class="quad-tick" />
+              <text :x="+quadrantChart.ax1 - 6" :y="+t.y + 4" class="quad-label" text-anchor="end">{{ t.label }}</text>
+            </g>
+            <circle :cx="quadrantChart.dotX" :cy="quadrantChart.dotY" r="6" :class="quadrantChart.above ? 'dot-up' : 'dot-down'" />
+          </svg>
+          <p class="shint muted">盈虧比 {{ quadrantChart.px }}、勝率 {{ quadrantChart.py }}% — {{ quadrantChart.above ? '✓ 正期望值（虛線上方）' : '✗ 負期望值（虛線下方），需要改善勝率或盈虧比' }}</p>
+        </div>
+
+        <!-- TT4: 月份績效柱狀圖 (full width) -->
+        <div class="an-block an-block--full" v-if="monthlyPerfBars">
+          <span class="slabel">月份績效（月別累計 R）——觀察是否有季節性弱點</span>
+          <div class="month-wrap">
+            <svg class="month-svg" :viewBox="`0 0 ${monthlyPerfBars.W} ${monthlyPerfBars.svgH}`" :width="monthlyPerfBars.W" :height="monthlyPerfBars.svgH">
+              <line x1="0" :y1="monthlyPerfBars.zeroY" :x2="monthlyPerfBars.W" :y2="monthlyPerfBars.zeroY" class="rh-zero" />
+              <g v-for="b in monthlyPerfBars.bars" :key="b.x">
+                <rect :x="b.x" :y="b.y" :width="b.w" :height="b.h" :class="b.positive ? 'bar-up' : 'bar-down'" rx="2" />
+                <text :x="b.lx" :y="monthlyPerfBars.H + 14" class="month-label" text-anchor="middle">{{ b.label }}</text>
+                <title>{{ b.label }}: {{ b.totalR >= 0 ? '+' : '' }}{{ b.totalR.toFixed(2) }}R</title>
+              </g>
+            </svg>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -704,6 +780,110 @@ const targetShortfall = computed(() => {
   return { avgTargetR, avgActualWinR, ratio, count: paired.length }
 })
 
+// TT2: 損益貢獻結構（贏單 R 合計 vs 輸單 R 合計）
+const grossRDecomp = computed(() => {
+  const cl = closedTrades.value
+  if (cl.length < 5) return null
+  let grossWinR = 0, grossLossR = 0
+  for (const t of cl) {
+    const r = realizedR(t)
+    if (r > 0) grossWinR += r; else grossLossR += r
+  }
+  if (!grossWinR) return null
+  return { grossWinR, grossLossR }
+})
+
+// TT3: 計畫 R:R（目標/停損）vs 實際 R（中位數比較）
+const planVsActual = computed(() => {
+  const paired = closedTrades.value.filter(t =>
+    t.target != null && Number(t.target) > 0
+  ).map(t => {
+    const risk = riskPerShare(t)
+    if (risk <= 0) return null
+    const plannedR = Math.abs((Number(t.target) - Number(t.entry)) / risk)
+    if (plannedR <= 0.5) return null
+    return { plannedR, actualR: realizedR(t) }
+  }).filter(Boolean)
+  if (paired.length < 5) return null
+  const sortedP = [...paired].sort((a, b) => a.plannedR - b.plannedR)
+  const sortedA = [...paired].sort((a, b) => a.actualR - b.actualR)
+  const mid = Math.floor(paired.length / 2)
+  const medP = paired.length % 2 ? sortedP[mid].plannedR : (sortedP[mid - 1].plannedR + sortedP[mid].plannedR) / 2
+  const medA = paired.length % 2 ? sortedA[mid].actualR : (sortedA[mid - 1].actualR + sortedA[mid].actualR) / 2
+  return { medianPlannedR: medP, medianActualR: medA, count: paired.length }
+})
+
+// TT4: 月份績效（按出場月份分組，累計 R）
+const monthlyPerf = computed(() => {
+  const cl = closedTrades.value
+  if (cl.length < 5) return null
+  const byMonth = {}
+  for (const t of cl) {
+    if (!t.exitDate) continue
+    const month = t.exitDate.slice(0, 7)
+    byMonth[month] = (byMonth[month] || 0) + realizedR(t)
+  }
+  const months = Object.entries(byMonth).sort(([a], [b]) => a < b ? -1 : 1)
+  if (months.length < 2) return null
+  return months.map(([month, totalR]) => ({ month, totalR }))
+})
+
+// TT4 月份績效圖表參數
+const monthlyPerfBars = computed(() => {
+  const months = monthlyPerf.value
+  if (!months) return null
+  const n = months.length
+  const H = 80, bw = 32, pad = 6
+  const W = Math.max(n * (bw + pad) + pad * 2, 300)
+  const maxAbs = Math.max(...months.map(m => Math.abs(m.totalR)), 0.1)
+  return {
+    bars: months.map((m, i) => {
+      const h = Math.max(2, (Math.abs(m.totalR) / maxAbs) * (H / 2))
+      const positive = m.totalR >= 0
+      return {
+        x: pad + i * (bw + pad),
+        w: bw,
+        y: positive ? H / 2 - h : H / 2,
+        h,
+        positive,
+        lx: pad + i * (bw + pad) + bw / 2,
+        label: m.month.slice(2),
+        totalR: m.totalR,
+      }
+    }),
+    W, H, svgH: H + 20, zeroY: H / 2,
+  }
+})
+
+// TT9: 勝率 × 盈虧比象限圖（SVG）
+const quadrantChart = computed(() => {
+  const s = stats.value
+  if (s.count < 5 || s.avgWinR <= 0 || s.avgLossR >= 0) return null
+  const payoffRatio = s.avgWinR / Math.abs(s.avgLossR)
+  const maxX = Math.max(3, Math.ceil(payoffRatio * 1.6))
+  const W = 260, H = 150, ML = 40, MT = 10, MB = 26
+  const scX = (x) => ML + (x / maxX) * W
+  const scY = (y) => MT + H - y * H
+  const pts = []
+  for (let i = 0; i <= 60; i++) {
+    const bx = (i / 60) * maxX
+    const by = bx === 0 ? 1 : 1 / (1 + bx)
+    pts.push(`${scX(bx).toFixed(1)},${scY(by).toFixed(1)}`)
+  }
+  const curvePath = 'M' + pts.join('L')
+  const dotX = scX(Math.min(payoffRatio, maxX * 0.98)).toFixed(1)
+  const dotY = scY(Math.min(Math.max(s.winRate, 0.01), 0.99)).toFixed(1)
+  const above = s.winRate > 1 / (1 + payoffRatio)
+  const xTicks = [0, Math.round(maxX / 2 * 10) / 10, maxX].map(v => ({ x: scX(v).toFixed(1), label: v.toFixed(1) }))
+  const yTicks = [0, 0.5, 1].map(v => ({ y: scY(v).toFixed(1), label: Math.round(v * 100) + '%' }))
+  return {
+    curvePath, dotX, dotY, above, px: payoffRatio.toFixed(1), py: (s.winRate * 100).toFixed(0),
+    xTicks, yTicks,
+    svgW: W + ML + 14, svgH: H + MT + MB,
+    ax1: ML, ax2: ML + W, ay1: MT, ay2: MT + H,
+  }
+})
+
 // E15 複盤教練：純用既有統計（stats/byTag）產生規則式建議，不打任何 API。
 // tone 排序 bad > warn > good > info；最多顯示 6 條，避免資訊過載。
 const coachInsights = computed(() => {
@@ -1084,6 +1264,38 @@ onMounted(() => {
 .analytics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 8px; }
 @media (max-width: 900px) { .analytics-grid { grid-template-columns: 1fr; } }
 .an-block { display: flex; flex-direction: column; gap: 8px; }
+.an-block--full { grid-column: 1 / -1; }
+
+/* TT2 損益貢獻 */
+.contrib-bars { display: flex; flex-direction: column; gap: 8px; }
+.contrib-row { display: grid; grid-template-columns: 60px 1fr 80px; align-items: center; gap: 10px; }
+.contrib-label { font-size: 0.76rem; color: var(--text-muted); }
+.contrib-track { background: var(--bg-well); border-radius: 999px; height: 10px; overflow: hidden; border: 1px solid var(--border-color); }
+.contrib-fill { height: 100%; border-radius: 999px; }
+.contrib-win { background: rgba(239, 68, 68, 0.7); }
+.contrib-loss { background: rgba(34, 197, 94, 0.7); }
+
+/* TT3 計畫 vs 實際 */
+.pva-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.pva-card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px; padding: 10px 14px; display: flex; flex-direction: column; gap: 4px; min-width: 100px; }
+.pva-ok { border-color: rgba(34, 197, 94, 0.5); }
+.pva-warn { border-color: rgba(245, 158, 11, 0.5); }
+.pva-arrow { font-size: 1.2rem; color: var(--text-muted); }
+
+/* TT4 月份績效 */
+.month-wrap { overflow-x: auto; }
+.month-svg { display: block; }
+.month-label { fill: var(--text-muted); font-size: 9px; }
+
+/* TT9 象限圖 */
+.quad-svg { width: 100%; height: auto; background: var(--bg-well); border: 1px solid var(--border-color); border-radius: 12px; }
+.quad-positive { fill: rgba(239, 68, 68, 0.06); }
+.quad-curve { fill: none; stroke: #ef4444; stroke-width: 1.5; stroke-dasharray: 5 3; }
+.quad-axis { stroke: var(--border-color); stroke-width: 1; }
+.quad-tick { stroke: var(--border-color); stroke-width: 1; }
+.quad-label { fill: var(--text-muted); font-size: 10px; }
+.dot-up { fill: #ef4444; stroke: var(--bg-well); stroke-width: 2; }
+.dot-down { fill: #22c55e; stroke: var(--bg-well); stroke-width: 2; }
 .rhist-svg { width: 100%; height: 120px; background: var(--bg-well); border: 1px solid var(--border-color); border-radius: 12px; }
 .bar-up { fill: rgba(239, 68, 68, 0.75); } .bar-down { fill: rgba(34, 197, 94, 0.75); }
 .rh-zero { stroke: var(--text-muted); stroke-width: 1; vector-effect: non-scaling-stroke; stroke-dasharray: 3 3; }

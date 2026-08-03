@@ -127,7 +127,7 @@
             <div class="rcard"><span>實際風險金額</span><strong :class="{ warn: capitalAtRisk > riskBudget * 1.02 }">{{ fmtInt(capitalAtRisk) }}</strong></div>
             <div class="rcard"><span>部位金額</span><strong>{{ fmtInt(positionValue) }}</strong></div>
             <div class="rcard"><span>佔資金比重</span><strong :class="{ warn: pctOfAccount > 30 }">{{ pctOfAccount.toFixed(1) }}%</strong></div>
-            <div class="rcard" v-if="target"><span>風報比 R:R</span><strong :class="rrClass">1 : {{ rr.toFixed(2) }}</strong></div>
+            <div class="rcard" v-if="target"><span>風報比 R:R</span><strong :class="rrClass">1 : {{ rr.toFixed(2) }}</strong><span v-if="rrVerdict" class="rr-verdict" :class="rrClass">{{ rrVerdict }}</span></div>
             <div class="rcard" v-if="target"><span>達標獲利</span><strong class="up">{{ fmtInt(profitAtTarget) }}</strong></div>
             <div class="rcard" v-if="expectancyR !== null"><span>期望值 / 筆 <InfoTooltip v-bind="metricGlossary.rMultiple" /></span><strong :class="expectancyR >= 0 ? 'up' : 'warn'">{{ expectancyR.toFixed(2) }} R（{{ fmtInt(expectancyMoney) }}）</strong></div>
           </div>
@@ -311,7 +311,22 @@ const directionLabel = computed(() => {
   if (!valid.value) return ''
   return (entry.value > stop.value) ? '做多情境' : '做空情境'
 })
-const rrClass = computed(() => (rr.value >= 2 ? 'up' : rr.value > 0 ? 'warn' : ''))
+// TT7: 三層 R:R 評級（PTJ: 最低 2:1，最好 3:1+）
+const rrClass = computed(() => {
+  const v = rr.value
+  if (v >= 3) return 'up'
+  if (v >= 2) return 'rr-ok'
+  if (v >= 1.5) return 'warn'
+  return v > 0 ? 'down' : ''
+})
+const rrVerdict = computed(() => {
+  const v = rr.value
+  if (!v) return ''
+  if (v >= 3) return '優秀 ≥ 3:1'
+  if (v >= 2) return '合格 ≥ 2:1'
+  if (v >= 1.5) return '偏低 < 2:1'
+  return '不建議 < 1.5:1'
+})
 
 // Kelly: f* = W*(PF-1)/PF, derived from win rate + profit factor.
 const kelly = computed(() => kellyFraction((winRate.value || 0) / 100, profitFactor.value || 0))
@@ -475,6 +490,8 @@ onBeforeUnmount(() => window.removeEventListener('storage', onJournalStorage))
 .rcard span { font-size: 0.76rem; color: var(--text-muted); }
 .rcard strong { font-size: 1.15rem; }
 .rcard.hl { border-color: var(--accent-blue); }
+.rr-verdict { font-size: 0.7rem !important; }
+.rr-ok { color: #4ade80; }
 .rcard.hl strong { font-size: 1.5rem; color: var(--accent-blue); }
 .rcard .warn, strong.warn { color: #f59e0b; }
 .warn.up { color: #f59e0b; }
