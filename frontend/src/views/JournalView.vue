@@ -406,20 +406,17 @@ const pricesLoading = ref(false)
 
 // AA4: debounce the three openSymbols watchers so a CSV import that adds
 // N positions in a loop doesn't fire N×3 parallel API bursts.
-let _openSymDebounce = null
-function _onOpenSymbolsChange(fn) {
-  clearTimeout(_openSymDebounce)
-  _openSymDebounce = setTimeout(fn, 300)
-}
+// Each watcher gets its own timer so they don't cancel each other out.
+let _priceDebounce = null, _eventsDebounce = null, _emaDebounce = null
 
 // 進行中交易的代號組合一變（新增/帶入/刪除），就重新查一次現價。
-watch(openSymbols, () => { _onOpenSymbolsChange(fetchLivePricesForOpenTrades) })
+watch(openSymbols, () => { clearTimeout(_priceDebounce); _priceDebounce = setTimeout(fetchLivePricesForOpenTrades, 300) })
 
 // N1：波段留倉最怕撞上財報/除息等「地雷日」——當沖不用管這個，因為當天就平倉了。
 // 進行中部位的代號一變就查一次行事曆，7 天內有事件就在該筆旁標警示。
 const EVENT_WARN_DAYS = 7
 const upcomingEvents = ref({}) // symbol -> [{date, type, label, estimated}]
-watch(openSymbols, () => { _onOpenSymbolsChange(fetchUpcomingEventsForOpenTrades) })
+watch(openSymbols, () => { clearTimeout(_eventsDebounce); _eventsDebounce = setTimeout(fetchUpcomingEventsForOpenTrades, 300) })
 
 async function fetchUpcomingEventsForOpenTrades() {
   const symbols = [...new Set(openTrades.value.map(t => t.symbol))]
@@ -450,7 +447,7 @@ function nextEvent(t) {
 // 日K實體收盤跌破 8EMA（多單）或站上 8EMA（空單）就是趨勢轉弱的訊號。
 const EMA_PERIOD = 8
 const emaTrend = ref({}) // symbol -> { ema8, lastClose, broken }
-watch(openSymbols, () => { _onOpenSymbolsChange(fetchEmaTrendForOpenTrades) })
+watch(openSymbols, () => { clearTimeout(_emaDebounce); _emaDebounce = setTimeout(fetchEmaTrendForOpenTrades, 300) })
 
 function computeEma(closes, period) {
   if (closes.length < period) return null
@@ -1013,7 +1010,7 @@ const coachInsights = computed(() => {
   }
 
   const order = { bad: 0, warn: 1, good: 2, info: 3 }
-  return out.sort((a, b) => order[a.tone] - order[b.tone]).slice(0, 6)
+  return out.sort((a, b) => order[a.tone] - order[b.tone]).slice(0, 8)
 })
 
 function fmt(v) {
