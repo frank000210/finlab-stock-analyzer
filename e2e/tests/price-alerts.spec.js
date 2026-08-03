@@ -4,6 +4,10 @@ const { test, expect } = require('@playwright/test')
 // C10: price alerts — set a per-symbol threshold, scheduler checks in the
 // background and pushes a Telegram notification once when it's breached.
 test('C10 價格警報 API：新增/列表/刪除', async ({ request }) => {
+  const existing = await request.get('/api/v1/risk/alerts')
+  for (const a of (await existing.json()).data.items) {
+    await request.delete(`/api/v1/risk/alerts/${a.id}`)
+  }
   const create = await request.post('/api/v1/risk/alerts', {
     data: { symbol: '2330', direction: 'above', target_price: 999999, note: '測試' },
   })
@@ -28,6 +32,10 @@ test('C10 價格警報 API：新增/列表/刪除', async ({ request }) => {
 
 test('C10 價格警報 API：立即檢查回傳 checked/triggered 統計', async ({ request }) => {
   test.setTimeout(120_000)
+  const existing = await request.get('/api/v1/risk/alerts')
+  for (const a of (await existing.json()).data.items) {
+    await request.delete(`/api/v1/risk/alerts/${a.id}`)
+  }
   const create = await request.post('/api/v1/risk/alerts', {
     data: { symbol: '2330', direction: 'above', target_price: 999999 },
   })

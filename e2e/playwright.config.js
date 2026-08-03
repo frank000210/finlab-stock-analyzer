@@ -11,7 +11,7 @@ module.exports = defineConfig({
   timeout: 120_000,
   expect: { timeout: 20_000 },
   fullyParallel: false,
-  workers: 1,
+  workers: 4,
   retries: 0,
   reporter: [['list'], ['html', { open: 'never' }]],
   use: {
