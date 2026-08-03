@@ -161,6 +161,21 @@ footer{ margin-top:36px; font-size:0.78rem; color:var(--ink-faint); text-align:c
 
 <script>
 const DATA = [
+{date:'2026-08-04 01:00', range:'VV1–VV10', title:'自主循環優化：投資界標竿心法驅動的交易分析深化（Mark Douglas／CTA Recovery Factor／O\'Neil CAN SLIM／Van Tharp／Taleb／Templeton／PTJ）',
+ summary:'以七位投資/交易大師心法為主軸，盤點 10 項可落地的交易系統深化項目，3 輪自我審查後實作。橫跨 JournalView、MonteCarloView、RiskSizingView、RiskMonitorView 四個前端元件，共新增 429 行。Journal 新增當前連勝/連敗條數（VV1）、Recovery Factor（VV2）、催化劑/進場理由分析表（VV3）、交易頻率警告（VV4）、標的集中度橫條圖（VV7）、開倉總熱度%（VV8）、異常大贏依賴度（VV10）；MC 新增最少連虧至破產筆數（VV5）；RiskSizing 新增此勝率下最低需要 R:R 檢查（VV6）；RiskMonitor 新增距權益高水位回撤（VV9）。全部瀏覽器驗證通過，10 個新 E2E 測試一起上版。',
+ items:[
+  {code:'VV1', tag:'good', text:'JournalView 新增當前連勝/連敗條數統計卡（Mark Douglas: 交易狀態覺察）。連敗 ≥ 3 筆時顯示橘色警告「避免復仇交易」，提醒使用者每次結果都是獨立機率事件，連敗不代表系統壞掉。'},
+  {code:'VV2', tag:'good', text:'JournalView 新增 Recovery Factor 統計卡（CTA 業界標準）。累計 R ÷ R 曲線最大回撤：> 3 優秀（系統能快速從連虧中回復），1-3 尚可，< 1 代表至今尚未從最大回撤中回到高點，需要改善。'},
+  {code:'VV3', tag:'good', text:'JournalView 新增依催化劑/進場理由分組統計表（O\'Neil CAN SLIM：知道「為什麼」進場，勝率才能穩定）。按 catalyst 欄位分組，取前 5 高期望值的進場理由，協助使用者識別哪種進場邏輯最具優勢。'},
+  {code:'VV4', tag:'warn', text:'JournalView 新增交易頻率警告統計卡（Van Tharp: > 3 筆/週是過度交易的早期訊號）。計算已平倉交易的週均頻率；超過 3 筆/週時顯示黃色「可能過度交易」，提醒使用者評估每筆交易的進場標準是否夠嚴格。'},
+  {code:'VV5', tag:'good', text:'MonteCarloView 新增最少連虧至破產筆數卡（Taleb 人體工程學：一次性大虧是不可逆的滅絕事件）。公式：ceil(log(1-ruinLevel)/log(1-risk))，數值越小代表系統越脆弱，< 10 筆即警告紅色，引導使用者降低單筆風險%。'},
+  {code:'VV6', tag:'good', text:'RiskSizingView 檢查清單新增「此勝率下最低需要 R:R」項目（Paul Tudor Jones: 先確立防線，再思考獲利）。公式：minRR = (1-W)/W，低於此值長期必為負期望值。從「從日誌帶入」讀取歷史勝率後自動顯示。'},
+  {code:'VV7', tag:'warn', text:'JournalView 新增標的集中度橫條圖（John Templeton: 分散是防止無知的保護）。按標的分組算出各自佔總絕對 R 的比重，單一標的 > 30% 時橫條變紅並顯示集中警告，提醒使用者分散至少 3-5 個不相關標的。'},
+  {code:'VV8', tag:'warn', text:'JournalView 新增進行中部位總熱度% 統計卡（Van Tharp Total Heat）。加總所有開倉部位的停損風險，除以「部位風控」頁設定的帳戶資金，顯示佔帳戶%。建議上限 6%，超過時顯示黃色警告，防止帳戶整體曝險過高。'},
+  {code:'VV9', tag:'good', text:'RiskMonitorView 新增距權益高水位（HWM）回撤統計（機構基金標準監控指標）。與 R 曲線最大回撤（歷史最大）不同：HWM 距離是目前離歷史高點差幾 R 的即時狀態，讓使用者感知當下是否正在回撤中。'},
+  {code:'VV10', tag:'good', text:'JournalView 新增異常大贏依賴度分析（Taleb 脆弱性：若獲利集中在少數幾筆，結果本質上依賴運氣）。計算前三大贏佔總正 R 的比重；> 50% 顯示脆弱警告，提醒使用者績效可重複性不足，需提高入選頻率或降低對最佳幾筆的依賴。'},
+ ]
+},
 {date:'2026-08-04 00:00', range:'UU1–UU10', title:'自主循環優化：投資界心法驅動的交易系統健診（Kelly Criterion／Howard Marks／Mark Douglas／Minervini／Van Tharp／Ed Seykota）',
  summary:'以六位投資/交易大師心法為主軸，盤點 10 項可落地的分析深化，3 輪自我審查後實作。橫跨 JournalView、MonteCarloView、DecisionView、RiskMonitorView、RiskSizingView 五個前端元件，共新增 442 行。Journal 新增 Sortino Ratio（UU1）、多空分開績效（UU2）、R 偏態係數（UU4）、星期幾績效格（UU7）、型態近 5 筆期望值欄（UU8）、五維系統健康分（UU10）；MC 新增損益平衡勝率與安全邊際（UU3）；Decision 新增今日交易計劃卡（UU5）；RiskMonitor 新增 20 日波動率政權警告（UU6）；RiskSizing 新增停損距離 vs ATR 合理性檢查（UU9）。全部瀏覽器驗證通過，8 個新 E2E 測試一起上版。',
  items:[
