@@ -161,6 +161,21 @@ footer{ margin-top:36px; font-size:0.78rem; color:var(--ink-faint); text-align:c
 
 <script>
 const DATA = [
+{date:'2026-08-04 00:00', range:'UU1–UU10', title:'自主循環優化：投資界心法驅動的交易系統健診（Kelly Criterion／Howard Marks／Mark Douglas／Minervini／Van Tharp／Ed Seykota）',
+ summary:'以六位投資/交易大師心法為主軸，盤點 10 項可落地的分析深化，3 輪自我審查後實作。橫跨 JournalView、MonteCarloView、DecisionView、RiskMonitorView、RiskSizingView 五個前端元件，共新增 442 行。Journal 新增 Sortino Ratio（UU1）、多空分開績效（UU2）、R 偏態係數（UU4）、星期幾績效格（UU7）、型態近 5 筆期望值欄（UU8）、五維系統健康分（UU10）；MC 新增損益平衡勝率與安全邊際（UU3）；Decision 新增今日交易計劃卡（UU5）；RiskMonitor 新增 20 日波動率政權警告（UU6）；RiskSizing 新增停損距離 vs ATR 合理性檢查（UU9）。全部瀏覽器驗證通過，8 個新 E2E 測試一起上版。',
+ items:[
+  {code:'UU1', tag:'good', text:'JournalView 新增 Sortino Ratio 統計卡（Kelly Criterion 下行風險觀念）。平均 R ÷ 負R標準差，只懲罰下行波動，比 Sharpe 更貼近交易實情。≥1.0 代表每承受一單位下行風險賺到超過 1R 期望值。'},
+  {code:'UU2', tag:'good', text:'JournalView 新增多空分開績效表（Minervini SEPA：集中資本在真正有優勢的方向）。顯示做多/做空各自的筆數、勝率、期望值、累計 R，讓使用者辨識自己的真實優勢方向。'},
+  {code:'UU3', tag:'good', text:'MonteCarloView 新增損益平衡最低勝率與安全邊際卡片（Howard Marks 安全邊際）。breakEven = 100/(1+R)，安全邊際 = 實際勝率 − 損益平衡勝率，正值代表有緩衝，負值警告系統已在虧損區。'},
+  {code:'UU4', tag:'good', text:'JournalView 新增 R 分布偏態係數（讓利潤奔跑指標）。正偏 = 偶有大贏（好），負偏 = 偶有大輸（凹單/跑太快），配合文字說明引導使用者修正行為偏誤。'},
+  {code:'UU5', tag:'good', text:'DecisionView 新增今日交易計劃卡（Mark Douglas 交易計劃儀式）。日期鍵值 localStorage 儲存，當天午夜自動清空，可摺疊，記錄最大損失上限/關注設定/市場偏向，計劃設定後狀態徽章轉綠。'},
+  {code:'UU6', tag:'warn', text:'RiskMonitorView 新增 20 日波動率政權警告（Ed Seykota 系統健康：高波動縮倉）。近 20 日日報酬標準差 ÷ 全期標準差，比率 ≥ 1.5× 顯示橘色警示「高波動期——建議縮減倉位至標準的 50%」。'},
+  {code:'UU7', tag:'good', text:'JournalView 新增星期幾績效格（Van Tharp 個人弱勢日規避）。5 格橫排，每格顯示累計 R 與筆數，正/負/無資料三色，讓使用者系統性識別個人弱勢交易日並迴避。'},
+  {code:'UU8', tag:'good', text:'JournalView 型態統計表新增「近 5 筆期望值」欄（近因漂移偵測）。辨識型態是否近期退化或改善，相較歷史均值更早捕捉到策略失效訊號。筆數 < 5 顯示 —。'},
+  {code:'UU9', tag:'warn', text:'RiskSizingView 新增停損距離 vs ATR 合理性檢查（Minervini 停損設定在正常波動以外）。停損距離 < 0.5×ATR 警告過緊、> 3×ATR 警告偏寬，0.5–3× 顯示合理，引導使用者設出在正常日波動以外的停損。'},
+  {code:'UU10', tag:'good', text:'JournalView 新增五維系統健康總分（0–100）卡片（Kelly/Van Tharp 多維度系統評估）。五項各 20 分：勝率 ≥ 50%、期望值 > 0、獲利因子 ≥ 1.5、最大連虧 ≤ 4、平均盈虧比 ≥ 1。每項以點狀徽章顯示，需 10+ 筆才啟用。'},
+ ]
+},
 {date:'2026-08-03 00:00', range:'TT1–TT10', title:'自主循環優化：投資界標干心法驅動的分析深化（Ed Thorp／Van Tharp／PTJ／Livermore／Dalio）',
  summary:'參考五位投資大師的核心心法，盤點 10 項可落地的分析深化項目，3 輪自我審查後實作。橫跨 MonteCarloView、JournalView、PortfolioHeatView、RiskSizingView、RiskMonitorView 五個前端元件，共新增 303 行。MC 補齊四分位範圍（TT1）、連虧心理準備（TT6）、幾何平均成長率（TT10）；Journal 新增損益貢獻結構圖（TT2）、計畫 R:R vs 實際達成率（TT3）、月份績效季節圖（TT4）、象限 SVG 圖（TT9）；PortfolioHeat 加融資倍率警示（TT5）；RiskSizing 加三層 R:R 評級（TT7）；RiskMonitor 加 R 曲線最大回撤與 Calmar-like 比值（TT8）。全部通過 Vite HMR 即時驗證，各元件無 console 錯誤。',
  items:[
