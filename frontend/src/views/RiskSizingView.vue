@@ -144,6 +144,10 @@
             <li v-if="stopVsAtr" :class="stopVsAtr.tone === 'ok' ? 'ok' : stopVsAtr.tone === 'warn' ? '' : 'bad'">
               {{ stopVsAtr.tone === 'ok' ? '✓' : stopVsAtr.tone === 'warn' ? '⚠' : '✗' }} {{ stopVsAtr.msg }}
             </li>
+            <!-- VV6: 此勝率下最低需要的 R:R -->
+            <li v-if="minRRForWinRate !== null" :class="rr > 0 && rr >= minRRForWinRate ? 'ok' : rr > 0 ? 'bad' : ''">
+              {{ rr > 0 ? (rr >= minRRForWinRate ? '✓' : '✗') : '—' }} 此勝率 {{ winRate }}% 最低需要 R:R ≥ {{ minRRForWinRate.toFixed(2) }}:1 才保正期望值（PTJ: 先設防線，再想獲利）
+            </li>
           </ul>
           <p class="disclaimer">※ 本工具僅為風險試算，非投資建議；停損/目標請自行判斷。</p>
         </template>
@@ -326,6 +330,14 @@ const stopVsAtr = computed(() => {
   if (ratio < 0.5) return { tone: 'bad', msg: `停損距離 ${dist.toFixed(2)} < 0.5×ATR(${atr.toFixed(2)})——過緊，正常日波動就會洗出` }
   if (ratio > 3) return { tone: 'warn', msg: `停損距離 ${dist.toFixed(2)} ≈ ${ratio.toFixed(1)}×ATR——偏寬，風報比較差，建議縮窄或調高目標` }
   return { tone: 'ok', msg: `停損距離 ${dist.toFixed(2)} ≈ ${ratio.toFixed(1)}×ATR——在合理波動範圍內` }
+})
+
+// VV6: 此勝率下最低需要的 R:R（Paul Tudor Jones: 守住本金的第一步是知道最低及格線）
+// minRR = (1-W)/W，低於此值長期必為負期望值
+const minRRForWinRate = computed(() => {
+  if (!winRate.value || winRate.value <= 0 || winRate.value >= 100) return null
+  const w = winRate.value / 100
+  return (1 - w) / w
 })
 
 // TT7: 三層 R:R 評級（PTJ: 最低 2:1，最好 3:1+）

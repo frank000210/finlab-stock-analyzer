@@ -59,6 +59,11 @@
               <span>損益平衡最低勝率 / 安全邊際 <InfoTooltip label="損益平衡最低勝率" text="在當前盈虧比 R 下，期望值剛好為零時的臨界勝率 = 1/(1+R)。安全邊際 = 你的勝率 − 損益平衡勝率：越大代表優勢越穩固。< 5% 代表優勢薄弱，一旦勝率稍微滑落就轉為負期望。" /></span>
               <strong>{{ breakEvenWinRate.toFixed(1) }}% / <span :class="safetyMargin >= 10 ? 'up' : safetyMargin >= 0 ? 'warn' : 'down'">{{ safetyMargin >= 0 ? '+' : '' }}{{ safetyMargin.toFixed(1) }}%</span></strong>
             </div>
+            <!-- VV5: 觸及破產所需最少連虧筆數 -->
+            <div class="rcard" v-if="consecutiveLossesToRuin !== null">
+              <span>最少連虧幾筆觸及破產 <InfoTooltip label="連虧至破產筆數" text="在固定單筆風險比例下，理論上最少連虧幾筆就會達到破產門檻。Taleb 人體工程學：若這個數字很小（< 10），系統對連虧序列的脆弱性很高，需要降低單筆風險或提高破產門檻。" /></span>
+              <strong :class="consecutiveLossesToRuin < 10 ? 'down' : consecutiveLossesToRuin < 20 ? 'warn' : 'up'">{{ consecutiveLossesToRuin }} 筆</strong>
+            </div>
           </div>
 
           <div class="hist">
@@ -160,6 +165,15 @@ const halfKellyPct = computed(() => kellyOptimal.value * 50)
 // Howard Marks「安全邊際」——優勢越厚，策略越禁得起估計誤差
 const breakEvenWinRate = computed(() => payoff.value > 0 ? 100 / (1 + payoff.value) : 0)
 const safetyMargin = computed(() => winRate.value - breakEvenWinRate.value)
+
+// VV5: 觸及破產所需最少連虧筆數（Taleb: 人體工程學——一次性大虧是不可逆的滅絕事件）
+// 公式推導：連虧 N 筆不超過 ruinLevel 的最小 N：(1-r)^N >= (1-ruinLevel) → N = ceil(log(1-ruin)/log(1-r))
+const consecutiveLossesToRuin = computed(() => {
+  const r = Math.max(riskPct.value || 0, 0.1) / 100
+  const ruin = Math.min(Math.max(ruinPct.value || 0, 1), 99) / 100
+  if (r >= 1) return null
+  return Math.ceil(Math.log(1 - ruin) / Math.log(1 - r))
+})
 
 function pct(v) { return (v == null || isNaN(v)) ? '—' : (v >= 0 ? '+' : '') + (v * 100).toFixed(1) + '%' }
 

@@ -103,6 +103,19 @@
           <strong>{{ rCurveMdd.ratio ?? '—' }}</strong>
         </div>
       </div>
+      <!-- VV9: 距高水位回撤 -->
+      <div v-if="hwmDistance" class="r-curve-stats">
+        <div class="rc-stat">
+          <span class="rc-label">R 曲線高水位 <InfoTooltip label="權益高水位（HWM）" text="歷史上累計 R 達到的最高點。目前距高水位的回撤 = HWM − 當前累計 R。與 R 曲線最大回撤不同：MDD 是歷史最大值，HWM 距離是「現在」的即時距離，讓你知道是否正在回撤中。" /></span>
+          <strong class="up">+{{ hwmDistance.hwm.toFixed(1) }}R</strong>
+        </div>
+        <div class="rc-stat">
+          <span class="rc-label">目前距高水位</span>
+          <strong :class="hwmDistance.atHwm ? 'up' : hwmDistance.drawdown > 2 ? 'down' : 'warn'">
+            {{ hwmDistance.atHwm ? '在高水位' : '-' + hwmDistance.drawdown.toFixed(1) + 'R' }}
+          </strong>
+        </div>
+      </div>
       <!-- UU6: 近20日波動率相對歷史警示 -->
       <div v-if="volatilityRegime" class="r-curve-stats vol-regime-row">
         <div class="rc-stat">
@@ -173,6 +186,23 @@ async function refreshUnrealized() {
 }
 
 const returnSeries = computed(() => computeReturns(equitySeries.value))
+
+// VV9: 距權益高水位（HWM）回撤（機構基金標準監控指標）
+// 顯示目前累計 R 離歷史高點差幾 R，讓使用者即時感知是否正在回撤中
+const hwmDistance = computed(() => {
+  const cl = closedTrades.value
+  if (cl.length < 5) return null
+  const sorted = [...cl].sort((a, b) => new Date(a.exitDate || 0) - new Date(b.exitDate || 0))
+  let cum = 0, hwm = 0
+  for (const t of sorted) {
+    const r = realizedR(t)
+    cum += r
+    if (cum > hwm) hwm = cum
+  }
+  if (hwm <= 0) return null
+  const drawdown = hwm - cum
+  return { hwm, current: cum, drawdown, atHwm: drawdown < 0.01 }
+})
 
 // UU6: 近20日波動率 vs 全歷史比值
 // Van Tharp: 當系統進入高波動狀態，縮減至半標準倉位可保護資金曲線

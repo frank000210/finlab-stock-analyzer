@@ -35,6 +35,29 @@
             <span v-for="item in systemHealth.items" :key="item.label" class="health-dot" :class="item.ok ? 'dot-ok' : 'dot-no'" :title="item.label + '：' + item.detail">●</span>
           </div>
         </div>
+        <!-- VV1: 當前連勝/連敗 -->
+        <div class="scard" v-if="currentStreak">
+          <span class="slabel">當前{{ currentStreak.type === 'win' ? '連勝' : '連敗' }} <InfoTooltip label="當前連勝/連敗條數" text="最後幾筆交易連續同方向的筆數。連敗 ≥ 3 時需警惕「復仇交易」衝動（Mark Douglas：交易是機率遊戲，任何單筆結果都不代表系統能力）。" /></span>
+          <strong class="sval" :class="currentStreak.type === 'win' ? 'up' : currentStreak.count >= 3 ? 'down' : 'warn'">{{ currentStreak.count }} 筆</strong>
+          <span v-if="currentStreak.type === 'loss' && currentStreak.count >= 3" class="shint down">⚠ 連敗 ≥ 3，避免復仇交易</span>
+        </div>
+        <!-- VV2: Recovery Factor -->
+        <div class="scard" v-if="recoveryFactor">
+          <span class="slabel">Recovery Factor <InfoTooltip label="回報回撤比（RF）" text="累計 R ÷ R 曲線最大回撤。CTA 業界標準：> 3 優秀、1-3 尚可、< 1 代表虧損還沒從最大回撤中回復。反映系統彌補虧損的效率。" /></span>
+          <strong class="sval" :class="recoveryFactor.rf >= 3 ? 'up' : recoveryFactor.rf >= 1 ? 'warn' : 'down'">{{ recoveryFactor.rf.toFixed(2) }}</strong>
+        </div>
+        <!-- VV4: 交易頻率 -->
+        <div class="scard" v-if="tradeFreqPerWeek">
+          <span class="slabel">交易頻率 <InfoTooltip label="平均每週交易筆數" text="已平倉交易總筆數 ÷ 跨越週數。Van Tharp: > 3 筆/週通常是過度交易的信號，降低每筆交易的 R:R 要求並增加噪音進場。" /></span>
+          <strong class="sval" :class="tradeFreqPerWeek.elevated ? 'warn' : 'up'">{{ tradeFreqPerWeek.freq.toFixed(1) }} 筆/週</strong>
+          <span v-if="tradeFreqPerWeek.elevated" class="shint warn">⚠ 可能過度交易</span>
+        </div>
+        <!-- VV8: 進行中部位總熱度 -->
+        <div class="scard" v-if="openHeatPct">
+          <span class="slabel">總風險熱度 <InfoTooltip label="進行中部位合計風險佔帳戶比" text="所有進行中部位的停損風險加總 ÷ 帳戶總資金（從「部位風控」頁設定）。Van Tharp Total Heat：建議 ≤ 6%，超過代表整體曝險過高，市場同步下跌時容易一次燒掉太多本金。" /></span>
+          <strong class="sval" :class="openHeatPct.pct > 10 ? 'down' : openHeatPct.pct > 6 ? 'warn' : 'up'">{{ openHeatPct.pct.toFixed(1) }}%</strong>
+          <span v-if="openHeatPct.pct > 6" class="shint warn">⚠ 超過建議 6% 上限</span>
+        </div>
       </div>
 
       <div v-if="equityPoints.length > 1" class="equity">
@@ -322,6 +345,56 @@
               <span class="dow-count muted" v-if="d.count">{{ d.count }} 筆</span>
               <span class="dow-count muted" v-else>無資料</span>
             </div>
+          </div>
+        </div>
+
+        <!-- VV3: 催化劑/進場理由分析 -->
+        <div class="an-block" v-if="byCatalyst.length">
+          <span class="slabel">依進場理由統計（O'Neil CAN SLIM：知道「為什麼」進場，勝率才能穩定）</span>
+          <div class="table-wrap">
+            <table class="j-table">
+              <thead><tr><th>進場理由</th><th>筆數</th><th>勝率</th><th>期望值</th><th>累計 R</th></tr></thead>
+              <tbody>
+                <tr v-for="g in byCatalyst" :key="g.catalyst">
+                  <td class="catalyst-label">{{ g.catalyst }}</td>
+                  <td>{{ g.count }}</td>
+                  <td>{{ (g.winRate * 100).toFixed(0) }}%</td>
+                  <td :class="g.expectancyR >= 0 ? 'up' : 'down'">{{ g.expectancyR >= 0 ? '+' : '' }}{{ g.expectancyR.toFixed(2) }}R</td>
+                  <td><strong :class="g.totalR >= 0 ? 'up' : 'down'">{{ g.totalR >= 0 ? '+' : '' }}{{ g.totalR.toFixed(2) }}R</strong></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- VV7: 標的集中度警告 -->
+        <div class="an-block" v-if="bySymbolConc">
+          <span class="slabel">標的集中度（Templeton：分散是防止無知的保護，單一標的 > 30% 屬集中風險）</span>
+          <div class="conc-row">
+            <div v-for="g in bySymbolConc.top" :key="g.sym" class="conc-bar-wrap">
+              <div class="conc-label-row">
+                <span class="conc-sym">{{ g.sym }}</span>
+                <span class="conc-pct" :class="g.pct > 30 ? 'down' : ''">{{ g.pct.toFixed(0) }}%</span>
+              </div>
+              <div class="conc-bar-track">
+                <div class="conc-bar-fill" :class="g.pct > 30 ? 'conc-warn' : ''" :style="{ width: `${Math.min(g.pct, 100)}%` }"></div>
+              </div>
+            </div>
+            <p v-if="bySymbolConc.concentrated" class="skew-text muted down">⚠ {{ bySymbolConc.topSym }} 佔總絕對 R 的 {{ bySymbolConc.topPct.toFixed(0) }}%——集中度偏高，建議分散或降低單一標的的部位比重。</p>
+          </div>
+        </div>
+
+        <!-- VV10: 異常大贏依賴度（Taleb 脆弱性） -->
+        <div class="an-block" v-if="outlierFrailty">
+          <span class="slabel">異常大贏依賴度（Taleb：若獲利集中在少數幾筆，系統本質上依賴運氣）</span>
+          <div class="skew-row">
+            <div class="skew-val" :class="outlierFrailty.fragile ? 'down' : 'up'">
+              <strong>{{ outlierFrailty.pct.toFixed(0) }}%</strong>
+            </div>
+            <p class="skew-text muted">
+              <template v-if="outlierFrailty.fragile">⚠ 前三大贏佔總獲利 R 的 {{ outlierFrailty.pct.toFixed(0) }}%——系統脆弱，移除這幾筆後績效將大幅縮水，建議檢視這幾筆是否可重複。</template>
+              <template v-else>✓ 前三大贏佔總獲利 R 的 {{ outlierFrailty.pct.toFixed(0) }}%——獲利分布相對均勻，系統穩健性較佳。</template>
+            </p>
           </div>
         </div>
 
@@ -1164,6 +1237,114 @@ const systemHealth = computed(() => {
   return { score, items }
 })
 
+// VV1: 當前連勝/連敗條數（Mark Douglas: 狀態覺察，連敗 ≥ 3 提示復仇交易風險）
+const currentStreak = computed(() => {
+  const cl = [...closedTrades.value].sort((a, b) => new Date(a.exitDate || 0) - new Date(b.exitDate || 0))
+  if (!cl.length) return null
+  const lastWin = realizedR(cl[cl.length - 1]) > 0
+  let count = 0
+  for (let i = cl.length - 1; i >= 0; i--) {
+    if ((realizedR(cl[i]) > 0) === lastWin) count++
+    else break
+  }
+  return { type: lastWin ? 'win' : 'loss', count }
+})
+
+// VV2: 回報回撤比 Recovery Factor（CTA 業界標準）
+// RF = 累計 R ÷ R 曲線最大回撤；> 3 優秀，1-3 尚可，< 1 需要改善
+const recoveryFactor = computed(() => {
+  const pts = equityPoints.value
+  if (pts.length < 5) return null
+  const totalR = pts[pts.length - 1]
+  let peak = 0, maxDD = 0
+  for (const p of pts) {
+    if (p > peak) peak = p
+    maxDD = Math.max(maxDD, peak - p)
+  }
+  if (!maxDD || peak <= 0) return null
+  return { rf: totalR / maxDD, totalR, maxDD }
+})
+
+// VV3: 催化劑/進場理由分析（O'Neil CAN SLIM：知道「為什麼進場」決定勝率天花板）
+// 按 catalyst 欄位分組，取前 5 高期望值的進場理由
+const byCatalyst = computed(() => {
+  const cl = closedTrades.value.filter(t => t.catalyst && String(t.catalyst).trim())
+  if (cl.length < 3) return []
+  const groups = {}
+  for (const t of cl) {
+    const key = String(t.catalyst).trim()
+    if (!groups[key]) groups[key] = []
+    groups[key].push(realizedR(t))
+  }
+  return Object.entries(groups)
+    .map(([catalyst, Rs]) => {
+      const wins = Rs.filter(r => r > 0)
+      return { catalyst, count: Rs.length, winRate: wins.length / Rs.length, expectancyR: Rs.reduce((a, b) => a + b, 0) / Rs.length, totalR: Rs.reduce((a, b) => a + b, 0) }
+    })
+    .sort((a, b) => b.expectancyR - a.expectancyR)
+    .slice(0, 5)
+})
+
+// VV4: 交易頻率警告（Van Tharp: 過度交易是系統失效的早期訊號）
+// > 3 筆/週 = 過度交易警告
+const tradeFreqPerWeek = computed(() => {
+  const cl = closedTrades.value
+  if (cl.length < 2) return null
+  const sorted = [...cl].sort((a, b) => new Date(a.exitDate || 0) - new Date(b.exitDate || 0))
+  const first = new Date(sorted[0].exitDate || 0)
+  const last = new Date(sorted[sorted.length - 1].exitDate || 0)
+  const weeks = Math.max(1, (last - first) / (7 * 24 * 3600 * 1000))
+  const freq = cl.length / weeks
+  return { freq, elevated: freq > 3 }
+})
+
+// VV7: 標的集中度（John Templeton: 分散是防止無知的保護，單一標的 > 30% 集中警告）
+const bySymbolConc = computed(() => {
+  const cl = closedTrades.value
+  if (cl.length < 3) return null
+  const Rs = cl.map(realizedR)
+  const totalAbsR = Rs.reduce((a, r) => a + Math.abs(r), 0)
+  if (!totalAbsR) return null
+  const groups = {}
+  for (let i = 0; i < cl.length; i++) {
+    const sym = cl[i].symbol || '?'
+    if (!groups[sym]) groups[sym] = 0
+    groups[sym] += Math.abs(Rs[i])
+  }
+  const sorted = Object.entries(groups).sort((a, b) => b[1] - a[1]).slice(0, 5)
+  const [topSym, topAbs] = sorted[0]
+  const topPct = topAbs / totalAbsR * 100
+  return { top: sorted.map(([sym, absR]) => ({ sym, absR, pct: absR / totalAbsR * 100 })), concentrated: topPct > 30, topSym, topPct }
+})
+
+// VV8: 進行中部位總熱度（Van Tharp Total Heat: 整體風險曝露不能超過帳戶的 6-10%）
+const openHeatPct = computed(() => {
+  const open = openTrades.value
+  if (!open.length) return null
+  let accountSize = 0
+  try { accountSize = Number(localStorage.getItem('finlab_sizing_account')) || 0 } catch {}
+  if (!accountSize) return null
+  const totalRisk = open.reduce((a, t) => {
+    const risk = Math.abs((Number(t.entry) || 0) - (Number(t.stop) || 0)) * (Number(t.lots) || 0) * 1000
+    return a + risk
+  }, 0)
+  return { pct: totalRisk / accountSize * 100, totalRisk, accountSize }
+})
+
+// VV10: 異常交易依賴分析（Taleb: 若獲利集中在少數幾筆，系統本質上是脆弱的）
+// 前三名大贏 > 50% 總正R = 脆弱警告：結果取決於極少數幸運交易
+const outlierFrailty = computed(() => {
+  const cl = closedTrades.value
+  if (cl.length < 5) return null
+  const Rs = cl.map(realizedR)
+  const posRs = Rs.filter(r => r > 0)
+  if (!posRs.length) return null
+  const totalPosR = posRs.reduce((a, b) => a + b, 0)
+  const top3Sum = [...posRs].sort((a, b) => b - a).slice(0, 3).reduce((a, b) => a + b, 0)
+  const pct = top3Sum / totalPosR * 100
+  return { pct, fragile: pct > 50 }
+})
+
 function fmt(v) {
   if (v == null || (typeof v === 'number' && isNaN(v))) return '—'
   if (v === Infinity) return '∞'
@@ -1438,6 +1619,19 @@ onMounted(() => {
 .dow-down { border-color: rgba(239,68,68,0.5); background: rgba(239,68,68,0.08); }
 .dow-down .dow-r { color: var(--down, #ef4444); }
 .dow-empty .dow-r { color: var(--text-muted); }
+
+/* VV3 catalyst label */
+.catalyst-label { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.82rem; }
+
+/* VV7 symbol concentration bars */
+.conc-row { display: flex; flex-direction: column; gap: 8px; }
+.conc-bar-wrap { display: flex; flex-direction: column; gap: 3px; }
+.conc-label-row { display: flex; justify-content: space-between; font-size: 0.78rem; }
+.conc-sym { font-weight: 600; }
+.conc-pct { color: var(--text-muted); }
+.conc-bar-track { height: 8px; border-radius: 999px; background: var(--bg-well); border: 1px solid var(--border-color); overflow: hidden; }
+.conc-bar-fill { height: 100%; border-radius: 999px; background: rgba(59,130,246,0.6); transition: width 0.3s ease; }
+.conc-warn { background: rgba(239,68,68,0.65); }
 
 /* TT2 損益貢獻 */
 .contrib-bars { display: flex; flex-direction: column; gap: 8px; }
