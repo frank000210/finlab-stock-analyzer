@@ -1,21 +1,24 @@
 <template>
-  <button class="sidebar-mobile-toggle" @click="mobileOpen = true" aria-label="開啟選單" aria-haspopup="true">☰</button>
+  <button class="sidebar-mobile-toggle" @click="mobileOpen = true" aria-label="開啟選單" aria-haspopup="true">
+    <Menu :size="18" />
+  </button>
   <div v-if="mobileOpen" class="sidebar-backdrop" @click="mobileOpen = false"></div>
 
   <aside class="app-sidebar" :class="{ collapsed, 'mobile-open': mobileOpen }">
     <div class="sidebar-header">
       <router-link to="/" class="sidebar-logo" @click="mobileOpen = false">
-        <span class="logo-icon">◆</span>
+        <Diamond :size="18" class="logo-icon" />
         <span class="logo-text" v-if="!collapsed">FinLab</span>
       </router-link>
       <button class="collapse-btn" @click="toggleCollapsed" :title="collapsed ? '展開選單' : '收合選單'" aria-label="收合/展開選單">
-        {{ collapsed ? '»' : '«' }}
+        <ChevronRight v-if="collapsed" :size="14" />
+        <ChevronLeft v-else :size="14" />
       </button>
     </div>
 
     <div class="sidebar-search">
       <div class="search-box">
-        <svg class="search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <Search :size="15" class="search-icon" />
         <input
           v-model="query"
           class="sidebar-search-input"
@@ -56,7 +59,7 @@
           :title="collapsed ? item.label : ''"
           @click="mobileOpen = false"
         >
-          <span class="nav-icon">{{ item.icon }}</span>
+          <component :is="item.icon" :size="16" class="nav-icon" />
           <span class="nav-label" v-if="!collapsed">{{ item.label }}</span>
         </router-link>
       </div>
@@ -68,7 +71,8 @@
         <span v-else-if="!collapsed" class="sidebar-user">{{ authStore.email }}</span>
       </template>
       <button v-else class="sidebar-signin-btn" @click="triggerGoogleSignIn" :title="collapsed ? 'Google 登入' : ''">
-        {{ collapsed ? '🔑' : 'Google 登入' }}
+        <Key v-if="collapsed" :size="16" />
+        <span v-else>Google 登入</span>
       </button>
     </div>
   </aside>
@@ -79,6 +83,15 @@ import { ref, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useStockStore } from '../stores/stock.js'
 import { useAuthStore } from '../stores/auth.js'
+import {
+  Target, Star, Zap, Radio, Bot, CheckSquare, ClipboardList,
+  BarChart2, TrendingUp, Calendar, Shuffle, Anchor, CandlestickChart,
+  MessageCircle, FileText, FlaskConical, Network, RefreshCw, Scale,
+  Gauge, ScanSearch, Search, Shield, Flame, AlertTriangle,
+  Calculator, BookOpen, Dices, Bell, Rocket, Newspaper, Puzzle,
+  Settings, Wrench, Brain, Lightbulb, Diamond, Menu,
+  ChevronLeft, ChevronRight, Key,
+} from 'lucide-vue-next'
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 const router = useRouter()
@@ -146,63 +159,63 @@ const navGroups = [
   {
     title: '決策 & 掃描',
     items: [
-      { key: 'decision', icon: '🎯', label: '決策面板', cta: true, to: () => '/decision' },
-      { key: 'watchlist', icon: '⭐', label: '觀察清單', to: () => '/watchlist' },
-      { key: 'command', icon: '⚡', label: '作戰台', to: () => '/command' },
-      { key: 'signals', icon: '📡', label: '訊號', to: () => '/signals' },
-      { key: 'ai-signals', icon: '🤖', label: 'AI 交易信號', to: () => '/ai-signals' },
-      { key: 'trade-approval', icon: '✅', label: '交易核准中心', to: () => '/trade-approval' },
-      { key: 'daily-brief', icon: '📋', label: '盤後日報', to: () => '/daily-brief' },
+      { key: 'decision', icon: Target, label: '決策面板', cta: true, to: () => '/decision' },
+      { key: 'watchlist', icon: Star, label: '觀察清單', to: () => '/watchlist' },
+      { key: 'command', icon: Zap, label: '作戰台', to: () => '/command' },
+      { key: 'signals', icon: Radio, label: '訊號', to: () => '/signals' },
+      { key: 'ai-signals', icon: Bot, label: 'AI 交易信號', to: () => '/ai-signals' },
+      { key: 'trade-approval', icon: CheckSquare, label: '交易核准中心', to: () => '/trade-approval' },
+      { key: 'daily-brief', icon: ClipboardList, label: '盤後日報', to: () => '/daily-brief' },
     ],
   },
   {
     title: '個股分析',
     items: [
-      { key: 'overview', icon: '📊', label: '總覽', to: () => `/overview` },
-      { key: 'analysis', icon: '📈', label: '分析', to: () => `/stocks/${stockStore.symbol}` },
-      { key: 'seasonal', icon: '📅', label: '季節性', to: () => `/stocks/${stockStore.symbol}/seasonal` },
-      { key: 'lead-lag', icon: '🔀', label: '領先落後', to: () => `/stocks/${stockStore.symbol}/lead-lag` },
-      { key: 'major-players', icon: '🐳', label: '主力', to: () => `/stocks/${stockStore.symbol}/major-players` },
-      { key: 'chip', icon: '💹', label: '籌碼', to: () => `/stocks/${stockStore.symbol}/chip` },
-      { key: 'social-buzz', icon: '💬', label: '熱度', to: () => `/stocks/${stockStore.symbol}/social-buzz` },
-      { key: 'public-data', icon: '📄', label: '公開資訊', to: () => `/stocks/${stockStore.symbol}/public-data` },
-      { key: 'backtest', icon: '🧪', label: '回測', to: () => `/stocks/${stockStore.symbol}/backtest` },
+      { key: 'overview', icon: BarChart2, label: '總覽', to: () => `/overview` },
+      { key: 'analysis', icon: TrendingUp, label: '分析', to: () => `/stocks/${stockStore.symbol}` },
+      { key: 'seasonal', icon: Calendar, label: '季節性', to: () => `/stocks/${stockStore.symbol}/seasonal` },
+      { key: 'lead-lag', icon: Shuffle, label: '領先落後', to: () => `/stocks/${stockStore.symbol}/lead-lag` },
+      { key: 'major-players', icon: Anchor, label: '主力', to: () => `/stocks/${stockStore.symbol}/major-players` },
+      { key: 'chip', icon: CandlestickChart, label: '籌碼', to: () => `/stocks/${stockStore.symbol}/chip` },
+      { key: 'social-buzz', icon: MessageCircle, label: '熱度', to: () => `/stocks/${stockStore.symbol}/social-buzz` },
+      { key: 'public-data', icon: FileText, label: '公開資訊', to: () => `/stocks/${stockStore.symbol}/public-data` },
+      { key: 'backtest', icon: FlaskConical, label: '回測', to: () => `/stocks/${stockStore.symbol}/backtest` },
     ],
   },
   {
     title: '關聯 & 輪動',
     items: [
-      { key: 'graph', icon: '🕸️', label: '關聯圖', to: () => '/graph' },
-      { key: 'graph01', icon: '🕸️', label: '關聯圖01', to: () => '/graph01' },
-      { key: 'rotation', icon: '🔄', label: '類股輪動', to: () => '/rotation' },
-      { key: 'compare', icon: '⚖️', label: '多股比較', to: () => '/compare' },
-      { key: 'market-lights', icon: '🚦', label: '大盤多空', to: () => '/market-lights' },
-      { key: 'news-checker', icon: '🔍', label: '新聞可信度', to: () => '/news-checker' },
-      { key: 'screener', icon: '🔎', label: 'AI 選股', to: () => '/screener' },
+      { key: 'graph', icon: Network, label: '關聯圖', to: () => '/graph' },
+      { key: 'graph01', icon: Network, label: '關聯圖01', to: () => '/graph01' },
+      { key: 'rotation', icon: RefreshCw, label: '類股輪動', to: () => '/rotation' },
+      { key: 'compare', icon: Scale, label: '多股比較', to: () => '/compare' },
+      { key: 'market-lights', icon: Gauge, label: '大盤多空', to: () => '/market-lights' },
+      { key: 'news-checker', icon: ScanSearch, label: '新聞可信度', to: () => '/news-checker' },
+      { key: 'screener', icon: Search, label: 'AI 選股', to: () => '/screener' },
     ],
   },
   {
     title: '風控 & 紀律',
     items: [
-      { key: 'risk-sizing', icon: '🛡️', label: '部位風控', to: () => '/risk-sizing' },
-      { key: 'portfolio-heat', icon: '🔥', label: '投組風險', to: () => '/portfolio-heat' },
-      { key: 'risk-monitor', icon: '🚨', label: '風控監控', to: () => '/risk-monitor' },
-      { key: 'trade-dashboard', icon: '🧮', label: '交易儀表板', to: () => '/trade-dashboard' },
-      { key: 'journal', icon: '📓', label: '交易日誌', to: () => '/journal' },
-      { key: 'monte-carlo', icon: '🎲', label: '風險模擬', to: () => '/monte-carlo' },
-      { key: 'price-alerts', icon: '🔔', label: '價格警報', to: () => '/price-alerts' },
+      { key: 'risk-sizing', icon: Shield, label: '部位風控', to: () => '/risk-sizing' },
+      { key: 'portfolio-heat', icon: Flame, label: '投組風險', to: () => '/portfolio-heat' },
+      { key: 'risk-monitor', icon: AlertTriangle, label: '風控監控', to: () => '/risk-monitor' },
+      { key: 'trade-dashboard', icon: Calculator, label: '交易儀表板', to: () => '/trade-dashboard' },
+      { key: 'journal', icon: BookOpen, label: '交易日誌', to: () => '/journal' },
+      { key: 'monte-carlo', icon: Dices, label: '風險模擬', to: () => '/monte-carlo' },
+      { key: 'price-alerts', icon: Bell, label: '價格警報', to: () => '/price-alerts' },
     ],
   },
   {
     title: '其他',
     items: [
-      { key: 'guide', icon: '🚀', label: '新手上路', to: () => '/guide' },
-      { key: 'data-agent', icon: '📰', label: '資料爬蟲與新聞檢查', to: () => '/data-agent' },
-      { key: 'signal-rules', icon: '🧩', label: '信號規則編輯器', to: () => '/signal-rules' },
-      { key: 'settings', icon: '⚙️', label: '設定', to: () => '/settings' },
-      { key: 'admin', icon: '🔧', label: '後台', to: () => '/admin' },
-      { key: 'kb-qa', icon: '🧠', label: '知識庫問答', to: () => '/kb-qa' },
-      { key: 'feedback', icon: '💡', label: '意見回饋', to: () => '/feedback' },
+      { key: 'guide', icon: Rocket, label: '新手上路', to: () => '/guide' },
+      { key: 'data-agent', icon: Newspaper, label: '資料爬蟲與新聞檢查', to: () => '/data-agent' },
+      { key: 'signal-rules', icon: Puzzle, label: '信號規則編輯器', to: () => '/signal-rules' },
+      { key: 'settings', icon: Settings, label: '設定', to: () => '/settings' },
+      { key: 'admin', icon: Wrench, label: '後台', to: () => '/admin' },
+      { key: 'kb-qa', icon: Brain, label: '知識庫問答', to: () => '/kb-qa' },
+      { key: 'feedback', icon: Lightbulb, label: '意見回饋', to: () => '/feedback' },
     ],
   },
 ]
@@ -383,7 +396,7 @@ function triggerGoogleSignIn() {
 .nav-item.router-link-active { background: rgba(59,130,246,0.14); color: var(--accent-blue); font-weight: 600; }
 .nav-item.cta { background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple)); color: #fff; font-weight: 700; }
 .nav-item.cta.router-link-active { background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple)); color: #fff; }
-.nav-icon { width: 18px; text-align: center; flex-shrink: 0; }
+.nav-icon { width: 16px; height: 16px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
 .app-sidebar.collapsed .nav-item { justify-content: center; }
 
 .sidebar-footer {
