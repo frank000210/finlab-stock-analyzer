@@ -7,6 +7,7 @@ const navItems = [
   { path: '/', label: 'Notebook 總覽' },
   { path: '/import', label: '資料匯入' },
   { path: '/ask', label: '問答' },
+  { path: '/patent-report', label: '專利分析報告' },
 ]
 
 function logout() {
