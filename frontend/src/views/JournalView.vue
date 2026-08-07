@@ -1182,7 +1182,7 @@ const bySide = computed(() => {
 // Minervini/Seykota「截斷虧損、讓利潤奔跑」的結果會反映在右偏分布上
 const rSkewness = computed(() => {
   const Rs = closedTrades.value.map(realizedR)
-  if (Rs.length < 8) return null
+  if (Rs.length < 3) return null
   const n = Rs.length
   const mean = Rs.reduce((a, b) => a + b, 0) / n
   const variance = Rs.reduce((a, r) => a + (r - mean) ** 2, 0) / n
