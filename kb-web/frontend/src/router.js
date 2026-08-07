@@ -4,6 +4,8 @@ import Notebooks from './views/Notebooks.vue'
 import Import from './views/Import.vue'
 import Ask from './views/Ask.vue'
 import PatentReport from './views/PatentReport.vue'
+import PatentPlan from './views/PatentPlan.vue'
+import PatentReview from './views/PatentReview.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -12,7 +14,9 @@ const router = createRouter({
     { path: '/', component: Notebooks },
     { path: '/import', component: Import },
     { path: '/ask', component: Ask },
+    { path: '/patent-plan', component: PatentPlan },
     { path: '/patent-report', component: PatentReport },
+    { path: '/patent-review', component: PatentReview },
   ],
 })
 
