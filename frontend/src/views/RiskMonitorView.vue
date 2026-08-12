@@ -126,6 +126,23 @@
           <span class="rc-label vol-warn-msg">⚠ 高波動期 — 建議縮減倉位至標準的 50%</span>
         </div>
       </div>
+      <!-- WW9: 月報酬統計（機構月 P&L 剖面） -->
+      <div v-if="monthlyReturnStats" class="r-curve-stats">
+        <div class="rc-stat">
+          <span class="rc-label">月報酬中位數 <InfoTooltip label="月報酬中位數 R" text="機構 P&L 評核：月為標準績效週期。中位數比平均更能代表典型月份，不被異常月拉偏。" /></span>
+          <strong :class="monthlyReturnStats.median >= 0 ? 'up' : 'down'">{{ monthlyReturnStats.median >= 0 ? '+' : '' }}{{ monthlyReturnStats.median.toFixed(1) }}R</strong>
+        </div>
+        <div class="rc-stat">
+          <span class="rc-label">月報酬標準差</span>
+          <strong>{{ monthlyReturnStats.std.toFixed(1) }}R</strong>
+        </div>
+        <div class="rc-stat">
+          <span class="rc-label">正報酬月比率</span>
+          <strong :class="monthlyReturnStats.posMonthPct >= 60 ? 'up' : monthlyReturnStats.posMonthPct >= 40 ? 'warn' : 'down'">
+            {{ monthlyReturnStats.posMonthPct.toFixed(0) }}%（{{ monthlyReturnStats.posMonths }}/{{ monthlyReturnStats.totalMonths }} 月）
+          </strong>
+        </div>
+      </div>
     </section>
 
     <section class="card chart-card">
@@ -217,6 +234,28 @@ const volatilityRegime = computed(() => {
   const recentStd = std(recent)
   const ratio = recentStd / allStd
   return { ratio, recentStd: recentStd.toFixed(2), allStd: allStd.toFixed(2), elevated: ratio >= 1.5 }
+})
+
+// WW9: 月報酬統計（機構 P&L 剖面：中位數、標準差、正月比率）
+// 機構以月為標準績效評估週期；正月比率 ≥ 60% = 穩定系統，< 40% = 高波動警告
+const monthlyReturnStats = computed(() => {
+  const cl = closedTrades.value.filter(t => t.exitDate)
+  if (cl.length < 6) return null
+  const byMonth = {}
+  for (const t of cl) {
+    const mo = String(t.exitDate).slice(0, 7) // YYYY-MM
+    if (!byMonth[mo]) byMonth[mo] = 0
+    byMonth[mo] += realizedR(t)
+  }
+  const months = Object.values(byMonth)
+  if (months.length < 3) return null
+  const sorted = [...months].sort((a, b) => a - b)
+  const mid = Math.floor(sorted.length / 2)
+  const median = sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2
+  const mean = months.reduce((a, b) => a + b, 0) / months.length
+  const std = Math.sqrt(months.reduce((a, v) => a + (v - mean) ** 2, 0) / months.length)
+  const posMonths = months.filter(r => r > 0).length
+  return { median, std, posMonthPct: posMonths / months.length * 100, posMonths, totalMonths: months.length }
 })
 
 // TT8: R 曲線最大回撤（單位：R，跨帳戶大小可比較）

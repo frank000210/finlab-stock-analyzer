@@ -140,7 +140,7 @@ footer{ margin-top:36px; font-size:0.78rem; color:var(--ink-faint); text-align:c
   <div class="stats">
     <div class="stat"><b class="mono" id="stat-items">–</b><span>已完成項目</span></div>
     <div class="stat"><b class="mono" id="stat-series">–</b><span>批次系列</span></div>
-    <div class="stat"><b class="mono">07-11→08-03</b><span>涵蓋日期</span></div>
+    <div class="stat"><b class="mono">07-11→08-12</b><span>涵蓋日期</span></div>
     <div class="stat"><b class="mono" id="stat-critical">–</b><span>關鍵安全修復</span></div>
   </div>
   <div class="search-row">
@@ -161,6 +161,21 @@ footer{ margin-top:36px; font-size:0.78rem; color:var(--ink-faint); text-align:c
 
 <script>
 const DATA = [
+{date:'2026-08-12 09:00', range:'WW1–WW10', title:'自主循環優化：投資界標竿心法驅動的交易品質深化（Livermore／Druckenmiller／Tom Basso／Larry Williams／PTJ／Mark Douglas／Minervini／機構週月節奏）',
+ desc:'第九輪自主優化：聚焦交易行為品質與系統一致性。WW1-WW5 WW7 WW8 擴充 JournalView 分析模組；WW6 WW10 在 DecisionView 建立每日開盤儀式；WW9 在 RiskMonitorView 加入機構月 P&L 剖面。',
+ items:[
+  {code:'WW1', tag:'good', text:'JournalView 新增贏/輸單平均持倉天數分析（Livermore: 知道你的時間框架）。輸單持倉比贏單更久 = 凹單傾向，系統性地害怕認賠。贏單應讓利潤奔跑，輸單應截虧快出，此指標量化是否符合這一原則。'},
+  {code:'WW2', tag:'good', text:'JournalView 新增滾動10筆勝率趨勢 sparkline（Druckenmiller: 系統轉好/轉壞要早發現）。滑動窗口勝率下滑代表系統走冷，應縮減新部位或暫停；上升代表系統回暖，可適度加大標準部位。'},
+  {code:'WW3', tag:'warn', text:'JournalView 新增張數一致性 CV 統計卡（Tom Basso: 系統化不只是進場訊號，連部位大小也要一致）。CV（標準差/平均）> 20% 顯示警告；感情用事地在「感覺好」時放大、「感覺差」時縮小，是系統化最大殺手。'},
+  {code:'WW4', tag:'warn', text:'JournalView 新增近零報酬交易滲漏統計（Larry Williams: 小贏和小輸都是資本浪費）。|R| < 0.3 的交易消耗手續費、滑價與注意力卻無績效貢獻；> 20% 代表入場標準過鬆，應提高最低進場條件。'},
+  {code:'WW5', tag:'good', text:'JournalView 新增 R/天資本效率統計卡（Druckenmiller: 同樣獲利，佔用資金越少天越有效率）。Total R ÷ 跨度日曆天數，衡量策略翻倉速度，讓使用者評估是否在非最優時機長期持有閒置倉位。'},
+  {code:'WW6', tag:'good', text:'DecisionView 新增開盤前五項確認清單（Mark Douglas: 儀式感創造紀律）。五題涵蓋大盤方向確認、停損設定、訊號是否出現、剩餘虧損額度、符合系統規則。每日以日期 key 自動重置，防止帶著昨日偏見操作今天。'},
+  {code:'WW7', tag:'good', text:'JournalView 新增近8週週績效表（機構標準: 週為最小績效評估單位）。顯示每週筆數、週 R、累計 R，幫助使用者識別季節性弱週與系統轉折時間點，採機構評核節奏定期回顧。'},
+  {code:'WW8', tag:'good', text:'JournalView 新增目標達成率＋平均獲利捕捉率分析塊（PTJ: 只做你知道會成功的交易，事後驗證預測力）。達標率衡量設定目標的準確性；捕捉率 < 70% 代表習慣提早出場，複查是否存在過早鎖利的習慣。'},
+  {code:'WW9', tag:'good', text:'RiskMonitorView 新增月報酬統計（機構月 P&L 剖面）。顯示月報酬中位數（比平均更穩健，不被異常月拉偏）、月報酬標準差（系統穩定性）、正報酬月比率（≥ 60% = 穩定，< 40% = 警告），讓使用者以機構視角審視系統的月度一致性。'},
+  {code:'WW10', tag:'warn', text:'DecisionView 新增今日最大虧損限制追蹤器（Minervini: 日內硬停板，觸及即停止交易）。從當日出場交易即時計算今日已實現 R，超過使用者設定上限時顯示紅色警告「已觸日內停板」，防止連續虧損後報復性加倉。'},
+ ]
+},
 {date:'2026-08-04 01:00', range:'VV1–VV10', title:'自主循環優化：投資界標竿心法驅動的交易分析深化（Mark Douglas／CTA Recovery Factor／O\'Neil CAN SLIM／Van Tharp／Taleb／Templeton／PTJ）',
  summary:'以七位投資/交易大師心法為主軸，盤點 10 項可落地的交易系統深化項目，3 輪自我審查後實作。橫跨 JournalView、MonteCarloView、RiskSizingView、RiskMonitorView 四個前端元件，共新增 429 行。Journal 新增當前連勝/連敗條數（VV1）、Recovery Factor（VV2）、催化劑/進場理由分析表（VV3）、交易頻率警告（VV4）、標的集中度橫條圖（VV7）、開倉總熱度%（VV8）、異常大贏依賴度（VV10）；MC 新增最少連虧至破產筆數（VV5）；RiskSizing 新增此勝率下最低需要 R:R 檢查（VV6）；RiskMonitor 新增距權益高水位回撤（VV9）。全部瀏覽器驗證通過，10 個新 E2E 測試一起上版。',
  items:[

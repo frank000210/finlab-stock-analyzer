@@ -50,6 +50,44 @@
       </div>
     </section>
 
+    <!-- WW6: 開盤前五項自我確認清單（Mark Douglas：儀式感創造紀律，不靠感覺靠流程）-->
+    <section class="daily-plan-card card ww-checklist-card">
+      <div class="plan-title-row" style="margin-bottom: 8px">
+        <span class="plan-icon">✅</span>
+        <h2 class="plan-title">開盤前確認清單</h2>
+        <span class="plan-status" :class="checklistAllDone ? 'plan-set' : 'plan-unset'">{{ checklistAllDone ? '✓ 全部確認' : `${checklistDoneCount}/5 項` }}</span>
+      </div>
+      <p class="plan-hint muted">每日自動重置。Mark Douglas：進場前完成儀式，排除情緒干擾。</p>
+      <ul class="ww-checklist">
+        <li v-for="(item, i) in checklistItems" :key="i" class="ww-checklist-item" :class="{ done: checklistState[i] }">
+          <label>
+            <input type="checkbox" :checked="checklistState[i]" @change="toggleChecklist(i)" />
+            {{ item }}
+          </label>
+        </li>
+      </ul>
+    </section>
+
+    <!-- WW10: 今日最大虧損限制（Minervini：日內硬停板，觸及即停止交易）-->
+    <section class="daily-plan-card card ww-dayloss-card">
+      <div class="plan-title-row" style="margin-bottom: 8px">
+        <span class="plan-icon">🛑</span>
+        <h2 class="plan-title">今日最大虧損限制</h2>
+        <span class="plan-status" :class="dayLossBreached ? 'plan-unset' : 'plan-set'">
+          {{ dayLossBreached ? '⚠ 已觸日內停板' : todayRealizedR < 0 ? `虧 ${Math.abs(todayRealizedR).toFixed(2)}R` : `今日 +${todayRealizedR.toFixed(2)}R` }}
+        </span>
+      </div>
+      <p class="plan-hint muted">Minervini：每日最大虧損上限達到即停止交易，防止連續當機引發報復性加倉。</p>
+      <div class="ww-dayloss-row">
+        <label class="muted small">日內最大虧損上限（R）</label>
+        <input type="number" class="inp w90" v-model.number="dayLossLimit" min="0.5" step="0.5" @change="saveDayLossLimit" />
+        <strong :class="dayLossBreached ? 'down' : todayRealizedR < 0 ? 'warn' : 'up'">
+          今日已實現：{{ todayRealizedR >= 0 ? '+' : '' }}{{ todayRealizedR.toFixed(2) }}R
+        </strong>
+      </div>
+      <p v-if="dayLossBreached" class="warn small">⚠ 已達日內停板（-{{ dayLossLimit }}R），Minervini 原則：今日停止開新倉。</p>
+    </section>
+
     <section class="top-grid">
       <article class="market-pulse card">
         <div class="panel-head">
@@ -331,6 +369,48 @@ const todayPlan = ref(localStorage.getItem(todayKey()) || '')
 const planExpanded = ref(true)
 const planDateLabel = computed(() => `計劃日期：${new Date().toISOString().slice(0, 10)}，明日自動清空`)
 function savePlan() { localStorage.setItem(todayKey(), todayPlan.value) }
+
+// WW6: 開盤前五項確認清單（Mark Douglas）— 每日以日期 key 重置
+const CHECKLIST_KEY_PREFIX = 'finlab_pretrade_chk_'
+function checklistKey() { return CHECKLIST_KEY_PREFIX + new Date().toISOString().slice(0, 10) }
+const checklistItems = [
+  '已確認大盤方向（不逆勢強行做多/空）',
+  '已設定停損價，知道最多虧多少R',
+  '計劃中的進場訊號尚未出現（不搶跑）',
+  '今日剩餘虧損額度足夠承受這筆風險',
+  '此交易符合系統規則，而非情緒驅動',
+]
+function loadChecklistState() {
+  try { return JSON.parse(localStorage.getItem(checklistKey()) || 'null') || new Array(5).fill(false) } catch { return new Array(5).fill(false) }
+}
+const checklistState = ref(loadChecklistState())
+const checklistDoneCount = computed(() => checklistState.value.filter(Boolean).length)
+const checklistAllDone = computed(() => checklistDoneCount.value === checklistItems.length)
+function toggleChecklist(i) {
+  const next = [...checklistState.value]
+  next[i] = !next[i]
+  checklistState.value = next
+  localStorage.setItem(checklistKey(), JSON.stringify(next))
+}
+
+// WW10: 今日最大虧損限制（Minervini）
+const DAY_LOSS_LIMIT_KEY = 'finlab_day_loss_limit'
+const dayLossLimit = ref(Number(localStorage.getItem(DAY_LOSS_LIMIT_KEY)) || 2)
+function saveDayLossLimit() { localStorage.setItem(DAY_LOSS_LIMIT_KEY, String(dayLossLimit.value)) }
+const todayRealizedR = computed(() => {
+  try {
+    const trades = JSON.parse(localStorage.getItem('finlab_trade_journal') || '[]')
+    const today = new Date().toISOString().slice(0, 10)
+    return trades
+      .filter(t => t.status === 'closed' && t.exitDate && String(t.exitDate).slice(0, 10) === today)
+      .reduce((sum, t) => {
+        const entry = Number(t.entry), stop = Number(t.stop), exit = Number(t.exit)
+        if (!entry || !stop || !exit || entry === stop) return sum
+        return sum + (exit - entry) / Math.abs(entry - stop)
+      }, 0)
+  } catch { return 0 }
+})
+const dayLossBreached = computed(() => todayRealizedR.value <= -Math.abs(dayLossLimit.value))
 
 const filters = [
   { label: '全部', value: 'ALL' },
@@ -1970,4 +2050,15 @@ function toDateParam(value) {
     height: 52px;
   }
 }
+
+/* WW6 checklist */
+.ww-checklist-card { margin-bottom: 12px; }
+.ww-checklist { list-style: none; padding: 0; margin: 8px 0 0; display: flex; flex-direction: column; gap: 8px; }
+.ww-checklist-item label { display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 0.92rem; color: var(--text-primary); }
+.ww-checklist-item input[type=checkbox] { width: 16px; height: 16px; cursor: pointer; accent-color: var(--color-up); }
+.ww-checklist-item.done label { color: var(--text-muted); text-decoration: line-through; }
+
+/* WW10 day-loss */
+.ww-dayloss-card { margin-bottom: 12px; }
+.ww-dayloss-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 8px; }
 </style>

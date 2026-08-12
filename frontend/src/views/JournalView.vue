@@ -58,6 +58,40 @@
           <strong class="sval" :class="openHeatPct.pct > 10 ? 'down' : openHeatPct.pct > 6 ? 'warn' : 'up'">{{ openHeatPct.pct.toFixed(1) }}%</strong>
           <span v-if="openHeatPct.pct > 6" class="shint warn">⚠ 超過建議 6% 上限</span>
         </div>
+        <!-- WW1: 贏/輸單平均持倉天數（Livermore 時間框架） -->
+        <div class="scard" v-if="holdTimeAnalysis">
+          <span class="slabel">持倉天數：贏 vs 輸 <InfoTooltip label="贏/輸單平均持倉天數" text="Livermore：知道你的時間框架。輸單持倉比贏單長 = 凹單傾向（害怕認賠），應截虧更快。贏單應讓利潤充分奔跑。" /></span>
+          <strong class="sval" :class="holdTimeAnalysis.holdsLonger ? 'warn' : 'up'">
+            贏{{ holdTimeAnalysis.avgWin.toFixed(1) }}天 / 輸{{ holdTimeAnalysis.avgLoss.toFixed(1) }}天
+          </strong>
+          <span v-if="holdTimeAnalysis.holdsLonger" class="shint warn">⚠ 輸單持倉比贏單更久</span>
+        </div>
+        <!-- WW2: 滾動10筆勝率趨勢（Druckenmiller 熱/冷系統偵測） -->
+        <div class="scard" v-if="rollingWinRatePoints.length >= 2">
+          <span class="slabel">勝率趨勢（滾動10筆） <InfoTooltip label="滾動10筆勝率" text="Druckenmiller：系統轉好還是轉壞，要早發現。滾動窗口勝率下滑代表系統正在走冷，應縮減新部位或暫停。" /></span>
+          <svg :viewBox="`0 0 ${rollingWrW} ${rollingWrH}`" class="sparkline-svg">
+            <polyline :points="rollingWrPolyline" fill="none" stroke="currentColor" stroke-width="2" />
+          </svg>
+          <span class="shint muted">最新 {{ (rollingWinRatePoints[rollingWinRatePoints.length - 1] * 100).toFixed(0) }}%</span>
+        </div>
+        <!-- WW3: 張數一致性 CV（Tom Basso 系統化部位） -->
+        <div class="scard" v-if="lotConsistency">
+          <span class="slabel">張數一致性（CV） <InfoTooltip label="張數變異係數" text="Tom Basso：系統化不只是進場訊號，部位大小也要一致。CV（標準差/平均）越低越一致。&lt; 20% 屬良好，&gt; 40% 代表可能因情緒調整部位。" /></span>
+          <strong class="sval" :class="lotConsistency.consistent ? 'up' : 'warn'">{{ lotConsistency.cv.toFixed(0) }}%</strong>
+          <span v-if="!lotConsistency.consistent" class="shint warn">⚠ 張數波動偏大</span>
+        </div>
+        <!-- WW4: 近零報酬滲漏（Larry Williams 無效交易） -->
+        <div class="scard" v-if="nearZeroLeak">
+          <span class="slabel">近零R滲漏（|R|&lt;0.3） <InfoTooltip label="近零報酬交易比率" text="Larry Williams：小贏和小輸都是資本浪費，消耗手續費與注意力。&gt; 20% 代表系統可能進場過早或缺乏耐心，應提高入場標準。" /></span>
+          <strong class="sval" :class="nearZeroLeak.pct > 20 ? 'warn' : 'up'">{{ nearZeroLeak.pct.toFixed(0) }}%</strong>
+          <span class="shint muted">{{ nearZeroLeak.count }}/{{ nearZeroLeak.total }} 筆</span>
+        </div>
+        <!-- WW5: R/天 資本效率（Druckenmiller 效率） -->
+        <div class="scard" v-if="rPerDay">
+          <span class="slabel">R/天（資本效率） <InfoTooltip label="每日曆天平均 R" text="Druckenmiller：同樣獲利，佔用資金天數越少越有效率。Total R ÷ 跨度日曆天數。越高代表系統翻倉效率越佳。" /></span>
+          <strong class="sval" :class="rPerDay.rPerDay > 0 ? 'up' : 'down'">{{ rPerDay.rPerDay >= 0 ? '+' : '' }}{{ rPerDay.rPerDay.toFixed(3) }}R/天</strong>
+          <span class="shint muted">{{ rPerDay.spanDays }} 天跨度，總 {{ rPerDay.totalR >= 0 ? '+' : '' }}{{ rPerDay.totalR.toFixed(1) }}R</span>
+        </div>
       </div>
 
       <div v-if="equityPoints.length > 1" class="equity">
@@ -395,6 +429,40 @@
               <template v-if="outlierFrailty.fragile">⚠ 前三大贏佔總獲利 R 的 {{ outlierFrailty.pct.toFixed(0) }}%——系統脆弱，移除這幾筆後績效將大幅縮水，建議檢視這幾筆是否可重複。</template>
               <template v-else>✓ 前三大贏佔總獲利 R 的 {{ outlierFrailty.pct.toFixed(0) }}%——獲利分布相對均勻，系統穩健性較佳。</template>
             </p>
+          </div>
+        </div>
+
+        <!-- WW7: 近8週週績效（機構週評節奏） -->
+        <div class="an-block an-block--full" v-if="weeklyPerf">
+          <span class="slabel">近8週週績效（機構節奏：週為最小評估單位）</span>
+          <div class="table-wrap">
+            <table class="j-table ww-weekly-table">
+              <thead><tr><th>週（週一）</th><th>筆數</th><th>週R</th><th>累計R</th></tr></thead>
+              <tbody>
+                <tr v-for="w in weeklyPerf" :key="w.week">
+                  <td>{{ w.week }}</td>
+                  <td>{{ w.trades }}</td>
+                  <td :class="w.weekR > 0 ? 'up' : w.weekR < 0 ? 'down' : ''">{{ w.weekR >= 0 ? '+' : '' }}{{ w.weekR.toFixed(2) }}R</td>
+                  <td :class="w.cumR > 0 ? 'up' : w.cumR < 0 ? 'down' : ''">{{ w.cumR >= 0 ? '+' : '' }}{{ w.cumR.toFixed(2) }}R</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- WW8: 目標達成率＋平均獲利捕捉率（PTJ：只做你知道會成功的交易） -->
+        <div class="an-block" v-if="targetAchievement">
+          <span class="slabel">目標達成率（PTJ：只做你知道會成功的交易，事後驗證預測力）</span>
+          <div class="skew-row">
+            <div class="skew-val" :class="targetAchievement.hitRate >= 0.5 ? 'up' : 'warn'">
+              <strong>{{ (targetAchievement.hitRate * 100).toFixed(0) }}%</strong>
+              <small class="muted">達標率</small>
+            </div>
+            <div class="skew-val" :class="targetAchievement.avgCapture >= 0.7 ? 'up' : 'warn'">
+              <strong>{{ (targetAchievement.avgCapture * 100).toFixed(0) }}%</strong>
+              <small class="muted">平均捕捉率</small>
+            </div>
+            <p class="skew-text muted">{{ targetAchievement.hits }}/{{ targetAchievement.count }} 筆達到目標；平均實際獲利為計畫目標的 {{ (targetAchievement.avgCapture * 100).toFixed(0) }}%。捕捉率 &lt; 70% 代表習慣提早出場，建議複查持倉紀律。</p>
           </div>
         </div>
 
@@ -1345,6 +1413,122 @@ const outlierFrailty = computed(() => {
   return { pct, fragile: pct > 50 }
 })
 
+// WW1: 贏單 vs 輸單平均持倉天數（Livermore: 知道你的時間框架；Darvas: 截虧快、讓利潤跑）
+// 輸單持倉比贏單長 = 凹單傾向；贏單比輸單長 = 趨勢跟隨
+const holdTimeAnalysis = computed(() => {
+  const cl = [...closedTrades.value]
+    .filter(t => t.openDate && t.exitDate)
+    .map(t => {
+      const days = Math.max(0, (new Date(t.exitDate) - new Date(t.openDate)) / 86400000)
+      return { days, win: realizedR(t) > 0 }
+    })
+  if (cl.length < 3) return null
+  const wins = cl.filter(t => t.win)
+  const losses = cl.filter(t => !t.win)
+  const avgWin = wins.length ? wins.reduce((a, t) => a + t.days, 0) / wins.length : 0
+  const avgLoss = losses.length ? losses.reduce((a, t) => a + t.days, 0) / losses.length : 0
+  return { avgWin, avgLoss, holdsLonger: avgLoss > avgWin, winsCount: wins.length, lossCount: losses.length }
+})
+
+// WW2: 滾動10筆勝率趨勢（Druckenmiller: 系統轉好還是轉差，要早發現）
+// 使用滑動窗口計算，sparkline 顯示動態
+const rollingWinRatePoints = computed(() => {
+  const cl = [...closedTrades.value]
+    .sort((a, b) => new Date(a.exitDate || 0) - new Date(b.exitDate || 0))
+  const W = 10
+  if (cl.length < W) return []
+  const pts = []
+  for (let i = W; i <= cl.length; i++) {
+    const slice = cl.slice(i - W, i)
+    const wins = slice.filter(t => realizedR(t) > 0).length
+    pts.push(wins / W)
+  }
+  return pts
+})
+const rollingWrW = 200, rollingWrH = 40
+const { points: rollingWrPolyline } = useSparkline(rollingWinRatePoints, { width: rollingWrW, height: rollingWrH, includeValue: 0.5 })
+
+// WW3: 張數一致性（Tom Basso: 系統化不只是進場訊號，連部位大小也要一致）
+// CV（變異係數）= 標準差/平均，越低越一致，> 40% 代表感情用事調整部位
+const lotConsistency = computed(() => {
+  const lots = closedTrades.value.map(t => Number(t.lots) || 0).filter(v => v > 0)
+  if (lots.length < 5) return null
+  const mean = lots.reduce((a, b) => a + b, 0) / lots.length
+  if (!mean) return null
+  const std = Math.sqrt(lots.reduce((a, v) => a + (v - mean) ** 2, 0) / lots.length)
+  const cv = std / mean * 100
+  return { cv, mean, std, consistent: cv < 20 }
+})
+
+// WW4: 近零報酬交易滲漏（Larry Williams: 小贏和小輸都是資本浪費）
+// |R| < 0.3 的交易：消耗滑價、手續費、注意力，卻無績效貢獻
+const nearZeroLeak = computed(() => {
+  const Rs = closedTrades.value.map(realizedR)
+  if (Rs.length < 5) return null
+  const leaks = Rs.filter(r => Math.abs(r) < 0.3)
+  return { count: leaks.length, total: Rs.length, pct: leaks.length / Rs.length * 100 }
+})
+
+// WW5: R/天 資本效率（Druckenmiller: 同樣獲利，佔用資金越少天越有效率）
+// Total R ÷ 總交易天數（以最早進場到最晚出場的日曆天計算）
+const rPerDay = computed(() => {
+  const cl = closedTrades.value.filter(t => t.openDate && t.exitDate)
+  if (cl.length < 3) return null
+  const sorted = [...cl].sort((a, b) => new Date(a.openDate) - new Date(b.openDate))
+  const spanDays = Math.max(1, (new Date(sorted[sorted.length - 1].exitDate) - new Date(sorted[0].openDate)) / 86400000)
+  const totalR = stats.value.totalR
+  return { rPerDay: totalR / spanDays, spanDays: Math.round(spanDays), totalR }
+})
+
+// WW7: 最近8週週績效（機構標準: 週為最小績效評估單位）
+const weeklyPerf = computed(() => {
+  const cl = closedTrades.value.filter(t => t.exitDate)
+  if (cl.length < 2) return null
+  const getWeekKey = (d) => {
+    const dt = new Date(d)
+    const day = dt.getDay() || 7
+    dt.setDate(dt.getDate() + 1 - day) // Monday
+    return dt.toISOString().slice(0, 10)
+  }
+  const groups = {}
+  for (const t of cl) {
+    const wk = getWeekKey(t.exitDate)
+    if (!groups[wk]) groups[wk] = []
+    groups[wk].push(realizedR(t))
+  }
+  let cum = 0
+  const weeks = Object.keys(groups).sort().slice(-8).map(wk => {
+    const Rs = groups[wk]
+    const weekR = Rs.reduce((a, b) => a + b, 0)
+    cum += weekR
+    return { week: wk, trades: Rs.length, weekR, cumR: cum }
+  })
+  return weeks.length >= 2 ? weeks : null
+})
+
+// WW8: 目標達成率＋平均獲利捕捉率（PTJ: 只做你知道會成功的交易，事後驗證預測準不準）
+// 目標達成 = exit >= target (long) ；捕捉率 = actualR / targetR
+const targetAchievement = computed(() => {
+  const cl = closedTrades.value.filter(t => t.target && Number(t.target) > 0)
+  if (cl.length < 3) return null
+  let hits = 0, totalCapture = 0
+  for (const t of cl) {
+    const target = Number(t.target)
+    const entry = Number(t.entry)
+    const exit = Number(t.exit) || 0
+    const stop = Number(t.stop)
+    const isLong = t.side === 'long' || entry > stop
+    const hit = isLong ? exit >= target : exit <= target
+    if (hit) hits++
+    const plannedRR = Math.abs(target - entry) / Math.abs(entry - stop)
+    const actualRR = Math.abs(exit - entry) / Math.abs(entry - stop)
+    if (plannedRR > 0) totalCapture += Math.min(actualRR / plannedRR, 2) // cap at 200%
+  }
+  const hitRate = hits / cl.length
+  const avgCapture = totalCapture / cl.length
+  return { hitRate, avgCapture, count: cl.length, hits }
+})
+
 function fmt(v) {
   if (v == null || (typeof v === 'number' && isNaN(v))) return '—'
   if (v === Infinity) return '∞'
@@ -1648,6 +1832,12 @@ onMounted(() => {
 .pva-ok { border-color: rgba(34, 197, 94, 0.5); }
 .pva-warn { border-color: rgba(245, 158, 11, 0.5); }
 .pva-arrow { font-size: 1.2rem; color: var(--text-muted); }
+
+/* WW2 sparkline */
+.sparkline-svg { display: block; color: var(--color-up); overflow: visible; }
+
+/* WW7 weekly table */
+.ww-weekly-table td, .ww-weekly-table th { font-size: 0.82rem; }
 
 /* TT4 月份績效 */
 .month-wrap { overflow-x: auto; }
