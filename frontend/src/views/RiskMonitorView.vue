@@ -288,6 +288,66 @@
       </div>
     </section>
 
+    <!-- AAA9: Monroe Trout — Monthly Return Volatility -->
+    <section class="card chart-card aaa-monthly-vol" v-if="monthlyReturnVol">
+      <div class="section-header">
+        <div>
+          <h2>月收益波動性（Trout）</h2>
+          <p class="chart-sub">每月累計 R 的標準差——一致性是專業交易員的基礎特質</p>
+        </div>
+        <div style="display:flex;gap:1rem;align-items:center">
+          <div class="rc-stat" style="text-align:right">
+            <span class="rc-label">月 R 標準差</span>
+            <strong :class="monthlyReturnVol.std <= 1 ? 'up' : monthlyReturnVol.std <= 2 ? 'warn' : 'down'" style="font-size:1.4rem">
+              {{ monthlyReturnVol.std.toFixed(2) }}R
+            </strong>
+          </div>
+          <div class="rc-stat" style="text-align:right">
+            <span class="rc-label">月均 R</span>
+            <strong :class="monthlyReturnVol.mean >= 0 ? 'up' : 'down'">{{ monthlyReturnVol.mean >= 0 ? '+' : '' }}{{ monthlyReturnVol.mean.toFixed(2) }}R</strong>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;gap:0.75rem;flex-wrap:wrap;padding:0 1rem 1rem">
+        <div v-for="m in monthlyReturnVol.months" :key="m.key" class="yy-phase-col" style="min-width:72px">
+          <span class="muted" style="font-size:0.65rem">{{ m.key }}</span>
+          <strong :class="m.total >= 0 ? 'up' : 'down'" style="font-size:0.85rem">{{ m.total >= 0 ? '+' : '' }}{{ m.total.toFixed(1) }}R</strong>
+        </div>
+      </div>
+    </section>
+
+    <!-- AAA10: Curtis Faith 海龜 — System Compliance Rate -->
+    <section class="card chart-card aaa-compliance" v-if="turtleCompliance">
+      <div class="section-header">
+        <div>
+          <h2>系統遵守度（Curtis Faith 海龜）</h2>
+          <p class="chart-sub">每筆交易是否按系統設定停損與目標——紀律是可量化的</p>
+        </div>
+        <div class="rc-stat" style="text-align:right">
+          <span class="rc-label">{{ turtleCompliance.stopRate >= 0.9 ? '✓ 高度紀律' : turtleCompliance.stopRate >= 0.7 ? '△ 部分遵守' : '⚠ 紀律不足' }}</span>
+          <strong :class="turtleCompliance.stopRate >= 0.9 ? 'up' : turtleCompliance.stopRate >= 0.7 ? 'warn' : 'down'" style="font-size:1.5rem">
+            {{ (turtleCompliance.stopRate * 100).toFixed(0) }}%
+          </strong>
+        </div>
+      </div>
+      <div class="yy-phase-row">
+        <div class="yy-phase-col">
+          <strong :class="turtleCompliance.stopRate >= 0.9 ? 'up' : 'warn'" style="font-size:1.1rem">{{ (turtleCompliance.stopRate * 100).toFixed(0) }}%</strong>
+          <span class="muted" style="font-size:0.72rem">有設停損率</span>
+          <span class="muted" style="font-size:0.65rem">{{ turtleCompliance.nStop }}/{{ turtleCompliance.total }}</span>
+        </div>
+        <div class="yy-phase-col">
+          <strong :class="turtleCompliance.targetRate >= 0.9 ? 'up' : 'warn'" style="font-size:1.1rem">{{ (turtleCompliance.targetRate * 100).toFixed(0) }}%</strong>
+          <span class="muted" style="font-size:0.72rem">有設目標率</span>
+          <span class="muted" style="font-size:0.65rem">{{ turtleCompliance.nTarget }}/{{ turtleCompliance.total }}</span>
+        </div>
+        <div class="yy-phase-col">
+          <strong :class="turtleCompliance.bothRate >= 0.9 ? 'up' : 'warn'" style="font-size:1.1rem">{{ (turtleCompliance.bothRate * 100).toFixed(0) }}%</strong>
+          <span class="muted" style="font-size:0.72rem">兩者齊備率</span>
+        </div>
+      </div>
+    </section>
+
     <section class="card chart-card">
       <div class="section-header">
         <div>
@@ -582,6 +642,36 @@ const wizardScore = computed(() => {
       { name: '正報月率', score: Math.round(monthScore), max: 15 },
     ],
   }
+})
+
+// AAA9: 月收益波動性（Monroe Trout：穩定的月度收益是頂尖 CTA 的核心特徵，std 越低代表系統越一致）
+const monthlyReturnVol = computed(() => {
+  const cl = closedTrades.value.filter(t => t.exitDate)
+  if (cl.length < 8) return null
+  const byMonth = {}
+  cl.forEach(t => {
+    const key = t.exitDate.slice(0, 7)
+    if (!byMonth[key]) byMonth[key] = 0
+    byMonth[key] += realizedR(t)
+  })
+  const months = Object.entries(byMonth).sort(([a], [b]) => a.localeCompare(b)).map(([key, total]) => ({ key, total }))
+  if (months.length < 3) return null
+  const totals = months.map(m => m.total)
+  const mean = totals.reduce((a, b) => a + b, 0) / totals.length
+  const std = Math.sqrt(totals.reduce((a, b) => a + (b - mean) ** 2, 0) / totals.length)
+  return { months, mean, std }
+})
+
+// AAA10: 系統遵守度（Curtis Faith 海龜：Dennis 要求海龜完整記錄每筆交易的停損與目標，紀律是可量化的，不是感覺）
+const turtleCompliance = computed(() => {
+  const cl = closedTrades.value
+  if (cl.length < 5) return null
+  const hasStop = t => t.stop !== null && t.stop !== undefined && Number(t.stop) !== 0 && Number(t.stop) !== Number(t.entry)
+  const hasTarget = t => t.target !== null && t.target !== undefined && Number(t.target) !== 0 && Number(t.target) !== Number(t.entry)
+  const nStop = cl.filter(hasStop).length
+  const nTarget = cl.filter(hasTarget).length
+  const nBoth = cl.filter(t => hasStop(t) && hasTarget(t)).length
+  return { nStop, nTarget, nBoth, total: cl.length, stopRate: nStop / cl.length, targetRate: nTarget / cl.length, bothRate: nBoth / cl.length }
 })
 
 // TT8: R 曲線最大回撤（單位：R，跨帳戶大小可比較）
@@ -978,6 +1068,8 @@ function statusClass(status) {
 .yy-phase-row { display: flex; gap: 1rem; margin-top: 0.75rem; padding: 0 1rem 0.75rem; }
 .yy-phase-col { display: flex; flex-direction: column; flex: 1; align-items: center; gap: 4px; padding: 0.5rem; background: var(--color-surface); border-radius: 6px; text-align: center; }
 
+/* AAA9 AAA10 */
+.aaa-monthly-vol, .aaa-compliance { margin-bottom: 0; }
 /* ZZ7 ZZ8 ZZ10 */
 .zz-heatmap-table { border-collapse: collapse; font-size: 0.78rem; }
 .zz-heatmap-table th, .zz-heatmap-table td { padding: 4px 6px; text-align: center; border: 1px solid var(--color-surface); }

@@ -766,6 +766,119 @@
           </div>
         </div>
 
+        <!-- AAA1: Warren Buffett — Top-Symbol Concentration Efficiency -->
+        <div class="scard aaa-concentration-card" v-if="concentrationEfficiency">
+          <span class="slabel">最佳標的集中度效益（Buffett：確認你的最佳構想是否真正表現最好）</span>
+          <div style="display:flex;gap:1.5rem;align-items:center;margin-top:0.5rem;flex-wrap:wrap">
+            <div>
+              <strong class="mono" :class="concentrationEfficiency.topAvgR > concentrationEfficiency.restAvgR ? 'up' : 'warn'">
+                {{ concentrationEfficiency.topSymbol }}
+              </strong>
+              <span class="muted" style="font-size:0.75rem">（最佳標的，{{ concentrationEfficiency.topN }}筆）</span>
+              <br>
+              <span style="font-size:1.1rem" :class="concentrationEfficiency.topAvgR >= 0 ? 'up' : 'down'">
+                {{ concentrationEfficiency.topAvgR >= 0 ? '+' : '' }}{{ concentrationEfficiency.topAvgR.toFixed(2) }}R
+              </span>
+              <span class="muted" style="font-size:0.72rem"> avg</span>
+            </div>
+            <div style="font-size:1.5rem;color:var(--color-muted)">vs</div>
+            <div>
+              <span class="muted" style="font-size:0.75rem">其他 {{ concentrationEfficiency.restCount }} 個標的均值</span>
+              <br>
+              <span style="font-size:1.1rem" :class="concentrationEfficiency.restAvgR >= 0 ? 'up' : 'down'">
+                {{ concentrationEfficiency.restAvgR >= 0 ? '+' : '' }}{{ concentrationEfficiency.restAvgR.toFixed(2) }}R
+              </span>
+            </div>
+            <div :class="concentrationEfficiency.topAvgR > concentrationEfficiency.restAvgR ? 'up' : 'down'" style="font-size:0.8rem">
+              {{ concentrationEfficiency.topAvgR > concentrationEfficiency.restAvgR ? '✓ 集中有效' : '⚠ 集中無效' }}
+            </div>
+          </div>
+        </div>
+
+        <!-- AAA4: George Soros — Reflexivity Re-entry Tracker -->
+        <div class="scard aaa-reflexivity" v-if="reflexivityReentry">
+          <span class="slabel">同標的再進場反身性（Soros：盈利後加倉是因為市場自我強化，還是你在情緒追高？）</span>
+          <div style="display:flex;gap:1.5rem;flex-wrap:wrap;margin-top:0.5rem">
+            <div v-for="sym in reflexivityReentry.symbols" :key="sym.symbol">
+              <span class="mono muted" style="font-size:0.75rem">{{ sym.symbol }}</span>
+              <div style="display:flex;gap:0.75rem;margin-top:2px">
+                <div>
+                  <span class="muted" style="font-size:0.65rem">首次</span>
+                  <br>
+                  <strong :class="sym.firstAvgR >= 0 ? 'up' : 'down'" style="font-size:0.9rem">{{ sym.firstAvgR >= 0 ? '+' : '' }}{{ sym.firstAvgR.toFixed(2) }}R</strong>
+                </div>
+                <div>
+                  <span class="muted" style="font-size:0.65rem">再進 ({{ sym.reN }}筆)</span>
+                  <br>
+                  <strong :class="sym.reAvgR >= 0 ? 'up' : 'down'" style="font-size:0.9rem">{{ sym.reAvgR >= 0 ? '+' : '' }}{{ sym.reAvgR.toFixed(2) }}R</strong>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- AAA5: David Ricardo — Win/Loss Hold Duration Asymmetry -->
+        <div class="scard aaa-duration-ratio" v-if="durationAsymmetry">
+          <span class="slabel">勝損持倉時長不對稱（Ricardo：讓贏家奔跑、快速認錯——比率 > 1.5 才是正確紀律）</span>
+          <div style="display:flex;gap:1.5rem;align-items:center;margin-top:0.5rem;flex-wrap:wrap">
+            <div>
+              <span class="muted" style="font-size:0.72rem">贏單平均持倉</span><br>
+              <strong class="up">{{ durationAsymmetry.avgWinDays.toFixed(1) }}天</strong>
+            </div>
+            <div>
+              <span class="muted" style="font-size:0.72rem">虧單平均持倉</span><br>
+              <strong class="down">{{ durationAsymmetry.avgLossDays.toFixed(1) }}天</strong>
+            </div>
+            <div>
+              <span class="muted" style="font-size:0.72rem">不對稱比率</span><br>
+              <strong :class="durationAsymmetry.ratio >= 1.5 ? 'up' : durationAsymmetry.ratio >= 1.0 ? 'warn' : 'down'" style="font-size:1.2rem">
+                {{ durationAsymmetry.ratio.toFixed(2) }}×
+              </strong>
+              <span class="muted" style="font-size:0.7rem"> {{ durationAsymmetry.ratio >= 1.5 ? '✓ 紀律良好' : '⚠ 過早出場/拖延虧損' }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- AAA7: Victor Niederhoffer — Trade Sequence Autocorrelation -->
+        <div class="scard aaa-autocorr" v-if="serialCorrelation">
+          <span class="slabel">交易序列自相關（Niederhoffer：勝負是否會叢聚？—— P(勝｜前勝) vs P(勝｜前敗)）</span>
+          <div style="display:flex;gap:1.5rem;align-items:center;margin-top:0.5rem;flex-wrap:wrap">
+            <div>
+              <span class="muted" style="font-size:0.72rem">P(勝｜前一勝)</span><br>
+              <strong :class="serialCorrelation.pWinGivenWin >= 0.5 ? 'up' : 'down'" style="font-size:1.1rem">
+                {{ (serialCorrelation.pWinGivenWin * 100).toFixed(0) }}%
+              </strong>
+              <span class="muted" style="font-size:0.65rem"> ({{ serialCorrelation.nWW }}筆)</span>
+            </div>
+            <div>
+              <span class="muted" style="font-size:0.72rem">P(勝｜前一敗)</span><br>
+              <strong :class="serialCorrelation.pWinGivenLoss >= 0.5 ? 'up' : 'down'" style="font-size:1.1rem">
+                {{ (serialCorrelation.pWinGivenLoss * 100).toFixed(0) }}%
+              </strong>
+              <span class="muted" style="font-size:0.65rem"> ({{ serialCorrelation.nLW }}筆)</span>
+            </div>
+            <div class="muted" style="font-size:0.75rem">
+              {{ serialCorrelation.clustered ? '⚠ 叢聚性強，連勝連敗明顯' : '✓ 序列近似隨機，心理影響小' }}
+            </div>
+          </div>
+        </div>
+
+        <!-- AAA8: Marty Schwartz — Day-of-Week Performance -->
+        <div class="scard aaa-weekday" v-if="weekdayPerf">
+          <span class="slabel">星期幾績效（Schwartz：了解自己在哪天狀態最好，避開弱勢日交易）</span>
+          <div class="aaa-weekday-bars">
+            <div v-for="d in weekdayPerf" :key="d.label" class="aaa-wd-col">
+              <div class="aaa-wd-bar-bg">
+                <div class="aaa-wd-bar-fill" :class="d.avgR >= 0 ? 'zz-bar-up' : 'zz-bar-down'"
+                  :style="{ height: d.n > 0 ? Math.min(100, Math.abs(d.avgR) * 40 + 10) + '%' : '4px' }"></div>
+              </div>
+              <span class="muted" style="font-size:0.65rem">{{ d.label }}</span>
+              <span v-if="d.n" :class="d.avgR >= 0 ? 'up' : 'down'" style="font-size:0.7rem">{{ d.avgR >= 0 ? '+' : '' }}{{ d.avgR.toFixed(2) }}R</span>
+              <span v-else class="muted" style="font-size:0.65rem">–</span>
+            </div>
+          </div>
+        </div>
+
         <!-- TT4: 月份績效柱狀圖 (full width) -->
         <div class="an-block an-block--full" v-if="monthlyPerfBars">
           <span class="slabel">月份績效（月別累計 R）——觀察是否有季節性弱點</span>
@@ -2151,6 +2264,101 @@ const symbolNetPnl = computed(() => {
   return { top, bottom, total: syms.length }
 })
 
+// AAA1: 最佳標的集中度效益（Warren Buffett：你的最佳構想應該是你最好的持倉，集中度是有紀律的，不是分散風險）
+const concentrationEfficiency = computed(() => {
+  const cl = closedTrades.value
+  if (cl.length < 5) return null
+  const bySymbol = {}
+  cl.forEach(t => {
+    const R = realizedR(t)
+    if (!bySymbol[t.symbol]) bySymbol[t.symbol] = { symbol: t.symbol, Rs: [], n: 0 }
+    bySymbol[t.symbol].Rs.push(R)
+    bySymbol[t.symbol].n++
+  })
+  const syms = Object.values(bySymbol)
+  if (syms.length < 2) return null
+  syms.forEach(s => { s.avgR = s.Rs.reduce((a, b) => a + b, 0) / s.Rs.length })
+  syms.sort((a, b) => b.avgR - a.avgR)
+  const top = syms[0]
+  const rest = syms.slice(1)
+  const restRs = rest.flatMap(s => s.Rs)
+  const restAvgR = restRs.reduce((a, b) => a + b, 0) / restRs.length
+  return { topSymbol: top.symbol, topAvgR: top.avgR, topN: top.n, restAvgR, restCount: rest.length }
+})
+
+// AAA4: 同標的再進場反身性（George Soros：市場自我強化——盈利後加倉是反身性操作，但須確認你的系統在再進場時仍有優勢）
+const reflexivityReentry = computed(() => {
+  const cl = closedTrades.value
+  if (cl.length < 5) return null
+  const bySymbol = {}
+  const sorted = [...cl].sort((a, b) => new Date(a.openDate) - new Date(b.openDate))
+  sorted.forEach(t => {
+    if (!bySymbol[t.symbol]) bySymbol[t.symbol] = []
+    bySymbol[t.symbol].push(realizedR(t))
+  })
+  const symbols = Object.entries(bySymbol)
+    .filter(([, rs]) => rs.length >= 2)
+    .map(([symbol, rs]) => ({
+      symbol,
+      firstAvgR: rs[0],
+      reAvgR: rs.slice(1).reduce((a, b) => a + b, 0) / rs.slice(1).length,
+      reN: rs.length - 1,
+    }))
+  if (symbols.length < 1) return null
+  return { symbols: symbols.slice(0, 3) }
+})
+
+// AAA5: 勝損持倉時長不對稱（David Ricardo：讓贏家奔跑、快速停損——若持虧單比持贏單更久，代表系統方向性紀律倒置）
+const durationAsymmetry = computed(() => {
+  const cl = closedTrades.value.filter(t => t.openDate && t.exitDate)
+  if (cl.length < 6) return null
+  const wins = cl.filter(t => realizedR(t) > 0)
+  const losses = cl.filter(t => realizedR(t) < 0)
+  if (wins.length < 3 || losses.length < 3) return null
+  const days = t => Math.max(0, (new Date(t.exitDate) - new Date(t.openDate)) / 86400000)
+  const avgWinDays = wins.reduce((a, t) => a + days(t), 0) / wins.length
+  const avgLossDays = losses.reduce((a, t) => a + days(t), 0) / losses.length
+  if (avgLossDays === 0) return null
+  return { avgWinDays, avgLossDays, ratio: avgWinDays / avgLossDays }
+})
+
+// AAA7: 序列自相關（Victor Niederhoffer：若勝負嚴重叢聚，交易者可能正在受心理狀態驅動，而非系統驅動）
+const serialCorrelation = computed(() => {
+  const cl = closedTrades.value
+  if (cl.length < 10) return null
+  const sorted = [...cl].filter(t => t.exitDate).sort((a, b) => new Date(a.exitDate) - new Date(b.exitDate))
+  const seq = sorted.map(t => realizedR(t) > 0 ? 1 : 0)
+  let nWW = 0, nWL = 0, nLW = 0, nLL = 0
+  for (let i = 1; i < seq.length; i++) {
+    if (seq[i - 1] === 1 && seq[i] === 1) nWW++
+    else if (seq[i - 1] === 1 && seq[i] === 0) nWL++
+    else if (seq[i - 1] === 0 && seq[i] === 1) nLW++
+    else nLL++
+  }
+  const totalAfterW = nWW + nWL
+  const totalAfterL = nLW + nLL
+  if (totalAfterW < 2 || totalAfterL < 2) return null
+  const pWinGivenWin = nWW / totalAfterW
+  const pWinGivenLoss = nLW / totalAfterL
+  const clustered = Math.abs(pWinGivenWin - pWinGivenLoss) > 0.2
+  return { pWinGivenWin, pWinGivenLoss, nWW, nLW, clustered }
+})
+
+// AAA8: 星期幾績效（Marty Schwartz：偉大交易員了解自己的節奏，週幾最清醒？週幾最衝動？）
+const weekdayPerf = computed(() => {
+  const cl = closedTrades.value.filter(t => t.openDate)
+  if (cl.length < 5) return null
+  const labels = ['一', '二', '三', '四', '五']
+  const buckets = labels.map(label => ({ label, Rs: [] }))
+  cl.forEach(t => {
+    const dow = new Date(t.openDate).getDay()
+    if (dow >= 1 && dow <= 5) buckets[dow - 1].Rs.push(realizedR(t))
+  })
+  const active = buckets.filter(b => b.Rs.length > 0)
+  if (active.length < 2) return null
+  return buckets.map(b => ({ label: b.label, n: b.Rs.length, avgR: b.Rs.length ? b.Rs.reduce((a, v) => a + v, 0) / b.Rs.length : 0 }))
+})
+
 function fmt(v) {
   if (v == null || (typeof v === 'number' && isNaN(v))) return '—'
   if (v === Infinity) return '∞'
@@ -2531,4 +2739,9 @@ onMounted(() => {
 .zz-symbol-group { display: flex; flex-direction: column; gap: 4px; min-width: 110px; }
 .zz-symbol-item { display: flex; gap: 6px; align-items: center; }
 .zz-sym-code { font-size: 0.82rem; }
+/* AAA1-AAA8 */
+.aaa-weekday-bars { display: flex; gap: 4px; align-items: flex-end; height: 64px; margin: 0.75rem 0; }
+.aaa-wd-col { display: flex; flex-direction: column; align-items: center; flex: 1; height: 100%; gap: 2px; }
+.aaa-wd-bar-bg { flex: 1; width: 100%; background: var(--color-surface); border-radius: 3px; display: flex; align-items: flex-end; }
+.aaa-wd-bar-fill { width: 100%; border-radius: 3px; min-height: 4px; }
 </style>

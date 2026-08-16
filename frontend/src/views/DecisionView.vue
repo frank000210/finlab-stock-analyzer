@@ -237,6 +237,74 @@
       <p class="plan-hint muted">Minervini：緊縮停損（&lt;2% 風險）允許用相同資金放更大部位且限制損失。進場品質越好，系統整體每筆 R 越高。</p>
     </section>
 
+    <!-- AAA2: Benjamin Graham — Planned R:R Quality Test -->
+    <section class="daily-plan-card card aaa-planned-rr" v-if="plannedRRQuality">
+      <div class="plan-title-row" style="margin-bottom: 8px">
+        <span class="plan-icon">📐</span>
+        <h2 class="plan-title">計畫 R:R 品質分層（Graham）</h2>
+      </div>
+      <div class="sc-row">
+        <div v-for="tier in plannedRRQuality" :key="tier.label" class="sc-val" style="min-width:90px">
+          <strong :class="tier.n > 0 && tier.avgR > 0 ? 'up' : tier.n > 0 ? 'down' : ''">
+            {{ tier.n > 0 ? (tier.avgR >= 0 ? '+' : '') + tier.avgR.toFixed(2) + 'R' : '–' }}
+          </strong>
+          <small class="muted">{{ tier.label }}</small>
+          <small class="muted" v-if="tier.n > 0">{{ tier.n }}筆</small>
+        </div>
+      </div>
+      <p class="plan-hint muted">Graham：只有在有足夠安全邊際時才出手。計畫 R:R 越高的設定，實際 R 是否也越高？若否，代表你的高 R:R 設定只是樂觀，而非真正的優勢。</p>
+    </section>
+
+    <!-- AAA3: Howard Marks — Streak-Triggered Sizing Bias -->
+    <section class="daily-plan-card card aaa-streak-bias" v-if="streakSizingBias">
+      <div class="plan-title-row" style="margin-bottom: 8px">
+        <span class="plan-icon">📊</span>
+        <h2 class="plan-title">連勝/連敗後倉位偏差（Marks）</h2>
+        <span class="plan-status" :class="streakSizingBias.biased ? 'plan-unset' : 'plan-set'">
+          {{ streakSizingBias.biased ? '⚠ 情緒週期偵測' : '✓ 倉位穩定' }}
+        </span>
+      </div>
+      <div class="sc-row">
+        <div class="sc-val">
+          <strong class="up">{{ streakSizingBias.afterWin.toFixed(1) }}</strong>
+          <small class="muted">連勝後平均張數</small>
+        </div>
+        <div class="sc-val">
+          <strong class="down">{{ streakSizingBias.afterLoss.toFixed(1) }}</strong>
+          <small class="muted">連敗後平均張數</small>
+        </div>
+        <div class="sc-val">
+          <strong :class="streakSizingBias.biased ? 'warn' : 'up'">{{ streakSizingBias.ratio.toFixed(2) }}×</strong>
+          <small class="muted">過度樂觀比率</small>
+        </div>
+      </div>
+      <p class="plan-hint muted">Marks：市場處於週期高點時，人們最過度自信；處於低點時，最過度悲觀。若連勝後倉位顯著更大，代表你的規模調整由情緒而非系統驅動。</p>
+    </section>
+
+    <!-- AAA6: Alexander Elder — Impulse Trade Detector -->
+    <section class="daily-plan-card card aaa-impulse-card" v-if="impulseTradeRate !== null">
+      <div class="plan-title-row" style="margin-bottom: 8px">
+        <span class="plan-icon">⚡</span>
+        <h2 class="plan-title">衝動交易偵測（Elder）</h2>
+        <span class="plan-status" :class="impulseTradeRate > 0.2 ? 'plan-unset' : 'plan-set'">
+          {{ impulseTradeRate > 0.2 ? '⚠ 復仇交易風險' : '✓ 進場時機穩定' }}
+        </span>
+      </div>
+      <div class="sc-row">
+        <div class="sc-val">
+          <strong :class="impulseTradeRate > 0.2 ? 'down' : 'up'" style="font-size:1.4rem">
+            {{ (impulseTradeRate * 100).toFixed(0) }}%
+          </strong>
+          <small class="muted">虧損後 1 天內再進場率</small>
+        </div>
+        <div class="sc-val">
+          <strong>{{ impulseTradeCount }}</strong>
+          <small class="muted">衝動進場次數</small>
+        </div>
+      </div>
+      <p class="plan-hint muted">Elder：在前一筆虧損出場後 24 小時內進場，往往是情緒驅動的復仇交易。應強制冷卻期：平倉後至少等 1 個交易日再重新評估。</p>
+    </section>
+
     <section class="top-grid">
       <article class="market-pulse card">
         <div class="panel-head">
@@ -726,6 +794,98 @@ const setupTierDist = computed(() => {
     winRate: t.Rs.length ? t.Rs.filter(r => r > 0).length / t.Rs.length : 0,
     avgR: t.Rs.length ? t.Rs.reduce((a, b) => a + b, 0) / t.Rs.length : 0,
   }))
+})
+
+// AAA2: 計畫R:R品質分層（Benjamin Graham：安全邊際不僅是價格折讓，也是勝算結構——計畫R:R高不代表一定有優勢，但系統性地測試這一點是誠實的）
+const plannedRRQuality = computed(() => {
+  try {
+    const trades = JSON.parse(localStorage.getItem('finlab_trade_journal') || '[]')
+      .filter(t => t.status === 'closed' && t.entry && t.stop && t.target && t.exit)
+    if (trades.length < 5) return null
+    const tiers = [
+      { label: '低 <1.5R:R', Rs: [] },
+      { label: '中 1.5-2.5R:R', Rs: [] },
+      { label: '高 >2.5R:R', Rs: [] },
+    ]
+    trades.forEach(t => {
+      const entry = Number(t.entry), stop = Number(t.stop), target = Number(t.target)
+      const riskUnit = Math.abs(entry - stop)
+      if (!riskUnit) return
+      const plannedRR = Math.abs(target - entry) / riskUnit
+      const R = _zzR(t)
+      if (plannedRR < 1.5) tiers[0].Rs.push(R)
+      else if (plannedRR <= 2.5) tiers[1].Rs.push(R)
+      else tiers[2].Rs.push(R)
+    })
+    const result = tiers.map(t => ({ label: t.label, n: t.Rs.length, avgR: t.Rs.length ? t.Rs.reduce((a, b) => a + b, 0) / t.Rs.length : 0 }))
+    if (result.filter(t => t.n > 0).length < 2) return null
+    return result
+  } catch { return null }
+})
+
+// AAA3: 連勝/連敗後倉位偏差（Howard Marks：週期思維——在最樂觀時最容易過度放大倉位）
+const streakSizingBias = computed(() => {
+  try {
+    const trades = JSON.parse(localStorage.getItem('finlab_trade_journal') || '[]')
+      .filter(t => t.status === 'closed' && t.exitDate)
+      .sort((a, b) => new Date(a.exitDate) - new Date(b.exitDate))
+    if (trades.length < 10) return null
+    const afterWinLots = [], afterLossLots = []
+    let streak = 0
+    for (let i = 0; i < trades.length - 1; i++) {
+      const R = _zzR(trades[i])
+      if (R > 0) streak = streak > 0 ? streak + 1 : 1
+      else streak = streak < 0 ? streak - 1 : -1
+      if (Math.abs(streak) >= 2) {
+        const nextLots = Number(trades[i + 1].lots) || 1
+        if (streak >= 2) afterWinLots.push(nextLots)
+        else afterLossLots.push(nextLots)
+      }
+    }
+    if (!afterWinLots.length || !afterLossLots.length) return null
+    const afterWin = afterWinLots.reduce((a, b) => a + b, 0) / afterWinLots.length
+    const afterLoss = afterLossLots.reduce((a, b) => a + b, 0) / afterLossLots.length
+    const ratio = afterLoss > 0 ? afterWin / afterLoss : afterWin
+    return { afterWin, afterLoss, ratio, biased: ratio > 1.3 }
+  } catch { return null }
+})
+
+// AAA6: 衝動交易偵測（Alexander Elder：三重屏障系統要求紀律，情緒化的復仇交易是賬戶殺手）
+const impulseTradeRate = computed(() => {
+  try {
+    const trades = JSON.parse(localStorage.getItem('finlab_trade_journal') || '[]')
+      .filter(t => t.status === 'closed' && t.exitDate && t.openDate)
+      .sort((a, b) => new Date(a.exitDate) - new Date(b.exitDate))
+    if (trades.length < 5) return null
+    let impulses = 0
+    for (let i = 1; i < trades.length; i++) {
+      const prevR = _zzR(trades[i - 1])
+      if (prevR >= 0) continue
+      const prevExit = new Date(trades[i - 1].exitDate)
+      const nextOpen = new Date(trades[i].openDate)
+      const gap = (nextOpen - prevExit) / 86400000
+      if (gap >= 0 && gap <= 1) impulses++
+    }
+    const lossTrades = trades.filter(t => _zzR(t) < 0).length
+    if (lossTrades === 0) return null
+    return impulses / lossTrades
+  } catch { return null }
+})
+
+const impulseTradeCount = computed(() => {
+  try {
+    const trades = JSON.parse(localStorage.getItem('finlab_trade_journal') || '[]')
+      .filter(t => t.status === 'closed' && t.exitDate && t.openDate)
+      .sort((a, b) => new Date(a.exitDate) - new Date(b.exitDate))
+    let impulses = 0
+    for (let i = 1; i < trades.length; i++) {
+      const prevR = _zzR(trades[i - 1])
+      if (prevR >= 0) continue
+      const gap = (new Date(trades[i].openDate) - new Date(trades[i - 1].exitDate)) / 86400000
+      if (gap >= 0 && gap <= 1) impulses++
+    }
+    return impulses
+  } catch { return 0 }
 })
 
 const filters = [
@@ -2409,4 +2569,6 @@ function toDateParam(value) {
 .yy-bar-bad { background: var(--color-down, #ef4444); opacity: 0.85; }
 /* ZZ3 ZZ9 */
 .zz-breakeven-card, .zz-setup-tier { margin-bottom: 1rem; }
+/* AAA2 AAA3 AAA6 */
+.aaa-planned-rr, .aaa-streak-bias, .aaa-impulse-card { margin-bottom: 1rem; }
 </style>
