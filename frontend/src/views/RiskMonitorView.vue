@@ -348,6 +348,121 @@
       </div>
     </section>
 
+    <!-- BBB2: Jim Simons — Statistical Edge Decay Detection -->
+    <section class="card chart-card bbb-edge-decay" v-if="edgeDecay">
+      <div class="section-header">
+        <div>
+          <h2>統計優勢衰退偵測（Simons）</h2>
+          <p class="chart-sub">最近10筆均值R vs 歷史均值R——系統優勢是否正在衰退？</p>
+        </div>
+        <div style="display:flex;gap:1rem">
+          <div class="rc-stat" style="text-align:right">
+            <span class="rc-label">歷史均值 R</span>
+            <strong :class="edgeDecay.overall >= 0 ? 'up' : 'down'">{{ edgeDecay.overall >= 0 ? '+' : '' }}{{ edgeDecay.overall.toFixed(3) }}</strong>
+          </div>
+          <div class="rc-stat" style="text-align:right">
+            <span class="rc-label">近10筆均值 R</span>
+            <strong :class="edgeDecay.recentAvg >= 0 ? 'up' : 'down'" style="font-size:1.3rem">{{ edgeDecay.recentAvg >= 0 ? '+' : '' }}{{ edgeDecay.recentAvg.toFixed(3) }}</strong>
+          </div>
+        </div>
+      </div>
+      <div class="yy-phase-row">
+        <div class="yy-phase-col">
+          <strong :class="edgeDecay.trend >= 0 ? 'up' : 'down'" style="font-size:1.1rem">{{ edgeDecay.trend >= 0 ? '+' : '' }}{{ edgeDecay.trend.toFixed(3) }}</strong>
+          <span class="muted" style="font-size:0.72rem">趨勢差值 (近-歷史)</span>
+        </div>
+        <div class="yy-phase-col">
+          <strong :class="edgeDecay.decaying ? 'down' : 'up'" style="font-size:1.1rem">{{ edgeDecay.decaying ? '⚠ 衰退' : '✓ 穩定' }}</strong>
+          <span class="muted" style="font-size:0.72rem">優勢狀態</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- BBB5: Dennis Gartman — Max Single Loss Control -->
+    <section class="card chart-card bbb-max-loss-control" v-if="maxLossControl">
+      <div class="section-header">
+        <div>
+          <h2>最大單筆損失控制（Gartman）</h2>
+          <p class="chart-sub">你的最大單筆損失是平均贏單的幾倍？——Gartman：永遠不讓任何一筆損失失控</p>
+        </div>
+        <div class="rc-stat" style="text-align:right">
+          <span class="rc-label">{{ maxLossControl.controlled ? '✓ 尾部受控' : '⚠ 損失失控' }}</span>
+          <strong :class="maxLossControl.controlled ? 'up' : 'down'" style="font-size:1.5rem">{{ maxLossControl.ratio.toFixed(2) }}×</strong>
+        </div>
+      </div>
+      <div class="yy-phase-row">
+        <div class="yy-phase-col">
+          <strong class="down">{{ maxLossControl.maxLoss.toFixed(2) }}R</strong>
+          <span class="muted" style="font-size:0.72rem">最大單筆損失</span>
+        </div>
+        <div class="yy-phase-col">
+          <strong class="up">+{{ maxLossControl.avgWin.toFixed(2) }}R</strong>
+          <span class="muted" style="font-size:0.72rem">平均贏單 R</span>
+        </div>
+        <div class="yy-phase-col">
+          <strong :class="maxLossControl.controlled ? 'up' : 'down'">{{ maxLossControl.ratio.toFixed(2) }}×</strong>
+          <span class="muted" style="font-size:0.72rem">損失/贏單比</span>
+          <span class="muted" style="font-size:0.65rem">（≤2× 為受控）</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- BBB8: Joel Greenblatt — Losing Streak Recovery Speed -->
+    <section class="card chart-card bbb-recovery-speed" v-if="recoverySpeed">
+      <div class="section-header">
+        <div>
+          <h2>最長虧損期回復速度（Greenblatt）</h2>
+          <p class="chart-sub">系統從最長連虧期恢復需要幾筆交易？——韌性是可以量化的</p>
+        </div>
+        <div class="rc-stat" style="text-align:right">
+          <span class="rc-label">最長連虧</span>
+          <strong class="down" style="font-size:1.5rem">{{ recoverySpeed.maxStreak }}連虧</strong>
+        </div>
+      </div>
+      <div class="yy-phase-row">
+        <div class="yy-phase-col">
+          <strong class="down">{{ recoverySpeed.streakLoss.toFixed(1) }}R</strong>
+          <span class="muted" style="font-size:0.72rem">連虧期損失</span>
+        </div>
+        <div class="yy-phase-col">
+          <strong :class="recoverySpeed.recovered ? 'up' : 'warn'" style="font-size:1.1rem">
+            {{ recoverySpeed.recovered ? recoverySpeed.recoveryTrades + '筆' : '未回復' }}
+          </strong>
+          <span class="muted" style="font-size:0.72rem">回復所需筆數</span>
+        </div>
+        <div class="yy-phase-col">
+          <strong :class="recoverySpeed.recovered && recoverySpeed.recoveryTrades <= recoverySpeed.maxStreak ? 'up' : 'warn'">
+            {{ recoverySpeed.recovered ? (recoverySpeed.recoveryTrades <= recoverySpeed.maxStreak ? '✓ 快速回彈' : '△ 慢速回彈') : '⚠ 仍在回復中' }}
+          </strong>
+          <span class="muted" style="font-size:0.72rem">韌性評級</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- BBB9: Larry Hite — Open Position Worst-Case Loss -->
+    <section class="card chart-card bbb-open-worstcase" v-if="openWorstCase">
+      <div class="section-header">
+        <div>
+          <h2>開倉最大損失情境（Hite）</h2>
+          <p class="chart-sub">若所有開倉都停損，最大損失是多少？——Hite：永遠知道你的最大可能損失</p>
+        </div>
+        <div class="rc-stat" style="text-align:right">
+          <span class="rc-label">現有開倉（{{ openWorstCase.positions }}筆）</span>
+          <strong class="down" style="font-size:1.4rem">-{{ openWorstCase.worstCase.toFixed(0) }}</strong>
+        </div>
+      </div>
+      <div class="yy-phase-row" v-if="openWorstCase.avgHistoricalLossR !== null">
+        <div class="yy-phase-col">
+          <strong class="down">{{ openWorstCase.avgHistoricalLossR.toFixed(2) }}R</strong>
+          <span class="muted" style="font-size:0.72rem">歷史平均虧損 R</span>
+        </div>
+        <div class="yy-phase-col">
+          <strong class="muted">{{ openWorstCase.positions }}個部位</strong>
+          <span class="muted" style="font-size:0.72rem">已設停損</span>
+        </div>
+      </div>
+    </section>
+
     <section class="card chart-card">
       <div class="section-header">
         <div>
@@ -672,6 +787,70 @@ const turtleCompliance = computed(() => {
   const nTarget = cl.filter(hasTarget).length
   const nBoth = cl.filter(t => hasStop(t) && hasTarget(t)).length
   return { nStop, nTarget, nBoth, total: cl.length, stopRate: nStop / cl.length, targetRate: nTarget / cl.length, bothRate: nBoth / cl.length }
+})
+
+// BBB2: 統計優勢衰退偵測（Jim Simons：Renaissance 的核心是持續監控統計優勢是否仍然有效——優勢會隨市場適應而消退）
+const edgeDecay = computed(() => {
+  const cl = closedTrades.value
+  if (cl.length < 20) return null
+  const sorted = [...cl].filter(t => t.exitDate).sort((a, b) => new Date(a.exitDate) - new Date(b.exitDate))
+  const Rs = sorted.map(realizedR)
+  const overall = Rs.reduce((a, b) => a + b, 0) / Rs.length
+  const recent10 = Rs.slice(-10)
+  const recentAvg = recent10.reduce((a, b) => a + b, 0) / recent10.length
+  const trend = recentAvg - overall
+  return { overall, recentAvg, trend, decaying: trend < -0.1 && recentAvg < overall * 0.7 }
+})
+
+// BBB5: 最大單筆損失控制（Dennis Gartman：永遠不讓任何一筆損失失控——若最大損失超過平均贏單2倍，代表停損紀律有問題）
+const maxLossControl = computed(() => {
+  const cl = closedTrades.value
+  if (cl.length < 5) return null
+  const Rs = cl.map(realizedR)
+  const wins = Rs.filter(r => r > 0)
+  const losses = Rs.filter(r => r < 0)
+  if (!wins.length || !losses.length) return null
+  const maxLoss = Math.min(...losses)
+  const avgWin = wins.reduce((a, b) => a + b, 0) / wins.length
+  const ratio = avgWin > 0 ? Math.abs(maxLoss) / avgWin : Infinity
+  return { maxLoss, avgWin, ratio, controlled: ratio <= 2 }
+})
+
+// BBB8: 最長虧損期回復速度（Joel Greenblatt：魔法公式的考驗在連虧期——能快速回彈的系統才值得信賴和長期執行）
+const recoverySpeed = computed(() => {
+  const cl = closedTrades.value
+  if (cl.length < 10) return null
+  const sorted = [...cl].filter(t => t.exitDate).sort((a, b) => new Date(a.exitDate) - new Date(b.exitDate))
+  const Rs = sorted.map(realizedR)
+  let maxStreak = 0, currentStreak = 0, maxStreakEnd = -1
+  Rs.forEach((r, i) => {
+    if (r < 0) { currentStreak++; if (currentStreak > maxStreak) { maxStreak = currentStreak; maxStreakEnd = i } }
+    else currentStreak = 0
+  })
+  if (maxStreak < 2 || maxStreakEnd < 0) return null
+  const streakStart = maxStreakEnd - maxStreak + 1
+  const streakLoss = Rs.slice(streakStart, maxStreakEnd + 1).reduce((a, b) => a + b, 0)
+  let cumR = 0, recoveryTrades = 0, recovered = false
+  for (let i = maxStreakEnd + 1; i < Rs.length; i++) {
+    cumR += Rs[i]
+    recoveryTrades++
+    if (cumR >= Math.abs(streakLoss)) { recovered = true; break }
+  }
+  return { maxStreak, streakLoss, recoveryTrades: recovered ? recoveryTrades : null, recovered }
+})
+
+// BBB9: 開倉最大損失情境（Larry Hite：Mint Investment 的核心風控——始終知道你的最大可能損失，不要讓意外損失成為帳戶終結者）
+const openWorstCase = computed(() => {
+  const open = openTrades.value.filter(t => t.stop && Number(t.stop) !== 0 && Number(t.stop) !== Number(t.entry))
+  if (!open.length) return null
+  const worstCase = open.reduce((total, t) => {
+    const entry = Number(t.entry), stop = Number(t.stop), lots = Number(t.lots) || 1
+    return total + Math.abs(entry - stop) * lots
+  }, 0)
+  const cl = closedTrades.value
+  const lossRs = cl.map(realizedR).filter(r => r < 0)
+  const avgHistoricalLossR = lossRs.length >= 3 ? lossRs.reduce((a, b) => a + b, 0) / lossRs.length : null
+  return { worstCase, positions: open.length, avgHistoricalLossR: avgHistoricalLossR ? Math.abs(avgHistoricalLossR) : null }
 })
 
 // TT8: R 曲線最大回撤（單位：R，跨帳戶大小可比較）
@@ -1070,6 +1249,8 @@ function statusClass(status) {
 
 /* AAA9 AAA10 */
 .aaa-monthly-vol, .aaa-compliance { margin-bottom: 0; }
+/* BBB2 BBB5 BBB8 BBB9 */
+.bbb-edge-decay, .bbb-max-loss-control, .bbb-recovery-speed, .bbb-open-worstcase { margin-bottom: 0; }
 /* ZZ7 ZZ8 ZZ10 */
 .zz-heatmap-table { border-collapse: collapse; font-size: 0.78rem; }
 .zz-heatmap-table th, .zz-heatmap-table td { padding: 4px 6px; text-align: center; border: 1px solid var(--color-surface); }

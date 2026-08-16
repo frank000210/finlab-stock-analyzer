@@ -879,6 +879,128 @@
           </div>
         </div>
 
+        <!-- BBB1: Ralph Vince — Optimal f Position Sizing -->
+        <div class="scard bbb-optimal-f" v-if="optimalF">
+          <span class="slabel">最優倉位尺寸 Optimal f（Vince：Kelly 準則的實務形式——最大化幾何成長率的最佳下注比例）</span>
+          <div style="display:flex;gap:1.5rem;align-items:center;margin-top:0.5rem;flex-wrap:wrap">
+            <div>
+              <span class="muted" style="font-size:0.72rem">最優 f（理論值）</span><br>
+              <strong :class="optimalF.healthy ? 'up' : 'down'" style="font-size:1.3rem">
+                {{ (optimalF.f * 100).toFixed(1) }}%
+              </strong>
+            </div>
+            <div>
+              <span class="muted" style="font-size:0.72rem">系統期望值</span><br>
+              <strong :class="optimalF.edge >= 0 ? 'up' : 'down'">{{ optimalF.edge >= 0 ? '+' : '' }}{{ optimalF.edge.toFixed(3) }}R/筆</strong>
+            </div>
+            <div class="muted" style="font-size:0.75rem;max-width:200px">
+              {{ optimalF.healthy ? 'Vince：系統具備正期望，存在最優倉位比例，過度或不足下注都會降低幾何成長率。' : '⚠ 期望值為負，任何倉位下注都無法獲利，應先改善系統邊際再考慮倉位優化。' }}
+            </div>
+          </div>
+        </div>
+
+        <!-- BBB3: Bernard Baruch — Exit Quality Score -->
+        <div class="scard bbb-exit-quality" v-if="exitQuality">
+          <span class="slabel">贏單出場品質（Baruch：適時獲利了結和適時進場一樣重要——你的贏單平均捕捉了多少計劃利潤？）</span>
+          <div style="display:flex;gap:1.5rem;align-items:center;margin-top:0.5rem;flex-wrap:wrap">
+            <div>
+              <span class="muted" style="font-size:0.72rem">平均捕捉率</span><br>
+              <strong :class="exitQuality.avgRatio >= 0.7 ? 'up' : exitQuality.avgRatio >= 0.4 ? 'warn' : 'down'" style="font-size:1.3rem">
+                {{ (exitQuality.avgRatio * 100).toFixed(0) }}%
+              </strong>
+            </div>
+            <div>
+              <span class="muted" style="font-size:0.72rem">接近目標（≥90%）</span><br>
+              <strong :class="exitQuality.nearTargetPct >= 0.4 ? 'up' : 'warn'">
+                {{ (exitQuality.nearTargetPct * 100).toFixed(0) }}%
+              </strong>
+              <span class="muted" style="font-size:0.65rem"> ({{ exitQuality.n }}筆贏單)</span>
+            </div>
+            <div class="muted" style="font-size:0.75rem">
+              {{ exitQuality.avgRatio >= 0.7 ? '✓ 出場品質良好' : '⚠ 過早獲利了結，未能讓贏家奔跑' }}
+            </div>
+          </div>
+        </div>
+
+        <!-- BBB6: Gerald Loeb — Lot Concentration Gini Coefficient -->
+        <div class="scard bbb-lot-gini" v-if="lotGini">
+          <span class="slabel">倉位集中度 Gini 係數（Loeb：在最有信念的機會集中押注，而非均分資金）</span>
+          <div style="display:flex;gap:1.5rem;align-items:center;margin-top:0.5rem;flex-wrap:wrap">
+            <div>
+              <span class="muted" style="font-size:0.72rem">Gini 係數</span><br>
+              <strong :class="lotGini.concentrated ? 'up' : 'muted'" style="font-size:1.3rem">{{ lotGini.gini.toFixed(3) }}</strong>
+            </div>
+            <div>
+              <span class="muted" style="font-size:0.72rem">張數範圍</span><br>
+              <span class="mono">{{ lotGini.min }} – {{ lotGini.max }}張</span>
+              <span class="muted" style="font-size:0.65rem"> 均值 {{ lotGini.mean.toFixed(1) }}</span>
+            </div>
+            <div class="muted" style="font-size:0.75rem">
+              {{ lotGini.concentrated ? '✓ 具差異化的倉位配置（信念分級）' : '△ 倉位趨於均等，缺乏信念差異化' }}
+            </div>
+          </div>
+        </div>
+
+        <!-- BBB7: Michael Steinhardt — Monthly Frequency vs Performance Correlation -->
+        <div class="scard bbb-freq-corr" v-if="frequencyCorrelation">
+          <span class="slabel">月頻率 × 績效相關（Steinhardt：對比觀點需要高度選擇性——過度交易常是信念不足的表現）</span>
+          <div style="display:flex;gap:1.5rem;align-items:center;margin-top:0.5rem;flex-wrap:wrap">
+            <div>
+              <span class="muted" style="font-size:0.72rem">相關係數 r</span><br>
+              <strong :class="frequencyCorrelation.r < -0.3 ? 'up' : frequencyCorrelation.r > 0.3 ? 'warn' : 'muted'" style="font-size:1.3rem">
+                r={{ frequencyCorrelation.r >= 0 ? '+' : '' }}{{ frequencyCorrelation.r.toFixed(2) }}
+              </strong>
+            </div>
+            <div class="muted" style="font-size:0.75rem;max-width:220px">
+              {{ frequencyCorrelation.r < -0.3 ? '✓ 負相關：交易越少、績效越好（高選擇性有效）' : frequencyCorrelation.r > 0.3 ? '△ 正相關：活躍月份績效更好，可能有動能規律' : '→ 相關性不顯著，頻率與績效關聯不明確' }}
+            </div>
+          </div>
+        </div>
+
+        <!-- BBB10: Philip Fisher — Holding Duration Percentiles -->
+        <div class="scard bbb-holding-pct" v-if="holdingPercentiles">
+          <span class="slabel">持倉天數分位數（Fisher：耐心持有偉大公司的正確執行——贏單中位數持倉應長於虧單）</span>
+          <div style="display:flex;gap:1rem;flex-wrap:wrap;margin-top:0.5rem">
+            <div>
+              <span class="muted" style="font-size:0.72rem">贏單持倉天</span>
+              <div style="display:flex;gap:0.5rem;margin-top:2px">
+                <div style="text-align:center">
+                  <span class="muted" style="font-size:0.62rem">P25</span><br>
+                  <strong class="up" style="font-size:0.85rem">{{ holdingPercentiles.win.p25 }}天</strong>
+                </div>
+                <div style="text-align:center">
+                  <span class="muted" style="font-size:0.62rem">P50</span><br>
+                  <strong class="up" style="font-size:0.85rem">{{ holdingPercentiles.win.p50 }}天</strong>
+                </div>
+                <div style="text-align:center">
+                  <span class="muted" style="font-size:0.62rem">P75</span><br>
+                  <strong class="up" style="font-size:0.85rem">{{ holdingPercentiles.win.p75 }}天</strong>
+                </div>
+              </div>
+            </div>
+            <div>
+              <span class="muted" style="font-size:0.72rem">虧單持倉天</span>
+              <div style="display:flex;gap:0.5rem;margin-top:2px">
+                <div style="text-align:center">
+                  <span class="muted" style="font-size:0.62rem">P25</span><br>
+                  <strong class="down" style="font-size:0.85rem">{{ holdingPercentiles.loss.p25 }}天</strong>
+                </div>
+                <div style="text-align:center">
+                  <span class="muted" style="font-size:0.62rem">P50</span><br>
+                  <strong class="down" style="font-size:0.85rem">{{ holdingPercentiles.loss.p50 }}天</strong>
+                </div>
+                <div style="text-align:center">
+                  <span class="muted" style="font-size:0.62rem">P75</span><br>
+                  <strong class="down" style="font-size:0.85rem">{{ holdingPercentiles.loss.p75 }}天</strong>
+                </div>
+              </div>
+            </div>
+            <div :class="holdingPercentiles.wellManaged ? 'up' : 'down'" style="font-size:0.75rem;align-self:center">
+              {{ holdingPercentiles.wellManaged ? '✓ 贏單持倉更長（讓利潤奔跑）' : '⚠ 虧單持倉更長（快速認錯紀律不足）' }}
+            </div>
+          </div>
+        </div>
+
         <!-- TT4: 月份績效柱狀圖 (full width) -->
         <div class="an-block an-block--full" v-if="monthlyPerfBars">
           <span class="slabel">月份績效（月別累計 R）——觀察是否有季節性弱點</span>
@@ -2357,6 +2479,93 @@ const weekdayPerf = computed(() => {
   const active = buckets.filter(b => b.Rs.length > 0)
   if (active.length < 2) return null
   return buckets.map(b => ({ label: b.label, n: b.Rs.length, avgR: b.Rs.length ? b.Rs.reduce((a, v) => a + v, 0) / b.Rs.length : 0 }))
+})
+
+// BBB1: 最優倉位尺寸（Ralph Vince：Optimal f 是讓幾何成長率最大化的下注比例，Kelly 準則的 R 單位版本）
+const optimalF = computed(() => {
+  const cl = closedTrades.value
+  if (cl.length < 10) return null
+  const Rs = cl.map(realizedR)
+  const wins = Rs.filter(r => r > 0)
+  const losses = Rs.filter(r => r < 0)
+  if (!wins.length || !losses.length) return null
+  const p = wins.length / Rs.length
+  const W = wins.reduce((a, b) => a + b, 0) / wins.length
+  const L = Math.abs(losses.reduce((a, b) => a + b, 0) / losses.length)
+  const edge = p * W - (1 - p) * L
+  const f = W > 0 ? edge / W : 0
+  return { f: Math.max(0, Math.min(1, f)), edge, healthy: f > 0 }
+})
+
+// BBB3: 贏單出場品質（Bernard Baruch：適時的利潤了結是交易成功的另一半——量化你是否在出場時捕捉到足夠的計劃利潤）
+const exitQuality = computed(() => {
+  const cl = closedTrades.value.filter(t => t.entry && t.stop && t.target && t.exit)
+  if (cl.length < 5) return null
+  const winners = cl.filter(t => realizedR(t) > 0)
+  if (winners.length < 3) return null
+  const ratios = winners.map(t => {
+    const entry = Number(t.entry), target = Number(t.target), exit = Number(t.exit)
+    const targetMove = Math.abs(target - entry)
+    if (!targetMove) return 0
+    const exitMove = (exit - entry) * (target > entry ? 1 : -1)
+    return Math.max(0, exitMove / targetMove)
+  })
+  const avgRatio = ratios.reduce((a, b) => a + b, 0) / ratios.length
+  const nearTargetPct = ratios.filter(r => r >= 0.9).length / ratios.length
+  return { avgRatio, nearTargetPct, n: ratios.length }
+})
+
+// BBB6: 倉位集中度基尼係數（Gerald Loeb：集中在你最有信念的機會——均等配置是缺乏信念的表現，Gini > 0.3 代表有意義的差異化）
+const lotGini = computed(() => {
+  const cl = closedTrades.value
+  if (cl.length < 5) return null
+  const lots = cl.map(t => t.lots || 1).sort((a, b) => a - b)
+  const n = lots.length
+  const sum = lots.reduce((a, b) => a + b, 0)
+  if (!sum) return null
+  let giniNum = 0
+  lots.forEach((x, i) => { giniNum += (2 * (i + 1) - n - 1) * x })
+  const gini = Math.max(0, giniNum / (n * sum))
+  return { gini, concentrated: gini > 0.3, min: Math.min(...lots), max: Math.max(...lots), mean: sum / n }
+})
+
+// BBB7: 月頻率 vs 績效相關（Michael Steinhardt：對比觀點需要極高的選擇性——Pearson r 衡量多交易是否真的帶來更好績效）
+const frequencyCorrelation = computed(() => {
+  const cl = closedTrades.value.filter(t => t.exitDate)
+  if (cl.length < 10) return null
+  const byMonth = {}
+  cl.forEach(t => {
+    const key = t.exitDate.slice(0, 7)
+    if (!byMonth[key]) byMonth[key] = []
+    byMonth[key].push(realizedR(t))
+  })
+  const months = Object.values(byMonth)
+  if (months.length < 4) return null
+  const points = months.map(m => ({ count: m.length, avgR: m.reduce((a, b) => a + b, 0) / m.length }))
+  const n = points.length
+  const meanX = points.reduce((a, p) => a + p.count, 0) / n
+  const meanY = points.reduce((a, p) => a + p.avgR, 0) / n
+  const cov = points.reduce((a, p) => a + (p.count - meanX) * (p.avgR - meanY), 0) / n
+  const stdX = Math.sqrt(points.reduce((a, p) => a + (p.count - meanX) ** 2, 0) / n)
+  const stdY = Math.sqrt(points.reduce((a, p) => a + (p.avgR - meanY) ** 2, 0) / n)
+  if (!stdX || !stdY) return null
+  return { r: cov / (stdX * stdY) }
+})
+
+// BBB10: 持倉天數分位數（Philip Fisher：好公司需要時間驗證——P25/P50/P75 完整描述持倉分布，贏單中位數應長於虧單）
+const holdingPercentiles = computed(() => {
+  const cl = closedTrades.value.filter(t => t.openDate && t.exitDate)
+  if (cl.length < 6) return null
+  const days = t => Math.max(0, Math.round((new Date(t.exitDate) - new Date(t.openDate)) / 86400000))
+  const wins = cl.filter(t => realizedR(t) > 0).map(days).sort((a, b) => a - b)
+  const losses = cl.filter(t => realizedR(t) < 0).map(days).sort((a, b) => a - b)
+  if (wins.length < 3 || losses.length < 3) return null
+  const pct = (arr, p) => arr[Math.max(0, Math.floor(p * (arr.length - 1)))]
+  return {
+    win: { p25: pct(wins, 0.25), p50: pct(wins, 0.5), p75: pct(wins, 0.75) },
+    loss: { p25: pct(losses, 0.25), p50: pct(losses, 0.5), p75: pct(losses, 0.75) },
+    wellManaged: pct(wins, 0.5) >= pct(losses, 0.5),
+  }
 })
 
 function fmt(v) {

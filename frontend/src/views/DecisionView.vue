@@ -305,6 +305,24 @@
       <p class="plan-hint muted">Elder：在前一筆虧損出場後 24 小時內進場，往往是情緒驅動的復仇交易。應強制冷卻期：平倉後至少等 1 個交易日再重新評估。</p>
     </section>
 
+    <!-- BBB4: Seth Klarman — Patience Index (Low-Frequency Month Quality) -->
+    <section class="daily-plan-card card bbb-patience-index" v-if="patienceIndex">
+      <div class="plan-title-row" style="margin-bottom: 8px">
+        <span class="plan-icon">⏳</span>
+        <h2 class="plan-title">耐心指數（Klarman：只在有足夠安全邊際時出手——交易越少是否品質越高？）</h2>
+      </div>
+      <div class="sc-row">
+        <div v-for="tier in patienceIndex" :key="tier.label" class="sc-val" style="min-width:100px">
+          <strong :class="tier.n > 0 && tier.avgR > 0 ? 'up' : tier.n > 0 ? 'down' : ''">
+            {{ tier.n > 0 ? (tier.avgR >= 0 ? '+' : '') + tier.avgR.toFixed(2) + 'R' : '–' }}
+          </strong>
+          <small class="muted">{{ tier.label }}</small>
+          <small class="muted" v-if="tier.n > 0">{{ tier.n }}個月</small>
+        </div>
+      </div>
+      <p class="plan-hint muted">Klarman：真正的安全邊際投資人寧可空倉等待，也不強迫出手。若低頻月份（≤2筆）的均R高於高頻月份，代表你的系統在有選擇性時更有優勢。</p>
+    </section>
+
     <section class="top-grid">
       <article class="market-pulse card">
         <div class="panel-head">
@@ -886,6 +904,37 @@ const impulseTradeCount = computed(() => {
     }
     return impulses
   } catch { return 0 }
+})
+
+// BBB4: 耐心指數（Seth Klarman：安全邊際的核心是耐心等待真正有優勢的機會，而非強迫出手）
+const patienceIndex = computed(() => {
+  try {
+    const trades = JSON.parse(localStorage.getItem('finlab_trade_journal') || '[]')
+      .filter(t => t.status === 'closed' && t.exitDate)
+    if (trades.length < 8) return null
+    const byMonth = {}
+    trades.forEach(t => {
+      const key = t.exitDate.slice(0, 7)
+      if (!byMonth[key]) byMonth[key] = []
+      byMonth[key].push(_zzR(t))
+    })
+    const months = Object.values(byMonth)
+    if (months.length < 3) return null
+    const tiers = [
+      { label: '≤2筆（耐心）', Rs: [] },
+      { label: '3-5筆（正常）', Rs: [] },
+      { label: '≥6筆（密集）', Rs: [] },
+    ]
+    months.forEach(Rs => {
+      const avg = Rs.reduce((a, b) => a + b, 0) / Rs.length
+      if (Rs.length <= 2) tiers[0].Rs.push(avg)
+      else if (Rs.length <= 5) tiers[1].Rs.push(avg)
+      else tiers[2].Rs.push(avg)
+    })
+    const result = tiers.map(t => ({ label: t.label, n: t.Rs.length, avgR: t.Rs.length ? t.Rs.reduce((a, b) => a + b, 0) / t.Rs.length : 0 }))
+    if (result.filter(t => t.n > 0).length < 2) return null
+    return result
+  } catch { return null }
 })
 
 const filters = [
@@ -2571,4 +2620,6 @@ function toDateParam(value) {
 .zz-breakeven-card, .zz-setup-tier { margin-bottom: 1rem; }
 /* AAA2 AAA3 AAA6 */
 .aaa-planned-rr, .aaa-streak-bias, .aaa-impulse-card { margin-bottom: 1rem; }
+/* BBB4 */
+.bbb-patience-index { margin-bottom: 1rem; }
 </style>
