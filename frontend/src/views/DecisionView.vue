@@ -323,6 +323,30 @@
       <p class="plan-hint muted">Klarman：真正的安全邊際投資人寧可空倉等待，也不強迫出手。若低頻月份（≤2筆）的均R高於高頻月份，代表你的系統在有選擇性時更有優勢。</p>
     </section>
 
+    <!-- CCC9: Bruce Kovner — Symbol HHI Diversification Score -->
+    <section class="daily-plan-card card ccc-symbol-hhi" v-if="symbolHHI">
+      <div class="plan-title-row" style="margin-bottom: 8px">
+        <span class="plan-icon">🌐</span>
+        <h2 class="plan-title">標的集中度 HHI（Kovner：跨市場分散降低相關性風險——你是否過度集中在單一標的？）</h2>
+      </div>
+      <div class="sc-row">
+        <div class="sc-val">
+          <strong :class="symbolHHI.hhi > 0.25 ? 'down' : symbolHHI.hhi > 0.18 ? '' : 'up'" style="font-size:1.3rem">{{ symbolHHI.hhi.toFixed(3) }}</strong>
+          <small class="muted">HHI 指數</small>
+        </div>
+        <div class="sc-val">
+          <strong>{{ symbolHHI.uniqueCount }}</strong>
+          <small class="muted">不同標的數</small>
+        </div>
+        <div class="sc-val">
+          <strong :class="symbolHHI.hhi > 0.25 ? 'down' : symbolHHI.hhi > 0.18 ? '' : 'up'">{{ symbolHHI.diversityLabel }}</strong>
+          <small class="muted">集中程度</small>
+        </div>
+      </div>
+      <div style="margin-top:0.5rem;font-size:0.72rem;color:var(--ink-muted)">最集中：<strong>{{ symbolHHI.topSymbol }}</strong>（{{ symbolHHI.topPct.toFixed(0) }}% 交易量）；HHI > 0.25 = 高度集中，< 0.18 = 分散</div>
+      <p class="plan-hint muted">Kovner 的 Caxton Associates 策略核心：跨不同市場分散投資以降低組合相關性。HHI（赫芬達爾指數）= ∑(各標的交易佔比²)，越高代表越集中。</p>
+    </section>
+
     <section class="top-grid">
       <article class="market-pulse card">
         <div class="panel-head">
@@ -934,6 +958,22 @@ const patienceIndex = computed(() => {
     const result = tiers.map(t => ({ label: t.label, n: t.Rs.length, avgR: t.Rs.length ? t.Rs.reduce((a, b) => a + b, 0) / t.Rs.length : 0 }))
     if (result.filter(t => t.n > 0).length < 2) return null
     return result
+  } catch { return null }
+})
+
+// CCC9: 標的集中度 HHI（Bruce Kovner：跨市場分散降低相關性風險）
+const symbolHHI = computed(() => {
+  try {
+    const trades = _zzClosed()
+    if (trades.length < 5) return null
+    const counts = {}
+    trades.forEach(t => { const s = t.symbol || '?'; counts[s] = (counts[s] || 0) + 1 })
+    const symbols = Object.entries(counts)
+    const total = trades.length
+    const hhi = symbols.reduce((s, [, c]) => s + (c / total) ** 2, 0)
+    const top = [...symbols].sort((a, b) => b[1] - a[1])[0]
+    const diversityLabel = hhi > 0.25 ? '高度集中' : hhi > 0.18 ? '中度集中' : '分散'
+    return { hhi, uniqueCount: symbols.length, topSymbol: top[0], topPct: top[1] / total * 100, diversityLabel }
   } catch { return null }
 })
 
@@ -2622,4 +2662,6 @@ function toDateParam(value) {
 .aaa-planned-rr, .aaa-streak-bias, .aaa-impulse-card { margin-bottom: 1rem; }
 /* BBB4 */
 .bbb-patience-index { margin-bottom: 1rem; }
+/* CCC9 */
+.ccc-symbol-hhi { margin-bottom: 1rem; }
 </style>

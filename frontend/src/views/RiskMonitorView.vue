@@ -463,6 +463,79 @@
       </div>
     </section>
 
+    <!-- CCC4: Stan Weinstein — Rolling Win Rate Trajectory -->
+    <section class="card chart-card ccc-rollwinrate" v-if="rollingWinTrend">
+      <div class="section-header">
+        <div>
+          <h2>勝率趨勢軌跡（Weinstein 階段分析）</h2>
+          <p>首10筆 vs 最近10筆滾動勝率——你的系統是否持續進化？</p>
+        </div>
+      </div>
+      <div style="display:flex;gap:2rem;flex-wrap:wrap;padding:0.5rem 0;align-items:center">
+        <div style="text-align:center">
+          <strong style="font-size:1.5rem">{{ (rollingWinTrend.first10WinPct * 100).toFixed(0) }}%</strong>
+          <div class="muted" style="font-size:0.72rem">首10筆勝率</div>
+        </div>
+        <div style="font-size:1.5rem;opacity:0.4">→</div>
+        <div style="text-align:center">
+          <strong :class="rollingWinTrend.improving ? 'up' : 'down'" style="font-size:1.5rem">{{ (rollingWinTrend.last10WinPct * 100).toFixed(0) }}%</strong>
+          <div class="muted" style="font-size:0.72rem">最近10筆勝率</div>
+        </div>
+        <div :class="rollingWinTrend.improving ? 'up' : 'down'" style="font-size:0.8rem">
+          {{ rollingWinTrend.improving ? '▲ 勝率上升，系統持續進化' : '▼ 勝率下降，需檢視入場條件是否退化' }}
+        </div>
+      </div>
+    </section>
+
+    <!-- CCC5: Ed Seykota — Consecutive Loss Streak Frequency -->
+    <section class="card chart-card ccc-streakfreq" v-if="streakFrequency">
+      <div class="section-header">
+        <div>
+          <h2>連虧頻率分布（Seykota 損失控制）</h2>
+          <p>不同長度連虧序列出現次數——過多長串連虧是風控警號</p>
+        </div>
+      </div>
+      <div style="display:flex;gap:1rem;flex-wrap:wrap;padding:0.5rem 0;align-items:flex-end">
+        <div v-for="b in streakFrequency.buckets" :key="b.label" style="text-align:center;min-width:60px">
+          <strong :class="(b.label === '5+連虧' && b.count > 1) || (b.label === '4連虧' && b.count > 2) ? 'down' : ''" style="font-size:1.2rem">{{ b.count }}</strong>
+          <div class="muted" style="font-size:0.72rem">{{ b.label }}</div>
+        </div>
+      </div>
+      <div class="muted" style="font-size:0.72rem;margin-top:0.25rem">
+        {{ streakFrequency.totalStreaks }}次連虧事件；最長 {{ streakFrequency.maxStreak }} 連虧
+        <span v-if="streakFrequency.buckets[4].count > 1" class="down">　⚠ 5+連虧出現超過1次，入場條件可能在特定市況下失效</span>
+      </div>
+    </section>
+
+    <!-- CCC8: Van Tharp — System Quality Number -->
+    <section class="card chart-card ccc-sqn" v-if="sqn">
+      <div class="section-header">
+        <div>
+          <h2>系統品質指數 SQN（Van Tharp）</h2>
+          <p>SQN = √n × 均值R / 標準差R；> 2.0 優秀，> 1.6 良好，> 1.0 可交易，&lt; 1.0 不穩定</p>
+        </div>
+      </div>
+      <div style="display:flex;gap:2rem;flex-wrap:wrap;padding:0.5rem 0;align-items:center">
+        <div style="text-align:center">
+          <strong :class="sqn.rating === '優秀' || sqn.rating === '良好' ? 'up' : sqn.rating === '可交易' ? '' : 'down'" style="font-size:2rem">{{ sqn.value.toFixed(2) }}</strong>
+          <div class="muted" style="font-size:0.72rem">SQN</div>
+        </div>
+        <div style="text-align:center">
+          <strong :class="sqn.rating === '優秀' || sqn.rating === '良好' ? 'up' : sqn.rating === '可交易' ? '' : 'down'" style="font-size:1.2rem">{{ sqn.rating }}</strong>
+          <div class="muted" style="font-size:0.72rem">品質評級</div>
+        </div>
+        <div style="text-align:center">
+          <strong style="font-size:1rem">{{ sqn.meanR >= 0 ? '+' : '' }}{{ sqn.meanR.toFixed(2) }}R</strong>
+          <div class="muted" style="font-size:0.72rem">均值R</div>
+        </div>
+        <div style="text-align:center">
+          <strong style="font-size:1rem">{{ sqn.stdR.toFixed(2) }}R</strong>
+          <div class="muted" style="font-size:0.72rem">標準差R</div>
+        </div>
+        <div class="muted" style="font-size:0.72rem">n={{ sqn.n }}</div>
+      </div>
+    </section>
+
     <section class="card chart-card">
       <div class="section-header">
         <div>
@@ -851,6 +924,53 @@ const openWorstCase = computed(() => {
   const lossRs = cl.map(realizedR).filter(r => r < 0)
   const avgHistoricalLossR = lossRs.length >= 3 ? lossRs.reduce((a, b) => a + b, 0) / lossRs.length : null
   return { worstCase, positions: open.length, avgHistoricalLossR: avgHistoricalLossR ? Math.abs(avgHistoricalLossR) : null }
+})
+
+// CCC4: 勝率趨勢軌跡（Stan Weinstein：持續改進的系統應有上升的滾動勝率）
+const rollingWinTrend = computed(() => {
+  const cl = closedTrades.value
+  if (cl.length < 20) return null
+  const sorted = [...cl].sort((a, b) => new Date(a.exitDate || 0) - new Date(b.exitDate || 0))
+  const isWin = t => realizedR(t) > 0
+  const first10WinPct = sorted.slice(0, 10).filter(isWin).length / 10
+  const last10WinPct = sorted.slice(-10).filter(isWin).length / 10
+  return { first10WinPct, last10WinPct, improving: last10WinPct > first10WinPct }
+})
+
+// CCC5: 連虧頻率分布（Ed Seykota：截斷虧損——頻繁長串連虧是入場時機或執行的系統性問題）
+const streakFrequency = computed(() => {
+  const cl = closedTrades.value
+  if (cl.length < 10) return null
+  const sorted = [...cl].sort((a, b) => new Date(a.exitDate || 0) - new Date(b.exitDate || 0))
+  const Rs = sorted.map(realizedR)
+  const buckets = [{ label: '1連虧', count: 0 }, { label: '2連虧', count: 0 }, { label: '3連虧', count: 0 }, { label: '4連虧', count: 0 }, { label: '5+連虧', count: 0 }]
+  let streak = 0, maxStreak = 0, totalStreaks = 0
+  const flushStreak = () => {
+    if (streak > 0) {
+      totalStreaks++
+      buckets[Math.min(streak, 5) - 1].count++
+      streak = 0
+    }
+  }
+  Rs.forEach(r => { if (r < 0) { streak++; if (streak > maxStreak) maxStreak = streak } else flushStreak() })
+  flushStreak()
+  if (totalStreaks === 0) return null
+  return { buckets, totalStreaks, maxStreak }
+})
+
+// CCC8: 系統品質指數（Van Tharp SQN = √n × μ/σ；>2.0優秀 >1.6良好 >1.0可交易 <1.0不穩定）
+const sqn = computed(() => {
+  const cl = closedTrades.value
+  if (cl.length < 10) return null
+  const Rs = cl.map(realizedR)
+  const n = Rs.length
+  const mean = Rs.reduce((a, b) => a + b, 0) / n
+  const variance = Rs.reduce((a, b) => a + (b - mean) ** 2, 0) / n
+  const std = Math.sqrt(variance)
+  if (std === 0) return null
+  const value = Math.sqrt(n) * mean / std
+  const rating = value >= 2.0 ? '優秀' : value >= 1.6 ? '良好' : value >= 1.0 ? '可交易' : '不穩定'
+  return { value, meanR: mean, stdR: std, rating, n }
 })
 
 // TT8: R 曲線最大回撤（單位：R，跨帳戶大小可比較）
@@ -1251,6 +1371,8 @@ function statusClass(status) {
 .aaa-monthly-vol, .aaa-compliance { margin-bottom: 0; }
 /* BBB2 BBB5 BBB8 BBB9 */
 .bbb-edge-decay, .bbb-max-loss-control, .bbb-recovery-speed, .bbb-open-worstcase { margin-bottom: 0; }
+/* CCC4 CCC5 CCC8 */
+.ccc-rollwinrate, .ccc-streakfreq, .ccc-sqn { margin-bottom: 0; }
 /* ZZ7 ZZ8 ZZ10 */
 .zz-heatmap-table { border-collapse: collapse; font-size: 0.78rem; }
 .zz-heatmap-table th, .zz-heatmap-table td { padding: 4px 6px; text-align: center; border: 1px solid var(--color-surface); }

@@ -1001,6 +1001,104 @@
           </div>
         </div>
 
+        <!-- CCC1: Jesse Livermore — Planned R/R Bucket Distribution -->
+        <div class="scard ccc-rrplan" v-if="plannedRRDist">
+          <span class="slabel">計劃風報比分布（Livermore：只進入期望值為正、風報比有利的機會——計劃R/R分布揭示入場紀律）</span>
+          <div style="display:flex;gap:1rem;flex-wrap:wrap;margin-top:0.5rem">
+            <div v-for="b in plannedRRDist.buckets" :key="b.label" style="text-align:center;min-width:80px">
+              <strong :class="b.label === '≥2R' ? 'up' : b.label === '<1R' ? 'down' : ''" style="font-size:1.1rem">{{ b.pct.toFixed(0) }}%</strong>
+              <div class="muted" style="font-size:0.72rem">計劃 {{ b.label }}</div>
+              <div class="muted" style="font-size:0.65rem">{{ b.count }}筆</div>
+            </div>
+          </div>
+          <div style="font-size:0.72rem;margin-top:0.5rem" :class="plannedRRDist.qualityPct >= 60 ? 'up' : plannedRRDist.qualityPct >= 40 ? '' : 'down'">
+            {{ plannedRRDist.qualityPct.toFixed(0) }}% 的交易計劃風報比 ≥ 2R {{ plannedRRDist.qualityPct >= 60 ? '✓ 入場紀律良好' : plannedRRDist.qualityPct >= 40 ? '尚可' : '⚠ 低品質入場過多' }}
+          </div>
+        </div>
+
+        <!-- CCC2: Nicolas Darvas — Symbol Selectivity Index -->
+        <div class="scard ccc-selectivity" v-if="symbolSelectivity">
+          <span class="slabel">標的選擇性指數（Darvas：深入研究後才行動——重複操作同一標的代表選擇性下降？）</span>
+          <div style="display:flex;gap:2rem;flex-wrap:wrap;margin-top:0.5rem;align-items:center">
+            <div style="text-align:center">
+              <strong style="font-size:1.4rem">{{ symbolSelectivity.uniqueSymbols }}</strong>
+              <div class="muted" style="font-size:0.72rem">不同標的數</div>
+            </div>
+            <div style="text-align:center">
+              <strong style="font-size:1.4rem">{{ symbolSelectivity.avgTradesPerSymbol.toFixed(1) }}筆</strong>
+              <div class="muted" style="font-size:0.72rem">每標的均操作次</div>
+            </div>
+            <div style="text-align:center">
+              <strong :class="symbolSelectivity.onceOnlyPct >= 60 ? 'up' : ''" style="font-size:1.4rem">{{ symbolSelectivity.onceOnlyPct.toFixed(0) }}%</strong>
+              <div class="muted" style="font-size:0.72rem">只交易一次的標的</div>
+            </div>
+          </div>
+          <div style="font-size:0.72rem;margin-top:0.5rem;color:var(--muted)">最頻繁：<strong>{{ symbolSelectivity.topSymbol }}</strong>（{{ symbolSelectivity.topCount }}次）{{ symbolSelectivity.avgTradesPerSymbol > 3 ? '⚠ 過度集中單一標的，可能缺乏新機會探索' : '✓ 操作標的多元，符合選擇性原則' }}</div>
+        </div>
+
+        <!-- CCC3: William O'Neil — CAN SLIM Catalyst Win Rate -->
+        <div class="scard ccc-catalyst" v-if="catalystWinRate">
+          <span class="slabel">催化劑勝率分析（O'Neil CAN SLIM：N = 新催化劑，好的催化劑類型應有顯著更高勝率）</span>
+          <div class="ccc-catalyst-grid" style="margin-top:0.5rem">
+            <div v-for="c in catalystWinRate.catalysts" :key="c.label" class="ccc-catalyst-row">
+              <span style="font-size:0.75rem;min-width:70px;word-break:break-all">{{ c.label }}</span>
+              <div class="ccc-catalyst-bar-bg">
+                <div class="ccc-catalyst-bar-fill" :style="`width:${c.winRate}%;background:${c.winRate >= 60 ? 'var(--good)' : c.winRate >= 40 ? 'var(--warn-soft)' : 'var(--critical)'}`"></div>
+              </div>
+              <span :class="c.winRate >= 60 ? 'up' : c.winRate < 40 ? 'down' : ''" style="font-size:0.75rem;min-width:42px;text-align:right">{{ c.winRate.toFixed(0) }}%</span>
+              <span class="muted" style="font-size:0.65rem">{{ c.total }}筆</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- CCC6: Mark Minervini — VCP Tightness vs Outcome Correlation -->
+        <div class="scard ccc-vcp" v-if="vcpCorrelation">
+          <span class="slabel">入場緊度 vs 結果相關（Minervini VCP：收縮型態下的緊停損應帶來更高R——Pearson r 量化緊度效益）</span>
+          <div style="display:flex;gap:2rem;flex-wrap:wrap;margin-top:0.5rem;align-items:center">
+            <div style="text-align:center">
+              <strong :class="vcpCorrelation.r < -0.2 ? 'up' : vcpCorrelation.r > 0.2 ? 'down' : ''" style="font-size:1.4rem">r={{ vcpCorrelation.r >= 0 ? '+' : '' }}{{ vcpCorrelation.r.toFixed(2) }}</strong>
+              <div class="muted" style="font-size:0.72rem">停損距離 vs 實現R</div>
+            </div>
+            <div style="font-size:0.72rem;color:var(--muted);max-width:220px">
+              {{ vcpCorrelation.r < -0.2 ? '✓ 停損越緊、實現R越高（VCP紀律有效）' : vcpCorrelation.r > 0.2 ? '⚠ 停損越寬、實現R反而越高（可能停損設太緊被洗出）' : '無顯著相關（停損設定對結果影響不明顯）' }}
+            </div>
+          </div>
+        </div>
+
+        <!-- CCC7: Paul Tudor Jones — R Multiple Distribution Bins -->
+        <div class="scard ccc-rbins" v-if="rBinDist">
+          <span class="slabel">R倍數分布（PTJ：尋求 5:1 機會——你的系統有多少大獲全勝？）</span>
+          <div style="display:flex;gap:0.75rem;flex-wrap:wrap;margin-top:0.5rem">
+            <div v-for="b in rBinDist.bins" :key="b.label" style="text-align:center;min-width:64px">
+              <strong :class="b.label === '<0R' ? 'down' : b.label === '≥3R' ? 'up' : ''" style="font-size:1.05rem">{{ b.pct.toFixed(0) }}%</strong>
+              <div class="muted" style="font-size:0.7rem">{{ b.label }}</div>
+              <div class="muted" style="font-size:0.63rem">{{ b.count }}筆</div>
+            </div>
+          </div>
+          <div style="font-size:0.72rem;margin-top:0.5rem" :class="rBinDist.bigWinPct >= 20 ? 'up' : rBinDist.bigWinPct >= 10 ? '' : 'down'">
+            大獲全勝（≥3R）佔比 {{ rBinDist.bigWinPct.toFixed(0) }}% {{ rBinDist.bigWinPct >= 20 ? '✓ 系統能捕捉趨勢行情' : rBinDist.bigWinPct >= 10 ? '尚可' : '⚠ 缺乏大贏單，系統偏均值回歸型' }}
+          </div>
+        </div>
+
+        <!-- CCC10: Richard Donchian — Win Holding Duration Trend -->
+        <div class="scard ccc-duration-trend" v-if="winDurationTrend">
+          <span class="slabel">贏單持倉天數趨勢（Donchian 趨勢跟蹤：是否越來越善於持有贏單直到趨勢結束？）</span>
+          <div style="display:flex;gap:2rem;flex-wrap:wrap;margin-top:0.5rem;align-items:center">
+            <div style="text-align:center">
+              <strong style="font-size:1.1rem">{{ winDurationTrend.earlyP50 }}天</strong>
+              <div class="muted" style="font-size:0.72rem">前半段贏單中位</div>
+            </div>
+            <div style="font-size:1.2rem;color:var(--muted)">→</div>
+            <div style="text-align:center">
+              <strong :class="winDurationTrend.improving ? 'up' : 'down'" style="font-size:1.1rem">{{ winDurationTrend.recentP50 }}天</strong>
+              <div class="muted" style="font-size:0.72rem">後半段贏單中位</div>
+            </div>
+            <div :class="winDurationTrend.improving ? 'up' : 'down'" style="font-size:0.75rem">
+              {{ winDurationTrend.improving ? '✓ 持倉天數增加，越來越善於持有趨勢' : '⚠ 持倉天數縮短，過早了結獲利的傾向加重' }}
+            </div>
+          </div>
+        </div>
+
         <!-- TT4: 月份績效柱狀圖 (full width) -->
         <div class="an-block an-block--full" v-if="monthlyPerfBars">
           <span class="slabel">月份績效（月別累計 R）——觀察是否有季節性弱點</span>
@@ -2568,6 +2666,101 @@ const holdingPercentiles = computed(() => {
   }
 })
 
+// CCC1: 計劃風報比分布（Jesse Livermore：只進有利預期值機會——計劃R/R桶狀分析）
+const plannedRRDist = computed(() => {
+  const cl = closedTrades.value.filter(t => t.target && t.entry && t.stop && Number(t.entry) !== Number(t.stop))
+  if (cl.length < 5) return null
+  const buckets = [{ label: '<1R', count: 0 }, { label: '1–2R', count: 0 }, { label: '≥2R', count: 0 }]
+  cl.forEach(t => {
+    const rr = Math.abs((Number(t.target) - Number(t.entry)) / (Number(t.entry) - Number(t.stop)))
+    if (rr < 1) buckets[0].count++
+    else if (rr < 2) buckets[1].count++
+    else buckets[2].count++
+  })
+  const total = cl.length
+  buckets.forEach(b => { b.pct = b.count / total * 100 })
+  return { buckets, qualityPct: buckets[2].pct, total }
+})
+
+// CCC2: 標的選擇性指數（Nicolas Darvas：深研後才操作——重複標的代表選擇性不足？）
+const symbolSelectivity = computed(() => {
+  const cl = closedTrades.value
+  if (cl.length < 5) return null
+  const counts = {}
+  cl.forEach(t => { const s = t.symbol || '?'; counts[s] = (counts[s] || 0) + 1 })
+  const symbols = Object.entries(counts)
+  const uniqueSymbols = symbols.length
+  const onceOnly = symbols.filter(([, c]) => c === 1).length
+  const top = [...symbols].sort((a, b) => b[1] - a[1])[0]
+  return { uniqueSymbols, avgTradesPerSymbol: cl.length / uniqueSymbols, onceOnlyPct: onceOnly / uniqueSymbols * 100, topSymbol: top[0], topCount: top[1] }
+})
+
+// CCC3: 催化劑勝率分析（William O'Neil CAN SLIM：N=新催化劑是買進信號——哪種催化劑勝率更高？）
+const catalystWinRate = computed(() => {
+  const cl = closedTrades.value
+  if (cl.length < 8) return null
+  const groups = {}
+  cl.forEach(t => {
+    const key = (t.catalyst && t.catalyst.trim()) || '未標記'
+    if (!groups[key]) groups[key] = { wins: 0, total: 0 }
+    groups[key].total++
+    if (realizedR(t) > 0) groups[key].wins++
+  })
+  const catalysts = Object.entries(groups)
+    .filter(([, v]) => v.total >= 2)
+    .map(([label, v]) => ({ label, winRate: v.wins / v.total * 100, total: v.total }))
+    .sort((a, b) => b.winRate - a.winRate)
+  if (catalysts.length < 2) return null
+  return { catalysts }
+})
+
+// CCC6: 入場緊度 vs 實現R（Mark Minervini VCP：緊縮型態下的緊停損應帶來更高R）
+const vcpCorrelation = computed(() => {
+  const cl = closedTrades.value.filter(t => t.entry && t.stop && Number(t.entry) !== Number(t.stop))
+  if (cl.length < 8) return null
+  const pairs = cl.map(t => ({ riskPct: Math.abs(Number(t.entry) - Number(t.stop)) / Number(t.entry), R: realizedR(t) })).filter(p => isFinite(p.riskPct) && p.riskPct > 0)
+  if (pairs.length < 8) return null
+  const n = pairs.length
+  const mx = pairs.reduce((s, p) => s + p.riskPct, 0) / n
+  const my = pairs.reduce((s, p) => s + p.R, 0) / n
+  let num = 0, dx2 = 0, dy2 = 0
+  pairs.forEach(p => { const a = p.riskPct - mx, b = p.R - my; num += a * b; dx2 += a * a; dy2 += b * b })
+  const r = (dx2 && dy2) ? num / Math.sqrt(dx2 * dy2) : 0
+  return { r }
+})
+
+// CCC7: R倍數分布（Paul Tudor Jones：尋求5:1機會——系統裡有多少大贏單？）
+const rBinDist = computed(() => {
+  const cl = closedTrades.value
+  if (cl.length < 5) return null
+  const bins = [{ label: '<0R', count: 0 }, { label: '0–1R', count: 0 }, { label: '1–2R', count: 0 }, { label: '2–3R', count: 0 }, { label: '≥3R', count: 0 }]
+  cl.forEach(t => {
+    const r = realizedR(t)
+    if (r < 0) bins[0].count++
+    else if (r < 1) bins[1].count++
+    else if (r < 2) bins[2].count++
+    else if (r < 3) bins[3].count++
+    else bins[4].count++
+  })
+  const total = cl.length
+  bins.forEach(b => { b.pct = b.count / total * 100 })
+  return { bins, bigWinPct: bins[4].pct, total }
+})
+
+// CCC10: 贏單持倉天數趨勢（Richard Donchian：趨勢跟蹤者越來越能讓贏家奔跑）
+const winDurationTrend = computed(() => {
+  const cl = closedTrades.value.filter(t => t.openDate && t.exitDate).sort((a, b) => new Date(a.exitDate) - new Date(b.exitDate))
+  if (cl.length < 10) return null
+  const daysFn = t => Math.max(0, Math.round((new Date(t.exitDate) - new Date(t.openDate)) / 86400000))
+  const wins = cl.filter(t => realizedR(t) > 0)
+  if (wins.length < 6) return null
+  const half = Math.floor(wins.length / 2)
+  const early = wins.slice(0, half).map(daysFn).sort((a, b) => a - b)
+  const recent = wins.slice(half).map(daysFn).sort((a, b) => a - b)
+  const p50 = arr => arr[Math.floor((arr.length - 1) / 2)]
+  return { earlyP50: p50(early), recentP50: p50(recent), improving: p50(recent) >= p50(early) }
+})
+
 function fmt(v) {
   if (v == null || (typeof v === 'number' && isNaN(v))) return '—'
   if (v === Infinity) return '∞'
@@ -2953,4 +3146,10 @@ onMounted(() => {
 .aaa-wd-col { display: flex; flex-direction: column; align-items: center; flex: 1; height: 100%; gap: 2px; }
 .aaa-wd-bar-bg { flex: 1; width: 100%; background: var(--color-surface); border-radius: 3px; display: flex; align-items: flex-end; }
 .aaa-wd-bar-fill { width: 100%; border-radius: 3px; min-height: 4px; }
+/* CCC1-CCC7/CCC10 */
+.ccc-rrplan, .ccc-selectivity, .ccc-catalyst, .ccc-vcp, .ccc-rbins, .ccc-duration-trend { margin-bottom: 0; }
+.ccc-catalyst-grid { display: flex; flex-direction: column; gap: 6px; }
+.ccc-catalyst-row { display: flex; align-items: center; gap: 8px; }
+.ccc-catalyst-bar-bg { flex: 1; height: 10px; background: var(--color-surface); border-radius: 4px; overflow: hidden; }
+.ccc-catalyst-bar-fill { height: 100%; border-radius: 4px; transition: width 0.3s; }
 </style>
