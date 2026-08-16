@@ -140,7 +140,7 @@ footer{ margin-top:36px; font-size:0.78rem; color:var(--ink-faint); text-align:c
   <div class="stats">
     <div class="stat"><b class="mono" id="stat-items">–</b><span>已完成項目</span></div>
     <div class="stat"><b class="mono" id="stat-series">–</b><span>批次系列</span></div>
-    <div class="stat"><b class="mono">07-11→08-12</b><span>涵蓋日期</span></div>
+    <div class="stat"><b class="mono">07-11→08-16</b><span>涵蓋日期</span></div>
     <div class="stat"><b class="mono" id="stat-critical">–</b><span>關鍵安全修復</span></div>
   </div>
   <div class="search-row">
@@ -161,6 +161,21 @@ footer{ margin-top:36px; font-size:0.78rem; color:var(--ink-faint); text-align:c
 
 <script>
 const DATA = [
+{date:'2026-08-16 09:00', range:'XX1–XX10', title:'自主循環優化：投資界標竿心法驅動的交易診斷深化（Ed Thorp／Nick Radge／Darvas／Dalio／Covel／CTA PF／Richard Dennis／Martin Schwartz／George Soros／William O\'Neil）',
+ desc:'第十輪自主優化：聚焦數學最優化、動態停手機制、分散紀律、以及交易評分系統化。XX1-XX2 XX5-XX6 XX8-XX10 擴充 JournalView 分析模組；XX3 XX4 在 DecisionView 建立開倉監控機制；XX7 在 RiskMonitorView 加入回撤週期追蹤器。',
+ items:[
+  {code:'XX1', tag:'good', text:'JournalView 新增 Kelly Fraction 倉位建議卡（Ed Thorp: 數學上最優的賭注比例）。顯示 Full Kelly 和 ¼-Kelly 兩個關鍵值。實戰建議使用 ¼-Kelly 作為單筆風險上限，超過 Full Kelly 在數學上保證長期虧損；以勝率和平均賠比即時計算，隨交易日誌更新。'},
+  {code:'XX2', tag:'good', text:'JournalView 新增權益曲線動能信號（Nick Radge: 交易自己的權益曲線）。計算最近10筆累計R的移動平均線；當前累積R低於SMA顯示「⚠ PAUSE」警告，代表系統正在走冷；高於SMA顯示「✓ TRADE」，代表系統處於正向均值回歸狀態。'},
+  {code:'XX3', tag:'warn', text:'DecisionView 新增開倉逾期警示儀表板（Nicholas Darvas: 箱型理論的時間紀律）。對每筆開倉顯示已持天數 vs 平均贏單持倉天數；超過平均顯示「注意」，超過2倍平均顯示「⚠ 嚴重逾期」。持倉超過贏單均值時間代表市場未如預期，應重新評估是否繼續持有。'},
+  {code:'XX4', tag:'warn', text:'DecisionView 新增開倉標籤集中度監控（Ray Dalio: 真正的分散需要不相關資產）。按 tag 欄位分組所有開倉張數，任一標籤超過 50% 時顯示「⚠ 集中警示」；用比例長條圖視覺化各標籤佔比，讓使用者即時識別假分散風險。'},
+  {code:'XX5', tag:'good', text:'JournalView 新增 R 四分位分布分析卡（Michael Covel: 趨勢跟蹤者靠右尾肥賺錢）。顯示全部已平倉交易的 P25/P50/P75 R 值；P75 < 1.5R 觸發警告，代表利潤右尾偏薄，可能提早出場或沒讓贏家充分奔跑，是趨勢跟隨系統的致命弱點。'},
+  {code:'XX6', tag:'good', text:'JournalView 新增月獲利因子趨勢 sparkline（CTA 行業標準）。月獲利因子 PF = 月正R總和 / 月負R總和絕對值；sparkline 顯示近6個月趨勢，PF < 1 代表負期望值月份。相比月報酬總量，PF 更純粹地衡量系統質量，不被部位大小影響。'},
+  {code:'XX7', tag:'good', text:'RiskMonitorView 新增回撤週期追蹤器（Richard Dennis/Turtle: 系統強健的指標是能快速恢復）。識別權益曲線的每段回撤週期，記錄深度（R）和恢復所需筆數；顯示前5大歷史回撤及平均恢復筆數。恢復筆數 > 10 為系統韌性不足的警告訊號。'},
+  {code:'XX8', tag:'warn', text:'JournalView 新增停損觸發恢復成本分析表（Martin Schwartz: 輸家不知道輸一筆要贏幾筆才能回來）。對每筆開倉計算：若觸及停損（-1R×張數），需要幾筆均值贏單才能回本；超過3筆為高恢復成本警告，讓使用者在進場前意識到這筆交易失敗的真實代價。'},
+  {code:'XX9', tag:'good', text:'JournalView 新增當前連勝/連敗機率分析（George Soros: 隨機性中的極端是正常的）。使用二項分佈估算當前連線長度的統計出現機率；機率 < 10% 定義為「罕見」——罕見連勝警示不要過度自信加碼，罕見連敗區別隨機壞運與系統失效，幫助使用者做出更理性的下一步判斷。'},
+  {code:'XX10', tag:'good', text:'JournalView 新增交易評分分布統計（William O\'Neil/IBD: 只做 A 級設定）。依四條件對每筆已平倉交易評級：A=達目標且R≥均值贏單（完美執行）、B=符合其中一條件（部分執行）、C=正報酬但均未達成（運氣成分高）、D=虧損（執行失誤或設定不符系統）。'},
+ ]
+},
 {date:'2026-08-12 09:00', range:'WW1–WW10', title:'自主循環優化：投資界標竿心法驅動的交易品質深化（Livermore／Druckenmiller／Tom Basso／Larry Williams／PTJ／Mark Douglas／Minervini／機構週月節奏）',
  desc:'第九輪自主優化：聚焦交易行為品質與系統一致性。WW1-WW5 WW7 WW8 擴充 JournalView 分析模組；WW6 WW10 在 DecisionView 建立每日開盤儀式；WW9 在 RiskMonitorView 加入機構月 P&L 剖面。',
  items:[

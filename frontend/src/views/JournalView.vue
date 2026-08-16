@@ -466,6 +466,121 @@
           </div>
         </div>
 
+        <!-- XX1: Kelly Fraction 倉位建議（Ed Thorp） -->
+        <div class="scard" v-if="kellyFraction">
+          <span class="slabel">Kelly 倉位建議（Thorp：最優賭注比例，超賭必輸）</span>
+          <div class="sc-row">
+            <div class="sc-val">
+              <strong>{{ kellyFraction.quarter.toFixed(1) }}%</strong>
+              <small class="muted">¼-Kelly（建議上限）</small>
+            </div>
+            <div class="sc-val" :class="kellyFraction.full > 0 ? 'up' : 'down'">
+              <strong>{{ kellyFraction.full.toFixed(1) }}%</strong>
+              <small class="muted">Full Kelly</small>
+            </div>
+          </div>
+          <p class="scard-hint muted">勝率 {{ (kellyFraction.p * 100).toFixed(0) }}%、平均賠比 {{ kellyFraction.b.toFixed(2) }}×。每筆風險不超過帳戶 {{ kellyFraction.quarter.toFixed(1) }}%（¼-Kelly 安全邊際）。</p>
+        </div>
+
+        <!-- XX2: 權益曲線動能信號（Nick Radge） -->
+        <div class="scard" v-if="ecMomentum">
+          <span class="slabel">權益曲線動能（Radge：低於均線就縮手）</span>
+          <div class="sc-row">
+            <div class="sc-val" :class="ecMomentum.trade ? 'up' : 'warn'">
+              <strong>{{ ecMomentum.trade ? '✓ TRADE' : '⚠ PAUSE' }}</strong>
+              <small class="muted">操作信號</small>
+            </div>
+            <div class="sc-val">
+              <strong>{{ fmt(ecMomentum.current) }} R</strong>
+              <small class="muted">當前累積</small>
+            </div>
+            <div class="sc-val">
+              <strong>{{ fmt(ecMomentum.sma) }} R</strong>
+              <small class="muted">10筆SMA</small>
+            </div>
+          </div>
+          <p class="scard-hint muted">{{ ecMomentum.trade ? '權益曲線高於10筆均線，系統運作正常，可正常下單。' : '權益曲線跌破10筆均線，建議縮減倉位或暫停直到曲線回穩。' }}</p>
+        </div>
+
+        <!-- XX5: R 四分位分布（Michael Covel） -->
+        <div class="scard" v-if="rQuartile">
+          <span class="slabel">R 四分位分布（Covel：趨勢跟蹤靠右尾肥）</span>
+          <div class="sc-row">
+            <div class="sc-val">
+              <strong>{{ fmt(rQuartile.p25) }}</strong>
+              <small class="muted">P25</small>
+            </div>
+            <div class="sc-val">
+              <strong>{{ fmt(rQuartile.p50) }}</strong>
+              <small class="muted">P50</small>
+            </div>
+            <div class="sc-val" :class="rQuartile.thinRightTail ? 'warn' : 'up'">
+              <strong>{{ fmt(rQuartile.p75) }}</strong>
+              <small class="muted">P75</small>
+            </div>
+          </div>
+          <p class="scard-hint muted" v-if="rQuartile.thinRightTail">⚠ P75 &lt; 1.5R：利潤右尾偏薄，可能提早出場或沒讓贏家充分奔跑。</p>
+          <p class="scard-hint muted" v-else>P75 ≥ 1.5R：右尾健康，有讓部分贏單充分奔跑 ✓</p>
+        </div>
+
+        <!-- XX6: 月獲利因子趨勢（CTA 標準） -->
+        <div class="scard" v-if="monthlyPFPoints.length >= 2">
+          <span class="slabel">月獲利因子趨勢（CTA 標準：PF &lt; 1 = 負期望值月份）</span>
+          <svg class="sparkline-svg" :width="pfW" :height="pfH" :viewBox="`0 0 ${pfW} ${pfH}`" preserveAspectRatio="none">
+            <line :x1="0" :y1="pfH/2" :x2="pfW" :y2="pfH/2" stroke="var(--color-border)" stroke-width="1" stroke-dasharray="3,3"/>
+            <polyline :points="pfPolyline" fill="none" stroke="var(--color-accent)" stroke-width="2" stroke-linejoin="round"/>
+          </svg>
+          <p class="scard-hint muted">近 6 個月獲利因子趨勢（1.0 = 損益平衡，越高越佳）</p>
+        </div>
+
+        <!-- XX8: 停損觸發恢復成本（Martin Schwartz） -->
+        <div class="an-block" v-if="stopRecoveryCost">
+          <span class="slabel">停損觸發恢復成本（Schwartz：輸一筆需要幾筆贏單才能回本）</span>
+          <table class="j-table xx-recovery-table">
+            <thead><tr><th>代號</th><th>張數</th><th>若觸停 (-1R)</th><th>需贏單數</th></tr></thead>
+            <tbody>
+              <tr v-for="r in stopRecoveryCost" :key="r.symbol">
+                <td>{{ r.symbol }}</td>
+                <td>{{ r.lots }}</td>
+                <td class="down">-{{ r.lots }}R</td>
+                <td :class="r.recoveryTrades * r.lots > 3 ? 'warn' : ''">{{ (r.recoveryTrades * r.lots).toFixed(1) }} 筆</td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="scard-hint muted">以均值贏單 {{ stopRecoveryCost[0] ? fmt(stopRecoveryCost[0].avgWin) : '—' }}R 計算，超過 3 筆為高恢復成本警示。</p>
+        </div>
+
+        <!-- XX9: 當前連勝/連敗機率（George Soros） -->
+        <div class="scard" v-if="streakProb">
+          <span class="slabel">當前連{{ streakProb.type === 'win' ? '勝' : '敗' }}機率（Soros：隨機性中的極端是正常的）</span>
+          <div class="sc-row">
+            <div class="sc-val">
+              <strong>{{ streakProb.n }} 連{{ streakProb.type === 'win' ? '勝' : '敗' }}</strong>
+              <small class="muted">當前連線</small>
+            </div>
+            <div class="sc-val" :class="streakProb.rare ? 'up' : ''">
+              <strong>{{ (streakProb.pAtLeast * 100).toFixed(1) }}%</strong>
+              <small class="muted">此連線機率</small>
+            </div>
+          </div>
+          <p class="scard-hint muted" v-if="streakProb.rare && streakProb.type === 'win'">✓ 統計罕見的連勝（{{ (streakProb.pAtLeast * 100).toFixed(1) }}%），小心過度自信，勿貿然擴大倉位。</p>
+          <p class="scard-hint muted" v-else-if="streakProb.rare && streakProb.type === 'loss'">⚠ 統計罕見的連敗（{{ (streakProb.pAtLeast * 100).toFixed(1) }}%），可能是系統失效而非隨機雜訊，應檢視設定。</p>
+          <p class="scard-hint muted" v-else>此長度的連線在目前勝率下屬正常範圍（{{ (streakProb.pAtLeast * 100).toFixed(1) }}%）。</p>
+        </div>
+
+        <!-- XX10: 交易評分分布（William O'Neil） -->
+        <div class="an-block" v-if="tradeGrades">
+          <span class="slabel">交易評分分布（O'Neil/IBD：只做 A 級設定）</span>
+          <div class="xx-grade-row">
+            <div v-for="g in ['A','B','C','D']" :key="g" class="xx-grade-cell" :class="`grade-${g.toLowerCase()}`">
+              <strong>{{ tradeGrades.counts[g] }}</strong>
+              <span class="muted"> ({{ tradeGrades.pct[g].toFixed(0) }}%)</span>
+              <small>{{ g }}</small>
+            </div>
+          </div>
+          <p class="scard-hint muted">A=達目標且≥均值贏 ｜ B=其中一項 ｜ C=正報酬但無達成 ｜ D=虧損。A+B 佔比越高越好。</p>
+        </div>
+
         <!-- TT4: 月份績效柱狀圖 (full width) -->
         <div class="an-block an-block--full" v-if="monthlyPerfBars">
           <span class="slabel">月份績效（月別累計 R）——觀察是否有季節性弱點</span>
@@ -1529,6 +1644,130 @@ const targetAchievement = computed(() => {
   return { hitRate, avgCapture, count: cl.length, hits }
 })
 
+// XX1: Kelly Fraction 倉位建議（Ed Thorp: 數學上最優的賭注比例，超賭必輸）
+// full Kelly = p - q/b；1/4 Kelly 為實戰建議；b = 平均賠率
+const kellyFraction = computed(() => {
+  const Rs = closedTrades.value.map(realizedR)
+  if (Rs.length < 10) return null
+  const wins = Rs.filter(r => r > 0)
+  const losses = Rs.filter(r => r < 0)
+  if (!wins.length || !losses.length) return null
+  const p = wins.length / Rs.length
+  const q = 1 - p
+  const b = wins.reduce((a, r) => a + r, 0) / wins.length / (Math.abs(losses.reduce((a, r) => a + r, 0) / losses.length) || 1)
+  const full = p - q / b
+  return { full: Math.max(0, full) * 100, quarter: Math.max(0, full / 4) * 100, p, b }
+})
+
+// XX2: 權益曲線動能信號（Nick Radge: 交易自己的權益曲線；曲線低於均線時應縮手）
+// cumR 最近 10 筆移動平均，若最新 cumR < SMA → PAUSE
+const ecMomentum = computed(() => {
+  const pts = equityPoints.value
+  if (pts.length < 12) return null
+  const W = 10
+  const sma = pts.slice(pts.length - W).reduce((a, b) => a + b, 0) / W
+  const current = pts[pts.length - 1]
+  return { current, sma, trade: current >= sma }
+})
+
+// XX5: R 四分位分布（Michael Covel: 趨勢跟蹤者靠右尾肥賺錢，P75 < 1.5R = 讓利潤跑不夠）
+const rQuartile = computed(() => {
+  const Rs = [...closedTrades.value.map(realizedR)].sort((a, b) => a - b)
+  if (Rs.length < 8) return null
+  const at = (pct) => {
+    const i = (Rs.length - 1) * pct
+    const lo = Math.floor(i), hi = Math.ceil(i)
+    return Rs[lo] + (Rs[hi] - Rs[lo]) * (i - lo)
+  }
+  return { p25: at(0.25), p50: at(0.5), p75: at(0.75), thinRightTail: at(0.75) < 1.5 }
+})
+
+// XX6: 月獲利因子趨勢（CTA 標準: PF = 月正R總和 / 月負R總和絕對值，< 1 = 負期望）
+const monthlyPFPoints = computed(() => {
+  const cl = closedTrades.value.filter(t => t.exitDate)
+  if (cl.length < 6) return []
+  const byMonth = {}
+  for (const t of cl) {
+    const mo = String(t.exitDate).slice(0, 7)
+    if (!byMonth[mo]) byMonth[mo] = []
+    byMonth[mo].push(realizedR(t))
+  }
+  const months = Object.keys(byMonth).sort().slice(-6)
+  return months.map(mo => {
+    const Rs = byMonth[mo]
+    const pos = Rs.filter(r => r > 0).reduce((a, b) => a + b, 0)
+    const neg = Math.abs(Rs.filter(r => r < 0).reduce((a, b) => a + b, 0))
+    return neg > 0 ? pos / neg : (pos > 0 ? 3 : 1)
+  })
+})
+const pfW = 200, pfH = 40
+const { points: pfPolyline } = useSparkline(monthlyPFPoints, { width: pfW, height: pfH, includeValue: 1 })
+
+// XX8: 停損觸發恢復成本（Martin Schwartz: 輸家不知道輸一筆要贏幾筆才能回來）
+// 若此開倉觸停 = -1R 損失；需要均值贏單 N 筆才能回本
+const stopRecoveryCost = computed(() => {
+  const Rs = closedTrades.value.map(realizedR)
+  const wins = Rs.filter(r => r > 0)
+  if (wins.length < 3 || !openTrades.value.length) return null
+  const avgWin = wins.reduce((a, b) => a + b, 0) / wins.length
+  return openTrades.value.map(t => {
+    const riskR = 1 // hitting stop = -1R per trade definition
+    return { symbol: t.symbol || '?', lots: t.lots, recoveryTrades: riskR / avgWin, avgWin }
+  })
+})
+
+// XX9: 當前連勝/連敗機率（George Soros: 極端連勝後勿加碼、極端連敗後勿放棄）
+// P(streak ≥ N) = 1 - P(streak < N)；二項分佈近似
+const streakProb = computed(() => {
+  const cl = [...closedTrades.value]
+    .filter(t => t.exitDate)
+    .sort((a, b) => new Date(a.exitDate || 0) - new Date(b.exitDate || 0))
+  if (cl.length < 10) return null
+  const Rs = cl.map(realizedR)
+  const wins = Rs.filter(r => r > 0)
+  const p = wins.length / Rs.length
+  const q = 1 - p
+  // find current streak (same result type)
+  const last = Rs[Rs.length - 1] > 0
+  let n = 0
+  for (let i = Rs.length - 1; i >= 0; i--) {
+    if ((Rs[i] > 0) === last) n++
+    else break
+  }
+  // P(at least one run of length >= n in cl.length independent trials)
+  // Approx: P(streak >= n) ≈ 1 - (1 - pk^n)^(N/n) where pk = p or q
+  const pk = last ? p : q
+  const pRun = Math.pow(pk, n)
+  const trials = cl.length / n
+  const pAtLeast = 1 - Math.pow(1 - pRun, trials)
+  return { type: last ? 'win' : 'loss', n, p: pk, pAtLeast, rare: pAtLeast < 0.1 }
+})
+
+// XX10: 交易評分分布（William O'Neil/IBD: 只做 A 級設定，不做 C 級妥協）
+// A: hit target AND R ≥ avgWin; B: one of two; C: neither but positive; D: loss
+const tradeGrades = computed(() => {
+  const Rs = closedTrades.value.map(realizedR)
+  if (Rs.length < 5) return null
+  const avgWin = Rs.filter(r => r > 0).length ? Rs.filter(r => r > 0).reduce((a, b) => a + b, 0) / Rs.filter(r => r > 0).length : 1
+  const counts = { A: 0, B: 0, C: 0, D: 0 }
+  closedTrades.value.forEach((t, i) => {
+    const r = Rs[i]
+    const target = Number(t.target) || 0
+    const exit = Number(t.exit) || 0
+    const entry = Number(t.entry)
+    const stop = Number(t.stop)
+    const isLong = t.side === 'long' || entry > stop
+    const hitTarget = target > 0 && (isLong ? exit >= target : exit <= target)
+    const aboveAvg = r >= avgWin
+    if (r < 0) counts.D++
+    else if (hitTarget && aboveAvg) counts.A++
+    else if (hitTarget || aboveAvg) counts.B++
+    else counts.C++
+  })
+  const total = Rs.length
+  return { counts, total, pct: { A: counts.A/total*100, B: counts.B/total*100, C: counts.C/total*100, D: counts.D/total*100 } }
+})
+
 function fmt(v) {
   if (v == null || (typeof v === 'number' && isNaN(v))) return '—'
   if (v === Infinity) return '∞'
@@ -1746,6 +1985,10 @@ onMounted(() => {
 .scard { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 14px; padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; }
 .slabel { font-size: 0.74rem; color: var(--text-muted); }
 .sval { font-size: 1.35rem; }
+.sc-row { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 4px; }
+.sc-val { display: flex; flex-direction: column; gap: 2px; }
+.sc-val strong { font-size: 1.25rem; }
+.scard-hint { font-size: 0.76rem; margin-top: 4px; line-height: 1.4; }
 .shint { font-size: 0.72rem; color: var(--text-muted); }
 
 .equity { margin-top: 16px; display: flex; flex-direction: column; gap: 6px; }
@@ -1838,6 +2081,16 @@ onMounted(() => {
 
 /* WW7 weekly table */
 .ww-weekly-table td, .ww-weekly-table th { font-size: 0.82rem; }
+
+/* XX recovery + grade tables */
+.xx-recovery-table td, .xx-recovery-table th { font-size: 0.82rem; }
+.xx-grade-row { display: flex; gap: 0.75rem; margin: 0.5rem 0; }
+.xx-grade-cell { display: flex; flex-direction: column; align-items: center; min-width: 64px; padding: 0.5rem; border-radius: 6px; background: var(--color-surface); }
+.xx-grade-cell small { font-size: 1.1rem; font-weight: 700; }
+.grade-a small { color: #22c55e; }
+.grade-b small { color: #60a5fa; }
+.grade-c small { color: #facc15; }
+.grade-d small { color: #f87171; }
 
 /* TT4 月份績效 */
 .month-wrap { overflow-x: auto; }

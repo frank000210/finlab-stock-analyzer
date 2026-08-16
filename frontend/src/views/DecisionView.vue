@@ -88,6 +88,49 @@
       <p v-if="dayLossBreached" class="warn small">⚠ 已達日內停板（-{{ dayLossLimit }}R），Minervini 原則：今日停止開新倉。</p>
     </section>
 
+    <!-- XX3: 開倉逾期警示（Nicholas Darvas：箱型理論強調時間紀律，超過均值贏單時間要警覺）-->
+    <section class="daily-plan-card card xx-aging-card" v-if="openPositionAging && openPositionAging.length">
+      <div class="plan-title-row" style="margin-bottom: 8px">
+        <span class="plan-icon">⏳</span>
+        <h2 class="plan-title">開倉逾期警示</h2>
+        <span class="plan-hint muted">Darvas：超過平均贏單持倉時間代表市場未如預期，應重新評估</span>
+      </div>
+      <table class="j-table xx-aging-table">
+        <thead><tr><th>代號</th><th>已持</th><th>均值贏單</th><th>狀態</th></tr></thead>
+        <tbody>
+          <tr v-for="p in openPositionAging" :key="p.symbol">
+            <td>{{ p.symbol }}</td>
+            <td>{{ p.days }}天</td>
+            <td>{{ p.avgWinDays !== null ? p.avgWinDays + '天' : '—' }}</td>
+            <td :class="p.overdue2x ? 'down' : p.overdue ? 'warn' : 'up'">
+              {{ p.overdue2x ? '⚠ 嚴重逾期' : p.overdue ? '注意' : '正常' }}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- XX4: 開倉標籤集中度（Ray Dalio：真正的分散是不相關資產，同標籤集中 = 假分散）-->
+    <section class="daily-plan-card card xx-tagconc-card" v-if="openTagConcentration">
+      <div class="plan-title-row" style="margin-bottom: 8px">
+        <span class="plan-icon">🔎</span>
+        <h2 class="plan-title">開倉標籤集中度</h2>
+        <span class="plan-status" :class="openTagConcentration.concentrated ? 'plan-unset' : 'plan-set'">
+          {{ openTagConcentration.concentrated ? '⚠ 集中警示' : '分散正常' }}
+        </span>
+      </div>
+      <p class="plan-hint muted">Dalio：相同標籤的開倉佔總張數 > 50% 為假分散警告。</p>
+      <div class="xx-tagconc-bars">
+        <div v-for="g in openTagConcentration.groups" :key="g.tag" class="xx-tagconc-row">
+          <span class="xx-tag-label muted">{{ g.tag || '(無標籤)' }}</span>
+          <div class="xx-tag-bar-bg">
+            <div class="xx-tag-bar-fill" :style="{ width: g.pct + '%' }" :class="g.pct > 50 ? 'warn-fill' : 'ok-fill'"></div>
+          </div>
+          <span :class="g.pct > 50 ? 'warn' : ''" style="min-width:48px;text-align:right">{{ g.pct.toFixed(0) }}%</span>
+        </div>
+      </div>
+    </section>
+
     <section class="top-grid">
       <article class="market-pulse card">
         <div class="panel-head">
@@ -411,6 +454,55 @@ const todayRealizedR = computed(() => {
   } catch { return 0 }
 })
 const dayLossBreached = computed(() => todayRealizedR.value <= -Math.abs(dayLossLimit.value))
+
+// XX3: 開倉逾期警示（Nicholas Darvas：箱型理論的時間紀律）
+// 若持倉超過平均贏單持倉天數，應重新評估是否繼續持有
+const openPositionAging = computed(() => {
+  try {
+    const trades = JSON.parse(localStorage.getItem('finlab_trade_journal') || '[]')
+    const closed = trades.filter(t => t.status === 'closed' && t.openDate && t.exitDate)
+    const wins = closed.filter(t => {
+      const entry = Number(t.entry), stop = Number(t.stop), exit = Number(t.exit) || 0
+      return entry && stop && entry !== stop && (exit - entry) / Math.abs(entry - stop) > 0
+    })
+    const avgWinDays = wins.length >= 3
+      ? wins.reduce((a, t) => a + Math.max(0, (new Date(t.exitDate) - new Date(t.openDate)) / 86400000), 0) / wins.length
+      : null
+    const today = new Date()
+    return trades
+      .filter(t => t.status === 'open' && t.openDate)
+      .map(t => {
+        const days = Math.max(0, (today - new Date(t.openDate)) / 86400000)
+        return {
+          symbol: t.symbol || '?',
+          days: Math.round(days),
+          avgWinDays: avgWinDays !== null ? Math.round(avgWinDays) : null,
+          overdue: avgWinDays !== null && days > avgWinDays,
+          overdue2x: avgWinDays !== null && days > avgWinDays * 2,
+        }
+      })
+  } catch { return [] }
+})
+
+// XX4: 開倉標籤集中度（Ray Dalio：真正的分散要不相關，同 tag 集中是假分散）
+const openTagConcentration = computed(() => {
+  try {
+    const trades = JSON.parse(localStorage.getItem('finlab_trade_journal') || '[]')
+    const open = trades.filter(t => t.status === 'open')
+    if (open.length < 2) return null
+    const totalLots = open.reduce((a, t) => a + (Number(t.lots) || 1), 0)
+    const groups = {}
+    for (const t of open) {
+      const tag = String(t.tag || '').trim() || '(無標籤)'
+      groups[tag] = (groups[tag] || 0) + (Number(t.lots) || 1)
+    }
+    const sorted = Object.entries(groups)
+      .map(([tag, lots]) => ({ tag, lots, pct: lots / totalLots * 100 }))
+      .sort((a, b) => b.pct - a.pct)
+    const concentrated = sorted[0]?.pct > 50
+    return { groups: sorted, concentrated, topTag: sorted[0]?.tag }
+  } catch { return null }
+})
 
 const filters = [
   { label: '全部', value: 'ALL' },
@@ -2061,4 +2153,19 @@ function toDateParam(value) {
 /* WW10 day-loss */
 .ww-dayloss-card { margin-bottom: 12px; }
 .ww-dayloss-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 8px; }
+
+/* XX3 open aging + XX4 tag concentration */
+.xx-aging-card, .xx-tagconc-card { margin-bottom: 12px; }
+.j-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.j-table th, .j-table td { text-align: right; padding: 6px 10px; border-bottom: 1px solid var(--border-color); white-space: nowrap; }
+.j-table th:first-child, .j-table td:first-child { text-align: left; }
+.j-table th { color: var(--text-muted); font-weight: 500; font-size: 0.74rem; }
+.xx-aging-table td, .xx-aging-table th { font-size: 0.82rem; }
+.xx-tagconc-bars { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.xx-tagconc-row { display: flex; align-items: center; gap: 8px; }
+.xx-tag-label { min-width: 80px; font-size: 0.82rem; }
+.xx-tag-bar-bg { flex: 1; height: 10px; background: var(--color-border, rgba(255,255,255,0.08)); border-radius: 4px; overflow: hidden; }
+.xx-tag-bar-fill { height: 100%; border-radius: 4px; transition: width 0.3s; }
+.ok-fill { background: var(--color-accent, #60a5fa); }
+.warn-fill { background: #f59e0b; }
 </style>

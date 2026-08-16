@@ -143,6 +143,31 @@
           </strong>
         </div>
       </div>
+      <!-- XX7: 回撤週期追蹤器（Richard Dennis/Turtle） -->
+      <div v-if="drawdownEpisodes" class="r-curve-stats dd-episode-block">
+        <div class="rc-stat rc-stat--full">
+          <span class="rc-label">回撤週期追蹤（Dennis/Turtle：系統強健的指標是能快速恢復）</span>
+        </div>
+        <div class="rc-stat">
+          <span class="rc-label">歷史回撤次數</span>
+          <strong>{{ drawdownEpisodes.total }} 次</strong>
+        </div>
+        <div class="rc-stat">
+          <span class="rc-label">平均恢復筆數</span>
+          <strong :class="drawdownEpisodes.avgRecovery > 10 ? 'warn' : 'up'">{{ drawdownEpisodes.avgRecovery.toFixed(1) }} 筆</strong>
+        </div>
+        <div class="dd-episode-table-wrap">
+          <table class="j-table xx-dd-table">
+            <thead><tr><th>回撤深度</th><th>恢復筆數</th></tr></thead>
+            <tbody>
+              <tr v-for="(ep, i) in drawdownEpisodes.episodes" :key="i">
+                <td :class="ep.depth > 3 ? 'down' : 'warn'">-{{ ep.depth.toFixed(1) }}R</td>
+                <td>{{ ep.recoveryTrades }} 筆</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </section>
 
     <section class="card chart-card">
@@ -256,6 +281,38 @@ const monthlyReturnStats = computed(() => {
   const std = Math.sqrt(months.reduce((a, v) => a + (v - mean) ** 2, 0) / months.length)
   const posMonths = months.filter(r => r > 0).length
   return { median, std, posMonthPct: posMonths / months.length * 100, posMonths, totalMonths: months.length }
+})
+
+// XX7: 回撤週期追蹤器（Richard Dennis/Turtle Trading: 系統要能快速從回撤中恢復）
+// 識別每段回撤的深度（R）、進入時的累計筆數、恢復所需筆數
+const drawdownEpisodes = computed(() => {
+  const cl = closedTrades.value
+  if (cl.length < 8) return null
+  const sorted = [...cl].sort((a, b) => new Date(a.exitDate || 0) - new Date(b.exitDate || 0))
+  const episodes = []
+  let cum = 0, peak = 0, inDD = false, ddStart = 0, ddDepth = 0, ddStartIdx = 0
+  for (let i = 0; i < sorted.length; i++) {
+    cum += realizedR(sorted[i])
+    if (cum > peak) {
+      if (inDD) {
+        episodes.push({ depth: ddDepth, entryIdx: ddStartIdx, recoveryTrades: i - ddStartIdx, peakR: peak })
+        inDD = false
+      }
+      peak = cum
+    } else if (peak > 0 && !inDD) {
+      inDD = true
+      ddStart = cum
+      ddStartIdx = i
+      ddDepth = peak - cum
+    } else if (inDD) {
+      ddDepth = Math.max(ddDepth, peak - cum)
+    }
+  }
+  if (inDD && ddDepth > 0) episodes.push({ depth: ddDepth, entryIdx: ddStartIdx, recoveryTrades: sorted.length - ddStartIdx, peakR: peak })
+  if (!episodes.length) return null
+  const top5 = [...episodes].sort((a, b) => b.depth - a.depth).slice(0, 5)
+  const avgRecovery = episodes.reduce((a, e) => a + e.recoveryTrades, 0) / episodes.length
+  return { episodes: top5, avgRecovery, total: episodes.length }
 })
 
 // TT8: R 曲線最大回撤（單位：R，跨帳戶大小可比較）
@@ -647,6 +704,16 @@ function statusClass(status) {
 .rc-stat strong { font-size: 1.25rem; }
 .vol-warn-msg { color: var(--warn, #f59e0b); font-size: 0.8rem; font-weight: 600; }
 .vol-regime-row { border-color: var(--warn, #f59e0b); }
+
+/* XX7 drawdown episode table */
+.dd-episode-block { flex-direction: column; }
+.rc-stat--full { width: 100%; }
+.dd-episode-table-wrap { overflow-x: auto; width: 100%; }
+.j-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.j-table th, .j-table td { text-align: right; padding: 6px 10px; border-bottom: 1px solid var(--border-color); white-space: nowrap; }
+.j-table th:first-child, .j-table td:first-child { text-align: left; }
+.j-table th { color: var(--text-muted); font-weight: 500; font-size: 0.74rem; }
+.xx-dd-table td, .xx-dd-table th { font-size: 0.82rem; }
 
 .chart-host { width: 100%; min-height: 300px; margin-top: 16px; }
 .chart-host :deep(.axis text) { fill: var(--text-muted); font-size: 0.7rem; }
