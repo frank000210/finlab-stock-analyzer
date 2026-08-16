@@ -581,6 +581,99 @@
           <p class="scard-hint muted">A=達目標且≥均值贏 ｜ B=其中一項 ｜ C=正報酬但無達成 ｜ D=虧損。A+B 佔比越高越好。</p>
         </div>
 
+        <!-- YY1: 系統品質分數 SQN（Van Tharp） -->
+        <div class="scard" v-if="sqn">
+          <span class="slabel">系統品質分數（SQN）（Tharp：≥ 2.5 可穩定交易，≥ 3.0 優秀）</span>
+          <div class="sc-row">
+            <div class="sc-val" :class="sqn.cls">
+              <strong>{{ sqn.value.toFixed(2) }}</strong>
+              <small class="muted">SQN</small>
+            </div>
+            <div class="sc-val" :class="sqn.cls">
+              <strong>{{ sqn.label }}</strong>
+              <small class="muted">品質等級</small>
+            </div>
+            <div class="sc-val">
+              <strong>{{ sqn.N }}</strong>
+              <small class="muted">計算筆數</small>
+            </div>
+          </div>
+          <p class="scard-hint muted">mean(R)/σ(R)×√N。&lt; 1.6 差，1.6-2.0 普通，2.0-3.0 良好，≥ 3.0 優秀。</p>
+        </div>
+
+        <!-- YY2: 催化劑績效分層（Paul Tudor Jones） -->
+        <div class="an-block" v-if="catalystPerf">
+          <span class="slabel">催化劑績效分層（Tudor Jones：只做最強的設定類型）</span>
+          <div class="table-wrap">
+            <table class="j-table yy-catalyst-table">
+              <thead><tr><th style="text-align:left">催化劑</th><th>筆數</th><th>勝率</th><th>均值R</th><th>PF</th></tr></thead>
+              <tbody>
+                <tr v-for="row in catalystPerf" :key="row.cat">
+                  <td style="text-align:left">{{ row.cat }}</td>
+                  <td>{{ row.count }}</td>
+                  <td :class="row.winRate >= 50 ? 'up' : 'down'">{{ row.winRate.toFixed(0) }}%</td>
+                  <td :class="row.avgR >= 0 ? 'up' : 'down'">{{ row.avgR >= 0 ? '+' : '' }}{{ row.avgR.toFixed(2) }}</td>
+                  <td :class="row.pf >= 1 ? 'up' : 'down'">{{ row.pf.toFixed(2) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="scard-hint muted">提高高均值R設定的交易頻率，縮減或淘汰負期望值設定。</p>
+        </div>
+
+        <!-- YY3: 月份勝率模式（Ed Seykota） -->
+        <div class="scard" v-if="monthlyWinRate">
+          <span class="slabel">月份勝率模式（Seykota：了解哪些月份適合或不適合交易）</span>
+          <div class="yy-month-bars">
+            <div v-for="m in monthlyWinRate.months" :key="m.month" class="yy-month-bar-col">
+              <div class="yy-month-bar-bg">
+                <div v-if="m.wr !== null" class="yy-month-bar-fill"
+                  :style="{ height: (m.wr * 100) + '%' }"
+                  :class="m.wr >= 0.6 ? 'yy-bar-good' : m.wr >= 0.4 ? 'yy-bar-warn' : 'yy-bar-bad'"></div>
+              </div>
+              <span class="yy-month-label muted">{{ m.month + 1 }}</span>
+            </div>
+          </div>
+          <p class="scard-hint muted">
+            最佳：{{ ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'][monthlyWinRate.best.month] }}（{{ (monthlyWinRate.best.wr * 100).toFixed(0) }}%）
+            ｜ 最差：{{ ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'][monthlyWinRate.worst.month] }}（{{ (monthlyWinRate.worst.wr * 100).toFixed(0) }}%）
+          </p>
+        </div>
+
+        <!-- YY4: 倉位大小績效相關（Tom Basso） -->
+        <div class="scard" v-if="lotSizeEffect">
+          <span class="slabel">倉位大小績效相關（Basso：情緒化者大倉勝率更低，系統化者兩者接近）</span>
+          <div class="sc-row">
+            <div class="sc-val" :class="lotSizeEffect.emotional ? 'down' : 'up'">
+              <strong>{{ lotSizeEffect.bigWR.toFixed(0) }}%</strong>
+              <small class="muted">大單勝率（>{{ lotSizeEffect.median }}張）</small>
+            </div>
+            <div class="sc-val">
+              <strong>{{ lotSizeEffect.smallWR.toFixed(0) }}%</strong>
+              <small class="muted">小單勝率（≤{{ lotSizeEffect.median }}張）</small>
+            </div>
+          </div>
+          <p class="scard-hint muted" v-if="lotSizeEffect.emotional">⚠ 大單勝率顯著低於小單（> 5%），可能是情緒驅動下放大部位，建議系統化定額交易。</p>
+          <p class="scard-hint muted" v-else>大小單勝率接近，倉位大小由系統決定，符合 Basso 的機械化交易原則。</p>
+        </div>
+
+        <!-- YY5: 離群贏單貢獻度（Ed Seykota / Michael Covel） -->
+        <div class="scard" v-if="outlierContribution">
+          <span class="slabel">離群贏單貢獻度（Seykota：大行情才是主要收入來源，不要截斷贏單）</span>
+          <div class="sc-row">
+            <div class="sc-val" :class="outlierContribution.healthy ? 'up' : 'warn'">
+              <strong>{{ outlierContribution.pct.toFixed(0) }}%</strong>
+              <small class="muted">前 {{ outlierContribution.topN }} 筆佔獲利</small>
+            </div>
+            <div class="sc-val" :class="outlierContribution.withoutOutliers >= 0 ? 'up' : 'down'">
+              <strong>{{ outlierContribution.withoutOutliers >= 0 ? '+' : '' }}{{ outlierContribution.withoutOutliers.toFixed(1) }}R</strong>
+              <small class="muted">去除後累積R</small>
+            </div>
+          </div>
+          <p class="scard-hint muted" v-if="outlierContribution.healthy">前 10% 贏單貢獻 > 40% 總獲利，具備健康的右尾特性，應繼續讓贏單奔跑。</p>
+          <p class="scard-hint muted" v-else>贏單分布偏均勻，前 10% 貢獻 &lt; 40%，可能習慣提早獲利了結，減少了大行情的捕捉。</p>
+        </div>
+
         <!-- TT4: 月份績效柱狀圖 (full width) -->
         <div class="an-block an-block--full" v-if="monthlyPerfBars">
           <span class="slabel">月份績效（月別累計 R）——觀察是否有季節性弱點</span>
@@ -1768,6 +1861,101 @@ const tradeGrades = computed(() => {
   return { counts, total, pct: { A: counts.A/total*100, B: counts.B/total*100, C: counts.C/total*100, D: counts.D/total*100 } }
 })
 
+// YY1: 系統品質分數 SQN（Van Tharp：數學化評估交易系統品質）
+// SQN = mean(R)/σ(R)×√N；≥ 2.5 可穩定交易，≥ 3.0 優秀，< 1.6 需檢視系統
+const sqn = computed(() => {
+  const Rs = closedTrades.value.map(realizedR)
+  if (Rs.length < 20) return null
+  const N = Math.min(Rs.length, 100)
+  const recent = Rs.slice(-N)
+  const mean = recent.reduce((a, b) => a + b, 0) / N
+  const variance = recent.reduce((a, b) => a + (b - mean) ** 2, 0) / N
+  const std = Math.sqrt(variance)
+  if (std === 0) return null
+  const value = mean / std * Math.sqrt(N)
+  const label = value >= 3.0 ? '優秀' : value >= 2.0 ? '良好' : value >= 1.0 ? '普通' : '差'
+  const cls = value >= 2.0 ? 'up' : value >= 1.0 ? 'warn' : 'down'
+  return { value, label, cls, N }
+})
+
+// YY2: 催化劑績效分層（Paul Tudor Jones：只做最強的設定類型，知道哪個 setup 才是真正的優勢）
+const catalystPerf = computed(() => {
+  const trades = closedTrades.value.filter(t => t.catalyst && String(t.catalyst).trim())
+  if (trades.length < 4) return null
+  const groups = {}
+  for (const t of trades) {
+    const cat = String(t.catalyst).trim()
+    if (!groups[cat]) groups[cat] = []
+    groups[cat].push(t)
+  }
+  const rows = Object.entries(groups)
+    .filter(([, ts]) => ts.length >= 2)
+    .map(([cat, ts]) => {
+      const Rs = ts.map(realizedR)
+      const wins = Rs.filter(r => r > 0)
+      const losses = Rs.filter(r => r < 0)
+      const avgR = Rs.reduce((a, b) => a + b, 0) / Rs.length
+      const gw = wins.reduce((a, b) => a + b, 0)
+      const gl = Math.abs(losses.reduce((a, b) => a + b, 0))
+      const pf = gl > 0 ? gw / gl : (gw > 0 ? 3 : 1)
+      return { cat, count: ts.length, winRate: wins.length / Rs.length * 100, avgR, pf }
+    })
+    .sort((a, b) => b.avgR - a.avgR)
+  return rows.length >= 2 ? rows : null
+})
+
+// YY3: 月份勝率模式（Ed Seykota：了解系統的季節性特徵，有些月份天生適合或不適合）
+const monthlyWinRate = computed(() => {
+  const cl = closedTrades.value.filter(t => t.exitDate)
+  if (cl.length < 6) return null
+  const byMonth = {}
+  for (const t of cl) {
+    const mo = new Date(t.exitDate).getMonth()
+    if (!byMonth[mo]) byMonth[mo] = []
+    byMonth[mo].push(realizedR(t))
+  }
+  const months = Array.from({ length: 12 }, (_, i) => {
+    const Rs = byMonth[i] || []
+    return { month: i, wr: Rs.length >= 2 ? Rs.filter(r => r > 0).length / Rs.length : null, count: Rs.length }
+  })
+  const filled = months.filter(m => m.wr !== null)
+  if (filled.length < 2) return null
+  const sorted = [...filled].sort((a, b) => b.wr - a.wr)
+  return { months, best: sorted[0], worst: sorted[sorted.length - 1] }
+})
+
+// YY4: 倉位大小績效相關（Tom Basso：系統化者的倉位大小不應與情緒相關，大小單勝率應接近）
+const lotSizeEffect = computed(() => {
+  const cl = closedTrades.value.filter(t => t.lots)
+  if (cl.length < 8) return null
+  const lots = cl.map(t => Number(t.lots) || 1).sort((a, b) => a - b)
+  const median = lots[Math.floor(lots.length / 2)]
+  const big = cl.filter(t => (Number(t.lots) || 1) > median)
+  const small = cl.filter(t => (Number(t.lots) || 1) <= median)
+  if (!big.length || !small.length) return null
+  const bigRs = big.map(realizedR)
+  const smallRs = small.map(realizedR)
+  const bigWR = bigRs.filter(r => r > 0).length / bigRs.length * 100
+  const smallWR = smallRs.filter(r => r > 0).length / smallRs.length * 100
+  const bigAvgR = bigRs.reduce((a, b) => a + b, 0) / bigRs.length
+  const smallAvgR = smallRs.reduce((a, b) => a + b, 0) / smallRs.length
+  return { bigWR, smallWR, bigAvgR, smallAvgR, emotional: bigWR < smallWR - 5, median }
+})
+
+// YY5: 離群贏單貢獻度（Seykota/Covel：讓贏單奔跑；前 10% 大贏佔總獲利 > 40% = 健康右尾）
+const outlierContribution = computed(() => {
+  const Rs = closedTrades.value.map(realizedR)
+  if (Rs.length < 10) return null
+  const wins = [...Rs.filter(r => r > 0)].sort((a, b) => b - a)
+  if (wins.length < 3) return null
+  const topN = Math.max(1, Math.ceil(wins.length * 0.1))
+  const topSum = wins.slice(0, topN).reduce((a, b) => a + b, 0)
+  const totalWins = wins.reduce((a, b) => a + b, 0)
+  const pct = totalWins > 0 ? topSum / totalWins * 100 : 0
+  const totalR = Rs.reduce((a, b) => a + b, 0)
+  return { pct, topN, topSum, totalR, withoutOutliers: totalR - topSum, healthy: pct > 40 }
+})
+
 function fmt(v) {
   if (v == null || (typeof v === 'number' && isNaN(v))) return '—'
   if (v === Infinity) return '∞'
@@ -2095,6 +2283,17 @@ onMounted(() => {
 /* TT4 月份績效 */
 .month-wrap { overflow-x: auto; }
 .month-svg { display: block; }
+
+/* YY cycle */
+.yy-catalyst-table td, .yy-catalyst-table th { font-size: 0.82rem; }
+.yy-month-bars { display: flex; gap: 3px; align-items: flex-end; height: 52px; margin: 0.5rem 0; }
+.yy-month-bar-col { display: flex; flex-direction: column; align-items: center; flex: 1; height: 100%; }
+.yy-month-bar-bg { flex: 1; width: 100%; background: var(--color-surface); border-radius: 2px; display: flex; align-items: flex-end; }
+.yy-month-bar-fill { width: 100%; border-radius: 2px; }
+.yy-bar-good { background: var(--color-up, #22c55e); opacity: 0.85; }
+.yy-bar-warn { background: var(--warn, #f59e0b); opacity: 0.85; }
+.yy-bar-bad { background: var(--color-down, #ef4444); opacity: 0.85; }
+.yy-month-label { font-size: 0.65rem; color: var(--text-muted); margin-top: 2px; }
 .month-label { fill: var(--text-muted); font-size: 9px; }
 
 /* TT9 象限圖 */

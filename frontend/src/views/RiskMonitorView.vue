@@ -170,6 +170,51 @@
       </div>
     </section>
 
+    <!-- YY8: 期望值三階段分析（Bruce Kovner） -->
+    <section class="card chart-card" v-if="expectancyPhases">
+      <div class="section-header">
+        <div>
+          <h2>期望值成長軌跡</h2>
+          <p class="chart-sub">Kovner：持續追蹤早期→中期→近期期望值，確認系統是否在改善中。</p>
+        </div>
+        <span class="rc-label" :class="expectancyPhases.improving ? 'up' : 'down'">
+          {{ expectancyPhases.improving ? '↑ 進步中' : '↓ 退步中' }}（{{ expectancyPhases.trend >= 0 ? '+' : '' }}{{ expectancyPhases.trend.toFixed(2) }}R）
+        </span>
+      </div>
+      <div class="yy-phase-row">
+        <div v-for="ph in expectancyPhases.phases" :key="ph.label" class="yy-phase-col">
+          <span class="rc-label">{{ ph.label }}</span>
+          <strong :class="ph.mean >= 0 ? 'up' : 'down'">{{ ph.mean >= 0 ? '+' : '' }}{{ ph.mean.toFixed(2) }}R</strong>
+          <span class="muted" style="font-size:0.75rem">{{ ph.count }} 筆</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- YY9: 權益曲線平滑度 R²（Ed Seykota） -->
+    <section class="card chart-card" v-if="equityCurveR2">
+      <div class="section-header">
+        <div>
+          <h2>權益曲線平滑度（R²）</h2>
+          <p class="chart-sub">Seykota：穩定系統的累積 R 曲線應接近直線向上；R² 越高越平滑穩定。</p>
+        </div>
+      </div>
+      <div class="r-curve-stats">
+        <div class="rc-stat">
+          <span class="rc-label">R²</span>
+          <strong :class="equityCurveR2.cls">{{ equityCurveR2.r2.toFixed(3) }}</strong>
+        </div>
+        <div class="rc-stat">
+          <span class="rc-label">平滑度評級</span>
+          <strong :class="equityCurveR2.cls">{{ equityCurveR2.label }}</strong>
+        </div>
+        <div class="rc-stat">
+          <span class="rc-label">趨勢斜率</span>
+          <strong :class="equityCurveR2.slope >= 0 ? 'up' : 'down'">{{ equityCurveR2.slope >= 0 ? '+' : '' }}{{ equityCurveR2.slope.toFixed(3) }}R/筆</strong>
+        </div>
+      </div>
+      <p class="chart-sub" style="margin-top:0.5rem; padding: 0 1rem 0.75rem">R² ≥ 0.9 平滑，0.7-0.9 中等，&lt; 0.7 不穩定（高雜訊/高波動）。</p>
+    </section>
+
     <section class="card chart-card">
       <div class="section-header">
         <div>
@@ -313,6 +358,50 @@ const drawdownEpisodes = computed(() => {
   const top5 = [...episodes].sort((a, b) => b.depth - a.depth).slice(0, 5)
   const avgRecovery = episodes.reduce((a, e) => a + e.recoveryTrades, 0) / episodes.length
   return { episodes: top5, avgRecovery, total: episodes.length }
+})
+
+// YY8: 期望值三階段分析（Bruce Kovner：持續追蹤系統是否在改善，以早中近三段期望值為指標）
+const expectancyPhases = computed(() => {
+  const cl = [...closedTrades.value]
+    .filter(t => t.exitDate)
+    .sort((a, b) => new Date(a.exitDate || 0) - new Date(b.exitDate || 0))
+  if (cl.length < 9) return null
+  const n = Math.floor(cl.length / 3)
+  const phases = [cl.slice(0, n), cl.slice(n, 2 * n), cl.slice(2 * n)].map((ts, i) => {
+    const Rs = ts.map(realizedR)
+    return { label: ['早期', '中期', '近期'][i], mean: Rs.reduce((a, b) => a + b, 0) / Rs.length, count: Rs.length }
+  })
+  const trend = phases[2].mean - phases[0].mean
+  return { phases, improving: trend > 0, trend }
+})
+
+// YY9: 權益曲線平滑度 R²（Seykota：好系統的 equity curve 接近直線向上；R² 越近 1 越平滑）
+const equityCurveR2 = computed(() => {
+  const cl = [...closedTrades.value]
+    .filter(t => t.exitDate)
+    .sort((a, b) => new Date(a.exitDate || 0) - new Date(b.exitDate || 0))
+  if (cl.length < 10) return null
+  const pts = [0]
+  let cum = 0
+  for (const t of cl) { cum += realizedR(t); pts.push(cum) }
+  const n = pts.length
+  const meanX = (n - 1) / 2
+  const meanY = pts.reduce((a, b) => a + b, 0) / n
+  let ssXY = 0, ssXX = 0, ssTot = 0
+  for (let i = 0; i < n; i++) {
+    ssXY += (i - meanX) * (pts[i] - meanY)
+    ssXX += (i - meanX) ** 2
+    ssTot += (pts[i] - meanY) ** 2
+  }
+  if (ssXX === 0 || ssTot === 0) return null
+  const slope = ssXY / ssXX
+  const intercept = meanY - slope * meanX
+  let ssRes = 0
+  for (let i = 0; i < n; i++) ssRes += (pts[i] - (slope * i + intercept)) ** 2
+  const r2 = Math.max(0, 1 - ssRes / ssTot)
+  const cls = r2 >= 0.9 ? 'up' : r2 >= 0.7 ? 'warn' : 'down'
+  const label = r2 >= 0.9 ? '平滑' : r2 >= 0.7 ? '中等' : '不穩定'
+  return { r2, slope, cls, label }
 })
 
 // TT8: R 曲線最大回撤（單位：R，跨帳戶大小可比較）
@@ -704,6 +793,10 @@ function statusClass(status) {
 .rc-stat strong { font-size: 1.25rem; }
 .vol-warn-msg { color: var(--warn, #f59e0b); font-size: 0.8rem; font-weight: 600; }
 .vol-regime-row { border-color: var(--warn, #f59e0b); }
+
+/* YY8/YY9 */
+.yy-phase-row { display: flex; gap: 1rem; margin-top: 0.75rem; padding: 0 1rem 0.75rem; }
+.yy-phase-col { display: flex; flex-direction: column; flex: 1; align-items: center; gap: 4px; padding: 0.5rem; background: var(--color-surface); border-radius: 6px; text-align: center; }
 
 /* XX7 drawdown episode table */
 .dd-episode-block { flex-direction: column; }

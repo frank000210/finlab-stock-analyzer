@@ -131,6 +131,64 @@
       </div>
     </section>
 
+    <!-- YY6: 停損距離一致性（Tom Basso） -->
+    <section class="daily-plan-card card yy-stopdist-card" v-if="stopDistCV">
+      <div class="plan-title-row" style="margin-bottom: 8px">
+        <span class="plan-icon">📏</span>
+        <h2 class="plan-title">停損距離一致性</h2>
+        <span class="plan-status" :class="stopDistCV.systematic ? 'plan-set' : 'plan-unset'">
+          {{ stopDistCV.systematic ? '系統化' : '⚠ 不一致' }}
+        </span>
+      </div>
+      <p class="plan-hint muted">Basso：系統化交易者在進場前即設定停損，CV（變異係數）&lt; 30% 代表距離一致，&gt; 50% 代表情緒化調整。</p>
+      <div class="sc-row" style="margin-top: 8px">
+        <div class="sc-val" :class="stopDistCV.systematic ? 'up' : 'warn'">
+          <strong>{{ stopDistCV.cv.toFixed(1) }}%</strong>
+          <small class="muted">CV 變異係數</small>
+        </div>
+        <div class="sc-val">
+          <strong>{{ stopDistCV.mean.toFixed(2) }}%</strong>
+          <small class="muted">平均停損距離</small>
+        </div>
+        <div class="sc-val">
+          <strong>{{ stopDistCV.min.toFixed(2) }}–{{ stopDistCV.max.toFixed(2) }}%</strong>
+          <small class="muted">最小–最大</small>
+        </div>
+      </div>
+    </section>
+
+    <!-- YY7: 計畫 R:R 達成率分布（Van Tharp） -->
+    <section class="daily-plan-card card yy-rrach-card" v-if="plannedRRDist">
+      <div class="plan-title-row" style="margin-bottom: 8px">
+        <span class="plan-icon">🎯</span>
+        <h2 class="plan-title">計畫 R:R 達成率分布</h2>
+        <span class="plan-status plan-set">平均 {{ (plannedRRDist.avg * 100).toFixed(0) }}%</span>
+      </div>
+      <p class="plan-hint muted">Van Tharp：追蹤計畫 vs 實際執行落差，才能找到改善點。&gt; 100% 表示超出計畫目標。</p>
+      <div class="yy-rrach-bars">
+        <div v-for="bar in plannedRRDist.bars" :key="bar.label" class="yy-rrach-col">
+          <div class="yy-rrach-bar-bg">
+            <div class="yy-rrach-bar-fill" :style="{ height: bar.pct + '%' }"
+              :class="bar.label === '>100%' ? 'yy-bar-good' : bar.label === '0-25%' ? 'yy-bar-bad' : 'yy-bar-mid'"></div>
+          </div>
+          <span class="muted" style="font-size:0.65rem">{{ bar.label }}</span>
+          <span style="font-size:0.75rem">{{ bar.count }}</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- YY10: 開盤前清單完成率（Mark Douglas） -->
+    <section class="daily-plan-card card yy-compliance-card" v-if="checklistCompliance">
+      <div class="plan-title-row" style="margin-bottom: 8px">
+        <span class="plan-icon">📊</span>
+        <h2 class="plan-title">清單完成率（近30天）</h2>
+        <span class="plan-status" :class="checklistCompliance.pct >= 60 ? 'plan-set' : 'plan-unset'">
+          {{ checklistCompliance.pct.toFixed(0) }}%
+        </span>
+      </div>
+      <p class="plan-hint muted">Douglas：一致的開盤前例行程序是穩定心態的基礎。近30天完成 {{ checklistCompliance.done }} 天，上週 {{ checklistCompliance.lastWeekDone }}/7 天。</p>
+    </section>
+
     <section class="top-grid">
       <article class="market-pulse card">
         <div class="panel-head">
@@ -501,6 +559,77 @@ const openTagConcentration = computed(() => {
       .sort((a, b) => b.pct - a.pct)
     const concentrated = sorted[0]?.pct > 50
     return { groups: sorted, concentrated, topTag: sorted[0]?.tag }
+  } catch { return null }
+})
+
+// YY6: 停損距離一致性（Tom Basso：系統化者在進場前設定停損，距離一致代表紀律）
+// CV = std/mean × 100；< 30% 系統化，> 50% 情緒化（每次停損距離差異過大）
+const stopDistCV = computed(() => {
+  try {
+    const trades = JSON.parse(localStorage.getItem('finlab_trade_journal') || '[]')
+    const cl = trades.filter(t => t.status === 'closed' && t.entry && t.stop)
+    if (cl.length < 8) return null
+    const dists = cl.map(t => {
+      const entry = Number(t.entry), stop = Number(t.stop)
+      return entry && stop && entry !== stop ? Math.abs(entry - stop) / entry * 100 : null
+    }).filter(d => d !== null && d > 0)
+    if (dists.length < 8) return null
+    const mean = dists.reduce((a, b) => a + b, 0) / dists.length
+    const std = Math.sqrt(dists.reduce((a, b) => a + (b - mean) ** 2, 0) / dists.length)
+    const cv = std / mean * 100
+    return { cv, mean, min: Math.min(...dists), max: Math.max(...dists), systematic: cv < 30 }
+  } catch { return null }
+})
+
+// YY7: 計畫 R:R 達成率分布（Van Tharp：追蹤計畫執行落差，才能找到改善點）
+// achievement = actualR / plannedRR（0-25%：幾乎未捕捉，> 100%：超出計畫）
+const plannedRRDist = computed(() => {
+  try {
+    const trades = JSON.parse(localStorage.getItem('finlab_trade_journal') || '[]')
+    const cl = trades.filter(t => t.status === 'closed' && t.entry && t.stop && t.target && t.exit)
+    if (cl.length < 5) return null
+    const results = cl.map(t => {
+      const entry = Number(t.entry), stop = Number(t.stop), target = Number(t.target), exit = Number(t.exit)
+      if (!entry || !stop || entry === stop || !target) return null
+      const isLong = t.side === 'long' || entry > stop
+      const planned = isLong ? (target - entry) / Math.abs(entry - stop) : (entry - target) / Math.abs(entry - stop)
+      if (planned <= 0) return null
+      const actual = isLong ? (exit - entry) / Math.abs(entry - stop) : (entry - exit) / Math.abs(entry - stop)
+      return Math.max(0, Math.min(2, actual / planned))
+    }).filter(r => r !== null)
+    if (results.length < 5) return null
+    const labels = ['0-25%', '25-50%', '50-75%', '75-100%', '>100%']
+    const buckets = [0, 0, 0, 0, 0]
+    for (const r of results) {
+      if (r < 0.25) buckets[0]++
+      else if (r < 0.5) buckets[1]++
+      else if (r < 0.75) buckets[2]++
+      else if (r < 1.0) buckets[3]++
+      else buckets[4]++
+    }
+    const total = results.length
+    const avg = results.reduce((a, b) => a + b, 0) / total
+    return { bars: labels.map((l, i) => ({ label: l, count: buckets[i], pct: buckets[i] / total * 100 })), avg, total }
+  } catch { return null }
+})
+
+// YY10: 開盤前清單完成率（Mark Douglas：一致的例行程序是穩定心態的基礎，紀律來自儀式感）
+const checklistCompliance = computed(() => {
+  try {
+    const today = new Date()
+    let done = 0
+    let lastWeekDone = 0
+    for (let d = 0; d < 30; d++) {
+      const dt = new Date(today)
+      dt.setDate(dt.getDate() - d)
+      const key = `finlab_pretrade_chk_${dt.toISOString().slice(0, 10)}`
+      if (localStorage.getItem(key) !== null) {
+        done++
+        if (d < 7) lastWeekDone++
+      }
+    }
+    if (done === 0) return null
+    return { done, pct: done / 30 * 100, lastWeekDone }
   } catch { return null }
 })
 
@@ -2168,4 +2297,19 @@ function toDateParam(value) {
 .xx-tag-bar-fill { height: 100%; border-radius: 4px; transition: width 0.3s; }
 .ok-fill { background: var(--color-accent, #60a5fa); }
 .warn-fill { background: #f59e0b; }
+
+/* YY6 stop dist */
+.sc-row { display: flex; gap: 0.75rem; flex-wrap: wrap; margin: 0.5rem 0; }
+.sc-val { display: flex; flex-direction: column; align-items: center; min-width: 80px; }
+.sc-val strong { font-size: 1.05rem; }
+.sc-val small { font-size: 0.72rem; color: var(--text-muted); text-align: center; }
+
+/* YY7 R:R achievement bars */
+.yy-rrach-bars { display: flex; gap: 4px; align-items: flex-end; height: 80px; margin: 0.75rem 0; }
+.yy-rrach-col { display: flex; flex-direction: column; align-items: center; flex: 1; height: 100%; gap: 2px; }
+.yy-rrach-bar-bg { flex: 1; width: 100%; background: var(--color-surface); border-radius: 3px; display: flex; align-items: flex-end; }
+.yy-rrach-bar-fill { width: 100%; border-radius: 3px; }
+.yy-bar-good { background: var(--color-up, #22c55e); opacity: 0.85; }
+.yy-bar-mid { background: var(--warn, #f59e0b); opacity: 0.85; }
+.yy-bar-bad { background: var(--color-down, #ef4444); opacity: 0.85; }
 </style>
