@@ -161,6 +161,21 @@ footer{ margin-top:36px; font-size:0.78rem; color:var(--ink-faint); text-align:c
 
 <script>
 const DATA = [
+{date:'2026-08-17 01:00', range:'BBB1–BBB10', title:'自主循環優化：投資界量化與行為心法（Vince／Simons／Baruch／Klarman／Gartman／Loeb／Steinhardt／Greenblatt／Hite／Fisher）',
+ desc:'第十四輪自主優化：聚焦倉位數學最優化、統計優勢衰退監控、出場品質量化、耐心指數、尾部損失控制、集中度基尼係數、頻率績效相關、連虧回復速度、開倉最壞情境、持倉分位數。BBB1 BBB3 BBB6 BBB7 BBB10 擴充 JournalView；BBB4 在 DecisionView；BBB2 BBB5 BBB8 BBB9 在 RiskMonitorView。10/10 Playwright e2e 測試通過。',
+ items:[
+  {code:'BBB1', tag:'good', text:'JournalView 新增 Ralph Vince 最優倉位尺寸（Optimal f）。計算 f* = (p×W - (1-p)×L) / W，顯示理論最優下注比例與系統期望值。Vince：Kelly 準則在 R 單位系統的應用——最大化幾何成長率的最佳下注比例；期望值為負時 f* ≤ 0，任何倉位都是負期望，應先改善系統邊際。'},
+  {code:'BBB2', tag:'warn', text:'RiskMonitorView 新增 Jim Simons 統計優勢衰退偵測。計算歷史均值R vs 最近10筆均值R，差值（trend）< -0.1 且近期 < 歷史×70% 顯示衰退警告。Simons 的 Renaissance：持續監控統計優勢是否仍有效——優勢會因市場適應而消退，定期量化偵測比「感覺上好像沒以前好」更可靠。'},
+  {code:'BBB3', tag:'good', text:'JournalView 新增 Bernard Baruch 贏單出場品質評分。對所有有設目標的贏單計算 exitMove/targetMove 比率，顯示平均捕捉率和接近目標（≥90%）比率。Baruch：適時了結利潤和適時進場一樣重要；平均捕捉率 ≥ 70% 代表出場紀律良好，< 40% 代表過早獲利了結，讓贏家跑掉。'},
+  {code:'BBB4', tag:'good', text:'DecisionView 新增 Seth Klarman 耐心指數。按月份交易筆數分為≤2筆/月（耐心）/3-5筆/月（正常）/≥6筆/月（密集）三層，比較各層月均R；需≥3個月且≥2層有資料。Klarman：安全邊際投資人寧可空倉等待，也不強迫出手；若低頻月份均R顯著高於高頻月份，代表選擇性出手的品質更高。'},
+  {code:'BBB5', tag:'warn', text:'RiskMonitorView 新增 Dennis Gartman 最大單筆損失控制。計算|maxLoss| / avgWin 比率；≤ 2× 為受控，> 2× 顯示「損失失控」警告。Gartman 的鐵律：永遠不讓任何一筆損失超出可接受的範圍；若最大損失是平均贏單的 3-5 倍，代表至少有一次停損紀律嚴重崩潰。'},
+  {code:'BBB6', tag:'good', text:'JournalView 新增 Gerald Loeb 倉位集中度基尼係數。計算張數分布的 Gini 係數（0=完全均等，1=極度集中）；Gini > 0.3 代表有意義的差異化配置。Loeb：在你最有信念的機會集中押注，均等分配是缺乏信念的表現；基尼係數量化你是否真的根據信念差異化了倉位大小。'},
+  {code:'BBB7', tag:'good', text:'JournalView 新增 Michael Steinhardt 月頻率 vs 績效 Pearson 相關係數。計算月度交易筆數 vs 月度均值R的相關係數 r；r < -0.3 代表負相關（越少交易績效越好，高選擇性有效）。Steinhardt 的對比觀點：需要極高選擇性——若過度交易顯著降低績效，量化這個負相關讓系統紀律有數字依據。'},
+  {code:'BBB8', tag:'good', text:'RiskMonitorView 新增 Joel Greenblatt 最長虧損期回復速度。找到最長連虧序列，計算連虧損失總R，然後統計之後需要幾筆交易才能回復；回復筆數 ≤ 連虧筆數顯示「快速回彈」。Greenblatt：魔法公式的真正考驗在最壞的連虧期；能快速回彈的系統才值得長期堅守，是系統韌性的最誠實量化。'},
+  {code:'BBB9', tag:'warn', text:'RiskMonitorView 新增 Larry Hite 開倉最大損失情境。彙整所有有設停損的開倉部位，計算若全部停損的總損失（∑ |entry-stop| × lots）；顯示開倉數量和歷史平均虧損R作為對照。Hite 的 Mint Investment 核心風控：永遠知道你今天最大可能損失是多少，這是風控的基本要求，不能只看帳面盈虧。'},
+  {code:'BBB10', tag:'good', text:'JournalView 新增 Philip Fisher 持倉天數分位數（P25/P50/P75）。分別計算贏單和虧單的持倉天數三分位數，若贏單中位數 ≥ 虧單中位數顯示「讓利潤奔跑」。Fisher 的長線耐心：好公司需要時間驗證；P25/P50/P75 完整描述分布形態，比均值更能揭示你是否系統性地持贏單更久、快速出清虧單。'},
+ ]
+},
 {date:'2026-08-16 23:00', range:'AAA1–AAA10', title:'自主循環優化：投資界傳奇行為剖析（Buffett／Graham／Marks／Soros／Ricardo／Elder／Niederhoffer／Schwartz／Trout／Faith）',
  desc:'第十三輪自主優化：聚焦集中度效益、計畫品質驗證、情緒週期偵測、反身性追蹤、持倉不對稱、衝動交易偵測、序列自相關、星期幾績效、月收益波動性、系統遵守度。AAA1 AAA4 AAA5 AAA7 AAA8 擴充 JournalView；AAA2 AAA3 AAA6 在 DecisionView；AAA9 AAA10 在 RiskMonitorView。10/10 Playwright e2e 測試通過。',
  items:[
