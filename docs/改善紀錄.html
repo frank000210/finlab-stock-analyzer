@@ -161,6 +161,21 @@ footer{ margin-top:36px; font-size:0.78rem; color:var(--ink-faint); text-align:c
 
 <script>
 const DATA = [
+{date:'2026-08-16 23:00', range:'AAA1–AAA10', title:'自主循環優化：投資界傳奇行為剖析（Buffett／Graham／Marks／Soros／Ricardo／Elder／Niederhoffer／Schwartz／Trout／Faith）',
+ desc:'第十三輪自主優化：聚焦集中度效益、計畫品質驗證、情緒週期偵測、反身性追蹤、持倉不對稱、衝動交易偵測、序列自相關、星期幾績效、月收益波動性、系統遵守度。AAA1 AAA4 AAA5 AAA7 AAA8 擴充 JournalView；AAA2 AAA3 AAA6 在 DecisionView；AAA9 AAA10 在 RiskMonitorView。10/10 Playwright e2e 測試通過。',
+ items:[
+  {code:'AAA1', tag:'good', text:'JournalView 新增 Warren Buffett 最佳標的集中度效益卡。計算最高平均R標的 vs 其他所有標的的均值R對比；若集中有效（top > rest），顯示綠色「集中有效」。Buffett：你的最佳構想應是你表現最好的持倉；若集中無效，代表你的精力分散，最看好的標的反而不是最賺的。'},
+  {code:'AAA2', tag:'good', text:'DecisionView 新增 Benjamin Graham 計畫R:R品質分層。將已平倉交易依計畫R:R分成<1.5R（低）/1.5-2.5R（中）/>2.5R（高）三層，顯示各層實際平均R；驗證高計畫R:R設定是否真正帶來更高realized R。Graham：安全邊際——只有在有足夠勝算結構時才出手，測試計畫品質是否預測實際績效。'},
+  {code:'AAA3', tag:'warn', text:'DecisionView 新增 Howard Marks 連勝/連敗後倉位偏差卡。偵測2+連勝後的下一筆 lots vs 2+連敗後的下一筆 lots，顯示過度樂觀比率；> 1.3倍顯示「情緒週期偵測」警告。Marks：週期高點最過度自信；若連勝後倉位顯著更大，代表系統規模由情緒驅動，而非客觀風控規則。'},
+  {code:'AAA4', tag:'good', text:'JournalView 新增 George Soros 同標的反身性再進場追蹤。按 openDate 排序，比較各標的首次進場 R vs 第2次以後進場均值R；需≥2筆/標的。Soros 的反身性：市場自我強化機制讓盈利後繼續投入有時是有效的，但必須驗證你的系統在再進場時仍然有優勢，否則只是情緒性追高。'},
+  {code:'AAA5', tag:'good', text:'JournalView 新增 David Ricardo 勝損持倉時長不對稱比率。計算贏單平均持倉天數 / 虧單平均持倉天數；比率 ≥ 1.5 = 良好（讓贏家奔跑），< 1.0 = 倒置紀律（過早出場或拖延虧損）。Ricardo 三原則：讓利潤奔跑、快速認錯；持虧單比持贏單更久是最常見的系統崩潰原因之一。'},
+  {code:'AAA6', tag:'warn', text:'DecisionView 新增 Alexander Elder 衝動交易偵測器。統計已平倉虧損單出場後1天內再進場的比率（衝動/虧損筆數）；> 20% 顯示「復仇交易風險」。Elder：情緒化的復仇交易是帳戶殺手；出現虧損後應強制冷卻期，至少等1個交易日再重新評估，用系統信號而非情緒決策。'},
+  {code:'AAA7', tag:'good', text:'JournalView 新增 Victor Niederhoffer 序列自相關分析。計算 P(勝｜前一勝) vs P(勝｜前一敗) 的條件概率；若差值 > 20%，顯示「叢聚性強」警告。Niederhoffer：若勝負嚴重叢聚，交易者很可能正受心態狀態驅動（勝時更放鬆、敗時更緊張），而非系統驅動；理想情況下勝負序列應近似隨機。'},
+  {code:'AAA8', tag:'good', text:'JournalView 新增 Marty Schwartz 星期幾績效分布。按進場日的星期幾（週一～週五）分組，顯示平均R長條圖；需覆蓋≥2個工作日且共≥5筆。Schwartz：偉大交易員了解自己的節奏，知道哪天最清醒、哪天最衝動；週幾的系統性績效差異可能來自市場流動性、心理狀態或例行程序差異。'},
+  {code:'AAA9', tag:'good', text:'RiskMonitorView 新增 Monroe Trout 月收益波動性。按出場月份（YYYY-MM）彙整月度累計R，計算月度R均值與標準差；需≥3個月。Trout 是 Sharpe ratio 最高的 CTA 之一；穩定的月度收益（低std）才是專業等級系統的標誌，而非偶爾的大月。'},
+  {code:'AAA10', tag:'good', text:'RiskMonitorView 新增 Curtis Faith 海龜系統遵守度儀表。計算已平倉交易中有設停損（stop≠null且≠entry）、有設目標（target同理）、兩者齊備的比率；需≥5筆。Faith 的《海龜特訓班》：Dennis 要求海龜在每筆交易前必須定義停損和規模；紀律是可量化的，合規率 < 90% 代表你在情緒化地跳過系統步驟。'},
+ ]
+},
 {date:'2026-08-16 21:00', range:'ZZ1–ZZ10', title:'自主循環優化：投資界傳奇心法驅動的系統行為深度剖析（Livermore／Taleb／Eckhardt／Druckenmiller／Williams／Lynch／Seykota／Dennis／Minervini／Schwager）',
  desc:'第十二輪自主優化：聚焦加碼行為偵測、波動率政策適應性、損益平衡安全邊際、大倉對應績效、持倉甜蜜區、個股淨P&L排名、標籤×月份熱圖、前瞻性連虧情境、進場品質分層、以及綜合巫師評分。ZZ1-ZZ6 擴充 JournalView；ZZ3 ZZ9 在 DecisionView；ZZ7 ZZ8 ZZ10 在 RiskMonitorView。10/10 Playwright e2e 測試通過。Docker 啟動等待 MongoDB 30s timeout 後方就緒，需等足 35s 再跑測試。',
  items:[
