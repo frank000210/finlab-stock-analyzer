@@ -215,6 +215,79 @@
       <p class="chart-sub" style="margin-top:0.5rem; padding: 0 1rem 0.75rem">R² ≥ 0.9 平滑，0.7-0.9 中等，&lt; 0.7 不穩定（高雜訊/高波動）。</p>
     </section>
 
+    <!-- ZZ7: Ed Seykota — Tag × Month Performance Heatmap -->
+    <section class="card chart-card zz-tag-month" v-if="tagMonthHeatmap">
+      <div class="section-header">
+        <div>
+          <h2>策略×月份績效熱圖</h2>
+          <p class="chart-sub">Seykota：了解系統在不同季節與策略標籤下的交互作用，強化在最佳制度的曝露。</p>
+        </div>
+      </div>
+      <div style="overflow-x:auto; padding: 0 1rem 1rem">
+        <table class="zz-heatmap-table">
+          <thead>
+            <tr>
+              <th class="muted" style="text-align:left; font-size:0.7rem; padding-right:8px">標籤\月</th>
+              <th v-for="m in tagMonthHeatmap.months" :key="m" class="muted" style="font-size:0.68rem">{{ m }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="row in tagMonthHeatmap.rows" :key="row.tag">
+              <td class="muted" style="font-size:0.75rem; white-space:nowrap; padding-right:8px; text-align:left">{{ row.tag }}</td>
+              <td v-for="(cell, idx) in row.cells" :key="idx" class="zz-heatmap-cell"
+                  :class="cell ? (cell.avg > 0.5 ? 'zz-heat-hot' : cell.avg > 0 ? 'zz-heat-warm' : 'zz-heat-cold') : 'zz-heat-empty'">
+                <span v-if="cell" style="font-size:0.68rem">{{ cell.avg > 0 ? '+' : '' }}{{ cell.avg.toFixed(1) }}</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ZZ8: Richard Dennis — Forward Loss Scenario Planning -->
+    <section class="card chart-card zz-forward-loss" v-if="forwardLossScenario">
+      <div class="section-header">
+        <div>
+          <h2>連虧情境推演</h2>
+          <p class="chart-sub">Dennis/Turtle：永遠先思考最壞情況再進場，預演連虧衝擊有助保持心理準備。</p>
+        </div>
+      </div>
+      <div class="r-curve-stats" style="padding: 0 1rem 0.5rem; flex-wrap: wrap; gap: 1rem">
+        <div v-for="s in forwardLossScenario.scenarios" :key="s.n" class="rc-stat">
+          <span class="rc-label">連虧 {{ s.n }} 筆</span>
+          <strong class="down">-{{ s.drawdown.toFixed(1) }}R</strong>
+        </div>
+        <div class="rc-stat">
+          <span class="rc-label">歷史最長連虧</span>
+          <strong>{{ forwardLossScenario.maxStreak }} 筆</strong>
+        </div>
+      </div>
+      <p class="chart-sub" style="padding: 0 1rem 0.75rem">平均部位 {{ forwardLossScenario.avgLots }} 張，以每筆 -1R×張數估算連虧損失。</p>
+    </section>
+
+    <!-- ZZ10: Jack Schwager — Composite Wizard Score -->
+    <section class="card chart-card zz-wizard-score" v-if="wizardScore">
+      <div class="section-header">
+        <div>
+          <h2>綜合向導分數（Schwager）</h2>
+          <p class="chart-sub">市場向導共同特質：SQN 品質 + 曲線平滑 + 恢復力 + 右尾特性 + 月度一致性</p>
+        </div>
+        <div class="rc-stat" style="text-align:right; align-items:flex-end">
+          <span class="rc-label">{{ wizardScore.label }}</span>
+          <strong :class="wizardScore.total >= 60 ? 'up' : 'warn'" style="font-size:1.5rem">{{ wizardScore.total }}</strong>
+        </div>
+      </div>
+      <div class="zz-wizard-bars">
+        <div v-for="c in wizardScore.components" :key="c.name" class="zz-wizard-row">
+          <span class="rc-label" style="min-width:72px; font-size:0.72rem">{{ c.name }}</span>
+          <div class="zz-wizard-bar-bg">
+            <div class="zz-wizard-bar-fill" :style="{ width: (c.score / c.max * 100) + '%' }"></div>
+          </div>
+          <span class="muted" style="font-size:0.72rem; min-width:36px; text-align:right">{{ c.score }}/{{ c.max }}</span>
+        </div>
+      </div>
+    </section>
+
     <section class="card chart-card">
       <div class="section-header">
         <div>
@@ -402,6 +475,113 @@ const equityCurveR2 = computed(() => {
   const cls = r2 >= 0.9 ? 'up' : r2 >= 0.7 ? 'warn' : 'down'
   const label = r2 >= 0.9 ? '平滑' : r2 >= 0.7 ? '中等' : '不穩定'
   return { r2, slope, cls, label }
+})
+
+// ZZ7: 策略×月份績效熱圖（Ed Seykota：識別哪些策略標籤在哪些月份有優勢，在最佳組合加大曝露）
+const tagMonthHeatmap = computed(() => {
+  const trades = closedTrades.value.filter(t => t.exitDate && t.tag)
+  if (trades.length < 10) return null
+  const tags = [...new Set(trades.map(t => t.tag))].sort()
+  if (tags.length < 2) return null
+  const monthNums = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+  const grid = {}
+  tags.forEach(tag => { grid[tag] = {}; monthNums.forEach(m => { grid[tag][m] = [] }) })
+  trades.forEach(t => {
+    const m = new Date(t.exitDate).getMonth() + 1
+    if (grid[t.tag]) grid[t.tag][m].push(realizedR(t))
+  })
+  const activeMonths = monthNums.filter(m => tags.some(tag => grid[tag][m].length > 0))
+  if (activeMonths.length < 2) return null
+  const rows = tags.map(tag => ({
+    tag,
+    cells: activeMonths.map(m => {
+      const arr = grid[tag][m]
+      return arr.length ? { avg: arr.reduce((a, b) => a + b, 0) / arr.length, n: arr.length } : null
+    }),
+  }))
+  return { rows, months: activeMonths.map(String) }
+})
+
+// ZZ8: 連虧情境推演（Richard Dennis：永遠先計算最壞情況，讓自己在面對連虧時保持冷靜而非驚慌）
+const forwardLossScenario = computed(() => {
+  const trades = closedTrades.value
+  if (trades.length < 5) return null
+  const avgLots = trades.reduce((a, t) => a + (t.lots || 1), 0) / trades.length
+  const scenarios = [3, 5, 10].map(n => ({ n, drawdown: n * avgLots }))
+  const sorted = [...trades].filter(t => t.exitDate)
+    .sort((a, b) => new Date(a.exitDate) - new Date(b.exitDate))
+  let maxStreak = 0, streak = 0
+  sorted.forEach(t => {
+    if (realizedR(t) < 0) { streak++; maxStreak = Math.max(maxStreak, streak) }
+    else streak = 0
+  })
+  return { scenarios, maxStreak, avgLots: Math.round(avgLots * 10) / 10 }
+})
+
+// ZZ10: 綜合向導分數（Jack Schwager：市場向導的共通特質可量化為複合指標，追蹤整體系統成熟度）
+const wizardScore = computed(() => {
+  const cl = closedTrades.value
+  if (cl.length < 20) return null
+  const Rs = cl.map(realizedR)
+  const N = Math.min(Rs.length, 100)
+  const mean = Rs.reduce((a, b) => a + b, 0) / Rs.length
+  const variance = Rs.reduce((a, b) => a + (b - mean) ** 2, 0) / Rs.length
+  const sqn = variance > 0 ? mean / Math.sqrt(variance) * Math.sqrt(N) : 0
+  const sqnScore = Math.min(30, Math.max(0, sqn * 10))
+
+  const sorted2 = [...cl].filter(t => t.exitDate)
+    .sort((a, b) => new Date(a.exitDate) - new Date(b.exitDate))
+  let cumR2 = 0
+  const cumRs2 = sorted2.map(t => { cumR2 += realizedR(t); return cumR2 })
+  const n2 = cumRs2.length
+  const xMean2 = (n2 - 1) / 2
+  const yMean2 = cumRs2.reduce((a, b) => a + b, 0) / n2
+  let ssXY2 = 0, ssXX2 = 0, ssTot2 = 0
+  cumRs2.forEach((y, x) => { ssXY2 += (x - xMean2) * (y - yMean2); ssXX2 += (x - xMean2) ** 2; ssTot2 += (y - yMean2) ** 2 })
+  const slope2 = ssXX2 ? ssXY2 / ssXX2 : 0
+  const intercept2 = yMean2 - slope2 * xMean2
+  const ssRes2 = cumRs2.reduce((s, y, x) => s + (y - (slope2 * x + intercept2)) ** 2, 0)
+  const r2val = ssTot2 > 0 ? Math.max(0, 1 - ssRes2 / ssTot2) : 0
+  const r2Score = Math.min(20, Math.max(0, r2val * 20))
+
+  let peak2 = 0, maxDD2 = 0
+  cumRs2.forEach(r => { if (r > peak2) peak2 = r; maxDD2 = Math.max(maxDD2, peak2 - r) })
+  const rf = maxDD2 > 0 ? cumR2 / maxDD2 : (cumR2 > 0 ? 5 : 0)
+  const rfScore = Math.min(20, Math.max(0, rf * 4))
+
+  const wins2 = Rs.filter(r => r > 0).sort((a, b) => b - a)
+  let outlierScore = 0
+  if (wins2.length >= 3) {
+    const topN2 = Math.max(1, Math.ceil(wins2.length * 0.1))
+    const topSum2 = wins2.slice(0, topN2).reduce((a, b) => a + b, 0)
+    const totalGross2 = wins2.reduce((a, b) => a + b, 0)
+    const pct2 = totalGross2 > 0 ? topSum2 / totalGross2 : 0
+    outlierScore = Math.min(15, Math.max(0, pct2 * 37.5))
+  }
+
+  const byMonth2 = {}
+  cl.filter(t => t.exitDate).forEach(t => {
+    const key = t.exitDate.slice(0, 7)
+    if (!byMonth2[key]) byMonth2[key] = []
+    byMonth2[key].push(realizedR(t))
+  })
+  const monthArr2 = Object.values(byMonth2)
+  const posMonths2 = monthArr2.filter(arr => arr.reduce((a, b) => a + b, 0) > 0).length
+  const monthWinRate2 = monthArr2.length ? posMonths2 / monthArr2.length : 0
+  const monthScore = Math.min(15, Math.max(0, monthWinRate2 * 21.4))
+
+  const total = sqnScore + r2Score + rfScore + outlierScore + monthScore
+  const label = total >= 80 ? 'Exceptional' : total >= 60 ? 'Proficient' : total >= 40 ? 'Competent' : 'Developing'
+  return {
+    total: Math.round(total), label,
+    components: [
+      { name: 'SQN 品質', score: Math.round(sqnScore), max: 30 },
+      { name: 'R² 平滑度', score: Math.round(r2Score), max: 20 },
+      { name: '恢復係數', score: Math.round(rfScore), max: 20 },
+      { name: '離群貢獻', score: Math.round(outlierScore), max: 15 },
+      { name: '正報月率', score: Math.round(monthScore), max: 15 },
+    ],
+  }
 })
 
 // TT8: R 曲線最大回撤（單位：R，跨帳戶大小可比較）
@@ -797,6 +977,19 @@ function statusClass(status) {
 /* YY8/YY9 */
 .yy-phase-row { display: flex; gap: 1rem; margin-top: 0.75rem; padding: 0 1rem 0.75rem; }
 .yy-phase-col { display: flex; flex-direction: column; flex: 1; align-items: center; gap: 4px; padding: 0.5rem; background: var(--color-surface); border-radius: 6px; text-align: center; }
+
+/* ZZ7 ZZ8 ZZ10 */
+.zz-heatmap-table { border-collapse: collapse; font-size: 0.78rem; }
+.zz-heatmap-table th, .zz-heatmap-table td { padding: 4px 6px; text-align: center; border: 1px solid var(--color-surface); }
+.zz-heatmap-cell { min-width: 32px; }
+.zz-heat-hot { background: rgba(34,197,94,0.4); }
+.zz-heat-warm { background: rgba(34,197,94,0.15); }
+.zz-heat-cold { background: rgba(239,68,68,0.22); }
+.zz-heat-empty { background: transparent; }
+.zz-wizard-bars { display: flex; flex-direction: column; gap: 7px; padding: 0 1rem 1rem; }
+.zz-wizard-row { display: flex; align-items: center; gap: 8px; }
+.zz-wizard-bar-bg { flex: 1; height: 10px; background: var(--color-surface); border-radius: 5px; overflow: hidden; }
+.zz-wizard-bar-fill { height: 100%; background: var(--color-up, #22c55e); border-radius: 5px; }
 
 /* XX7 drawdown episode table */
 .dd-episode-block { flex-direction: column; }

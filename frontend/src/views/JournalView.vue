@@ -674,6 +674,98 @@
           <p class="scard-hint muted" v-else>贏單分布偏均勻，前 10% 貢獻 &lt; 40%，可能習慣提早獲利了結，減少了大行情的捕捉。</p>
         </div>
 
+        <!-- ZZ1: Jesse Livermore — Never Average a Loss -->
+        <div class="scard zz-avgdown-card" v-if="avgDownDetector">
+          <span class="slabel">連虧重入率（Livermore：永遠不要攤平虧損，虧損後同標的立即重入是危險信號）</span>
+          <div class="sc-row">
+            <div class="sc-val" :class="avgDownDetector.risky ? 'down' : 'up'">
+              <strong>{{ (avgDownDetector.rate * 100).toFixed(0) }}%</strong>
+              <small class="muted">虧後14天內同標重入率</small>
+            </div>
+            <div class="sc-val">
+              <strong>{{ avgDownDetector.incidents }}/{{ avgDownDetector.total }}</strong>
+              <small class="muted">重入次/虧損後機會</small>
+            </div>
+          </div>
+          <p class="scard-hint muted" v-if="avgDownDetector.risky">⚠ 虧損後頻繁重入同標的，疑似情緒驅動的攤平行為，請確認每次均為全新設定而非加碼。</p>
+          <p class="scard-hint muted" v-else>連虧後重入比率低，展現 Livermore 紀律：讓虧損的倉位自然出局，不用新倉補救舊倉。</p>
+        </div>
+
+        <!-- ZZ2: Nassim Taleb — Volatility Regime Performance -->
+        <div class="scard zz-volreg-card" v-if="volatilityRegime">
+          <span class="slabel">波動制度績效（Taleb：真正反脆弱的系統在各種波動環境下均具正期望值）</span>
+          <div class="sc-row">
+            <div v-for="tier in volatilityRegime.tiers" :key="tier.label" class="sc-val">
+              <strong :class="tier.avgR > 0 ? 'up' : 'down'">{{ tier.avgR > 0 ? '+' : '' }}{{ tier.avgR.toFixed(2) }}R</strong>
+              <small class="muted">{{ tier.label }}</small>
+              <small class="muted">{{ tier.n }} 筆</small>
+            </div>
+          </div>
+          <p class="scard-hint muted">依停損距離%分層（緊&lt;2%，中2-4%，寬&gt;4%），各制度均為正均值代表系統具廣譜穩健性。</p>
+        </div>
+
+        <!-- ZZ4: Stan Druckenmiller — High-Conviction Sizing Check -->
+        <div class="scard zz-conviction-card" v-if="convictionAvgR">
+          <span class="slabel">高信念倉位驗證（Druckenmiller：真正的信念應反映在部位大小，且大倉績效要更優）</span>
+          <div class="sc-row">
+            <div class="sc-val" :class="convictionAvgR.bigAvg > 0 ? 'up' : 'down'">
+              <strong>{{ convictionAvgR.bigAvg > 0 ? '+' : '' }}{{ convictionAvgR.bigAvg.toFixed(2) }}R</strong>
+              <small class="muted">大倉平均 R</small>
+            </div>
+            <div class="sc-val" :class="convictionAvgR.smallAvg > 0 ? 'up' : 'down'">
+              <strong>{{ convictionAvgR.smallAvg > 0 ? '+' : '' }}{{ convictionAvgR.smallAvg.toFixed(2) }}R</strong>
+              <small class="muted">小倉平均 R</small>
+            </div>
+            <div class="sc-val" :class="convictionAvgR.healthy ? 'up' : 'down'">
+              <strong>{{ convictionAvgR.gap > 0 ? '+' : '' }}{{ convictionAvgR.gap.toFixed(2) }}R</strong>
+              <small class="muted">大倉超額 R</small>
+            </div>
+          </div>
+          <p class="scard-hint muted" v-if="convictionAvgR.healthy">大倉平均R優於小倉，倉位大小與進場信念正相關，Druckenmiller 式加碼紀律良好。</p>
+          <p class="scard-hint muted" v-else>⚠ 大倉表現遜於小倉，可能在情緒或直覺驅動下放大倉位，而非依據更強的系統信號。</p>
+        </div>
+
+        <!-- ZZ5: Larry Williams — Hold Duration Sweet Spot -->
+        <div class="scard zz-duration-card" v-if="holdDurationSweetSpot">
+          <span class="slabel">持倉天數甜蜜點（Williams：了解策略的最佳持倉時間，在對的時間出場）</span>
+          <div class="zz-dur-bars">
+            <div v-for="b in holdDurationSweetSpot" :key="b.label" class="zz-dur-col">
+              <div class="zz-dur-bar-bg">
+                <div v-if="b.n > 0" class="zz-dur-bar-fill"
+                     :class="(b.avgR || 0) > 0 ? 'zz-bar-up' : 'zz-bar-down'"
+                     :style="{ height: Math.min(100, Math.abs(b.avgR || 0) * 20 + 5) + '%' }"></div>
+              </div>
+              <span class="muted" style="font-size:0.65rem">{{ b.label }}</span>
+              <span style="font-size:0.72rem" :class="b.avgR > 0 ? 'up' : b.n > 0 ? 'down' : ''">
+                {{ b.n > 0 ? ((b.avgR > 0 ? '+' : '') + b.avgR.toFixed(2) + 'R') : '–' }}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- ZZ6: Peter Lynch — Symbol Net P&L Ranking -->
+        <div class="scard zz-symbol-pnl" v-if="symbolNetPnl">
+          <span class="slabel">標的淨貢獻排名（Lynch：了解你持有的每個標的，確認哪些真正在幫你賺錢）</span>
+          <div class="zz-symbol-row">
+            <div class="zz-symbol-group">
+              <span class="muted" style="font-size:0.7rem">▲ 貢獻最大</span>
+              <div v-for="s in symbolNetPnl.top" :key="s.symbol" class="zz-symbol-item">
+                <span class="zz-sym-code mono">{{ s.symbol }}</span>
+                <span :class="s.netR >= 0 ? 'up' : 'down'" style="font-size:0.85rem">{{ s.netR >= 0 ? '+' : '' }}{{ s.netR.toFixed(1) }}R</span>
+                <span class="muted" style="font-size:0.65rem">{{ s.n }}筆</span>
+              </div>
+            </div>
+            <div class="zz-symbol-group" v-if="symbolNetPnl.bottom.length">
+              <span class="muted" style="font-size:0.7rem">▼ 拖累最大</span>
+              <div v-for="s in symbolNetPnl.bottom" :key="s.symbol" class="zz-symbol-item">
+                <span class="zz-sym-code mono">{{ s.symbol }}</span>
+                <span class="down" style="font-size:0.85rem">{{ s.netR >= 0 ? '+' : '' }}{{ s.netR.toFixed(1) }}R</span>
+                <span class="muted" style="font-size:0.65rem">{{ s.n }}筆</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- TT4: 月份績效柱狀圖 (full width) -->
         <div class="an-block an-block--full" v-if="monthlyPerfBars">
           <span class="slabel">月份績效（月別累計 R）——觀察是否有季節性弱點</span>
@@ -1956,6 +2048,109 @@ const outlierContribution = computed(() => {
   return { pct, topN, topSum, totalR, withoutOutliers: totalR - topSum, healthy: pct > 40 }
 })
 
+// ZZ1: 連虧重入率（Jesse Livermore：永遠不要攤平虧損，虧損後立即重入同標的是最常見的情緒交易行為）
+const avgDownDetector = computed(() => {
+  const cl = closedTrades.value.filter(t => t.symbol && t.exitDate)
+  if (cl.length < 5) return null
+  const bySymbol = {}
+  cl.forEach(t => {
+    if (!bySymbol[t.symbol]) bySymbol[t.symbol] = []
+    bySymbol[t.symbol].push(t)
+  })
+  let incidents = 0, total = 0
+  Object.values(bySymbol).forEach(trades => {
+    const sorted = [...trades].sort((a, b) => new Date(a.openDate) - new Date(b.openDate))
+    for (let i = 0; i < sorted.length - 1; i++) {
+      if (realizedR(sorted[i]) < 0) {
+        total++
+        const gap = (new Date(sorted[i + 1].openDate) - new Date(sorted[i].exitDate)) / 86400000
+        if (gap >= 0 && gap <= 14) incidents++
+      }
+    }
+  })
+  if (total === 0) return null
+  return { incidents, total, rate: incidents / total, risky: incidents / total > 0.3 }
+})
+
+// ZZ2: 波動制度績效（Nassim Taleb：反脆弱系統在緊縮與寬鬆停損制度下均有優勢，而非只在單一環境有效）
+const volatilityRegime = computed(() => {
+  const trades = closedTrades.value.filter(t => t.entry && t.stop && t.exit)
+  if (trades.length < 5) return null
+  const buckets = { tight: [], medium: [], loose: [] }
+  trades.forEach(t => {
+    const stopPct = Math.abs(t.entry - t.stop) / t.entry * 100
+    const R = realizedR(t)
+    if (stopPct < 2) buckets.tight.push(R)
+    else if (stopPct < 4) buckets.medium.push(R)
+    else buckets.loose.push(R)
+  })
+  const tiers = [
+    { label: '緊(<2%)', arr: buckets.tight },
+    { label: '中(2-4%)', arr: buckets.medium },
+    { label: '寬(>4%)', arr: buckets.loose },
+  ].map(t => ({
+    label: t.label,
+    n: t.arr.length,
+    avgR: t.arr.length ? t.arr.reduce((a, b) => a + b, 0) / t.arr.length : 0,
+  })).filter(t => t.n > 0)
+  if (tiers.length < 2) return null
+  return { tiers }
+})
+
+// ZZ4: 高信念倉位驗證（Stan Druckenmiller：只有在真正有信念時才放大部位，且大倉應有更好的平均R）
+const convictionAvgR = computed(() => {
+  const trades = closedTrades.value
+  if (trades.length < 10) return null
+  const lotsArr = trades.map(t => t.lots || 1).sort((a, b) => a - b)
+  const median = lotsArr[Math.floor(lotsArr.length / 2)]
+  const big = trades.filter(t => (t.lots || 1) > median).map(realizedR)
+  const small = trades.filter(t => (t.lots || 1) <= median).map(realizedR)
+  if (!big.length || !small.length) return null
+  const bigAvg = big.reduce((a, b) => a + b, 0) / big.length
+  const smallAvg = small.reduce((a, b) => a + b, 0) / small.length
+  return { bigAvg, smallAvg, healthy: bigAvg > smallAvg, gap: bigAvg - smallAvg }
+})
+
+// ZZ5: 持倉天數甜蜜點（Larry Williams：每個策略都有最佳持倉週期，識別它才能在最適時機出場）
+const holdDurationSweetSpot = computed(() => {
+  const trades = closedTrades.value.filter(t => t.openDate && t.exitDate)
+  if (trades.length < 5) return null
+  const buckets = [
+    { label: '≤1天', min: 0, max: 1, Rs: [] },
+    { label: '2-5天', min: 2, max: 5, Rs: [] },
+    { label: '6-14天', min: 6, max: 14, Rs: [] },
+    { label: '≥15天', min: 15, max: Infinity, Rs: [] },
+  ]
+  trades.forEach(t => {
+    const days = Math.round((new Date(t.exitDate) - new Date(t.openDate)) / 86400000)
+    const b = buckets.find(bk => days >= bk.min && days <= bk.max)
+    if (b) b.Rs.push(realizedR(t))
+  })
+  return buckets.map(b => ({
+    label: b.label, n: b.Rs.length,
+    avgR: b.Rs.length ? b.Rs.reduce((a, v) => a + v, 0) / b.Rs.length : null,
+  }))
+})
+
+// ZZ6: 標的淨貢獻排名（Peter Lynch：了解你持有的每一個標的，知道哪些真正在幫你創造Alpha）
+const symbolNetPnl = computed(() => {
+  if (closedTrades.value.length < 5) return null
+  const bySymbol = {}
+  closedTrades.value.forEach(t => {
+    const R = realizedR(t)
+    if (!bySymbol[t.symbol]) bySymbol[t.symbol] = { symbol: t.symbol, netR: 0, n: 0 }
+    bySymbol[t.symbol].netR += R
+    bySymbol[t.symbol].n++
+  })
+  const syms = Object.values(bySymbol).sort((a, b) => b.netR - a.netR)
+  if (syms.length < 2) return null
+  const topN = Math.min(3, syms.length)
+  const botN = syms.length > 3 ? Math.min(3, syms.length - topN) : 0
+  const top = syms.slice(0, topN)
+  const bottom = botN > 0 ? [...syms.slice(syms.length - botN)].reverse() : []
+  return { top, bottom, total: syms.length }
+})
+
 function fmt(v) {
   if (v == null || (typeof v === 'number' && isNaN(v))) return '—'
   if (v === Infinity) return '∞'
@@ -2325,4 +2520,15 @@ onMounted(() => {
 .ai-coach-box { margin-top: 10px; border: 1px dashed var(--border-color); border-radius: 10px; padding: 10px 12px; font-size: 0.86rem; }
 .ai-coach-box p { margin: 6px 0; color: var(--text-secondary); line-height: 1.7; }
 .ai-coach-box :deep(strong) { color: var(--text-primary); }
+/* ZZ1-ZZ6 */
+.zz-dur-bars { display: flex; gap: 4px; align-items: flex-end; height: 60px; margin: 0.75rem 0; }
+.zz-dur-col { display: flex; flex-direction: column; align-items: center; flex: 1; height: 100%; gap: 2px; }
+.zz-dur-bar-bg { flex: 1; width: 100%; background: var(--color-surface); border-radius: 3px; display: flex; align-items: flex-end; }
+.zz-dur-bar-fill { width: 100%; border-radius: 3px; }
+.zz-bar-up { background: var(--color-up, #22c55e); opacity: 0.85; }
+.zz-bar-down { background: var(--color-down, #ef4444); opacity: 0.85; }
+.zz-symbol-row { display: flex; gap: 1.25rem; margin-top: 0.5rem; flex-wrap: wrap; }
+.zz-symbol-group { display: flex; flex-direction: column; gap: 4px; min-width: 110px; }
+.zz-symbol-item { display: flex; gap: 6px; align-items: center; }
+.zz-sym-code { font-size: 0.82rem; }
 </style>

@@ -189,6 +189,54 @@
       <p class="plan-hint muted">Douglas：一致的開盤前例行程序是穩定心態的基礎。近30天完成 {{ checklistCompliance.done }} 天，上週 {{ checklistCompliance.lastWeekDone }}/7 天。</p>
     </section>
 
+    <!-- ZZ3: William Eckhardt — Breakeven Safety Margin -->
+    <section class="daily-plan-card card zz-breakeven-card" v-if="breakEvenMargin">
+      <div class="plan-title-row" style="margin-bottom: 8px">
+        <span class="plan-icon">⚖️</span>
+        <h2 class="plan-title">損益平衡安全邊際（Eckhardt）</h2>
+        <span class="plan-status" :class="breakEvenMargin.wMargin > 0 ? 'plan-set' : 'plan-unset'">
+          {{ breakEvenMargin.wMargin > 0 ? '正向優勢' : '⚠ 邊際不足' }}
+        </span>
+      </div>
+      <div class="sc-row">
+        <div class="sc-val">
+          <strong>{{ (breakEvenMargin.actualW * 100).toFixed(0) }}%</strong>
+          <small class="muted">實際勝率</small>
+        </div>
+        <div class="sc-val" :class="breakEvenMargin.wMargin > 0 ? 'up' : 'down'">
+          <strong>{{ (breakEvenMargin.requiredW * 100).toFixed(0) }}%</strong>
+          <small class="muted">損平所需勝率</small>
+        </div>
+        <div class="sc-val">
+          <strong>{{ breakEvenMargin.actualRR.toFixed(2) }}</strong>
+          <small class="muted">實際 R:R</small>
+        </div>
+        <div class="sc-val" :class="breakEvenMargin.rrMargin > 0 ? 'up' : 'down'">
+          <strong>{{ breakEvenMargin.requiredRR.toFixed(2) }}</strong>
+          <small class="muted">損平所需 R:R</small>
+        </div>
+      </div>
+      <p class="plan-hint muted">Eckhardt：勝率安全邊際 {{ breakEvenMargin.wMargin >= 0 ? '+' : '' }}{{ (breakEvenMargin.wMargin * 100).toFixed(1) }}%，R:R 安全邊際 {{ breakEvenMargin.rrMargin >= 0 ? '+' : '' }}{{ breakEvenMargin.rrMargin.toFixed(2) }}。兩者均為正才代表系統具備可持續數學優勢。</p>
+    </section>
+
+    <!-- ZZ9: Mark Minervini — Setup Risk% Tier Distribution -->
+    <section class="daily-plan-card card zz-setup-tier" v-if="setupTierDist">
+      <div class="plan-title-row" style="margin-bottom: 8px">
+        <span class="plan-icon">🎯</span>
+        <h2 class="plan-title">進場品質分層（Minervini）</h2>
+      </div>
+      <div class="sc-row">
+        <div v-for="tier in setupTierDist" :key="tier.label" class="sc-val" style="min-width:100px">
+          <strong :class="tier.n > 0 && tier.winRate >= 0.6 ? 'up' : tier.n > 0 ? 'warn' : ''">
+            {{ tier.n > 0 ? (tier.winRate * 100).toFixed(0) + '%' : '–' }}
+          </strong>
+          <small class="muted">{{ tier.label }}</small>
+          <small class="muted" v-if="tier.n > 0">{{ tier.n }}筆 {{ tier.avgR >= 0 ? '+' : '' }}{{ tier.avgR.toFixed(2) }}R</small>
+        </div>
+      </div>
+      <p class="plan-hint muted">Minervini：緊縮停損（&lt;2% 風險）允許用相同資金放更大部位且限制損失。進場品質越好，系統整體每筆 R 越高。</p>
+    </section>
+
     <section class="top-grid">
       <article class="market-pulse card">
         <div class="panel-head">
@@ -631,6 +679,53 @@ const checklistCompliance = computed(() => {
     if (done === 0) return null
     return { done, pct: done / 30 * 100, lastWeekDone }
   } catch { return null }
+})
+
+// ZZ helper — realizedR for use within DecisionView (not imported from composable)
+const _zzR = (t) => (!t.entry || !t.stop || !t.exit) ? 0 : (Number(t.exit) - Number(t.entry)) / Math.abs(Number(t.entry) - Number(t.stop))
+const _zzClosed = () => {
+  try { return JSON.parse(localStorage.getItem('finlab_trade_journal') || '[]').filter(t => t.status === 'closed') } catch { return [] }
+}
+
+// ZZ3: 損益平衡安全邊際（William Eckhardt：系統優勢的雙維度驗證——勝率邊際 + R:R邊際，兩者同時為正才是真正的正期望）
+const breakEvenMargin = computed(() => {
+  const closed = _zzClosed()
+  if (closed.length < 10) return null
+  const Rs = closed.map(_zzR)
+  const wins = Rs.filter(r => r > 0)
+  const losses = Rs.filter(r => r < 0)
+  if (!wins.length || !losses.length) return null
+  const avgWin = wins.reduce((a, b) => a + b, 0) / wins.length
+  const avgLoss = Math.abs(losses.reduce((a, b) => a + b, 0) / losses.length)
+  if (avgLoss === 0) return null
+  const actualW = wins.length / Rs.length
+  const requiredW = avgLoss / (avgWin + avgLoss)
+  const actualRR = avgWin / avgLoss
+  const requiredRR = (1 - actualW) / actualW
+  return { actualW, requiredW, wMargin: actualW - requiredW, actualRR, requiredRR, rrMargin: actualRR - requiredRR }
+})
+
+// ZZ9: 進場品質分層（Mark Minervini：緊縮停損是選股大師的關鍵操作紀律，允許更大部位同時限縮最大損失）
+const setupTierDist = computed(() => {
+  const trades = _zzClosed().filter(t => t.entry && t.stop)
+  if (trades.length < 5) return null
+  const tiers = [
+    { label: '緊縮 <2%', Rs: [] },
+    { label: '適中 2-4%', Rs: [] },
+    { label: '寬鬆 >4%', Rs: [] },
+  ]
+  trades.forEach(t => {
+    const riskPct = Math.abs(t.entry - t.stop) / t.entry * 100
+    const R = _zzR(t)
+    if (riskPct < 2) tiers[0].Rs.push(R)
+    else if (riskPct <= 4) tiers[1].Rs.push(R)
+    else tiers[2].Rs.push(R)
+  })
+  return tiers.map(t => ({
+    label: t.label, n: t.Rs.length,
+    winRate: t.Rs.length ? t.Rs.filter(r => r > 0).length / t.Rs.length : 0,
+    avgR: t.Rs.length ? t.Rs.reduce((a, b) => a + b, 0) / t.Rs.length : 0,
+  }))
 })
 
 const filters = [
@@ -2312,4 +2407,6 @@ function toDateParam(value) {
 .yy-bar-good { background: var(--color-up, #22c55e); opacity: 0.85; }
 .yy-bar-mid { background: var(--warn, #f59e0b); opacity: 0.85; }
 .yy-bar-bad { background: var(--color-down, #ef4444); opacity: 0.85; }
+/* ZZ3 ZZ9 */
+.zz-breakeven-card, .zz-setup-tier { margin-bottom: 1rem; }
 </style>
