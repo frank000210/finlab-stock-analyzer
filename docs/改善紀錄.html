@@ -161,6 +161,36 @@ footer{ margin-top:36px; font-size:0.78rem; color:var(--ink-faint); text-align:c
 
 <script>
 const DATA = [
+{date:'2026-08-16 21:00', range:'ZZ1–ZZ10', title:'自主循環優化：投資界傳奇心法驅動的系統行為深度剖析（Livermore／Taleb／Eckhardt／Druckenmiller／Williams／Lynch／Seykota／Dennis／Minervini／Schwager）',
+ desc:'第十二輪自主優化：聚焦加碼行為偵測、波動率政策適應性、損益平衡安全邊際、大倉對應績效、持倉甜蜜區、個股淨P&L排名、標籤×月份熱圖、前瞻性連虧情境、進場品質分層、以及綜合巫師評分。ZZ1-ZZ6 擴充 JournalView；ZZ3 ZZ9 在 DecisionView；ZZ7 ZZ8 ZZ10 在 RiskMonitorView。10/10 Playwright e2e 測試通過。Docker 啟動等待 MongoDB 30s timeout 後方就緒，需等足 35s 再跑測試。',
+ items:[
+  {code:'ZZ1', tag:'warn', text:'JournalView 新增 Jesse Livermore 加碼偵測器。對已平倉的賠損單（R<0）追蹤：若同標的在 14 天內再次進場，計為「加碼事件」；顯示加碼率（事件數/賠損後機會數），> 30% 顯示警告。Livermore 的最大教訓：在虧損後加碼是毀滅性的，偵測此行為讓使用者看清自己是否在做「攤平」。'},
+  {code:'ZZ2', tag:'good', text:'JournalView 新增 Nassim Taleb 波動率政策績效表。按停損距離%分為緊(<2%)、中(2-4%)、寬(>4%)三個政策層，顯示各層的筆數與平均R。Taleb：不同波動率政策下系統的績效分布，才能知道你的策略在哪種市場環境最有優勢，應動態調整部位大小而非固定規則。'},
+  {code:'ZZ3', tag:'good', text:'DecisionView 新增 William Eckhardt 損益平衡安全邊際卡。計算實際勝率 vs 損平所需勝率（avgLoss/(avgWin+avgLoss)），以及實際R:R vs 損平所需R:R（(1-W)/W）；兩個邊際均正才代表系統有真正的數學優勢。Eckhardt：用單一指標（勝率或R:R）判斷系統好壞是不夠的，必須雙維度同時為正。'},
+  {code:'ZZ4', tag:'good', text:'JournalView 新增 Stan Druckenmiller 高信念倉位驗證卡。按張數中位數分大倉/小倉兩組，比較兩組平均R；大倉均值 > 小倉均值 = 信念有回報，否則顯示警告。Druckenmiller 的精髓：確信時重壓，不確信時輕倉；若大倉績效更差，代表你加倉的判斷是情緒性的，不是基於信念的。'},
+  {code:'ZZ5', tag:'good', text:'JournalView 新增 Larry Williams 持倉甜蜜區分析。按出場日-入場日分為≤1天/2-5天/6-14天/≥15天四桶，顯示各桶筆數與平均R及視覺長條圖。Williams：每個策略都有最佳持倉時長，太早出或持太久都是傷害；透過甜蜜區量化，讓使用者知道自己的系統最適合多長持倉週期。'},
+  {code:'ZZ6', tag:'good', text:'JournalView 新增 Peter Lynch 個股淨P&L排名卡。按 symbol 彙整累積淨R，顯示前三名最佳/最差標的；需 ≥ 2 個不同標的。Lynch：Know what you own；識別哪些股票持續貢獻正值、哪些拖累績效，是分配研究時間和選股精力的依據，避免在爛股上反覆止損。'},
+  {code:'ZZ7', tag:'good', text:'RiskMonitorView 新增 Ed Seykota 標籤×月份 R 熱圖。以 tag 為行、月份為列，顯示各格的平均R；熱色分三級（正/微正/負）。Seykota：讓系統告訴你何時何類交易最有優勢；跨標籤×時間的二維熱圖能揭示季節性偏差，讓使用者在弱勢格子縮規模或停手。'},
+  {code:'ZZ8', tag:'warn', text:'RiskMonitorView 新增 Richard Dennis 前瞻連虧情境壓力測試。計算平均張數，模擬 3/5/10 連敗的總損失張數，同時顯示歷史最長連虧紀錄。Dennis：海龜必須在心理上提前接受任何可能的連虧期；若你不能接受 10 連虧的數字，現在的倉位就太大了。'},
+  {code:'ZZ9', tag:'good', text:'DecisionView 新增 Mark Minervini 進場品質分層分析。按停損距離%分為緊縮<2%/適中2-4%/寬鬆>4%三層，顯示各層筆數、勝率、平均R。Minervini 的 SEPA 理論：緊縮停損設定才能在失敗時損失最小，同時找到高勝率進場點；量化各停損層績效，讓使用者知道是否應更嚴格執行進場紀律。'},
+  {code:'ZZ10', tag:'good', text:'RiskMonitorView 新增 Jack Schwager 綜合巫師評分卡。五維度加權：SQN(30分)、權益曲線R²(20分)、獲利因子RF(20分)、離群貢獻(15分)、近月勝率(15分)，滿分100分，需 ≥ 20 筆。Schwager 訪問了最偉大的交易員後發現：沒有單一關鍵，而是多個維度同時表現優秀；綜合評分讓系統品質一目了然，也能追蹤各維度的弱項。'},
+ ]
+},
+{date:'2026-08-16 17:00', range:'YY1–YY10', title:'自主循環優化：投資界標竿心法驅動的系統品質與紀律度量（Van Tharp／Paul Tudor Jones／Ed Seykota／Tom Basso／Michael Covel／Bruce Kovner／Mark Douglas）',
+ desc:'第十一輪自主優化：聚焦系統品質量化（SQN）、催化劑選擇性、季節性勝率、倉位紀律、離群贏單、停損一致性、R:R達成、期望值演化、權益曲線平滑度、以及例行儀式合規率。YY1-YY5 擴充 JournalView；YY6 YY7 YY10 在 DecisionView；YY8 YY9 在 RiskMonitorView。10/10 Playwright e2e 測試通過。',
+ items:[
+  {code:'YY1', tag:'good', text:'JournalView 新增 Van Tharp SQN 系統品質分數卡。SQN = mean(R)/std(R)×√min(N,100)，需 ≥ 20 筆才計算；≥3 優秀、≥2 良好、≥1 普通、<1 差。比勝率或 PF 更完整地評估系統邊際優勢，是評估是否值得交易的核心指標。'},
+  {code:'YY2', tag:'good', text:'JournalView 新增 Paul Tudor Jones 催化劑績效分層表。按 catalyst 欄位分組，顯示各類型的筆數、勝率、均值R、獲利因子；需 ≥ 2 個催化劑類別且各 ≥ 2 筆。識別哪種進場理由最強，只做最強的設定類型是選擇性的核心。'},
+  {code:'YY3', tag:'good', text:'JournalView 新增 Ed Seykota 月份勝率模式 12 柱長條圖。按出場月份（1-12月）分組，顯示各月份歷史勝率；綠色 ≥ 60%、黃色 40-60%、紅色 < 40%。季節性感知讓使用者在弱勢月份主動降頻或縮部位規模。'},
+  {code:'YY4', tag:'warn', text:'JournalView 新增 Tom Basso 倉位大小績效相關卡。按中位數張數分為大小兩組，比較兩組勝率；若大單勝率 < 小單勝率 - 5% 顯示情緒化警告。系統化者的倉位大小不應影響勝率，差距代表大倉心理壓力干擾執行。'},
+  {code:'YY5', tag:'good', text:'JournalView 新增 Seykota/Covel 離群贏單貢獻度卡。前 10% 大贏佔總正R比重；> 40% = 健康右尾（讓贏家奔跑），同時顯示「移除離群後」的系統R，讓使用者感知系統對極端右尾的依賴程度。'},
+  {code:'YY6', tag:'good', text:'DecisionView 新增 Tom Basso 停損距離一致性（CV）卡。CV = std(停損距離%) / mean(停損距離%)；< 30% 判定為「系統化」，否則顯示「⚠ 不一致」。停損設定不一致代表進場前沒有標準化的風控流程，紀律性低。'},
+  {code:'YY7', tag:'good', text:'DecisionView 新增 Van Tharp 計畫 R:R 達成率分布圖。按 actualR/plannedRR 分成 5 個桶（<25%、25-50%、50-75%、75-100%、>100%），視覺化執行落差的分布；追蹤計畫執行落差才能找到改善點，是優化出場紀律的量化基礎。'},
+  {code:'YY8', tag:'good', text:'RiskMonitorView 新增 Bruce Kovner 期望值三階段分析。將已平倉交易按時間三等分（早期/中期/近期），比較各階段平均R；近期均值 > 早期均值代表「持續改善」。追蹤系統是否在學習進化，是自我評估的最誠實指標。'},
+  {code:'YY9', tag:'good', text:'RiskMonitorView 新增 Ed Seykota 權益曲線平滑度 R² 分析。對累積R序列做線性迴歸，R² = 1 - ssRes/ssTot；≥ 0.9 平滑、≥ 0.7 中等、< 0.7 不穩定。好系統的equity curve接近直線向上，R²衡量此特性而不被單一大虧或大贏干擾。'},
+  {code:'YY10', tag:'good', text:'DecisionView 新增 Mark Douglas 開盤前清單合規率卡。掃描最近 30 天 localStorage（finlab_pretrade_chk_YYYY-MM-DD）的完成天數，同時顯示近7天完成率；一致的例行程序是穩定心態的基礎，合規率 < 50% 代表儀式感不足，紀律來自習慣。'},
+ ]
+},
 {date:'2026-08-16 09:00', range:'XX1–XX10', title:'自主循環優化：投資界標竿心法驅動的交易診斷深化（Ed Thorp／Nick Radge／Darvas／Dalio／Covel／CTA PF／Richard Dennis／Martin Schwartz／George Soros／William O\'Neil）',
  desc:'第十輪自主優化：聚焦數學最優化、動態停手機制、分散紀律、以及交易評分系統化。XX1-XX2 XX5-XX6 XX8-XX10 擴充 JournalView 分析模組；XX3 XX4 在 DecisionView 建立開倉監控機制；XX7 在 RiskMonitorView 加入回撤週期追蹤器。',
  items:[
