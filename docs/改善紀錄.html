@@ -161,6 +161,21 @@ footer{ margin-top:36px; font-size:0.78rem; color:var(--ink-faint); text-align:c
 
 <script>
 const DATA = [
+{date:'2026-08-17 03:00', range:'CCC1–CCC10', title:'自主循環優化：投資界量化與選擇紀律心法（Livermore／Darvas／O\'Neil／Weinstein／Seykota／Minervini／PTJ／Tharp／Kovner／Donchian）',
+ desc:'第十五輪自主優化（三次自我審查通過）：聚焦入場計劃品質、標的選擇性、催化劑效益、系統進化趨勢、損失控制頻率、入場緊度效益、R倍數分布、系統品質指數、標的集中度、趨勢持倉動能。CCC1/2/3/6/7/10 擴充 JournalView；CCC4/5/8 在 RiskMonitorView；CCC9 在 DecisionView。10/10 Playwright e2e 測試通過（26.5s）。',
+ items:[
+  {code:'CCC1', tag:'good', text:'JournalView 新增 Jesse Livermore 計劃風報比分布。計算所有有目標交易的 (target-entry)/(entry-stop) 比率，分成 <1R / 1-2R / ≥2R 三桶。Livermore：只進入期望值為正且有利的機會；≥2R 計劃佔比 ≥ 60% 代表入場前就有良好紀律，不是進場後靠好運撐場。'},
+  {code:'CCC2', tag:'good', text:'JournalView 新增 Nicolas Darvas 標的選擇性指數。統計不重複標的數、每標的均操作次數、只操作一次的標的比例。Darvas 深入研究後才行動；avgTradesPerSymbol > 3 警示過度集中單一標的可能缺乏新機會探索，onceOnlyPct ≥ 60% 表示操作標的多元。'},
+  {code:'CCC3', tag:'good', text:'JournalView 新增 William O\'Neil CAN SLIM 催化劑勝率分析。按 catalyst 標籤分組計算勝率，顯示橫條圖排序。O\'Neil：N = 新催化劑（新產品/新法規/新趨勢）是 CAN SLIM 買進信號；量化哪種催化劑實際帶來更高勝率，讓選股邏輯有數字依據。'},
+  {code:'CCC4', tag:'warn', text:'RiskMonitorView 新增 Stan Weinstein 滾動勝率趨勢。比較首10筆 vs 最近10筆勝率，判斷系統是否持續進化。Weinstein 的 Stage 2 分析是持續有效的方法；若最近勝率低於初期，代表入場條件可能退化或市場環境改變，需檢視並調整。'},
+  {code:'CCC5', tag:'warn', text:'RiskMonitorView 新增 Ed Seykota 連虧頻率分布直方圖。統計1/2/3/4/5+連虧各出現幾次；5+連虧出現超過1次顯示警告。Seykota：截斷虧損是第一鐵律；頻繁的長串連虧代表入場時機或市場適應性有系統性問題，不能只靠單次觀察。'},
+  {code:'CCC6', tag:'good', text:'JournalView 新增 Mark Minervini VCP 入場緊度效益相關。計算 |entry-stop|/entry（停損距離%）與 realized R 的 Pearson r；r < -0.2 代表緊停損帶來更高R。Minervini 的 VCP 型態核心是波動收縮後的緊入場；若負相關顯著，說明你的 VCP 紀律實際有效。'},
+  {code:'CCC7', tag:'good', text:'JournalView 新增 Paul Tudor Jones R倍數五桶分布（<0R / 0-1R / 1-2R / 2-3R / ≥3R）。PTJ：尋求 5:1 的機會；≥3R 大獲全勝佔比 ≥ 20% 代表系統能捕捉趨勢行情，< 10% 代表系統偏均值回歸型，很難靠大贏覆蓋小虧。'},
+  {code:'CCC8', tag:'good', text:'RiskMonitorView 新增 Van Tharp 系統品質指數 SQN = √n × 均值R / 標準差R。> 2.0 優秀，> 1.6 良好，> 1.0 可交易，< 1.0 不穩定。Tharp 的 SQN 是跨系統、跨資產類別可比較的標準化品質指標，比單看勝率或均值R更完整地反映系統穩定性。'},
+  {code:'CCC9', tag:'good', text:'DecisionView 新增 Bruce Kovner 標的集中度 HHI 指數 = ∑(各標的佔比²)。HHI > 0.25 高度集中，< 0.18 分散。Kovner 的 Caxton Associates 跨市場分散降低相關性；HHI 量化你的標的分散程度，避免以為持有多個標的就是分散（實際上若主要標的佔 80% 仍是高度集中）。'},
+  {code:'CCC10', tag:'good', text:'JournalView 新增 Richard Donchian 贏單持倉天數趨勢。將贏單按時間分前後兩半，比較中位持倉天數的變化。Donchian 趨勢跟蹤的核心是持有贏家直到趨勢結束；後半段中位數 ≥ 前半段代表越來越善於持有趨勢，是趨勢跟蹤能力的學習曲線指標。'},
+ ]
+},
 {date:'2026-08-17 01:00', range:'BBB1–BBB10', title:'自主循環優化：投資界量化與行為心法（Vince／Simons／Baruch／Klarman／Gartman／Loeb／Steinhardt／Greenblatt／Hite／Fisher）',
  desc:'第十四輪自主優化：聚焦倉位數學最優化、統計優勢衰退監控、出場品質量化、耐心指數、尾部損失控制、集中度基尼係數、頻率績效相關、連虧回復速度、開倉最壞情境、持倉分位數。BBB1 BBB3 BBB6 BBB7 BBB10 擴充 JournalView；BBB4 在 DecisionView；BBB2 BBB5 BBB8 BBB9 在 RiskMonitorView。10/10 Playwright e2e 測試通過。',
  items:[
