@@ -161,6 +161,20 @@ footer{ margin-top:36px; font-size:0.78rem; color:var(--ink-faint); text-align:c
 
 <script>
 const DATA = [
+{date:'2026-08-29 00:00', range:'DDD1–DDD10', title:'自主循環優化：投資界持倉紀律、逆勢、風控與信念心法（Lynch／Dreman／Dalio／Taleb／Munger／Schloss／Templeton／Cohen／Ackman／Swensen）',
+ desc:'第十六輪自主優化（三次自我審查通過）：聚焦持倉時間段效益、逆勢連敗後恢復、月度Sharpe、肥尾風控、多條件整合評分、停損紀律、標籤HHI分散度、每日盈虧控制、持倉量信念、優質月後表現。DDD1/2/5/6/9 擴充 JournalView；DDD3/4/8/10 在 RiskMonitorView；DDD7 在 DecisionView。10/10 Playwright e2e 測試通過（26.4s）。',
+ items:[
+  {code:'DDD1', tag:'good', text:'JournalView 新增 Peter Lynch 持倉時間段效益分析。按持倉天數分為 <3天（快）與 ≥3天（耐心）兩段，比較各段平均R與勝率。Lynch：耐心長抱好公司才能翻十倍；量化短持與長持的實際結果差異，讓交易者看清自己的「快進快出」是否真的有利。'},
+  {code:'DDD2', tag:'good', text:'JournalView 新增 David Dreman 連敗後逆勢回升分析。找出連輸3筆後的下一筆交易，比較其avgR vs 整體avgR。Dreman：市場過度反應，逆勢在恐慌後進場往往有正期望值；若連敗後立刻追損、縮手或亂加碼，數字將揭露此偏差。'},
+  {code:'DDD3', tag:'good', text:'RiskMonitorView 新增 Ray Dalio 月度R夏普輪廓。每月至少2筆交易才納入計算，顯示各月 mean/std/Sharpe。Dalio：全天候策略核心是每期風險調整後收益穩定；月度Sharpe若劇烈波動表示倉位大小或市場節奏控制不足，非僅看總勝率。'},
+  {code:'DDD4', tag:'good', text:'RiskMonitorView 新增 Nassim Taleb 肥尾風控評分。計算平均虧損、2倍門檻、尾部頻率（虧損超過2倍均虧）、maxToAvgRatio。Taleb：黑天鵝來自尾部，必須量化極端虧損頻率；若 tailFreq > 5% 或 maxToAvgRatio > 3 表示尾部暴露過高，需要下調最大倉位上限。'},
+  {code:'DDD5', tag:'good', text:'JournalView 新增 Charlie Munger 多條件整合評分。每筆計算0-3分：計劃RR≥2得1分、有催化劑得1分、近30天該標的唯一得1分，統計各分數段的avgR。Munger：不做沒有充分理由的事；分數越高平均R越佳即驗證條件整合的意義，反之則代表某些條件根本無關績效。'},
+  {code:'DDD6', tag:'good', text:'JournalView 新增 Walter Schloss 停損紀律率。統計虧損筆數中，實際虧損 ≤ 1.5倍計劃風險的比例。Schloss：嚴控損失上限是長期存活關鍵；若停損紀律率 < 80% 代表「計劃停損」與「實際出場」嚴重脫節，滑點或情緒拖單需要對策。'},
+  {code:'DDD7', tag:'good', text:'DecisionView 新增 John Templeton 標籤HHI分散度指數。統計所有已平倉交易的tag分布，計算赫芬達爾指數（HHI = Σ(count_i/total)²）。Templeton：在全球最悲觀時買最分散的機會；HHI > 0.5 警示高度集中單一策略或板塊，可能缺乏跨市場對沖能力。'},
+  {code:'DDD8', tag:'good', text:'RiskMonitorView 新增 Steve Cohen 每日盈虧控制指標。按exitDate彙總每日R合計，比較最大虧損日 vs 平均盈利日的比率。Cohen：嚴格的日內損失停損是保護資本的關鍵；maxLossDay / avgProfitDay < 2 視為受控，否則單日暴虧可能抹去多日獲利。'},
+  {code:'DDD9', tag:'good', text:'JournalView 新增 Bill Ackman 持倉量信念相關性。計算lots與realizdR的Pearson相關係數，並按倉位規模S/M/L分段比較平均R。Ackman：高信念大倉位、低信念小倉位；若r為負或接近0代表倉位大小與信念品質無關，需重新評估加碼邏輯。'},
+  {code:'DDD10', tag:'good', text:'RiskMonitorView 新增 David Swensen 優質月後表現追蹤。以sumR前四分位數定義「好月份」，追蹤好月份後一個月的平均R，若 < 0.7×全期均R則標示「績效衰退」警訊。Swensen：市場均值回歸是普遍現象，需量化高峰後是否有系統性回落，以調整後續倉位管理策略。'},
+ ]},
 {date:'2026-08-17 03:00', range:'CCC1–CCC10', title:'自主循環優化：投資界量化與選擇紀律心法（Livermore／Darvas／O\'Neil／Weinstein／Seykota／Minervini／PTJ／Tharp／Kovner／Donchian）',
  desc:'第十五輪自主優化（三次自我審查通過）：聚焦入場計劃品質、標的選擇性、催化劑效益、系統進化趨勢、損失控制頻率、入場緊度效益、R倍數分布、系統品質指數、標的集中度、趨勢持倉動能。CCC1/2/3/6/7/10 擴充 JournalView；CCC4/5/8 在 RiskMonitorView；CCC9 在 DecisionView。10/10 Playwright e2e 測試通過（26.5s）。',
  items:[
