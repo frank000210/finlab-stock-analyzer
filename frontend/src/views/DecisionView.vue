@@ -347,6 +347,30 @@
       <p class="plan-hint muted">Kovner 的 Caxton Associates 策略核心：跨不同市場分散投資以降低組合相關性。HHI（赫芬達爾指數）= ∑(各標的交易佔比²)，越高代表越集中。</p>
     </section>
 
+    <!-- DDD7: John Templeton — Tag (Sector/Style) HHI Diversification -->
+    <section class="daily-plan-card card ddd-templeton-hhi" v-if="tagHHI">
+      <div class="plan-title-row" style="margin-bottom: 8px">
+        <span class="plan-icon">🌍</span>
+        <h2 class="plan-title">標籤集中度 HHI（Templeton：在全球尋找最被低估的機會——你的交易風格/板塊是否過度集中？）</h2>
+      </div>
+      <div class="sc-row">
+        <div class="sc-val">
+          <strong :class="tagHHI.hhi > 0.5 ? 'down' : tagHHI.hhi > 0.3 ? '' : 'up'" style="font-size:1.3rem">{{ tagHHI.hhi.toFixed(3) }}</strong>
+          <small class="muted">Tag HHI 指數</small>
+        </div>
+        <div class="sc-val">
+          <strong>{{ tagHHI.uniqueCount }}</strong>
+          <small class="muted">不同標籤數</small>
+        </div>
+        <div class="sc-val">
+          <strong :class="tagHHI.hhi > 0.5 ? 'down' : tagHHI.hhi > 0.3 ? '' : 'up'">{{ tagHHI.diversityLabel }}</strong>
+          <small class="muted">分散程度</small>
+        </div>
+      </div>
+      <div style="margin-top:0.5rem;font-size:0.72rem;color:var(--ink-muted)">最集中標籤：<strong>{{ tagHHI.topTag }}</strong>（{{ tagHHI.topPct.toFixed(0) }}% 交易量）；HHI > 0.5 = 高度集中，< 0.3 = 分散</div>
+      <p class="plan-hint muted">Templeton 在全球各市場尋找最被低估的機會；你的交易標籤分布揭示你是否只在熟悉的板塊交易，還是跨風格、跨板塊尋找最優機會。</p>
+    </section>
+
     <section class="top-grid">
       <article class="market-pulse card">
         <div class="panel-head">
@@ -958,6 +982,22 @@ const patienceIndex = computed(() => {
     const result = tiers.map(t => ({ label: t.label, n: t.Rs.length, avgR: t.Rs.length ? t.Rs.reduce((a, b) => a + b, 0) / t.Rs.length : 0 }))
     if (result.filter(t => t.n > 0).length < 2) return null
     return result
+  } catch { return null }
+})
+
+// DDD7: 標籤集中度 HHI（John Templeton：跨全球市場/板塊尋找最被低估機會——tag 分散程度）
+const tagHHI = computed(() => {
+  try {
+    const trades = _zzClosed()
+    if (trades.length < 5) return null
+    const counts = {}
+    trades.forEach(t => { const tag = (t.tag && t.tag.trim()) || '未分類'; counts[tag] = (counts[tag] || 0) + 1 })
+    const symbols = Object.entries(counts)
+    const total = trades.length
+    const hhi = symbols.reduce((s, [, c]) => s + (c / total) ** 2, 0)
+    const top = [...symbols].sort((a, b) => b[1] - a[1])[0]
+    const diversityLabel = hhi > 0.5 ? '高度集中' : hhi > 0.3 ? '中度集中' : '分散'
+    return { hhi, uniqueCount: symbols.length, topTag: top[0], topPct: top[1] / total * 100, diversityLabel }
   } catch { return null }
 })
 
@@ -2664,4 +2704,6 @@ function toDateParam(value) {
 .bbb-patience-index { margin-bottom: 1rem; }
 /* CCC9 */
 .ccc-symbol-hhi { margin-bottom: 1rem; }
+/* DDD7 */
+.ddd-templeton-hhi { margin-bottom: 1rem; }
 </style>

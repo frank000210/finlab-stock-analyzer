@@ -536,6 +536,101 @@
       </div>
     </section>
 
+    <!-- DDD3: Ray Dalio — Monthly R Sharpe Profile -->
+    <section class="card chart-card ddd-dalio-sharpe" v-if="monthlyRSharpe">
+      <div class="section-header">
+        <div>
+          <h2>月度風險調整報酬 Sharpe（Dalio All Weather）</h2>
+          <p>每月均值R ÷ 標準差R；正值代表該月報酬超越其波動率</p>
+        </div>
+      </div>
+      <div style="display:flex;gap:0.75rem;flex-wrap:wrap;padding:0.5rem 0;align-items:flex-end">
+        <div v-for="m in monthlyRSharpe.months" :key="m.month" style="text-align:center;min-width:60px">
+          <strong :class="m.sharpe > 0.5 ? 'up' : m.sharpe > 0 ? '' : 'down'" style="font-size:1rem">{{ m.sharpe >= 0 ? '+' : '' }}{{ m.sharpe.toFixed(2) }}</strong>
+          <div class="muted" style="font-size:0.65rem">{{ m.month.slice(5) }}</div>
+          <div class="muted" style="font-size:0.6rem">{{ m.n }}筆</div>
+        </div>
+      </div>
+      <div class="muted" style="font-size:0.72rem;margin-top:0.25rem">
+        {{ monthlyRSharpe.goodMonths }} / {{ monthlyRSharpe.total }} 個月 Sharpe > 0
+        {{ monthlyRSharpe.goodMonths >= monthlyRSharpe.total * 0.6 ? '✓ 多數月份正期望值' : '⚠ 超過半數月份風險調整後報酬為負' }}
+      </div>
+    </section>
+
+    <!-- DDD4: Nassim Taleb — Fat Tail Protection Score -->
+    <section class="card chart-card ddd-taleb-tail" v-if="fatTailProtection">
+      <div class="section-header">
+        <div>
+          <h2>尾部風險保護評分（Taleb 黑天鵝）</h2>
+          <p>虧損中超過2倍平均虧損的「尾部損失」出現頻率——越低越安全</p>
+        </div>
+      </div>
+      <div style="display:flex;gap:2rem;flex-wrap:wrap;padding:0.5rem 0;align-items:center">
+        <div style="text-align:center">
+          <strong :class="fatTailProtection.tailFreq < 5 ? 'up' : fatTailProtection.tailFreq < 15 ? '' : 'down'" style="font-size:1.5rem">{{ fatTailProtection.tailFreq.toFixed(1) }}%</strong>
+          <div class="muted" style="font-size:0.72rem">尾部損失頻率</div>
+        </div>
+        <div style="text-align:center">
+          <strong :class="fatTailProtection.maxToAvgRatio < 3 ? 'up' : 'down'" style="font-size:1.2rem">{{ fatTailProtection.maxToAvgRatio.toFixed(1) }}×</strong>
+          <div class="muted" style="font-size:0.72rem">最大虧 / 均虧</div>
+        </div>
+        <div :class="fatTailProtection.protected ? 'up' : 'down'" style="font-size:0.8rem">
+          {{ fatTailProtection.protected ? '✓ 尾部風險受控，無異常巨虧' : '⚠ 尾部損失過大或過頻，存在黑天鵝曝險' }}
+        </div>
+      </div>
+    </section>
+
+    <!-- DDD8: Steve Cohen — Max Daily Loss vs Avg Profit Day -->
+    <section class="card chart-card ddd-cohen-daily" v-if="dailyPnLControl">
+      <div class="section-header">
+        <div>
+          <h2>單日最大損失控制（Cohen SAC Capital 日損上限）</h2>
+          <p>最壞一天的虧損 vs 平均獲利日——比值越低代表日虧控制越好</p>
+        </div>
+      </div>
+      <div style="display:flex;gap:2rem;flex-wrap:wrap;padding:0.5rem 0;align-items:center">
+        <div style="text-align:center">
+          <strong class="down" style="font-size:1.3rem">-{{ dailyPnLControl.maxLossDay.toFixed(2) }}R</strong>
+          <div class="muted" style="font-size:0.72rem">最壞單日虧損</div>
+        </div>
+        <div style="text-align:center">
+          <strong class="up" style="font-size:1.3rem">+{{ dailyPnLControl.avgProfitDay.toFixed(2) }}R</strong>
+          <div class="muted" style="font-size:0.72rem">平均獲利日</div>
+        </div>
+        <div style="text-align:center">
+          <strong :class="dailyPnLControl.controlled ? 'up' : 'down'" style="font-size:1.2rem">{{ dailyPnLControl.ratio.toFixed(2) }}×</strong>
+          <div class="muted" style="font-size:0.72rem">比值</div>
+        </div>
+        <div :class="dailyPnLControl.controlled ? 'up' : 'down'" style="font-size:0.8rem">
+          {{ dailyPnLControl.controlled ? '✓ 單日最大虧損 < 2× 平均獲利日，日損控制良好' : '⚠ 單日最大虧損過大，需設定日損限額' }}
+        </div>
+      </div>
+    </section>
+
+    <!-- DDD10: David Swensen — Post-Good-Month Performance -->
+    <section class="card chart-card ddd-swensen-decay" v-if="postGoodMonthEffect">
+      <div class="section-header">
+        <div>
+          <h2>佳月後表現衰退分析（Swensen 再平衡紀律）</h2>
+          <p>好月份後的下個月均R是否衰退？——過度自信效應偵測</p>
+        </div>
+      </div>
+      <div style="display:flex;gap:2rem;flex-wrap:wrap;padding:0.5rem 0;align-items:center">
+        <div style="text-align:center">
+          <strong style="font-size:1.3rem">{{ postGoodMonthEffect.avgNormal >= 0 ? '+' : '' }}{{ postGoodMonthEffect.avgNormal.toFixed(2) }}R</strong>
+          <div class="muted" style="font-size:0.72rem">整體月均R</div>
+        </div>
+        <div style="font-size:1.2rem;opacity:0.4">→</div>
+        <div style="text-align:center">
+          <strong :class="postGoodMonthEffect.decayed ? 'down' : 'up'" style="font-size:1.3rem">{{ postGoodMonthEffect.avgPostGood >= 0 ? '+' : '' }}{{ postGoodMonthEffect.avgPostGood.toFixed(2) }}R</strong>
+          <div class="muted" style="font-size:0.72rem">佳月後月均R（{{ postGoodMonthEffect.samples }}個月）</div>
+        </div>
+        <div :class="postGoodMonthEffect.decayed ? 'down' : 'up'" style="font-size:0.8rem">
+          {{ postGoodMonthEffect.decayed ? '⚠ 佳月後表現顯著衰退，可能存在過度自信效應' : '✓ 佳月後仍能維持績效，無過度自信衰退' }}
+        </div>
+      </div>
+    </section>
+
     <section class="card chart-card">
       <div class="section-header">
         <div>
@@ -924,6 +1019,78 @@ const openWorstCase = computed(() => {
   const lossRs = cl.map(realizedR).filter(r => r < 0)
   const avgHistoricalLossR = lossRs.length >= 3 ? lossRs.reduce((a, b) => a + b, 0) / lossRs.length : null
   return { worstCase, positions: open.length, avgHistoricalLossR: avgHistoricalLossR ? Math.abs(avgHistoricalLossR) : null }
+})
+
+// DDD3: 月度風險調整報酬（Ray Dalio：All Weather 追求穩定的風險調整後報酬——月度 Sharpe）
+const monthlyRSharpe = computed(() => {
+  const cl = closedTrades.value
+  if (cl.length < 10) return null
+  const byMonth = {}
+  cl.forEach(t => {
+    if (!t.exitDate) return
+    const key = t.exitDate.slice(0, 7)
+    if (!byMonth[key]) byMonth[key] = []
+    byMonth[key].push(realizedR(t))
+  })
+  const months = Object.entries(byMonth)
+    .filter(([, rs]) => rs.length >= 2)
+    .map(([month, rs]) => {
+      const n = rs.length, mean = rs.reduce((a, b) => a + b, 0) / n
+      const std = Math.sqrt(rs.reduce((a, b) => a + (b - mean) ** 2, 0) / n)
+      return { month, n, mean, std, sharpe: std > 0 ? mean / std : 0 }
+    })
+    .sort((a, b) => a.month.localeCompare(b.month))
+  if (months.length < 2) return null
+  return { months, goodMonths: months.filter(m => m.sharpe > 0).length, total: months.length }
+})
+
+// DDD4: 尾部風險保護（Nassim Taleb 黑天鵝：保護自己免於極端損失——尾部損失頻率量化）
+const fatTailProtection = computed(() => {
+  const cl = closedTrades.value
+  if (cl.length < 10) return null
+  const Rs = cl.map(realizedR)
+  const losses = Rs.filter(r => r < 0)
+  if (losses.length < 3) return null
+  const avgLoss = losses.reduce((a, b) => a + b, 0) / losses.length
+  const threshold = avgLoss * 2
+  const tailLosses = losses.filter(r => r < threshold)
+  const tailFreq = tailLosses.length / cl.length * 100
+  const maxLoss = Math.min(...losses)
+  const maxToAvgRatio = Math.abs(maxLoss / avgLoss)
+  return { tailFreq, tailCount: tailLosses.length, avgLoss: Math.abs(avgLoss), maxLoss: Math.abs(maxLoss), maxToAvgRatio, protected: maxToAvgRatio < 3 && tailFreq < 10 }
+})
+
+// DDD8: 單日最大損失控制（Steve Cohen SAC：嚴格的日損上限保護帳戶存活——最壞一天 vs 平均獲利日）
+const dailyPnLControl = computed(() => {
+  const cl = closedTrades.value
+  if (cl.length < 10) return null
+  const byDay = {}
+  cl.forEach(t => { if (!t.exitDate) return; const key = t.exitDate.slice(0, 10); byDay[key] = (byDay[key] || 0) + realizedR(t) })
+  const days = Object.values(byDay)
+  if (days.length < 5) return null
+  const profitDays = days.filter(d => d > 0), lossDays = days.filter(d => d < 0)
+  if (!profitDays.length || !lossDays.length) return null
+  const avgProfitDay = profitDays.reduce((a, b) => a + b, 0) / profitDays.length
+  const maxLossDay = Math.abs(Math.min(...lossDays))
+  const ratio = maxLossDay / avgProfitDay
+  return { avgProfitDay, maxLossDay, ratio, controlled: ratio < 2 }
+})
+
+// DDD10: 佳月後表現衰退（David Swensen 再平衡紀律：好績效後的紀律最重要——好月份後是否過度自信？）
+const postGoodMonthEffect = computed(() => {
+  const cl = closedTrades.value
+  if (cl.length < 15) return null
+  const byMonth = {}
+  cl.forEach(t => { if (!t.exitDate) return; const k = t.exitDate.slice(0, 7); if (!byMonth[k]) byMonth[k] = []; byMonth[k].push(realizedR(t)) })
+  const months = Object.entries(byMonth).filter(([, rs]) => rs.length >= 2).map(([m, rs]) => ({ month: m, sumR: rs.reduce((a, b) => a + b, 0) })).sort((a, b) => a.month.localeCompare(b.month))
+  if (months.length < 3) return null
+  const sumRs = months.map(m => m.sumR)
+  const q75 = [...sumRs].sort((a, b) => a - b)[Math.floor(sumRs.length * 0.75)]
+  const goodMonthNext = months.map((m, i) => ({ ...m, i })).filter(m => m.sumR >= q75 && m.i + 1 < months.length).map(m => months[m.i + 1].sumR)
+  if (goodMonthNext.length < 2) return null
+  const avgNormal = sumRs.reduce((a, b) => a + b, 0) / sumRs.length
+  const avgPostGood = goodMonthNext.reduce((a, b) => a + b, 0) / goodMonthNext.length
+  return { avgNormal, avgPostGood, decayed: avgPostGood < avgNormal * 0.7, samples: goodMonthNext.length }
 })
 
 // CCC4: 勝率趨勢軌跡（Stan Weinstein：持續改進的系統應有上升的滾動勝率）
@@ -1371,6 +1538,8 @@ function statusClass(status) {
 .aaa-monthly-vol, .aaa-compliance { margin-bottom: 0; }
 /* BBB2 BBB5 BBB8 BBB9 */
 .bbb-edge-decay, .bbb-max-loss-control, .bbb-recovery-speed, .bbb-open-worstcase { margin-bottom: 0; }
+/* DDD3 DDD4 DDD8 DDD10 */
+.ddd-dalio-sharpe, .ddd-taleb-tail, .ddd-cohen-daily, .ddd-swensen-decay { margin-bottom: 0; }
 /* CCC4 CCC5 CCC8 */
 .ccc-rollwinrate, .ccc-streakfreq, .ccc-sqn { margin-bottom: 0; }
 /* ZZ7 ZZ8 ZZ10 */

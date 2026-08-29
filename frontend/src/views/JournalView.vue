@@ -1099,6 +1099,89 @@
           </div>
         </div>
 
+        <!-- DDD1: Peter Lynch — Holding Duration Segmentation -->
+        <div class="scard ddd-lynch-hold" v-if="lynchHoldSeg">
+          <span class="slabel">持倉時長分段績效（Lynch：秘密不在於你買了什麼，在於你持有多久——快進快出 vs 耐心持有）</span>
+          <div style="display:flex;gap:2rem;flex-wrap:wrap;margin-top:0.5rem;align-items:center">
+            <div v-for="s in lynchHoldSeg.segments" :key="s.label" style="text-align:center;min-width:100px">
+              <strong :class="s.avgR > 0 ? 'up' : 'down'" style="font-size:1.2rem">{{ s.avgR >= 0 ? '+' : '' }}{{ s.avgR.toFixed(2) }}R</strong>
+              <div class="muted" style="font-size:0.72rem">{{ s.label }}</div>
+              <div class="muted" style="font-size:0.65rem">{{ s.n }}筆 勝率{{ (s.winRate * 100).toFixed(0) }}%</div>
+            </div>
+          </div>
+          <div style="font-size:0.72rem;margin-top:0.5rem" :class="lynchHoldSeg.patientBetter ? 'up' : 'down'">
+            {{ lynchHoldSeg.patientBetter ? '✓ 耐心持有（≥3天）的均R較高，支持Lynch持倉哲學' : '⚠ 短線交易均R較高，系統可能偏動量型而非趨勢型' }}
+          </div>
+        </div>
+
+        <!-- DDD2: David Dreman — Post-Loss-Streak Contrarian Recovery -->
+        <div class="scard ddd-dreman-streak" v-if="dremanContrarian">
+          <span class="slabel">連虧後入場品質（Dreman 逆勢：在眾人恐慌時買入——連虧3次後的交易是否帶來更高R？）</span>
+          <div style="display:flex;gap:2rem;flex-wrap:wrap;margin-top:0.5rem;align-items:center">
+            <div style="text-align:center">
+              <strong :class="dremanContrarian.avgPost > 0 ? 'up' : 'down'" style="font-size:1.3rem">{{ dremanContrarian.avgPost >= 0 ? '+' : '' }}{{ dremanContrarian.avgPost.toFixed(2) }}R</strong>
+              <div class="muted" style="font-size:0.72rem">連虧3後均R（{{ dremanContrarian.samples }}筆）</div>
+            </div>
+            <div style="text-align:center">
+              <strong style="font-size:1.3rem">{{ dremanContrarian.avgBase >= 0 ? '+' : '' }}{{ dremanContrarian.avgBase.toFixed(2) }}R</strong>
+              <div class="muted" style="font-size:0.72rem">基準均R</div>
+            </div>
+            <div :class="dremanContrarian.contrarian ? 'up' : 'down'" style="font-size:0.75rem">
+              {{ dremanContrarian.contrarian ? '✓ 逆勢優勢：連虧後的交易表現高於基準' : '⚠ 無逆勢優勢：連虧後入場並無特別優勢' }}
+            </div>
+          </div>
+        </div>
+
+        <!-- DDD5: Charlie Munger — Multi-Condition Alignment Score -->
+        <div class="scard ddd-munger-align" v-if="mungerAlign">
+          <span class="slabel">多條件對齊分數（Munger 格柵模型：最佳交易應同時滿足多個思維框架——對齊度高 → 均R更高？）</span>
+          <div style="display:flex;gap:1.5rem;flex-wrap:wrap;margin-top:0.5rem;align-items:flex-end">
+            <div v-for="g in mungerAlign.byScore" :key="g.score" style="text-align:center;min-width:70px">
+              <strong :class="g.avgR > 0 ? 'up' : 'down'" style="font-size:1.1rem">{{ g.avgR !== null ? (g.avgR >= 0 ? '+' : '') + g.avgR.toFixed(2) + 'R' : '—' }}</strong>
+              <div class="muted" style="font-size:0.7rem">{{ g.score }}/3 條件</div>
+              <div class="muted" style="font-size:0.63rem">{{ g.n }}筆</div>
+            </div>
+          </div>
+          <div class="muted" style="font-size:0.65rem;margin-top:0.5rem">條件：① 計劃R/R≥2　② 有催化劑標籤　③ 30天內首次操作該標的</div>
+        </div>
+
+        <!-- DDD6: Walter Schloss — Stop Discipline Rate -->
+        <div class="scard ddd-schloss-stop" v-if="stopDisciplineRate">
+          <span class="slabel">停損紀律執行率（Schloss：限制下行風險是第一要務——虧損交易是否嚴格按計劃停損？）</span>
+          <div style="display:flex;gap:2rem;flex-wrap:wrap;margin-top:0.5rem;align-items:center">
+            <div style="text-align:center">
+              <strong :class="stopDisciplineRate.good ? 'up' : 'down'" style="font-size:1.5rem">{{ stopDisciplineRate.rate.toFixed(0) }}%</strong>
+              <div class="muted" style="font-size:0.72rem">停損紀律率</div>
+            </div>
+            <div style="text-align:center">
+              <strong style="font-size:1rem">{{ stopDisciplineRate.disciplined }} / {{ stopDisciplineRate.total }}</strong>
+              <div class="muted" style="font-size:0.72rem">虧單（守紀律 / 總虧單）</div>
+            </div>
+            <div :class="stopDisciplineRate.good ? 'up' : 'down'" style="font-size:0.75rem">
+              {{ stopDisciplineRate.good ? '✓ 停損執行紀律良好（≥80%）' : '⚠ 過多虧單超出計劃損失範圍，可能有停損拖延問題' }}
+            </div>
+          </div>
+        </div>
+
+        <!-- DDD9: Bill Ackman — Lot Conviction vs Outcome Correlation -->
+        <div class="scard ddd-ackman-lots" v-if="lotConvictionCorr">
+          <span class="slabel">倉位信念相關性（Ackman：高信念機會應押更大注——倉位大小是否預測更好的實現R？）</span>
+          <div style="display:flex;gap:1.5rem;flex-wrap:wrap;margin-top:0.5rem;align-items:flex-end">
+            <div style="text-align:center">
+              <strong :class="lotConvictionCorr.conviction ? 'up' : ''" style="font-size:1.3rem">r={{ lotConvictionCorr.r >= 0 ? '+' : '' }}{{ lotConvictionCorr.r.toFixed(2) }}</strong>
+              <div class="muted" style="font-size:0.72rem">倉位 vs 實現R</div>
+            </div>
+            <div v-for="s in lotConvictionCorr.segments" :key="s.label" style="text-align:center;min-width:70px">
+              <strong :class="s.avgR > 0 ? 'up' : 'down'" style="font-size:1rem">{{ s.avgR >= 0 ? '+' : '' }}{{ s.avgR.toFixed(2) }}R</strong>
+              <div class="muted" style="font-size:0.7rem">{{ s.label }}</div>
+              <div class="muted" style="font-size:0.63rem">{{ s.n }}筆</div>
+            </div>
+            <div :class="lotConvictionCorr.conviction ? 'up' : ''" style="font-size:0.75rem">
+              {{ lotConvictionCorr.conviction ? '✓ 大倉位帶來更高R，信念倉位有效' : '倉位大小與結果無顯著正相關' }}
+            </div>
+          </div>
+        </div>
+
         <!-- TT4: 月份績效柱狀圖 (full width) -->
         <div class="an-block an-block--full" v-if="monthlyPerfBars">
           <span class="slabel">月份績效（月別累計 R）——觀察是否有季節性弱點</span>
@@ -2666,6 +2749,105 @@ const holdingPercentiles = computed(() => {
   }
 })
 
+// DDD1: 持倉時長分段績效（Peter Lynch：耐心持有偉大公司——快進快出 vs 耐心持有哪個更好？）
+const lynchHoldSeg = computed(() => {
+  const cl = closedTrades.value.filter(t => t.openDate && t.exitDate)
+  if (cl.length < 8) return null
+  const daysFn = t => Math.max(0, Math.round((new Date(t.exitDate) - new Date(t.openDate)) / 86400000))
+  const segments = [
+    { label: '短線 <3天', pred: d => d < 3, trades: [] },
+    { label: '耐心 ≥3天', pred: d => d >= 3, trades: [] },
+  ]
+  cl.forEach(t => { const d = daysFn(t); segments.forEach(s => { if (s.pred(d)) s.trades.push(realizedR(t)) }) })
+  const built = segments.filter(s => s.trades.length >= 2).map(s => {
+    const wins = s.trades.filter(r => r > 0)
+    return { label: s.label, n: s.trades.length, avgR: s.trades.reduce((a, b) => a + b, 0) / s.trades.length, winRate: wins.length / s.trades.length }
+  })
+  if (built.length < 2) return null
+  const patient = built.find(s => s.label.includes('≥3'))
+  const quick = built.find(s => s.label.includes('<3'))
+  return { segments: built, patientBetter: patient && quick ? patient.avgR > quick.avgR : false }
+})
+
+// DDD2: 連虧後入場品質（David Dreman：逆勢在眾人恐慌時買入——連虧3次後的交易績效高於基準？）
+const dremanContrarian = computed(() => {
+  const cl = [...closedTrades.value].filter(t => t.exitDate).sort((a, b) => new Date(a.exitDate) - new Date(b.exitDate))
+  if (cl.length < 10) return null
+  const Rs = cl.map(realizedR)
+  const postIndices = new Set()
+  let streak = 0
+  Rs.forEach((r, i) => {
+    if (r < 0) { streak++ }
+    else {
+      if (streak >= 3) { [i, i + 1, i + 2].filter(j => j < Rs.length).forEach(j => postIndices.add(j)) }
+      streak = 0
+    }
+  })
+  if (streak >= 3) { const i = Rs.length; [i, i + 1, i + 2].filter(j => j < Rs.length).forEach(j => postIndices.add(j)) }
+  if (postIndices.size < 2) return null
+  const postRs = [...postIndices].map(i => Rs[i])
+  const baseRs = Rs.filter((_, i) => !postIndices.has(i))
+  if (!baseRs.length) return null
+  const avgPost = postRs.reduce((a, b) => a + b, 0) / postRs.length
+  const avgBase = baseRs.reduce((a, b) => a + b, 0) / baseRs.length
+  return { avgPost, avgBase, contrarian: avgPost > avgBase, samples: postRs.length }
+})
+
+// DDD5: 多條件對齊分數（Charlie Munger 格柵：多個思維框架同時滿足 → 更高期望值）
+const mungerAlign = computed(() => {
+  const cl = [...closedTrades.value].sort((a, b) => new Date(a.exitDate || 0) - new Date(b.exitDate || 0))
+  if (cl.length < 8) return null
+  const symLastDate = {}
+  const scored = cl.map(t => {
+    let score = 0
+    if (t.target && t.entry && t.stop && Number(t.entry) !== Number(t.stop)) {
+      if (Math.abs((Number(t.target) - Number(t.entry)) / (Number(t.entry) - Number(t.stop))) >= 2) score++
+    }
+    if (t.catalyst && t.catalyst.trim()) score++
+    const sym = t.symbol, d = new Date(t.openDate || t.exitDate)
+    if (!symLastDate[sym] || (d - symLastDate[sym]) / 86400000 > 30) score++
+    symLastDate[sym] = d
+    return { r: realizedR(t), score }
+  })
+  const byScore = [0, 1, 2, 3].map(s => {
+    const g = scored.filter(x => x.score === s)
+    return { score: s, n: g.length, avgR: g.length ? g.reduce((a, x) => a + x.r, 0) / g.length : null }
+  }).filter(g => g.n > 0)
+  if (byScore.length < 2) return null
+  return { byScore }
+})
+
+// DDD6: 停損紀律執行率（Walter Schloss：限制下行風險——虧損交易是否確實按計劃停損？）
+const stopDisciplineRate = computed(() => {
+  const cl = closedTrades.value
+  if (cl.length < 5) return null
+  const losers = cl.filter(t => realizedR(t) < 0 && t.entry && t.stop && Number(t.entry) !== Number(t.stop) && t.exit)
+  if (losers.length < 3) return null
+  const disciplined = losers.filter(t => {
+    const plannedRisk = Math.abs(Number(t.entry) - Number(t.stop))
+    const actualLoss = Math.abs(Number(t.exit) - Number(t.entry))
+    return actualLoss <= plannedRisk * 1.5
+  })
+  const rate = disciplined.length / losers.length * 100
+  return { rate, disciplined: disciplined.length, total: losers.length, good: rate >= 80 }
+})
+
+// DDD9: 倉位信念相關性（Bill Ackman：高信念機會押更大注——倉位大小是否與實現R正相關？）
+const lotConvictionCorr = computed(() => {
+  const cl = closedTrades.value.filter(t => t.lots && Number(t.lots) > 0)
+  if (cl.length < 8) return null
+  const pairs = cl.map(t => ({ lots: Number(t.lots), R: realizedR(t) }))
+  const n = pairs.length, mx = pairs.reduce((s, p) => s + p.lots, 0) / n, my = pairs.reduce((s, p) => s + p.R, 0) / n
+  let num = 0, dx2 = 0, dy2 = 0
+  pairs.forEach(p => { const a = p.lots - mx, b = p.R - my; num += a * b; dx2 += a * a; dy2 += b * b })
+  const r = (dx2 && dy2) ? num / Math.sqrt(dx2 * dy2) : 0
+  const counts = {}
+  cl.forEach(t => { const k = t.lots <= 1 ? 'S(1)' : t.lots <= 3 ? 'M(2-3)' : 'L(4+)'; if (!counts[k]) counts[k] = []; counts[k].push(realizedR(t)) })
+  const order = { 'S(1)': 0, 'M(2-3)': 1, 'L(4+)': 2 }
+  const segments = Object.entries(counts).map(([label, rs]) => ({ label, n: rs.length, avgR: rs.reduce((a, b) => a + b, 0) / rs.length })).sort((a, b) => order[a.label] - order[b.label])
+  return { r, segments, conviction: r > 0.2 }
+})
+
 // CCC1: 計劃風報比分布（Jesse Livermore：只進有利預期值機會——計劃R/R桶狀分析）
 const plannedRRDist = computed(() => {
   const cl = closedTrades.value.filter(t => t.target && t.entry && t.stop && Number(t.entry) !== Number(t.stop))
@@ -3146,6 +3328,8 @@ onMounted(() => {
 .aaa-wd-col { display: flex; flex-direction: column; align-items: center; flex: 1; height: 100%; gap: 2px; }
 .aaa-wd-bar-bg { flex: 1; width: 100%; background: var(--color-surface); border-radius: 3px; display: flex; align-items: flex-end; }
 .aaa-wd-bar-fill { width: 100%; border-radius: 3px; min-height: 4px; }
+/* DDD1 DDD2 DDD5 DDD6 DDD9 */
+.ddd-lynch-hold, .ddd-dreman-streak, .ddd-munger-align, .ddd-schloss-stop, .ddd-ackman-lots { margin-bottom: 0; }
 /* CCC1-CCC7/CCC10 */
 .ccc-rrplan, .ccc-selectivity, .ccc-catalyst, .ccc-vcp, .ccc-rbins, .ccc-duration-trend { margin-bottom: 0; }
 .ccc-catalyst-grid { display: flex; flex-direction: column; gap: 6px; }
