@@ -165,11 +165,11 @@ p { line-height: 1.65; color: var(--text-secondary); }
   box-shadow: var(--shadow-sm);
 }
 
-/* ===== 全站區塊間距：統一為 16px（對齊「關聯圖01」頁）=====
+/* ===== 全站區塊間距：統一為 16px =====
    各頁 root 多是 flex/grid 直向堆疊，這裡統一其 gap；對非 flex/grid 容器
    gap 無作用（安全）。用 !important 蓋過各頁 scoped 樣式較高的權重。 */
 .admin-page, .analysis-view, .approval-page, .backtest-page, .buzz-page,
-.chip-page, .data-agent-page, .decision-dashboard, .graph-page, .graph01-page,
+.chip-page, .data-agent-page, .decision-dashboard, .graph-page,
 .home-page, .leadlag-page, .major-page, .overview-page, .public-data-page,
 .risk-page, .rotation-page, .rules-page, .seasonal-page, .settings-page,
 .signals-page, .trade-dashboard,

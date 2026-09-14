@@ -74,38 +74,3 @@ test('訊號規則頁 新增規則後顯示於清單，刪除後移除 (S10)', a
   await expect(page.locator('.rule-card', { hasText: '測試規則' })).toHaveCount(0)
 })
 
-test('觀察股關聯圖頁 套用新的觀察池後寫入本頁專屬 localStorage 並重新載入 (S10, updated for Y1)', async ({ page }) => {
-  await page.route('**/api/v1/graph/watchlist/timeline*', async (route) => {
-    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, data: { frames: [], symbols: [] } }) })
-  })
-  await page.route('**/api/v1/graph/watchlist/build', async (route) => {
-    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, data: { frames: [], symbols: [] } }) })
-  })
-  await page.route('**/api/v1/graph/watchlist/snapshot*', async (route) => {
-    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, data: { nodes: [], edges: [] } }) })
-  })
-  await page.route('**/api/v1/graph/watchlist/alerts*', async (route) => {
-    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, data: { items: [] } }) })
-  })
-
-  await page.goto('/graph01')
-  await page.evaluate(() => localStorage.setItem('finlab_watchlist', JSON.stringify(['2330', '2317'])))
-  await page.evaluate(() => localStorage.removeItem('finlab_graph01_symbols'))
-  await page.reload()
-
-  const input = page.locator('input.input').first()
-  await expect(input).toBeVisible({ timeout: 20_000 })
-  await input.fill('2330,2454,2317,2603')
-  await page.getByRole('button', { name: '套用觀察池' }).click()
-
-  // Y1 修正前：套用會把 finlab_watchlist 也覆寫掉；修正後：這頁的組合只存在
-  // 本頁專屬的 finlab_graph01_symbols，共用觀察清單維持原樣，重新整理後仍生效。
-  const graphSymbols = await page.evaluate(() => JSON.parse(localStorage.getItem('finlab_graph01_symbols') || '[]'))
-  expect(graphSymbols).toEqual(['2330', '2454', '2317', '2603'])
-
-  const sharedWatchlist = await page.evaluate(() => JSON.parse(localStorage.getItem('finlab_watchlist') || '[]'))
-  expect(sharedWatchlist).toEqual(['2330', '2317'])
-
-  await page.reload()
-  await expect(input).toHaveValue('2330,2454,2317,2603')
-})

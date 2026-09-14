@@ -186,7 +186,6 @@ const navGroups = [
     title: '關聯 & 輪動',
     items: [
       { key: 'graph', icon: Network, label: '關聯圖', to: () => '/graph' },
-      { key: 'graph01', icon: Network, label: '關聯圖01', to: () => '/graph01' },
       { key: 'rotation', icon: RefreshCw, label: '類股輪動', to: () => '/rotation' },
       { key: 'compare', icon: Scale, label: '多股比較', to: () => '/compare' },
       { key: 'market-lights', icon: Gauge, label: '大盤多空', to: () => '/market-lights' },

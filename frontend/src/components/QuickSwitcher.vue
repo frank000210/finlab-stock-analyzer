@@ -60,7 +60,6 @@ const PAGES = [
   { icon: '📋', title: '盤後日報', sub: '/daily-brief', to: '/daily-brief', alias: 'daily brief 日報' },
   { icon: '📊', title: '總覽', sub: '/overview', to: '/overview', alias: 'overview 總覽' },
   { icon: '🕸️', title: '關聯圖', sub: '/graph', to: '/graph', alias: 'graph 關聯' },
-  { icon: '🕸️', title: '關聯圖01', sub: '/graph01', to: '/graph01', alias: 'graph01 關聯圖二' },
   { icon: '🔄', title: '類股輪動', sub: '/rotation', to: '/rotation', alias: 'rotation 輪動 rrg' },
   { icon: '⚖️', title: '多股比較', sub: '/compare', to: '/compare', alias: 'compare 比較 多股' },
   { icon: '🚦', title: '大盤多空', sub: '/market-lights', to: '/market-lights', alias: 'market lights 大盤 多空 三燈號' },

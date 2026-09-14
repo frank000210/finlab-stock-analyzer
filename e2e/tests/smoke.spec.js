@@ -65,11 +65,7 @@ test('admin page shows login gate when not authenticated', async ({ page }) => {
   await expect(page.getByRole('button', { name: /使用 Google 登入/ })).toBeVisible()
 })
 
-// R10：以下 6 頁之前完全沒有 e2e 覆蓋。
-test('graph01 page renders watchlist graph shell', async ({ page }) => {
-  await page.goto('/graph01')
-  await expect(page.getByRole('heading', { name: '觀察股關聯圖' })).toBeVisible({ timeout: 60_000 })
-})
+// R10：以下頁面之前完全沒有 e2e 覆蓋。
 
 test('lead-lag page renders 2330 analysis', async ({ page }) => {
   await page.goto('/stocks/2330/lead-lag')
