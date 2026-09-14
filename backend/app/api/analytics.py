@@ -1,13 +1,14 @@
 """Analytics API endpoints backed by MongoDB."""
 
-import hmac
 import logging
 import re
 from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, field_validator
+
+from .admin import require_admin
 
 try:
     from ..db.mongodb import get_mongodb
@@ -75,14 +76,6 @@ async def _insert_user_log(db, payload: dict) -> None:
     await db.user_logs.insert_one(payload)
 
 
-async def _require_admin_token(x_admin_token: str = Header(default="")) -> None:
-    """AA10: Lightweight token gate for read-only analytics endpoints.
-    Uses the same admin secret as the admin panel — no new credential needed."""
-    from ..config.settings import get_settings as _gs
-    expected = _gs().admin_secret
-    # RR5: 使用時序安全比較防止 timing oracle 攻擊
-    if not expected or not hmac.compare_digest(x_admin_token, expected):
-        raise HTTPException(status_code=401, detail="Admin token required.")
 
 
 # JJ3：這兩支端點完全公開、零驗證，先前也沒有任何頻率限制——一支迴圈
@@ -140,7 +133,7 @@ async def track_pageview(payload: PageViewPayload, request: Request):
     return {"ok": True, "page": payload.page}
 
 
-@router.get("/pageviews", dependencies=[Depends(_require_admin_token)])
+@router.get("/pageviews", dependencies=[Depends(require_admin)])
 async def get_pageviews():
     db = await _get_db()
     pageviews = {}
@@ -149,7 +142,7 @@ async def get_pageviews():
     return pageviews
 
 
-@router.get("/pageviews/{page}", dependencies=[Depends(_require_admin_token)])
+@router.get("/pageviews/{page}", dependencies=[Depends(require_admin)])
 async def get_pageview_count(page: str):
     db = await _get_db()
     doc = await db.pageviews.find_one({"page": page}, {"_id": 0, "count": 1})
