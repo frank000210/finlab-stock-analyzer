@@ -11,6 +11,7 @@ description: finlab-stock-analyzer 的「自主循環優化」流程（盤點 N 
 判斷原則：實作細節的模稜兩可自己決定、事後在回報說明；只有商業/產品決策、不可逆動作、指示互相衝突才問人。
 
 ## 0. 開工前
+0. **先 `git fetch origin`，看 `git rev-list --left-right --count HEAD...origin/master`**。2026-10 曾經在落後 master 49 個 commit 的舊分支上重做了一整個「已存在於 master」的功能（意見回饋），白工一場。動工前也 grep master 有沒有同名檔案。
 1. `git status` 確認 worktree 狀態。**每完成一個可驗證的段落就先 commit**——worktree 會被回收，沒 commit 的東西會直接消失（2026-10 發生過一次，靠舊 Docker 容器才救回部分檔案）。
 2. 讀 `docs/改善紀錄.html` 的 `DATA` 陣列：已修過什麼、最後一個系列字母（下一輪接下去）。
 3. （盡力而為）用 `kb_ask`（domain=`dev_note`）查過去踩過的坑。回 404 / 工具不可用就跳過，改以改善紀錄為準，不要卡住。
@@ -50,6 +51,7 @@ description: finlab-stock-analyzer 的「自主循環優化」流程（盤點 N 
 | 症狀 | 判斷 |
 |---|---|
 | `ERR_CONNECTION_REFUSED` 在 :8000 | BASE_URL 沒生效/跑在 WSL（見上） |
+| 幾百個測試在 200ms 內同時失敗、`socket hang up`、Windows 端 curl 回 000 | WSL 閒置關機把容器帶走了（不是程式問題）。開一個常駐 `wsl -d Ubuntu -u root -- sleep infinity`（背景執行），再 `docker start <容器>`，殺掉殘留的 playwright 行程後重跑。跑長流程前就先開 keepalive |
 | 外部 API 全 timeout，`ping 8.8.8.8` 正常，`ip link show eth0` 顯示 mtu 1500 | PMTU blackhole，非額度。`ip link set dev eth0 mtu 1350` ＋ iptables TCPMSS clamp |
 | FinMind 402/403，但 WSL 內 curl 快速回應 | 真的額度用盡，等 30 分鐘，別狂重試 |
 | pre-push 單一不相關測試 `page.goto/reload` 逾時 | 連續整套重跑的資源壓力；單獨重跑通過就重推一次，連兩次必敗才當真 |
