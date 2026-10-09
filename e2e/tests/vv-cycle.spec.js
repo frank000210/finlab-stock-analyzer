@@ -30,8 +30,9 @@ test('VV1 current active streak card shows win/loss count', async ({ page }) => 
   await page.reload()
 
   // Last 4 closed trades are losses (gap) → shows 連敗
-  await expect(page.getByText(/當前連[勝敗]/)).toBeVisible()
-  await expect(page.locator('.scard').filter({ hasText: '當前連' })).toBeVisible()
+  await expect(page.getByText(/當前連[勝敗]/).first()).toBeVisible()
+  // 另有「當前連敗機率」卡（XX9），用負向預查排除，只取「當前連敗/連勝」這張。
+  await expect(page.locator('.scard').filter({ hasText: /當前連[勝敗](?!機率)/ })).toBeVisible()
 
   await page.evaluate(() => localStorage.removeItem('finlab_trade_journal'))
 })
@@ -56,9 +57,9 @@ test('VV3 catalyst analytics table renders with catalyst groups', async ({ page 
   await page.reload()
 
   await expect(page.getByText('依進場理由統計')).toBeVisible()
-  await expect(page.locator('table').filter({ hasText: 'breakout' })).toBeVisible()
-  await expect(page.locator('table').filter({ hasText: 'oversold' })).toBeVisible()
-  await expect(page.locator('table').filter({ hasText: 'gap' })).toBeVisible()
+  await expect(page.locator('table').filter({ hasText: 'breakout' }).first()).toBeVisible()
+  await expect(page.locator('table').filter({ hasText: 'oversold' }).first()).toBeVisible()
+  await expect(page.locator('table').filter({ hasText: 'gap' }).first()).toBeVisible()
 
   await page.evaluate(() => localStorage.removeItem('finlab_trade_journal'))
 })
@@ -69,7 +70,7 @@ test('VV4 trade frequency card shows trades per week', async ({ page }) => {
   await page.evaluate((t) => localStorage.setItem('finlab_trade_journal', JSON.stringify(t)), makeVVTrades())
   await page.reload()
 
-  await expect(page.getByText('交易頻率')).toBeVisible()
+  await expect(page.getByText('交易頻率').first()).toBeVisible()
   await expect(page.locator('.scard').filter({ hasText: '交易頻率' })).toContainText('筆/週')
 
   await page.evaluate(() => localStorage.removeItem('finlab_trade_journal'))
@@ -122,7 +123,7 @@ test('VV7 symbol concentration bars render and warn when top symbol > 30%', asyn
   await page.evaluate((t) => localStorage.setItem('finlab_trade_journal', JSON.stringify(t)), makeVVTrades())
   await page.reload()
 
-  await expect(page.getByText('標的集中度')).toBeVisible()
+  await expect(page.getByText('標的集中度').first()).toBeVisible()
   // 2330 has 6/12 trades = ~55% of absolute R → concentration warning
   await expect(page.locator('.conc-row')).toBeVisible()
   await expect(page.locator('.conc-row')).toContainText('2330')

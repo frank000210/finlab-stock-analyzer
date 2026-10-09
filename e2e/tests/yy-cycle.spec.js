@@ -127,8 +127,9 @@ test('YY8 expectancy phases show early/mid/recent columns', async ({ page }) => 
   await page.reload()
 
   await expect(page.getByText('期望值成長軌跡')).toBeVisible({ timeout: 10_000 })
-  await expect(page.locator('.yy-phase-row')).toBeVisible()
-  expect(await page.locator('.yy-phase-col').count()).toBe(3)
+  await expect(page.locator('.yy-phase-row').first()).toBeVisible()
+  // 頁面後來新增了多個同樣用 yy-phase-row/col 的卡片，只數「期望值成長軌跡」這一列。
+  expect(await page.locator('.yy-phase-row').first().locator('.yy-phase-col').count()).toBe(3)
 
   await page.evaluate(() => localStorage.removeItem('finlab_trade_journal'))
 })

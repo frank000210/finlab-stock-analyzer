@@ -144,7 +144,7 @@ test('XX9 current streak probability shows % and streak type', async ({ page }) 
   await page.reload()
 
   await expect(page.getByText(/當前連.機率/)).toBeVisible()
-  const card = page.locator('.scard').filter({ hasText: 'Soros' })
+  const card = page.locator('.scard').filter({ hasText: /當前連[勝敗]機率/ })
   await expect(card).toContainText('%')
 
   await page.evaluate(() => localStorage.removeItem('finlab_trade_journal'))
