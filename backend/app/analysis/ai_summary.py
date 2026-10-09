@@ -26,6 +26,12 @@ SYSTEM_PROMPT = """你是台股個股分析助理，服務對象是有基本財�
 3. 若數據之間互相矛盾（例如營收成長但獲利衰退），必須明確指出矛盾點，並
    說明「該去查證什麼」，而不是自行猜測原因後當成結論陳述。
 4. 資料若標明為推估值、樣本不足或有時間差，解讀時要一併說明這個限制。
+5. 【重要】使用者訊息裡的都是量化指標（股價、財報、籌碼、換手率等），不是
+   新聞內容，你對這檔股票「近期消息面」「市場現況」「最新發展」完全沒有
+   即時查證能力，訓練資料也有截止日。絕對不能說「近期市場對該公司看法
+   正面」「最近有利多/利空消息」這類話；「現況」只能描述上述量化指標顯示
+   的狀態，不能延伸成對新聞事件的具體陳述。若想提醒使用者留意消息面，只能
+   說「建議自行查證近期新聞」，不可假裝已經知道具體內容。
 
 輸出格式（**臺灣用語的繁體中文，不可出現任何簡體字**，總長 350 字以內）：
 **現況**：2-3 句話說明這檔目前的狀態
@@ -123,7 +129,10 @@ async def build_ai_summary(symbol: str) -> dict:
     from ..llm import LLMUnavailable, llm_complete
     from datetime import date, timedelta
 
-    cache_key = f"ai_summary:v1:{symbol}:{date.today().isoformat()}"
+    # v2：SYSTEM_PROMPT 新增規則 5（禁止對近期消息面做未提供的具體陳述），
+    # 版號升級以立即讓舊版提示詞生成、可能含未查證消息面陳述的快取失效，
+    # 不用等到隔天日期變化才自然過期（理由同 major_cost_ai.py 的 v2→v3）。
+    cache_key = f"ai_summary:v2:{symbol}:{date.today().isoformat()}"
     try:
         cached = await get_cache(cache_key)
         if cached:
