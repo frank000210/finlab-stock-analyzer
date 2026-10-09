@@ -9,7 +9,12 @@ llm_base_url / llm_model，其他程式碼不用動。目前接 OpenCode Go。
 2. **必須處理「空內容」**——部分模型（deepseek-v4-flash / glm-5.1）會把全部
    輸出放進 reasoning token，content 回空字串。這不是錯誤回應、HTTP 仍是
    200，所以要主動偵測並改用備援模型重試。
-3. **延遲 15~40 秒**——呼叫端一律要「使用者主動觸發 + 快取」，絕不可放在
+3. **必須帶 `x-opencode-session`**（2026-10 起上游強制檢查，缺少會回 HTTP 400
+   `MissingSessionID`，所有 AI 功能一起壞掉）。官方要求「每個對話一個穩定的 session
+   ID」好做路由與 prompt caching。我們每次呼叫都是無狀態單次請求，沒有真正的「對話」，
+   所以用系統提示詞的雜湊當 session ID：同一個功能（同一份系統提示詞）永遠同一個 ID，
+   既穩定、也讓相同前綴的請求被路由到同一處以利快取。
+4. **延遲 15~40 秒**——呼叫端一律要「使用者主動觸發 + 快取」，絕不可放在
    頁面首屏的必要路徑上。
 
 失效原則：LLM 不可用時一律拋 LLMUnavailable，呼叫端負責降級顯示；絕不能
@@ -18,6 +23,7 @@ llm_base_url / llm_model，其他程式碼不用動。目前接 OpenCode Go。
 
 from __future__ import annotations
 
+import hashlib
 import logging
 from datetime import date
 
@@ -27,6 +33,11 @@ logger = logging.getLogger(__name__)
 
 # Cloudflare bot 檢查：一定要有可辨識的 User-Agent
 _USER_AGENT = "finlab-stock-analyzer/1.0 (+https://finlab-app.zeabur.app)"
+
+
+def _session_id(system: str) -> str:
+    """穩定的 x-opencode-session：同一份系統提示詞（＝同一個功能）永遠同一個 ID。"""
+    return "finlab-" + hashlib.sha1(system.encode("utf-8")).hexdigest()[:16]
 
 
 class LLMUnavailable(RuntimeError):
@@ -88,6 +99,7 @@ async def _post_once(model: str, system: str, user: str,
                     "Authorization": f"Bearer {s.opencode_api_key}",
                     "Content-Type": "application/json",
                     "User-Agent": _USER_AGENT,
+                "x-opencode-session": _session_id(system),
                 },
                 json=payload,
             )

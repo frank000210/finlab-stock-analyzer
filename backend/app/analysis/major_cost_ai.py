@@ -18,6 +18,7 @@ OpenAI-相容 /chat/completions 架構），改用網站既有的新聞爬蟲基
 from __future__ import annotations
 
 import asyncio
+import html
 import logging
 
 logger = logging.getLogger(__name__)
@@ -81,10 +82,11 @@ async def _fetch_recent_news(symbol: str) -> list[dict]:
     seen: set[str] = set()
     unique = []
     for a in articles:
-        title = a.get("title", "")
+        # RSS 標題常帶 HTML 實體（例如 -&gt;），解碼後再給 LLM 與使用者看。
+        title = html.unescape(a.get("title", "") or "")
         if title and title not in seen:
             seen.add(title)
-            unique.append(a)
+            unique.append({**a, "title": title})
     return unique[:6]
 
 _ADVICE_PATTERNS = ("建議買進", "建議賣出", "建議加碼", "建議減碼", "可以買進", "應該買進", "應該賣出", "目標價")
