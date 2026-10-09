@@ -161,8 +161,8 @@ footer{ margin-top:36px; font-size:0.78rem; color:var(--ink-faint); text-align:c
 
 <script>
 const DATA = [
-{date:'2026-10-09 23:38', range:'獨立功能', title:'LLM 閘道改規格：缺少 x-opencode-session 一律 400，所有 AI 功能同時失效 → 補上標頭修復',
- summary:'驗證「問問AI 時事落地」時，真實呼叫突然回 503。查容器日誌發現上游 OpenCode Go 閘道回 HTTP 400 MissingSessionID：自 8 月以來，官方文件新增要求「每個對話送穩定的 x-opencode-session」，且伺服器端已開始強制檢查。這代表線上的 AI 摘要、問問AI、輿情摘要、自然語言選股、盤後日報導讀等所有走 llm_complete() 的功能，在這段期間都是壞的（錯誤被各功能的降級邏輯吞掉，使用者只看到「AI 服務暫時無法使用」）。不是這次新功能的問題，是順著驗證才挖出來的既有故障。',
+{date:'2026-10-09 23:38', range:'獨立功能', title:'LLM 閘道改規格：缺少 x-opencode-session 一律 400，所有走 llm_complete() 的 AI 功能失效 → 補上標頭修復',
+ summary:'驗證「問問AI 時事落地」時，真實呼叫突然回 503。查容器日誌發現上游 OpenCode Go 閘道回 HTTP 400 MissingSessionID：自 8 月以來，官方文件新增要求「每個對話送穩定的 x-opencode-session」，且伺服器端已開始強制檢查。凡是有設定金鑰、實際打得到閘道的環境，AI 摘要、問問AI、輿情摘要、自然語言選股、盤後日報導讀等所有走 llm_complete() 的功能都會失效（錯誤被各功能的降級邏輯吞掉，使用者只看到「AI 服務暫時無法使用」）。不是這次新功能的問題，是順著驗證才挖出來的既有故障。另外發現：推上 master 後檢查正式站（finlab-analyzer.zeabur.app），AI 端點回「AI 服務尚未設定」——Zeabur 目前沒有設定 OPENCODE_API_KEY，所以正式站的 AI 功能原本就是隱藏狀態，而不是被這個問題弄壞；要在正式站啟用 AI，需先在 Zeabur 補上這個環境變數。',
  items:[
   {code:'—', tag:'critical', text:'llm/client.py 在每個請求加上 x-opencode-session。我們每次都是無狀態單次呼叫、沒有真正的「對話」，所以用系統提示詞的 SHA-1 前 16 碼當 ID：同一功能永遠同一個 ID（穩定、也利於上游依相同前綴路由與快取）。live 驗證：2330 問問AI 回 200（約 28 秒），有帶入當天（10/09）的真實新聞標題。模型清單另外核對過，minimax-m2.5 與 qwen3.7-plus 都還在名單內，不需換模型。'},
   {code:'—', tag:'neutral', text:'問問AI 注入的新聞標題未解碼 HTML 實體（RSS 的 -&gt; 直接顯示在提示詞裡），改用 html.unescape 處理。'},
