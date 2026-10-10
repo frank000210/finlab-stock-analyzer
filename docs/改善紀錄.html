@@ -161,6 +161,15 @@ footer{ margin-top:36px; font-size:0.78rem; color:var(--ink-faint); text-align:c
 
 <script>
 const DATA = [
+{date:'2026-10-10 08:47', range:'獨立功能', title:'kb-web 重新部署到 Zeabur：資料完好、補上 LLM session 標頭，建置期間以看門狗保護正式站',
+ summary:'使用者要求重新部署 kb-web。先唯讀查證現況：Zeabur 帳號環境已重建（新伺服器、專案 ID 都變了），kb-web 服務不存在，舊 Mongo（172.234.90.16）也已關閉；但 knowledge_base 資料庫完好地留在正式站正在使用的那台 Mongo 上（spec_docs 165 篇、qa_history 12 筆、dev_note 18 篇），所以只需重建服務並指回同一個資料庫，不用搬資料。整個過程用 Zeabur GraphQL API 完成，沒有手動點後台。',
+ items:[
+  {code:'—', tag:'good', text:'以 createService（GitHub 來源、根目錄 kb-web、master 分支）建立 kb-web，綁定 frank210-kb-web.zeabur.app，設定 8 個環境變數。沿用原本的 KB_API_TOKEN 與登入密碼（本機的 dev-note hook 與使用者的登入習慣都不用改），JWT_SECRET 重新產生。所有密鑰都在程式內組裝、沒有印出。部署後 /api/notebooks 列出 dev_note 18、patent 49、finlab_source 87 等領域，未帶 token 正確回 401。'},
+  {code:'—', tag:'warn', text:'kb-web 依賴 sentence-transformers（連帶 torch），改善紀錄 NN 系列記過它曾把共用的自架伺服器擠到離線；這次它和正式站、myClaw 同住一台 VM。建置期間跑一支看門狗：每 15 秒查正式站 /api/health，連續 3 次不健康就呼叫 suspendService 暫停 kb-web。結果：建置約 16 分鐘，正式站全程回 200，保險沒有用上。'},
+  {code:'—', tag:'critical', text:'部署完成後 /api/ask 回 502（上游 400）：kb-web 自己的 LLM 客戶端（api/ask.py）和主站一樣沒送 x-opencode-session，被 OpenCode Go 閘道拒絕。補上標頭（用系統提示詞雜湊當穩定 session ID），並新增回歸測試——拿掉修復測試會失敗，且斷言同一功能的 ID 每次相同。kb-web 30 個單元測試全過。這是「上游改規格」第二次在不同服務重演，值得考慮把標頭邏輯抽成共用或加一支打真實閘道的冒煙檢查。'},
+  {code:'—', tag:'neutral', text:'過程觀察：（1）本機長時間執行的 shell 的環境變數是啟動當下的快照，使用者環境變數更新後讀到的是舊的失效 token，改成優先讀登錄檔；（2）.claude/hooks/post_push_devnote.py 的正規表達式會把 git stash push 當成 git push 而誤觸，只是多一則提醒、沒有副作用；（3）kb-web 的測試需要本機 Mongo 且會 drop 測試資料庫，跑之前確認 KB_MONGO_DB 指向 knowledge_base_test、KB_MONGO_URI 指向本機，避免碰到正式資料。'},
+ ]},
+
 {date:'2026-10-09 23:38', range:'獨立功能', title:'LLM 閘道改規格：缺少 x-opencode-session 一律 400，所有走 llm_complete() 的 AI 功能失效 → 補上標頭修復',
  summary:'驗證「問問AI 時事落地」時，真實呼叫突然回 503。查容器日誌發現上游 OpenCode Go 閘道回 HTTP 400 MissingSessionID：自 8 月以來，官方文件新增要求「每個對話送穩定的 x-opencode-session」，且伺服器端已開始強制檢查。凡是有設定金鑰、實際打得到閘道的環境，AI 摘要、問問AI、輿情摘要、自然語言選股、盤後日報導讀等所有走 llm_complete() 的功能都會失效（錯誤被各功能的降級邏輯吞掉，使用者只看到「AI 服務暫時無法使用」）。不是這次新功能的問題，是順著驗證才挖出來的既有故障。另外發現：推上 master 後檢查正式站（finlab-analyzer.zeabur.app），AI 端點回「AI 服務尚未設定」——Zeabur 目前沒有設定 OPENCODE_API_KEY，所以正式站的 AI 功能原本就是隱藏狀態，而不是被這個問題弄壞；要在正式站啟用 AI，需先在 Zeabur 補上這個環境變數。',
  items:[
