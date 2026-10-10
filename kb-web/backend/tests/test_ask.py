@@ -314,3 +314,30 @@ def test_pp7_feedback_404_for_unknown_id(db):
         json={"rating": -1},
     )
     assert resp.status_code == 404
+
+
+# ─── OpenCode Go 閘道 x-opencode-session（2026-10 起強制）──────────────────────
+
+def test_llm_call_sends_stable_opencode_session_header(db):
+    """閘道缺少 x-opencode-session 一律回 400 MissingSessionID，/api/ask 因此整個失效。
+    驗證每次呼叫都帶標頭，且同一份系統提示詞（同一功能）得到同一個穩定 ID。"""
+    db.spec_docs.insert_one(
+        {"doc_id": "d1", "title": "Widget Guide", "summary": "How widgets work",
+         "doc_type": "test-domain", "tags": ["widget", "test-domain"], "source_path": "w.md"}
+    )
+    with patch("app.api.ask.get_settings") as mock_get_settings, patch(
+        "httpx.AsyncClient.post", new_callable=AsyncMock
+    ) as mock_post:
+        _mock_settings(mock_get_settings)
+        mock_post.return_value = _fake_response(content="Answer. See [1].")
+        for _ in range(2):
+            r = client.post("/api/ask", headers=AUTH,
+                            json={"question": "What is a widget?", "domain": "test-domain"})
+            assert r.status_code == 200
+
+    sent = [call.kwargs["headers"] for call in mock_post.call_args_list]
+    assert len(sent) == 2
+    ids = {h.get("x-opencode-session") for h in sent}
+    assert None not in ids
+    assert len(ids) == 1, "同一功能（同一份系統提示詞）每次都該是同一個 session ID"
+    assert next(iter(ids)).startswith("kb-web-")

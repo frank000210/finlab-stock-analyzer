@@ -11,6 +11,7 @@ PP7  過程透明＋回饋 — 回應含 steps（每輪做了什麼）+ question
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import logging
 import re
@@ -116,6 +117,15 @@ def _bump_daily_quota(db: Database) -> None:
 
 # ─── LLM 呼叫 ─────────────────────────────────────────────────────────────────
 
+def _session_id(messages: list[dict]) -> str:
+    """OpenCode Go 閘道（2026-10 起）強制要求 x-opencode-session，缺少回 HTTP 400
+    MissingSessionID。每次呼叫都是無狀態的單次請求，沒有真正的「對話」，所以用系統
+    提示詞的雜湊當 ID：同一份提示詞永遠同一個 ID（穩定、利於上游路由與快取）。
+    主站 backend/app/llm/client.py 同款修法。"""
+    system = next((m.get("content") or "" for m in messages if m.get("role") == "system"), "")
+    return "kb-web-" + hashlib.sha1(system.encode("utf-8")).hexdigest()[:16]
+
+
 async def _complete_raw(model: str, messages: list[dict], max_tokens: int = 1024) -> str:
     """向 OpenCode Go 送出完整 messages 陣列，回傳 content 字串。"""
     settings = get_settings()
@@ -134,6 +144,7 @@ async def _complete_raw(model: str, messages: list[dict], max_tokens: int = 1024
                     "Authorization": f"Bearer {settings.opencode_api_key}",
                     "Content-Type": "application/json",
                     "User-Agent": _USER_AGENT,
+                    "x-opencode-session": _session_id(messages),
                 },
                 json=payload,
             )
