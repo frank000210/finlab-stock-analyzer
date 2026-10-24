@@ -1,0 +1,70 @@
+{
+  "pass_ratio": 0.8,
+  "questions": [
+    {
+      "id": "q1",
+      "question": "Claude Code 跟一般聊天機器人最大的差別是？",
+      "options": [
+        "回答比較長",
+        "會使用工具實際動手做事，並根據結果決定下一步",
+        "只能用英文",
+        "不需要網路"
+      ],
+      "answer": 1,
+      "explain": "Agent 的關鍵是會用工具行動（讀檔、改檔、跑指令），再依結果調整。",
+      "section": "Claude Code 是什麼"
+    },
+    {
+      "id": "q2",
+      "question": "想立刻打斷 Claude 目前正在做的動作，應該按？",
+      "options": [
+        "Ctrl+Z",
+        "Esc",
+        "Tab",
+        "F5"
+      ],
+      "answer": 1,
+      "explain": "按 Esc 立刻停下；Esc 連按兩下則是開啟 rewind。",
+      "section": "常用斜線指令"
+    },
+    {
+      "id": "q3",
+      "question": "想知道目前 context 被哪些東西佔用，要用哪個指令？",
+      "options": [
+        "/memory",
+        "/context",
+        "/doctor",
+        "/model"
+      ],
+      "answer": 1,
+      "explain": "/context 會列出 context 各類別的使用量。",
+      "section": "常用斜線指令"
+    },
+    {
+      "id": "q4",
+      "question": "為什麼建議在 git repo 裡使用 Claude Code？",
+      "options": [
+        "不然無法啟動",
+        "它改的是真實檔案，git 讓修改看得到、退得回",
+        "git 會讓它變快",
+        "可以省 token"
+      ],
+      "answer": 1,
+      "explain": "Claude Code 操作真實檔案，git diff / restore 是最基本的安全網。",
+      "section": "Claude Code 是什麼"
+    },
+    {
+      "id": "q5",
+      "question": "哪個指令可以自動幫專案產生一份 CLAUDE.md 草稿？",
+      "options": [
+        "/init",
+        "/compact",
+        "/clear",
+        "/help"
+      ],
+      "answer": 0,
+      "explain": "/init 會分析專案並產生 CLAUDE.md 草稿。",
+      "section": "常用斜線指令"
+    }
+  ]
+}

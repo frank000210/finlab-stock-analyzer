@@ -516,7 +516,15 @@ async function handleRedirectCallback() {
 
 onMounted(async () => {
   // Handle OAuth redirect callback (#id_token=...) first
-  await handleRedirectCallback()
+  const justLoggedIn = await handleRedirectCallback()
+  // 學習中心的 Google 登入也借用 /admin 這個 redirect_uri（Google Console 只登記了這個），
+  // 從 /learn 出發的登入要送回原頁，不在後台顯示「未獲授權」。
+  const returnTo = sessionStorage.getItem('post_login_redirect')
+  if (justLoggedIn && returnTo && returnTo.startsWith('/learn')) {
+    sessionStorage.removeItem('post_login_redirect')
+    window.location.replace(returnTo)
+    return
+  }
   if (authStore.isAdmin) {
     await Promise.all([loadStats(), loadLogs(), loadPageviews(), loadLlmUsage(), loadSettings(), loadAdmins()])
   } else if (authStore.isLoggedIn) {

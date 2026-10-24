@@ -49,6 +49,31 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  // 學習中心的本機帳號（沒有 Google 帳號的學習者用）。簽出的 token 跟
+  // Google 登入同一把 JWT，存在同樣的 localStorage key，全站共用登入狀態。
+  async function loginWithPassword(mode, payload) {
+    const path = mode === 'register' ? 'register' : 'login'
+    try {
+      const res = await fetch(`/api/v1/course/auth/${path}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok || !data.valid) {
+        const detail = Array.isArray(data.detail) ? '輸入格式不正確（密碼至少 8 碼）' : data.detail
+        return { success: false, error: detail || '登入失敗，請稍後再試' }
+      }
+      token.value = data.token
+      user.value = { email: data.email, name: data.name, avatar: '', is_admin: false, provider: 'local' }
+      localStorage.setItem('admin_token', data.token)
+      localStorage.setItem('admin_user', JSON.stringify(user.value))
+      return { success: true }
+    } catch (e) {
+      return { success: false, error: '網路錯誤，請稍後再試' }
+    }
+  }
+
   function logout() {
     token.value = null
     user.value = null
@@ -60,5 +85,5 @@ export const useAuthStore = defineStore('auth', () => {
     return token.value ? { 'X-Admin-Token': token.value } : {}
   }
 
-  return { token, user, isLoggedIn, isAdmin, email, name, avatar, loginWithGoogle, logout, getAuthHeaders }
+  return { token, user, isLoggedIn, isAdmin, email, name, avatar, loginWithGoogle, loginWithPassword, logout, getAuthHeaders }
 })

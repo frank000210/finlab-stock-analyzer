@@ -1,0 +1,83 @@
+{
+  "pass_ratio": 0.8,
+  "questions": [
+    {
+      "id": "q1",
+      "question": "marketplace.json 應該放在？",
+      "options": [
+        "marketplace 根目錄",
+        "marketplace 根目錄下的 .claude-plugin/",
+        "每個 plugin 底下",
+        "~/.claude/"
+      ],
+      "answer": 1,
+      "explain": "marketplace 是含 .claude-plugin/marketplace.json 的資料夾。",
+      "section": "Marketplace 是什麼"
+    },
+    {
+      "id": "q2",
+      "question": "marketplace.json 裡 plugin 的相對路徑 source，要從哪裡算起？",
+      "options": [
+        "從 .claude-plugin/ 資料夾",
+        "從 marketplace 根目錄",
+        "從使用者家目錄",
+        "從目前工作目錄"
+      ],
+      "answer": 1,
+      "explain": "從包含 .claude-plugin/ 的根目錄算起，且不能用 ..。",
+      "section": "建立 marketplace"
+    },
+    {
+      "id": "q3",
+      "question": "從 my-marketplace 安裝 my-toolkit，正確的指令是？",
+      "options": [
+        "claude plugin install my-marketplace/my-toolkit",
+        "claude plugin install my-toolkit@my-marketplace",
+        "claude install my-toolkit",
+        "/plugin add my-toolkit"
+      ],
+      "answer": 1,
+      "explain": "格式是 plugin 名稱@marketplace 名稱。",
+      "section": "驗證、加入、安裝"
+    },
+    {
+      "id": "q4",
+      "question": "marketplace 項目的 name 和 plugin.json 的 name 不一致，最可能的結果是？",
+      "options": [
+        "沒影響",
+        "安裝時找不到 plugin",
+        "plugin 名稱自動改成一致",
+        "skill 失去命名空間"
+      ],
+      "answer": 1,
+      "explain": "兩個名稱要保持一致。",
+      "section": "建立 marketplace"
+    },
+    {
+      "id": "q5",
+      "question": "從 git 安裝的使用者，什麼時候會收到你的新版本？",
+      "options": [
+        "你 push 之後立刻",
+        "你更新 plugin.json 的 version 並發布後",
+        "永遠不會",
+        "使用者重灌電腦後"
+      ],
+      "answer": 1,
+      "explain": "有設 version 時，使用者會停在該版本直到你改版號。",
+      "section": "版本與更新"
+    },
+    {
+      "id": "q6",
+      "question": "安裝第三方 plugin 前，最該先檢查什麼？",
+      "options": [
+        "檔案大小",
+        "hooks、skill 的 allowed-tools 與 .mcp.json 的連線目標",
+        "作者頭像",
+        "星星數"
+      ],
+      "answer": 1,
+      "explain": "plugin 的 hook 以你的權限執行，是供應鏈風險。",
+      "section": "Plugin 的信任與安全"
+    }
+  ]
+}

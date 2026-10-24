@@ -40,6 +40,8 @@ CACHE_TTL = {
     "ai_summary": 360,
     # X1：LLM 端點 per-IP 節流窗口，10 分鐘
     "rate_limit": 10,
+    # 學習中心：AI 助教／專題初評的每人每日計數（key 含日期）
+    "course_daily": 1440,
 }
 
 

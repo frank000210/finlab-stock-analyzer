@@ -1,0 +1,107 @@
+{
+  "title": "從 AI Agent 原理到 Claude Code 客製化",
+  "stages": [
+    { "id": "s0", "title": "入門", "summary": "裝好工具、做程度檢測，找到你的起點。" },
+    { "id": "s1", "title": "核心模組", "summary": "六個 Agent 原理，各自對照 Claude Code 的實作，並親手客製一次。" },
+    { "id": "s2", "title": "整合與發布", "summary": "把前面做的東西打包成 plugin，透過自己的 marketplace 分享。" },
+    { "id": "s3", "title": "結業", "summary": "完成期末專題，取得結業證書。" }
+  ],
+  "units": [
+    {
+      "id": "l0", "code": "L0", "stage": "s0", "order": 0,
+      "title": "課前準備",
+      "summary": "安裝 Claude Code、認識介面、了解計費與安全的基本觀念。",
+      "minutes": 30, "required": false, "quiz": true, "lab": "labs/l0",
+      "concept": "工具準備", "features": ["CLI", "桌面 App", "斜線指令"],
+      "objectives": ["能在終端機或桌面 App 啟動 Claude Code", "知道 /help、/context、/clear 等常用指令", "理解 Claude Code 會讀寫你電腦上的真實檔案"]
+    },
+    {
+      "id": "u1", "code": "U1", "stage": "s1", "order": 10,
+      "title": "LLM 與 Prompt 基礎",
+      "summary": "context window 是 Agent 唯一的工作記憶。學會用 CLAUDE.md、rules 與 output style 把對的指示放進去。",
+      "minutes": 60, "required": true, "quiz": true, "lab": "labs/u1",
+      "concept": "System prompt 與 context window", "features": ["CLAUDE.md", ".claude/rules/", "Output style", "/context"],
+      "objectives": ["說明 context window 與 token 成本", "寫出具體、可驗證、200 行內的 CLAUDE.md", "用 paths 讓規則只在相關檔案載入", "分辨 CLAUDE.md 與 output style 的用途"]
+    },
+    {
+      "id": "u2", "code": "U2", "stage": "s1", "order": 20,
+      "title": "Tool Use：工具呼叫與權限",
+      "summary": "Agent 透過工具行動。認識內建工具、用權限規則管住它，再用 MCP 接上外部系統。",
+      "minutes": 90, "required": true, "quiz": true, "lab": "labs/u2",
+      "concept": "Function calling", "features": ["內建工具", "permissions allow/ask/deny", "permission modes", "MCP"],
+      "objectives": ["說出 deny → ask → allow 的評估順序", "寫出 Bash、Read、MCP 的權限規則", "選擇合適的 permission mode", "用 claude mcp add 或 .mcp.json 接上一個 MCP server"]
+    },
+    {
+      "id": "u3", "code": "U3", "stage": "s1", "order": 30,
+      "title": "記憶與 RAG：Skills",
+      "summary": "不是每份知識都要一直放在 context 裡。用 skill 做「需要時才載入」的知識與流程。",
+      "minutes": 90, "required": true, "quiz": true, "lab": "labs/u3",
+      "concept": "記憶分層與檢索增強", "features": ["auto memory", "Skills", "漸進式載入", "!`指令` 動態注入"],
+      "objectives": ["分辨 CLAUDE.md、auto memory、skill 的載入時機", "寫出觸發準確的 skill description", "做出參考型與動作型兩種 skill", "知道何時要設 disable-model-invocation"]
+    },
+    {
+      "id": "u4", "code": "U4", "stage": "s1", "order": 40,
+      "title": "規劃與推理：Agent Loop",
+      "summary": "ReAct 的「想 → 做 → 看結果」就是 Claude Code 的核心迴圈。學會用 plan mode 與 checkpoint 駕馭它。",
+      "minutes": 60, "required": true, "quiz": true, "lab": "labs/u4",
+      "concept": "ReAct 與任務規劃", "features": ["Agent loop", "Plan mode", "Todo 清單", "Checkpoint / rewind"],
+      "objectives": ["描述 agent loop 的三個階段", "在大改動前用 plan mode 先規劃", "用 rewind 退回錯誤的修改", "寫出讓 Agent 能自我驗證的任務描述"]
+    },
+    {
+      "id": "u5", "code": "U5", "stage": "s1", "order": 50,
+      "title": "Multi-Agent：Subagents",
+      "summary": "把會塞爆 context 的工作交給隔離的 subagent，只拿回摘要。",
+      "minutes": 75, "required": true, "quiz": true, "lab": "labs/u5",
+      "concept": "多代理協作與 context 隔離", "features": ["Subagents", "內建 Explore / Plan", "skills 預載", "context: fork"],
+      "objectives": ["判斷什麼時候該用 subagent", "寫出 .claude/agents/ 定義檔並限制工具", "讓 skill 在 subagent 中執行", "比較 subagent、多 session 與 workflow"]
+    },
+    {
+      "id": "u6", "code": "U6", "stage": "s1", "order": 60,
+      "title": "評測、護欄與部署：Hooks",
+      "summary": "寫在提示詞裡的規則只是「請求」，hook 才是「強制」。用 hook 做護欄、自動化與品質關卡。",
+      "minutes": 120, "required": true, "quiz": true, "lab": "labs/u6",
+      "concept": "護欄、評測與確定性控制", "features": ["Hooks", "PreToolUse / PostToolUse", "exit code 2", "提示注入防護"],
+      "objectives": ["說出常用 hook 事件與 matcher 寫法", "用 PreToolUse 擋掉危險指令", "用 PostToolUse 自動跑格式化或 lint", "做出「讀過外部內容後降級」的護欄"]
+    },
+    {
+      "id": "l7", "code": "L7", "stage": "s2", "order": 70,
+      "title": "介面客製：狀態列與快捷鍵",
+      "summary": "讓每天用的介面更順手：自訂狀態列與快捷鍵。",
+      "minutes": 30, "required": false, "quiz": true, "lab": "labs/l7",
+      "concept": "開發者體驗", "features": ["statusline", "keybindings"],
+      "objectives": ["寫一支狀態列腳本顯示分支與模型", "知道快捷鍵設定檔的位置"]
+    },
+    {
+      "id": "l8", "code": "L8", "stage": "s2", "order": 80,
+      "title": "Plugins：打包你的設定",
+      "summary": "把 skill、agent、hook、MCP 收進同一個 plugin，跨專案重複使用。",
+      "minutes": 90, "required": true, "quiz": true, "lab": "labs/l8",
+      "concept": "封裝與重用", "features": [".claude-plugin/plugin.json", "--plugin-dir", "claude plugin validate", "命名空間"],
+      "objectives": ["說出 plugin 的目錄結構", "把現有 .claude/ 設定轉成 plugin", "用 --plugin-dir 與 validate 測試", "理解 plugin 的命名空間"]
+    },
+    {
+      "id": "l9", "code": "L9", "stage": "s2", "order": 90,
+      "title": "Marketplace：分享給團隊",
+      "summary": "建一個自己的 marketplace，讓同事一行指令安裝並持續收到更新。",
+      "minutes": 60, "required": true, "quiz": true, "lab": "labs/l9",
+      "concept": "發布與版本管理", "features": ["marketplace.json", "claude plugin marketplace add", "claude plugin install", "plugin 信任與安全"],
+      "objectives": ["寫出正確的 marketplace.json", "在本機加入 marketplace 並安裝 plugin", "了解版本與更新的運作", "評估第三方 plugin 的風險"]
+    },
+    {
+      "id": "l10", "code": "L10", "stage": "s3", "order": 100,
+      "title": "期末專題：my-claude-toolkit",
+      "summary": "打造屬於你的 plugin，並整理一份可以帶回團隊的 AI-SDLC 原則清單。",
+      "minutes": 240, "required": false, "quiz": false, "lab": "labs/l10",
+      "concept": "整合應用", "features": ["Plugin", "Marketplace", "原則清單"],
+      "objectives": ["整合至少三種擴充點成為一個 plugin", "為每個機制選擇寫下理由", "產出團隊可用的原則清單"]
+    },
+    {
+      "id": "ax", "code": "附錄", "stage": "s3", "order": 110,
+      "title": "附錄：速查表與下一步",
+      "summary": "各機制比較速查表、名詞表，以及 Agent SDK（方案 B）的入門方向。",
+      "minutes": 20, "required": false, "quiz": false, "lab": null,
+      "concept": "延伸學習", "features": ["速查表", "名詞表", "Agent SDK"],
+      "objectives": ["遇到需求時能快速查到該用哪個機制"]
+    }
+  ]
+}

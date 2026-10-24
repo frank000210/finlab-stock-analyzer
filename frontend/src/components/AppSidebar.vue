@@ -90,7 +90,7 @@ import {
   Gauge, ScanSearch, Search, Shield, Flame, AlertTriangle,
   Calculator, BookOpen, Dices, Bell, Rocket, Newspaper, Puzzle,
   Settings, Wrench, Brain, Lightbulb, Diamond, Menu,
-  ChevronLeft, ChevronRight, Key,
+  ChevronLeft, ChevronRight, Key, GraduationCap,
 } from 'lucide-vue-next'
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
@@ -209,6 +209,7 @@ const navGroups = [
     title: '其他',
     items: [
       { key: 'guide', icon: Rocket, label: '新手上路', to: () => '/guide' },
+      { key: 'learn', icon: GraduationCap, label: '學習中心', to: () => '/learn' },
       { key: 'data-agent', icon: Newspaper, label: '資料爬蟲與新聞檢查', to: () => '/data-agent' },
       { key: 'signal-rules', icon: Puzzle, label: '信號規則編輯器', to: () => '/signal-rules' },
       { key: 'settings', icon: Settings, label: '設定', to: () => '/settings' },

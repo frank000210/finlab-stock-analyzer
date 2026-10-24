@@ -1,0 +1,83 @@
+{
+  "pass_ratio": 0.8,
+  "questions": [
+    {
+      "id": "q1",
+      "question": "關於 CLAUDE.md 的載入方式，哪一項正確？",
+      "options": [
+        "只在你輸入 /claude 時載入",
+        "每個 session 開始時自動載入 context",
+        "只有子目錄的 CLAUDE.md 會載入",
+        "載入後會覆蓋使用者層級的 CLAUDE.md"
+      ],
+      "answer": 1,
+      "explain": "CLAUDE.md 在 session 開頭自動載入；各層級是疊加，不是覆蓋。",
+      "section": "CLAUDE.md：每次都載入的專案說明"
+    },
+    {
+      "id": "q2",
+      "question": "哪一條 CLAUDE.md 指示寫得最好？",
+      "options": [
+        "程式碼要寫得整齊",
+        "記得測試",
+        "commit 前執行 npm test，全部通過才 commit",
+        "注意效能"
+      ],
+      "answer": 2,
+      "explain": "好的指示要具體到可以驗證。",
+      "section": "寫出有效的指示"
+    },
+    {
+      "id": "q3",
+      "question": "官方建議每個 CLAUDE.md 大約控制在多少行內？",
+      "options": [
+        "50 行",
+        "200 行",
+        "1000 行",
+        "沒有限制"
+      ],
+      "answer": 1,
+      "explain": "建議 200 行內；太長會吃 context、降低遵循度。",
+      "section": "寫出有效的指示"
+    },
+    {
+      "id": "q4",
+      "question": "在 CLAUDE.md 用 @README.md 匯入檔案，對 context 成本的影響是？",
+      "options": [
+        "完全不佔 context",
+        "被匯入的檔案會一起載入，不會省 context",
+        "只載入檔名",
+        "只有在用到時才載入"
+      ],
+      "answer": 1,
+      "explain": "匯入只是方便整理，被匯入的內容會跟著一起載入。",
+      "section": "CLAUDE.md：每次都載入的專案說明"
+    },
+    {
+      "id": "q5",
+      "question": "只想讓「API 開發規則」在處理 src/api/ 底下的檔案時才載入，最適合用？",
+      "options": [
+        "寫在 CLAUDE.md 最上面",
+        "放在 .claude/rules/ 並在 frontmatter 設 paths",
+        "做成 output style",
+        "寫成 hook"
+      ],
+      "answer": 1,
+      "explain": "路徑限定規則只在處理符合的檔案時載入，節省 context。",
+      "section": "用 rules 拆分規則"
+    },
+    {
+      "id": "q6",
+      "question": "想讓 Claude 每次回答都先講結果、省略開場白，最適合用？",
+      "options": [
+        "CLAUDE.md",
+        "Output style（例如 Concise）",
+        "權限規則",
+        "MCP"
+      ],
+      "answer": 1,
+      "explain": "Output style 管回應方式；CLAUDE.md 管專案知識。",
+      "section": "Output style：改變回應的方式"
+    }
+  ]
+}

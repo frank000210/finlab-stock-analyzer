@@ -1,0 +1,70 @@
+{
+  "pass_ratio": 0.8,
+  "questions": [
+    {
+      "id": "q1",
+      "question": "Claude Code 的 Agent 迴圈三個階段是？",
+      "options": [
+        "規劃、編碼、部署",
+        "蒐集 context、採取行動、驗證結果",
+        "讀取、寫入、刪除",
+        "提問、回答、總結"
+      ],
+      "answer": 1,
+      "explain": "官方描述為 gather context → take action → verify results，並且會交錯重複。",
+      "section": "Claude Code 的 Agent 迴圈"
+    },
+    {
+      "id": "q2",
+      "question": "哪一種任務描述最能讓 Agent 自我修正？",
+      "options": [
+        "修好這個 bug",
+        "盡快修好",
+        "修好登入 bug，npm test -- auth 要全部通過",
+        "修好並寫得漂亮一點"
+      ],
+      "answer": 2,
+      "explain": "給可以執行的驗證方式，Agent 才能跑「改 → 測 → 再改」。",
+      "section": "讓 Agent 能自我驗證"
+    },
+    {
+      "id": "q3",
+      "question": "按什麼鍵可以切換到 plan mode？",
+      "options": [
+        "Ctrl+P",
+        "Shift+Tab",
+        "Alt+M",
+        "F2"
+      ],
+      "answer": 1,
+      "explain": "Shift+Tab 循環切換 permission modes，其中包含 Plan。",
+      "section": "Plan mode：先規劃再動手"
+    },
+    {
+      "id": "q4",
+      "question": "Claude 剛剛部署了一個錯誤版本到伺服器，用 rewind 可以還原嗎？",
+      "options": [
+        "可以，rewind 會還原一切",
+        "不行，checkpoint 只涵蓋檔案修改，外部系統的動作無法退回",
+        "只要在 5 分鐘內就可以",
+        "要付費才能還原"
+      ],
+      "answer": 1,
+      "explain": "Checkpoint 只管檔案；部署、資料庫、API 呼叫要靠權限事前把關。",
+      "section": "Checkpoint 與 rewind：退回錯誤"
+    },
+    {
+      "id": "q5",
+      "question": "想接續最近一次的 session，要用哪個指令？",
+      "options": [
+        "claude --new",
+        "claude --continue",
+        "claude --reset",
+        "claude --plan"
+      ],
+      "answer": 1,
+      "explain": "--continue 接續最近一次；--resume 從清單挑選。",
+      "section": "Session 的延續"
+    }
+  ]
+}
