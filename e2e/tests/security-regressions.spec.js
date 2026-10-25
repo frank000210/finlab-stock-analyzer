@@ -52,3 +52,17 @@ test('II2 回歸：惡意代號透過真實路由送進元件時被白名單擋�
   const xssExecuted = await page.evaluate(() => window.__xss_executed === true)
   expect(xssExecuted).toBe(false)
 })
+
+// 後台改成只用 ADMIN_SECRET 密碼登入：錯誤密碼回 401，且失敗次數只在
+// 錯誤時累計——錯一次之後正確密碼仍要能登入（不能連成功都計數，否則 e2e
+// 自己每輪十幾次的正確登入就會把自己鎖在門外）。不在這裡測「連錯 10 次被
+// 鎖」，因為鎖的是同一個 IP，會連帶擋掉後續測試的正確登入。
+test('後台密碼登入：錯誤密碼 401，之後正確密碼仍可登入', async ({ request }) => {
+  const { getAdminToken } = require('../helpers/admin-token')
+  const wrong = await request.post('/api/v1/auth/direct-login', {
+    data: { secret: 'definitely-not-the-admin-secret' },
+  })
+  expect(wrong.status()).toBe(401)
+  const token = await getAdminToken(request)
+  expect(token).toBeTruthy()
+})

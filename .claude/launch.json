@@ -16,6 +16,12 @@
       "cwd": "backend"
     },
     {
+      "name": "backend-rootenv",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "uvicorn", "app.main:app", "--app-dir", "backend", "--port", "8000"],
+      "port": 8000
+    },
+    {
       "name": "kb-web-frontend",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev", "--", "--port", "5174"],

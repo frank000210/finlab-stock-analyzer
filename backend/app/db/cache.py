@@ -230,6 +230,17 @@ async def increment_rate_limit(key: str, category: str = "rate_limit") -> int:
     return int(doc.get("count", 0))
 
 
+async def get_rate_limit_count(key: str) -> int:
+    """Read a rate-limit counter without incrementing it (0 if absent/expired).
+
+    給「只計失敗次數」的節流用：先讀目前次數決定要不要擋，失敗時才呼叫
+    increment_rate_limit()，成功的請求完全不佔額度。
+    """
+    db = await _get_db()
+    doc = await db.cache.find_one({"key": key, "expires_at": {"$gt": datetime.utcnow()}})
+    return int(doc.get("count", 0)) if doc else 0
+
+
 async def get_all_settings() -> dict:
     """Get all settings as a dictionary."""
     db = await _get_db()

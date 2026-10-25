@@ -40,6 +40,34 @@ async def _check_google_verify_rate_limit(request: Request) -> None:
         pass  # 節流輔助 DB 失敗不應阻斷正常登入
 
 
+# 後台改成只用 ADMIN_SECRET 密碼登入後，/direct-login 成了唯一入口，必須擋
+# 暴力猜密碼。只計「失敗」次數：e2e 每輪會正確登入十幾次、pre-push 又會
+# 連跑兩輪，若連成功也計數會把測試自己鎖在門外。
+_DIRECT_LOGIN_WINDOW_MINUTES = 10
+_DIRECT_LOGIN_MAX_FAILURES = 10
+
+
+def _direct_login_rate_key(request: Request) -> str:
+    from ..api.analytics import _get_client_ip
+    return f"auth_direct_login_fail:{_get_client_ip(request)}"
+
+
+async def _direct_login_locked(request: Request) -> bool:
+    try:
+        from ..db.cache import get_rate_limit_count
+        return await get_rate_limit_count(_direct_login_rate_key(request)) >= _DIRECT_LOGIN_MAX_FAILURES
+    except Exception:
+        return False  # 節流輔助 DB 失敗不應阻斷正常登入
+
+
+async def _record_direct_login_failure(request: Request) -> None:
+    try:
+        from ..db.cache import increment_rate_limit
+        await increment_rate_limit(_direct_login_rate_key(request), "rate_limit")
+    except Exception:
+        pass
+
+
 class GoogleVerifyPayload(BaseModel):
     id_token: str
 
@@ -49,8 +77,8 @@ class DirectLoginPayload(BaseModel):
 
 
 @router.post("/direct-login")
-async def direct_login(payload: DirectLoginPayload):
-    """ADMIN_SECRET 直接登入（Google OAuth 未設定時的備用方式）。"""
+async def direct_login(payload: DirectLoginPayload, request: Request):
+    """ADMIN_SECRET 密碼登入（後台唯一的登入方式）。"""
     import hmac
     import jwt
 
@@ -58,7 +86,14 @@ async def direct_login(payload: DirectLoginPayload):
     if not settings.admin_secret:
         raise HTTPException(status_code=503, detail="ADMIN_SECRET 尚未設定。")
 
-    if not hmac.compare_digest(payload.secret, settings.admin_secret):
+    if await _direct_login_locked(request):
+        raise HTTPException(
+            status_code=429,
+            detail=f"密碼錯誤次數過多，請 {_DIRECT_LOGIN_WINDOW_MINUTES} 分鐘後再試。",
+        )
+
+    if not hmac.compare_digest(payload.secret.encode(), settings.admin_secret.encode()):
+        await _record_direct_login_failure(request)
         raise HTTPException(status_code=401, detail="密碼錯誤。")
 
     email = settings.default_allowed_admins[0] if settings.default_allowed_admins else ""

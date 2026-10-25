@@ -62,7 +62,8 @@ test('chip analysis page renders 2330 data', async ({ page }) => {
 test('admin page shows login gate when not authenticated', async ({ page }) => {
   await page.goto('/admin')
   await expect(page.getByRole('heading', { name: '後台管理' })).toBeVisible({ timeout: 20_000 })
-  await expect(page.getByRole('button', { name: /使用 Google 登入/ })).toBeVisible()
+  await expect(page.getByPlaceholder('管理員密碼')).toBeVisible()
+  await expect(page.getByRole('button', { name: /使用 Google 登入/ })).toHaveCount(0)
 })
 
 // R10：以下頁面之前完全沒有 e2e 覆蓋。

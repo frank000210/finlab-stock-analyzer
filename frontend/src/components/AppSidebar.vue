@@ -70,9 +70,9 @@
         <img v-if="authStore.avatar" :src="authStore.avatar" class="sidebar-avatar" :title="authStore.email" />
         <span v-else-if="!collapsed" class="sidebar-user">{{ authStore.email }}</span>
       </template>
-      <button v-else class="sidebar-signin-btn" @click="triggerGoogleSignIn" :title="collapsed ? 'Google 登入' : ''">
+      <button v-else class="sidebar-signin-btn" @click="goAdminLogin" :title="collapsed ? '管理員登入' : ''">
         <Key v-if="collapsed" :size="16" />
-        <span v-else>Google 登入</span>
+        <span v-else>管理員登入</span>
       </button>
     </div>
   </aside>
@@ -219,23 +219,9 @@ const navGroups = [
   },
 ]
 
-function triggerGoogleSignIn() {
-  const clientId = window.__GOOGLE_CLIENT_ID__ || ''
-  if (!clientId) {
-    router.push('/admin')
-    return
-  }
-  const nonce = Math.random().toString(36).slice(2) + Date.now().toString(36)
-  sessionStorage.setItem('gsi_nonce', nonce)
-  const params = new URLSearchParams({
-    client_id: clientId,
-    redirect_uri: window.location.origin + '/admin',
-    response_type: 'id_token',
-    scope: 'openid email profile',
-    nonce,
-    prompt: 'select_account',
-  })
-  window.location.href = 'https://accounts.google.com/o/oauth2/v2/auth?' + params.toString()
+function goAdminLogin() {
+  mobileOpen.value = false
+  router.push('/admin')
 }
 </script>
 

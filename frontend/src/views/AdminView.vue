@@ -5,26 +5,20 @@
       <div class="login-card">
         <div class="login-logo">🔐</div>
         <h2>後台管理</h2>
-        <p>請使用授權的 Google 帳號登入</p>
+        <p>請輸入管理員密碼</p>
         <div v-if="loginError" class="login-error">{{ loginError }}</div>
-        <button class="google-login-btn" @click="startGoogleLogin">
-          <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
-          使用 Google 登入
-        </button>
-        <div class="divider"><span>或</span></div>
         <div class="direct-login-form">
           <input
             v-model="directSecret"
             type="password"
             class="secret-input"
-            placeholder="管理員密碼 (ADMIN_SECRET)"
+            placeholder="管理員密碼"
             @keydown.enter="directLogin"
           />
           <button class="direct-login-btn" :disabled="directLogging || !directSecret" @click="directLogin">
-            {{ directLogging ? '登入中…' : '直接登入' }}
+            {{ directLogging ? '登入中…' : '登入' }}
           </button>
         </div>
-        <p class="login-hint">僅限授權帳號 (frank210@gmail.com) 進入</p>
       </div>
     </div>
 
@@ -478,25 +472,6 @@ async function directLogin() {
   }
 }
 
-function startGoogleLogin() {
-  const clientId = window.__GOOGLE_CLIENT_ID__ || ''
-  if (!clientId) {
-    loginError.value = '尚未設定 Google Client ID，請聯繫管理員'
-    return
-  }
-  const nonce = Math.random().toString(36).slice(2) + Date.now().toString(36)
-  sessionStorage.setItem('gsi_nonce', nonce)
-  const params = new URLSearchParams({
-    client_id: clientId,
-    redirect_uri: window.location.origin + '/admin',
-    response_type: 'id_token',
-    scope: 'openid email profile',
-    nonce,
-    prompt: 'select_account',
-  })
-  window.location.href = 'https://accounts.google.com/o/oauth2/v2/auth?' + params.toString()
-}
-
 async function handleRedirectCallback() {
   const hash = window.location.hash || ''
   if (!hash.includes('id_token=')) return false
@@ -542,11 +517,6 @@ onMounted(async () => {
 .login-logo { font-size: 3rem; margin-bottom: 16px; }
 .login-card h2 { margin: 0 0 8px; font-size: 1.5rem; }
 .login-card p { color: var(--text-secondary, #aaa); font-size: 0.9rem; margin-bottom: 24px; }
-.login-hint { font-size: 0.75rem; color: var(--text-muted, #666); margin-top: 16px; }
-
-.divider { display: flex; align-items: center; gap: 10px; margin: 16px 0 12px; color: var(--text-muted, #888); font-size: 0.78rem; }
-.divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: var(--border-color, rgba(255,255,255,0.12)); }
-
 .direct-login-form { display: flex; flex-direction: column; gap: 8px; width: 100%; }
 .secret-input {
   width: 100%; padding: 10px 14px; border-radius: 10px;
@@ -563,21 +533,8 @@ onMounted(async () => {
 .direct-login-btn:hover:not(:disabled) { opacity: 0.88; }
 .direct-login-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 .login-error { color: #f87171; background: var(--down-soft); border-radius: 8px; padding: 8px 12px; margin-bottom: 16px; font-size: 0.85rem; }
-.google-login-btn {
-  display: inline-flex; align-items: center; justify-content: center; gap: 10px;
-  width: 100%; box-sizing: border-box;
-  background: #fff; color: #1f1f1f;
-  border: none; border-radius: 10px;
-  padding: 12px 20px; font-size: 0.95rem; font-weight: 600;
-  cursor: pointer;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
-  transition: box-shadow 0.2s ease, transform 0.06s ease;
-}
-.google-login-btn:hover { box-shadow: 0 4px 14px rgba(0,0,0,0.45); }
-.google-login-btn:active { transform: scale(0.985); }
 @media (prefers-reduced-motion: reduce) {
-  .google-login-btn { transition: none; }
-  .google-login-btn:active { transform: none; }
+  .direct-login-btn { transition: none; }
 }
 
 .admin-content { max-width: 1100px; margin: 0 auto; padding: 24px 16px 80px; }
