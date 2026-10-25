@@ -1,13 +1,13 @@
 from fastapi import APIRouter, Depends
 from pymongo.database import Database
 
-from ..deps import get_db, require_auth
+from ..deps import get_db, read_auth
 
 router = APIRouter(prefix="/api", tags=["notebooks"])
 
 
 @router.get("/notebooks")
-def list_notebooks(db: Database = Depends(get_db), _: str = Depends(require_auth)):
+def list_notebooks(db: Database = Depends(get_db), _: str = Depends(read_auth)):
     pipeline = [
         {
             "$group": {

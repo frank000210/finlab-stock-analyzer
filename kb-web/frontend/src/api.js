@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { isPublicMode } from './authMode'
 
 const client = axios.create({ baseURL: '/api' })
 
@@ -12,8 +13,8 @@ client.interceptors.request.use((config) => {
 
 client.interceptors.response.use(
   (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
+  async (error) => {
+    if (error.response?.status === 401 && !(await isPublicMode())) {
       localStorage.removeItem('kb_token')
       window.location.href = '/login'
     }
