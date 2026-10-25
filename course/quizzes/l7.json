@@ -1,0 +1,44 @@
+{
+  "pass_ratio": 0.8,
+  "questions": [
+    {
+      "id": "q1",
+      "question": "狀態列腳本如何取得 session 資料？",
+      "options": [
+        "讀取環境變數",
+        "從 stdin 讀取 JSON",
+        "呼叫 Claude API",
+        "讀取 CLAUDE.md"
+      ],
+      "answer": 1,
+      "explain": "Claude Code 把 session 資料用 JSON 從 stdin 傳給腳本。",
+      "section": "狀態列（status line）"
+    },
+    {
+      "id": "q2",
+      "question": "快捷鍵設定檔位於？",
+      "options": [
+        "~/.claude/keybindings.json",
+        "./CLAUDE.md",
+        ".mcp.json",
+        "~/.claude/statusline.sh"
+      ],
+      "answer": 0,
+      "explain": "/keybindings 會建立或開啟 ~/.claude/keybindings.json。",
+      "section": "快捷鍵（keybindings）"
+    },
+    {
+      "id": "q3",
+      "question": "想讓某個按鍵直接執行 /compact，action 要寫？",
+      "options": [
+        "run:/compact",
+        "command:compact",
+        "chat:compact",
+        "/compact"
+      ],
+      "answer": 1,
+      "explain": "command:<名稱> 可以綁任何斜線指令。",
+      "section": "快捷鍵（keybindings）"
+    }
+  ]
+}

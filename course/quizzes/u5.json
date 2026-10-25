@@ -1,0 +1,70 @@
+{
+  "pass_ratio": 0.8,
+  "questions": [
+    {
+      "id": "q1",
+      "question": "使用 subagent 最核心的好處是？",
+      "options": [
+        "比較便宜的模型",
+        "context 隔離：做很多事，只把摘要交回主對話",
+        "可以無限制使用工具",
+        "不需要權限"
+      ],
+      "answer": 1,
+      "explain": "subagent 在獨立 context 工作，中間過程不會塞進主對話。",
+      "section": "為什麼需要多個 Agent"
+    },
+    {
+      "id": "q2",
+      "question": "要做一個「絕對不會改檔案」的審查 subagent，最可靠的做法是？",
+      "options": [
+        "在提示詞寫「請不要修改檔案」",
+        "在 frontmatter 的 tools 只給 Read, Grep, Glob",
+        "用 opus 模型",
+        "設 memory: project"
+      ],
+      "answer": 1,
+      "explain": "用 tools 限制能力是強制的，提示詞只是請求。",
+      "section": "自訂 subagent"
+    },
+    {
+      "id": "q3",
+      "question": "一般的（非 fork）subagent 啟動時看得到什麼？",
+      "options": [
+        "主對話的完整歷史",
+        "自己的 system prompt、預載的 skill、主代理寫給它的任務說明等，但看不到你的對話",
+        "什麼都看不到",
+        "只看得到 git log"
+      ],
+      "answer": 1,
+      "explain": "一般 subagent 看不到你的對話，派工時要把背景交代清楚。",
+      "section": "Subagent 看到什麼"
+    },
+    {
+      "id": "q4",
+      "question": "讓 skill 在獨立的 subagent 中執行，要在 frontmatter 加什麼？",
+      "options": [
+        "isolate: true",
+        "context: fork",
+        "subagent: yes",
+        "background: true"
+      ],
+      "answer": 1,
+      "explain": "context: fork（可搭配 agent 指定類型）。",
+      "section": "Skill 與 subagent 的組合"
+    },
+    {
+      "id": "q5",
+      "question": "哪個情況「不適合」用 subagent？",
+      "options": [
+        "要讀 50 個檔案只需要結論",
+        "三個面向的平行稽核",
+        "一兩個工具呼叫就能完成的小任務",
+        "需要唯讀的審查角色"
+      ],
+      "answer": 2,
+      "explain": "很小的任務派工反而多花時間。",
+      "section": "什麼時候用、什麼時候不用"
+    }
+  ]
+}

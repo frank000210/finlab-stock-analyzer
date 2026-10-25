@@ -1,0 +1,173 @@
+{
+  "pass_ratio": 0.8,
+  "questions": [
+    {
+      "id": "p1",
+      "question": "context window 裡會包含哪些東西？",
+      "options": [
+        "只有你最後一則訊息",
+        "system prompt、指示檔、工具定義、對話與工具輸出",
+        "只有 CLAUDE.md",
+        "只有程式碼"
+      ],
+      "answer": 1,
+      "explain": "",
+      "section": "",
+      "tag": "u1"
+    },
+    {
+      "id": "p2",
+      "question": "CLAUDE.md 的指示可以保證 Claude 100% 遵守嗎？",
+      "options": [
+        "可以",
+        "不行，它是 context 裡的指示，不是強制設定",
+        "只要寫在第一行就可以",
+        "只要用粗體就可以"
+      ],
+      "answer": 1,
+      "explain": "",
+      "section": "",
+      "tag": "u1"
+    },
+    {
+      "id": "p3",
+      "question": "權限規則 deny、ask、allow 的評估順序是？",
+      "options": [
+        "allow → ask → deny",
+        "deny → ask → allow",
+        "依精確度",
+        "依建立時間"
+      ],
+      "answer": 1,
+      "explain": "",
+      "section": "",
+      "tag": "u2"
+    },
+    {
+      "id": "p4",
+      "question": "MCP 的用途是？",
+      "options": [
+        "壓縮 context",
+        "讓 Claude 連接外部服務與工具",
+        "切換模型",
+        "格式化程式碼"
+      ],
+      "answer": 1,
+      "explain": "",
+      "section": "",
+      "tag": "u2"
+    },
+    {
+      "id": "p5",
+      "question": "Skill 在 session 開始時會載入什麼？",
+      "options": [
+        "完整內容",
+        "name 與 description",
+        "什麼都不載入",
+        "只有支援檔"
+      ],
+      "answer": 1,
+      "explain": "",
+      "section": "",
+      "tag": "u3"
+    },
+    {
+      "id": "p6",
+      "question": "有副作用的 skill（如部署）應該設定？",
+      "options": [
+        "user-invocable: false",
+        "disable-model-invocation: true",
+        "context: fork",
+        "model: haiku"
+      ],
+      "answer": 1,
+      "explain": "",
+      "section": "",
+      "tag": "u3"
+    },
+    {
+      "id": "p7",
+      "question": "Checkpoint 能退回已經部署到伺服器的變更嗎？",
+      "options": [
+        "能",
+        "不能，只涵蓋檔案修改",
+        "只能退回一次",
+        "需要 admin 權限"
+      ],
+      "answer": 1,
+      "explain": "",
+      "section": "",
+      "tag": "u4"
+    },
+    {
+      "id": "p8",
+      "question": "subagent 最核心的價值是？",
+      "options": [
+        "更快",
+        "context 隔離",
+        "不受權限限制",
+        "免費"
+      ],
+      "answer": 1,
+      "explain": "",
+      "section": "",
+      "tag": "u5"
+    },
+    {
+      "id": "p9",
+      "question": "PreToolUse hook 用哪個 exit code 擋下工具呼叫？",
+      "options": [
+        "0",
+        "1",
+        "2",
+        "127"
+      ],
+      "answer": 2,
+      "explain": "",
+      "section": "",
+      "tag": "u6"
+    },
+    {
+      "id": "p10",
+      "question": "「必須每次都成立」的規則應該用？",
+      "options": [
+        "CLAUDE.md",
+        "Output style",
+        "Hook",
+        "Skill"
+      ],
+      "answer": 2,
+      "explain": "",
+      "section": "",
+      "tag": "u6"
+    },
+    {
+      "id": "p11",
+      "question": "plugin 的 manifest 檔是？",
+      "options": [
+        ".claude-plugin/plugin.json",
+        "package.json",
+        "SKILL.md",
+        ".mcp.json"
+      ],
+      "answer": 0,
+      "explain": "",
+      "section": "",
+      "tag": "l8"
+    },
+    {
+      "id": "p12",
+      "question": "從 marketplace 安裝 plugin 的 id 格式是？",
+      "options": [
+        "marketplace/plugin",
+        "plugin@marketplace",
+        "plugin:marketplace",
+        "marketplace.plugin"
+      ],
+      "answer": 1,
+      "explain": "",
+      "section": "",
+      "tag": "l9"
+    }
+  ]
+}

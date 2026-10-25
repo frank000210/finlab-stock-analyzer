@@ -27,6 +27,9 @@ RUN pip install --no-cache-dir -r requirements.txt && \
 # Copy backend code
 COPY backend/ ./backend/
 
+# 學習中心教材（Markdown／題庫，由 backend/app/course 讀取）
+COPY course/ ./course/
+
 # Copy frontend build
 COPY --from=frontend-build /app/frontend/dist ./frontend/dist
 

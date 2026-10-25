@@ -1,0 +1,6 @@
+{
+  "name": "my-toolkit",
+  "description": "我的 Claude Code 工具組：日報、程式審查、安全護欄",
+  "version": "1.0.0",
+  "author": { "name": "Your Name" }
+}

@@ -161,6 +161,18 @@ footer{ margin-top:36px; font-size:0.78rem; color:var(--ink-faint); text-align:c
 
 <script>
 const DATA = [
+{date:'2026-10-24 11:06', range:'獨立功能', title:'學習中心 /learn：從 AI Agent 原理到 Claude Code 客製化的完整課程平台',
+ summary:'使用者想用官方擴充點（方案 A）客製 Claude Code，但自認新手，要求參考網路資料做一個從基礎到進階的教學網站，教材要進 repo，並與既有的「AI Agent 教學網站流程圖」合併、直接做含登入、進度資料庫與 AI 助教的完整平台。教材依官方文件 code.claude.com/docs 撰寫，每個 Agent 原理對照 Claude Code 的實作。',
+ items:[
+  {code:'—', tag:'good', text:'14 個單元：L0 課前準備、U1–U6 核心模組（Prompt／Tool Use／記憶與 RAG／Agent Loop／Multi-Agent／Hooks 護欄）、L7–L9 介面客製、Plugin、Marketplace、L10 期末專題與附錄速查表。教材是 repo 根目錄 course/ 的 Markdown 與 JSON 題庫，改教材不用動程式碼。'},
+  {code:'—', tag:'good', text:'「學 → 做 → 測 → 補強」循環：測驗答案只留在後端批改，答錯回傳解析與對應段落，可一鍵跳回複習或請 AI 助教講解；12 題程度檢測依規則推薦起點。'},
+  {code:'—', tag:'good', text:'每單元 lab 附起始檔與只用標準函式庫的 check.py（網頁可下載 zip）；U6 的 check.py 會實際執行學員寫的 hook 驗證擋下與放行，L8/L9 會跑 claude plugin validate。'},
+  {code:'—', tag:'warn', text:'帳號：Google 登入之外新增本機帳號（PBKDF2、IP 節流）。進度以 "provider:email" 為鍵——只用 email 的話，任何人都能用別人的 Gmail 先註冊本機帳號，讀寫那位 Google 使用者的進度。'},
+  {code:'—', tag:'good', text:'期末專題：必修全過才能送出 → AI 初評（失敗不擋送審）→ 管理員核准 → 發證書編號，任何人可用網址驗證。AI 助教每人每日 30 次，LLM 不可用時回 503 並提供「複製提問到 Claude Code」。'},
+  {code:'—', tag:'critical', text:'測試時抓到 Windows 才有的坑：hook 腳本印中文時主控台編碼若不是 UTF-8，Python 會 crash、結束碼變 1 而不是 2——等於「擋危險指令」的 hook 完全沒擋。已修正 lab 腳本並寫進 U6 教材的踩坑提醒。'},
+  {code:'—', tag:'neutral', text:'本機驗證時發現 OpenCode API 金鑰已過期（上游 401 api_key_expired），AI 助教與專題初評目前只能走降級路徑；需要到 OpenCode Console 換新金鑰。後端 23 項單元測試、10 項 Playwright 測試、完整結業流程（註冊→通過 8 個必修→送專題→核准→證書）皆通過。'},
+ ]},
+
 {date:'2026-10-10 08:47', range:'獨立功能', title:'kb-web 重新部署到 Zeabur：資料完好、補上 LLM session 標頭，建置期間以看門狗保護正式站',
  summary:'使用者要求重新部署 kb-web。先唯讀查證現況：Zeabur 帳號環境已重建（新伺服器、專案 ID 都變了），kb-web 服務不存在，舊 Mongo（172.234.90.16）也已關閉；但 knowledge_base 資料庫完好地留在正式站正在使用的那台 Mongo 上（spec_docs 165 篇、qa_history 12 筆、dev_note 18 篇），所以只需重建服務並指回同一個資料庫，不用搬資料。整個過程用 Zeabur GraphQL API 完成，沒有手動點後台。',
  items:[

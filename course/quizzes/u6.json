@@ -1,0 +1,83 @@
+{
+  "pass_ratio": 0.8,
+  "questions": [
+    {
+      "id": "q1",
+      "question": "CLAUDE.md 寫「絕對不要改 .env」和用 PreToolUse hook 擋下，差別是？",
+      "options": [
+        "沒有差別",
+        "前者是請求、後者是強制",
+        "前者比較可靠",
+        "後者會佔更多 context"
+      ],
+      "answer": 1,
+      "explain": "指示可能有例外；hook 由 Claude Code 確定執行。",
+      "section": "請求 vs 強制"
+    },
+    {
+      "id": "q2",
+      "question": "PreToolUse hook 想擋下一個工具呼叫，最簡單的方式是？",
+      "options": [
+        "exit 0",
+        "exit 1",
+        "exit 2 並把原因寫到 stderr",
+        "印出 OK"
+      ],
+      "answer": 2,
+      "explain": "exit 2 代表擋下，stderr 的說明會回饋給 Claude。",
+      "section": "輸入與輸出"
+    },
+    {
+      "id": "q3",
+      "question": "PreToolUse hook 以 exit 0 結束且沒有輸出 JSON，代表？",
+      "options": [
+        "核准這個呼叫，跳過權限確認",
+        "沒有意見，呼叫仍走正常的權限流程",
+        "擋下這個呼叫",
+        "重新執行 hook"
+      ],
+      "answer": 1,
+      "explain": "exit 0 不等於核准。",
+      "section": "輸入與輸出"
+    },
+    {
+      "id": "q4",
+      "question": "matcher 寫 \"Edit|Write\" 的 PostToolUse hook，會漏掉哪種檔案修改？",
+      "options": [
+        "Claude 用 Edit 改檔",
+        "Claude 用 Write 建新檔",
+        "Claude 用 shell 指令（例如 sed -i）改檔",
+        "都不會漏"
+      ],
+      "answer": 2,
+      "explain": "shell 指令改檔不會觸發 Edit|Write；需要另外 match Bash 或用 Stop hook 掃描。",
+      "section": "Matcher"
+    },
+    {
+      "id": "q5",
+      "question": "多個 PreToolUse hook 同時回傳 permissionDecision，一個 allow、一個 ask、一個 deny，結果是？",
+      "options": [
+        "allow",
+        "ask",
+        "deny",
+        "以第一個為準"
+      ],
+      "answer": 2,
+      "explain": "最嚴格的勝出：deny > ask > allow。",
+      "section": "輸入與輸出"
+    },
+    {
+      "id": "q6",
+      "question": "「讀過外部內容後降級」護欄要防範的主要風險是？",
+      "options": [
+        "context 太長",
+        "提示注入：外部內容誘導 Agent 執行危險操作",
+        "模型太慢",
+        "檔案編碼錯誤"
+      ],
+      "answer": 1,
+      "explain": "讀過不可信內容後，高風險操作改成先問人。",
+      "section": "實作二：讀過外部內容後降級"
+    }
+  ]
+}

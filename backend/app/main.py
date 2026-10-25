@@ -13,6 +13,7 @@ from fastapi.responses import JSONResponse
 from .api import (
     admin_router,
     kb_router,
+    course_router,
     ai_summary_router,
     ai_agent_router,
     journal_router,
@@ -189,6 +190,7 @@ app.include_router(journal_router)
 app.include_router(screener_router)
 app.include_router(feedback_router)
 app.include_router(kb_router)
+app.include_router(course_router)
 
 
 BUILD_INFO_PATH = Path(__file__).parent / "build_info.json"

@@ -27,6 +27,7 @@ from .journal import router as journal_router
 from .screener import router as screener_router
 from .feedback import router as feedback_router
 from .kb import router as kb_router
+from .course import router as course_router
 
 __all__ = [
     "stock_router",
@@ -58,4 +59,5 @@ __all__ = [
     "screener_router",
     "feedback_router",
     "kb_router",
+    "course_router",
 ]

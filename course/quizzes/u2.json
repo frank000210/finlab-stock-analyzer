@@ -1,0 +1,83 @@
+{
+  "pass_ratio": 0.8,
+  "questions": [
+    {
+      "id": "q1",
+      "question": "權限規則的評估順序是？",
+      "options": [
+        "allow → ask → deny",
+        "deny → ask → allow",
+        "依規則寫得多精確決定",
+        "依檔案層級決定，不分種類"
+      ],
+      "answer": 1,
+      "explain": "依 deny、ask、allow 順序，第一個符合的決定結果。",
+      "section": "評估順序：deny → ask → allow"
+    },
+    {
+      "id": "q2",
+      "question": "deny 有 Bash(aws *)，allow 有 Bash(aws s3 ls)。執行 aws s3 ls 會怎樣？",
+      "options": [
+        "執行，因為 allow 比較精確",
+        "被擋下",
+        "詢問使用者",
+        "隨機"
+      ],
+      "answer": 1,
+      "explain": "allow 不能在 deny 裡挖例外。",
+      "section": "評估順序：deny → ask → allow"
+    },
+    {
+      "id": "q3",
+      "question": "個人設定 allow 某指令、專案設定 deny 同一指令，結果是？",
+      "options": [
+        "allow，因為個人設定優先",
+        "deny，任何層級的 deny 都會生效",
+        "看誰最後載入",
+        "兩者抵銷，變成 ask"
+      ],
+      "answer": 1,
+      "explain": "deny 來自任何層級都會生效。",
+      "section": "Settings 檔的層級"
+    },
+    {
+      "id": "q4",
+      "question": "想讓 Claude 只探索、規劃，不修改原始碼，應該用哪個 permission mode？",
+      "options": [
+        "acceptEdits",
+        "bypassPermissions",
+        "plan",
+        "dontAsk"
+      ],
+      "answer": 2,
+      "explain": "plan 模式只讀與探索，最後提出計畫。",
+      "section": "Permission modes"
+    },
+    {
+      "id": "q5",
+      "question": "要讓團隊共用一個 MCP server 設定（進版控），應該用哪個 scope？",
+      "options": [
+        "local",
+        "project（寫入 .mcp.json）",
+        "user",
+        "managed"
+      ],
+      "answer": 1,
+      "explain": "project scope 寫入專案根目錄的 .mcp.json。",
+      "section": "MCP：接上外部系統"
+    },
+    {
+      "id": "q6",
+      "question": ".mcp.json 裡需要 API 金鑰，正確做法是？",
+      "options": [
+        "直接寫在檔案裡",
+        "用 ${KB_API_TOKEN} 這類環境變數引用",
+        "寫在 CLAUDE.md",
+        "不能用金鑰"
+      ],
+      "answer": 1,
+      "explain": ".mcp.json 會進版控，金鑰要用環境變數。",
+      "section": "MCP：接上外部系統"
+    }
+  ]
+}
