@@ -1,0 +1,84 @@
+# 自架部署（騰訊雲 Lighthouse 2C4G）：取代 Zeabur。
+#
+# 伺服器目錄配置（見 deploy/README.md）：
+#   ~/finlab/deploy/        ← 本資料夾（compose、Caddyfile、腳本）
+#   ~/finlab/secrets/*.env  ← 各服務機密，chmod 600，不進 git
+#   ~/finlab/src/finlab     ← 本 repo 原始碼（scripts/ship.sh 用 git archive 送上來）
+#   ~/finlab/src/food       ← food-ordering-system 原始碼
+#
+# 記憶體上限是照 4GB 主機切的：Mongo 快取壓在 0.25GB，kb-web 的
+# sentence-transformers 模型最吃記憶體所以給最多。
+
+name: finlab
+
+services:
+  caddy:
+    image: caddy:2.10
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    env_file: .env
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on: [finlab, kb-web, food]
+    mem_limit: 128m
+
+  mongo:
+    image: mongo:8.0
+    restart: unless-stopped
+    command: ["--wiredTigerCacheSizeGB", "0.25"]
+    env_file: ../secrets/mongo.env
+    volumes:
+      - mongo_data:/data/db
+      - ./mongo-init:/docker-entrypoint-initdb.d:ro
+      - ../backups:/backups
+    # 不對外開 port，只有同一個 compose 網路內的服務連得到
+    mem_limit: 768m
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  finlab:
+    build: ../src/finlab
+    image: finlab-stock-analyzer:prod
+    restart: unless-stopped
+    env_file: ../secrets/finlab.env
+    depends_on:
+      mongo:
+        condition: service_healthy
+    mem_limit: 1g
+
+  kb-web:
+    build: ../src/finlab/kb-web
+    image: kb-web:prod
+    restart: unless-stopped
+    env_file: ../secrets/kbweb.env
+    volumes:
+      # 模型（paraphrase-multilingual-MiniLM-L12-v2）首次載入時才下載，
+      # 放 volume 避免每次重建容器都重抓
+      - hf_cache:/root/.cache/huggingface
+    depends_on:
+      mongo:
+        condition: service_healthy
+    mem_limit: 1536m
+
+  food:
+    build: ../src/food
+    image: food-ordering-system:prod
+    restart: unless-stopped
+    env_file: ../secrets/food.env
+    depends_on:
+      mongo:
+        condition: service_healthy
+    mem_limit: 256m
+
+volumes:
+  caddy_data:
+  caddy_config:
+  mongo_data:
+  hf_cache:
