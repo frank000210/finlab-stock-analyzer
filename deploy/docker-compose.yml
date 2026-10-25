@@ -21,6 +21,7 @@ services:
     env_file: .env
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./portal:/srv/portal:ro
       - caddy_data:/data
       - caddy_config:/config
     depends_on: [finlab, kb-web, food]
