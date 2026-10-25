@@ -46,7 +46,7 @@
 | 後端 | FastAPI (Python) |
 | 資料來源 | FinMind API (主) + yfinance (備援) |
 | ML | scikit-learn Random Forest |
-| 部署 | Docker → Zeabur |
+| 部署 | Docker Compose → 自架主機（騰訊雲 Lighthouse，見 `deploy/README.md`） |
 
 ## 快速開始
 

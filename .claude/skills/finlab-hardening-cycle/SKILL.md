@@ -59,7 +59,7 @@ description: finlab-stock-analyzer 的「自主循環優化」流程（盤點 N 
 ## 6. 出貨
 1. 掃 diff 有沒有金鑰；commit 訊息結尾加系統指定的 Co-Authored-By 行。
 2. push feature branch → pre-push hook 會跑整套 Playwright（需先設 `git config core.hooksPath .githooks`）→ 再 push/merge master。**不要 `--no-verify`**。
-3. master 推上去就是上線（Zeabur 由 master 部署）。
+3. master 推上去**不會**自動上線（2026-10 起已搬離 Zeabur）。合併後用 `deploy/scripts/ship.sh finlab`（或 `kb-web` / `food` / `config`）部署到自架主機，見 `deploy/README.md`。
 
 ## 7. 收尾（缺一不算完成）
 1. 在 `docs/改善紀錄.html` 的 `DATA` 最前面加一筆：`{date:'<commit 時間 YYYY-MM-DD HH:mm>', range:'NN1–NN10', title, summary, items:[{code, tag, text}]}`，tag ∈ `critical`/`warn`/`good`/`neutral`；回報給使用者時若 commit 還沒落地，可先用 `date:'進行中', inProgress:true`。

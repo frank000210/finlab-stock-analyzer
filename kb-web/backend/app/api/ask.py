@@ -32,7 +32,7 @@ from knowledge_base.query import rrf_merge, search_knowledge
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["ask"])
 
-_USER_AGENT = "kb-web/1.0 (+https://frank210-kb-web.zeabur.app)"
+_USER_AGENT = "kb-web/1.0 (+https://kb.43-133-44-216.sslip.io)"
 _MAX_QUESTION_LEN = 800
 _MAX_HISTORY_TURNS = 3    # PP6：最多帶入前 3 輪問答歷史
 _PASSAGE_MAX_CHARS = 800  # 每段知識庫片段截斷上限

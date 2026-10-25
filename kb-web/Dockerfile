@@ -1,4 +1,4 @@
-# Build context is kb-web/ (Zeabur service root directory = kb-web).
+# Build context is kb-web/ (deploy/docker-compose.yml: build ../src/finlab/kb-web).
 # Build frontend
 FROM node:20-alpine AS frontend-build
 WORKDIR /app/frontend

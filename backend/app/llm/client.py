@@ -32,7 +32,7 @@ import httpx
 logger = logging.getLogger(__name__)
 
 # Cloudflare bot 檢查：一定要有可辨識的 User-Agent
-_USER_AGENT = "finlab-stock-analyzer/1.0 (+https://finlab-app.zeabur.app)"
+_USER_AGENT = "finlab-stock-analyzer/1.0 (+https://finlab.43-133-44-216.sslip.io)"
 
 
 def _session_id(system: str) -> str:

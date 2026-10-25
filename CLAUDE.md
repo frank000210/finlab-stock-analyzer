@@ -28,4 +28,4 @@ Auth is automatic: `KB_API_TOKEN` is read from the process env, falling back to 
 
 ## Post-push dev notes
 
-After every successful `git push`, a PostToolUse hook (`.claude/hooks/post_push_devnote.py`) reminds Claude to write a markdown dev note (what changed, observations, lessons) and import it into the Zeabur knowledge base using the `kb_write` MCP tool (preferred) or `scripts/import-dev-note.sh` as fallback. One note per batch of changes — skip on retry pushes.
+After every successful `git push`, a PostToolUse hook (`.claude/hooks/post_push_devnote.py`) reminds Claude to write a markdown dev note (what changed, observations, lessons) and import it into the kb-web knowledge base (self-hosted, `https://kb.43-133-44-216.sslip.io`) using the `kb_write` MCP tool (preferred) or `scripts/import-dev-note.sh` as fallback. One note per batch of changes — skip on retry pushes.

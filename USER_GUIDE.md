@@ -4,7 +4,7 @@
 
 **FinLab Stock Analyzer** 是一套台股 AI 分析平台，整合技術分析、基本面、籌碼面及 AI 信號，幫助你在 **3 分鐘內** 做出買進或賣出的判斷。
 
-**網址**：https://finlab-app.zeabur.app
+**網址**：https://finlab.43-133-44-216.sslip.io
 
 ---
 

@@ -9,7 +9,7 @@ kb-sync-source.py — 將 finlab-stock-analyzer 源碼匯入知識庫 (KB web)�
 
 需要環境變數：
     KB_API_TOKEN  — KB web API token
-    KB_WEB_URL    — 可選，預設 https://frank210-kb-web.zeabur.app
+    KB_WEB_URL    — 可選，預設 https://kb.43-133-44-216.sslip.io
 """
 
 import os
@@ -24,7 +24,7 @@ except ImportError:
     sys.exit(1)
 
 ROOT = Path(__file__).parent.parent
-KB_WEB_URL = os.environ.get("KB_WEB_URL", "https://frank210-kb-web.zeabur.app").rstrip("/")
+KB_WEB_URL = os.environ.get("KB_WEB_URL", "https://kb.43-133-44-216.sslip.io").rstrip("/")
 KB_API_TOKEN = os.environ.get("KB_API_TOKEN", "")
 
 # 要匯入的源碼目錄/檔案模式，格式: (glob pattern, domain, 說明前綴)
