@@ -34,6 +34,12 @@ def _is_locked_out(key: str) -> bool:
     return len(attempts) >= _MAX_ATTEMPTS
 
 
+@router.get("/auth-mode")
+def auth_mode() -> dict:
+    """前端用來判斷要不要顯示登入頁（公開模式下不需要）。"""
+    return {"public": get_settings().kb_web_public}
+
+
 class LoginPayload(BaseModel):
     password: str
 

@@ -1,0 +1,28 @@
+# BASE_HOST 定義在 deploy/.env，例如 43-133-44-216.sslip.io（沒有自有網域時
+# 用 sslip.io：子網域裡的 IP 會被解析回主機本身，Caddy 照樣能自動申請
+# Let's Encrypt 憑證）。之後買了網域只要改 BASE_HOST。
+
+# 入口頁：列出所有服務的連結（deploy/portal/index.html，網址用 templates 依
+# BASE_HOST 產生，換網域時不用改 HTML）
+{$BASE_HOST}, www.{$BASE_HOST} {
+	encode gzip
+	root * /srv/portal
+	templates
+	file_server
+}
+
+finlab.{$BASE_HOST} {
+	encode gzip
+	reverse_proxy finlab:8080
+}
+
+kb.{$BASE_HOST} {
+	encode gzip
+	reverse_proxy kb-web:8080
+}
+
+# 訂餐前後台是同一個服務，靠 Host 分流（STOREFRONT_URL / ADMIN_URL）
+food.{$BASE_HOST}, food-admin.{$BASE_HOST} {
+	encode gzip
+	reverse_proxy food:8080
+}

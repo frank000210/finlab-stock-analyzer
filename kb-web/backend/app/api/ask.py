@@ -26,13 +26,13 @@ from pymongo import ReturnDocument
 from pymongo.database import Database
 
 from ..config import get_settings
-from ..deps import get_db, require_auth
+from ..deps import get_db, read_auth
 from knowledge_base.query import rrf_merge, search_knowledge
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["ask"])
 
-_USER_AGENT = "kb-web/1.0 (+https://frank210-kb-web.zeabur.app)"
+_USER_AGENT = "kb-web/1.0 (+https://kb.43-133-44-216.sslip.io)"
 _MAX_QUESTION_LEN = 800
 _MAX_HISTORY_TURNS = 3    # PP6：最多帶入前 3 輪問答歷史
 _PASSAGE_MAX_CHARS = 800  # 每段知識庫片段截斷上限
@@ -338,7 +338,7 @@ def _store_qa(db: Database, question_id: str, question: str, answer: str, steps:
 async def ask(
     payload: AskPayload,
     db: Database = Depends(get_db),
-    _: str = Depends(require_auth),
+    _: str = Depends(read_auth),
 ):
     settings = get_settings()
     if not settings.opencode_api_key:
@@ -451,7 +451,7 @@ async def ask_feedback(
     question_id: str,
     payload: FeedbackPayload,
     db: Database = Depends(get_db),
-    _: str = Depends(require_auth),
+    _: str = Depends(read_auth),
 ):
     """PP7：👍/👎 回饋，更新對應問答紀錄的 rating 欄位。"""
     result = db.qa_history.update_one(

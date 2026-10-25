@@ -15,7 +15,7 @@ from .admin import require_admin
 
 router = APIRouter(prefix="/api/v1/kb", tags=["kb"])
 
-_KB_WEB_URL = os.environ.get("KB_WEB_URL", "https://frank210-kb-web.zeabur.app").rstrip("/")
+_KB_WEB_URL = os.environ.get("KB_WEB_URL", "https://kb.43-133-44-216.sslip.io").rstrip("/")
 _KB_TIMEOUT = 60.0
 
 

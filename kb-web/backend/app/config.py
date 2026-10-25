@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     kb_mongo_db: str = "knowledge_base"
     kb_web_password: str = ""
     kb_api_token: str = ""
+    # 公開模式：瀏覽 notebook 與問答不需登入（網頁不再要密碼）；匯入（寫入）
+    # 仍需 KB_API_TOKEN 或登入 JWT。問答的 LLM 成本由 llm_daily_call_limit 兜底。
+    kb_web_public: bool = False
     jwt_secret: str = "dev-secret-change-me"
 
     # LLM: OpenCode Go, OpenAI-compatible /chat/completions. Same gateway

@@ -1,0 +1,12 @@
+{
+  "name": "my-marketplace",
+  "description": "團隊共用的 Claude Code 工具",
+  "owner": { "name": "Your Name" },
+  "plugins": [
+    {
+      "name": "my-toolkit",
+      "source": "./plugins/my-toolkit",
+      "description": "日報、程式審查、安全護欄"
+    }
+  ]
+}

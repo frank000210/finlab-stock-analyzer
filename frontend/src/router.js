@@ -186,6 +186,32 @@ const routes = [
     name: 'kb-qa',
     component: () => import('./views/KbQaView.vue'),
   },
+  // 學習中心：Claude Code 客製化課程（教材在 repo 根目錄 course/）
+  {
+    path: '/learn',
+    name: 'learn',
+    component: () => import('./views/LearnHomeView.vue'),
+  },
+  {
+    path: '/learn/placement',
+    name: 'learn-placement',
+    component: () => import('./views/LearnPlacementView.vue'),
+  },
+  {
+    path: '/learn/u/:unitId',
+    name: 'learn-unit',
+    component: () => import('./views/LearnUnitView.vue'),
+  },
+  {
+    path: '/learn/cert/:certId',
+    name: 'learn-cert',
+    component: () => import('./views/LearnCertificateView.vue'),
+  },
+  {
+    path: '/learn/admin',
+    name: 'learn-admin',
+    component: () => import('./views/LearnAdminView.vue'),
+  },
 ]
 
 const router = createRouter({

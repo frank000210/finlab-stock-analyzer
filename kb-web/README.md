@@ -32,11 +32,11 @@ npm run dev
 
 開 `http://localhost:5174`，vite.config.js 已把 `/api` proxy 到 `http://localhost:8090`。
 
-## 環境變數（部署時在 Zeabur 服務設定）
+## 環境變數（部署時寫在主機 `~/finlab/secrets/kbweb.env`，範本見 `deploy/secrets.example/kbweb.env`）
 
 | 變數 | 說明 |
 |---|---|
-| `KB_MONGO_URI` | MongoDB 連線字串；連到既有 Zeabur Mongo 時記得帶 `?authSource=admin` |
+| `KB_MONGO_URI` | MongoDB 連線字串；自架主機上連同機 `mongo` 容器，記得帶 `?authSource=admin` |
 | `KB_MONGO_DB` | 固定 `knowledge_base` |
 | `KB_WEB_PASSWORD` | 網頁登入密碼 |
 | `KB_API_TOKEN` | 給 CLI/AI 工具用的獨立 token |

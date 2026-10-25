@@ -1,0 +1,83 @@
+{
+  "pass_ratio": 0.8,
+  "questions": [
+    {
+      "id": "q1",
+      "question": "plugin.json 應該放在哪裡？",
+      "options": [
+        "plugin 根目錄",
+        "plugin 根目錄下的 .claude-plugin/",
+        "~/.claude/",
+        "skills/ 底下"
+      ],
+      "answer": 1,
+      "explain": "只有 plugin.json 放在 .claude-plugin/ 裡。",
+      "section": "Plugin 的目錄結構"
+    },
+    {
+      "id": "q2",
+      "question": "把 skills/ 資料夾放進 .claude-plugin/ 裡面，會怎樣？",
+      "options": [
+        "正常運作",
+        "不會被載入",
+        "自動移到正確位置",
+        "變成隱藏 skill"
+      ],
+      "answer": 1,
+      "explain": "元件放在 .claude-plugin/ 裡不會載入。",
+      "section": "Plugin 的目錄結構"
+    },
+    {
+      "id": "q3",
+      "question": "名為 my-toolkit 的 plugin 裡有 daily-report skill，要怎麼呼叫？",
+      "options": [
+        "/daily-report",
+        "/my-toolkit:daily-report",
+        "/my-toolkit/daily-report",
+        "@my-toolkit daily-report"
+      ],
+      "answer": 1,
+      "explain": "plugin 的 skill 會加上 plugin 名稱當命名空間。",
+      "section": "命名空間"
+    },
+    {
+      "id": "q4",
+      "question": "plugin 的 hook 指令要引用 plugin 內的腳本，路徑應該怎麼寫？",
+      "options": [
+        "用絕對路徑 C:\\my-toolkit\\hooks\\x.py",
+        "用 ${CLAUDE_PLUGIN_ROOT} 開頭",
+        "用相對路徑 ./hooks/x.py",
+        "不能引用腳本"
+      ],
+      "answer": 1,
+      "explain": "安裝後 plugin 在快取目錄，路徑跟開發時不同。",
+      "section": "把現有的 .claude/ 轉成 plugin"
+    },
+    {
+      "id": "q5",
+      "question": "想只在這個 session 載入開發中的 plugin、不安裝，要用？",
+      "options": [
+        "claude plugin install",
+        "claude --plugin-dir ./my-toolkit",
+        "/plugin enable",
+        "claude mcp add"
+      ],
+      "answer": 1,
+      "explain": "--plugin-dir 只載入一個 session，不寫入設定。",
+      "section": "測試與除錯"
+    },
+    {
+      "id": "q6",
+      "question": "同一個 hook 同時留在 .claude/settings.json 和 plugin 的 hooks.json，會怎樣？",
+      "options": [
+        "只執行一次",
+        "每次事件執行兩次",
+        "plugin 的覆蓋 settings 的",
+        "兩個都不執行"
+      ],
+      "answer": 1,
+      "explain": "hook 沒有命名空間，會重複執行。",
+      "section": "命名空間"
+    }
+  ]
+}

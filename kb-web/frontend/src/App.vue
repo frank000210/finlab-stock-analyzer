@@ -1,16 +1,22 @@
 <script setup>
+import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { isPublicMode } from './authMode'
 const route = useRoute()
 const router = useRouter()
 
-const navItems = [
+const publicMode = ref(false)
+isPublicMode().then((v) => { publicMode.value = v })
+
+const allNavItems = [
   { path: '/', label: 'Notebook 總覽' },
-  { path: '/import', label: '資料匯入' },
+  { path: '/import', label: '資料匯入', needsLogin: true },
   { path: '/ask', label: '問答' },
   { path: '/patent-plan', label: '規劃書' },
   { path: '/patent-report', label: '示範報告' },
   { path: '/patent-review', label: '審查備注' },
 ]
+const navItems = computed(() => allNavItems.filter((i) => !(publicMode.value && i.needsLogin)))
 
 function logout() {
   localStorage.removeItem('kb_token')
@@ -35,7 +41,7 @@ function logout() {
           {{ item.label }}
         </router-link>
       </nav>
-      <button class="secondary logout-btn" @click="logout">登出</button>
+      <button v-if="!publicMode" class="secondary logout-btn" @click="logout">登出</button>
     </div>
   </header>
   <main class="app-main">

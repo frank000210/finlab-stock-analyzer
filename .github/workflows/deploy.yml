@@ -1,8 +1,10 @@
-name: Deploy to Zeabur
+name: Deploy to Zeabur (legacy, disabled)
 
+# 2026-10 起正式站已搬離 Zeabur（Zeabur 2026-12-31 停運），部署改用
+# deploy/scripts/ship.sh 到自架主機。這裡改成只能手動觸發，避免 push master
+# 時對已停用的 Zeabur 專案自動部署；確認不再需要後可整個刪除。
 on:
-  push:
-    branches: [master]
+  workflow_dispatch:
 
 jobs:
   deploy:

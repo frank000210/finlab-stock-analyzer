@@ -1,0 +1,83 @@
+{
+  "pass_ratio": 0.8,
+  "questions": [
+    {
+      "id": "q1",
+      "question": "Skill 的「漸進式載入」是指？",
+      "options": [
+        "每次 session 都載入全部 skill 內容",
+        "開頭只載入 name 與 description，用到時才載入完整內容",
+        "只能手動載入",
+        "一次只能有一個 skill"
+      ],
+      "answer": 1,
+      "explain": "先用便宜的描述判斷相關性，用到才載入全文，就是 RAG 的精神。",
+      "section": "漸進式載入：Skill 的 RAG"
+    },
+    {
+      "id": "q2",
+      "question": "Claude 靠什麼決定要不要自動載入一個 skill？",
+      "options": [
+        "檔案名稱",
+        "description",
+        "檔案大小",
+        "建立時間"
+      ],
+      "answer": 1,
+      "explain": "description 決定觸發；最重要的情境要寫在最前面。",
+      "section": "寫出會被觸發的 description"
+    },
+    {
+      "id": "q3",
+      "question": "一個會部署到正式環境的 /deploy skill，最重要的設定是？",
+      "options": [
+        "user-invocable: false",
+        "disable-model-invocation: true",
+        "context: fork",
+        "paths"
+      ],
+      "answer": 1,
+      "explain": "有副作用的流程要設 disable-model-invocation，只能由人手動觸發。",
+      "section": "參考型與動作型 skill"
+    },
+    {
+      "id": "q4",
+      "question": "SKILL.md 裡寫 !`git status --short`，會發生什麼？",
+      "options": [
+        "Claude 會被要求執行這個指令",
+        "送給模型前先執行，把輸出貼進內容",
+        "被當成註解忽略",
+        "產生錯誤"
+      ],
+      "answer": 1,
+      "explain": "動態注入在送給模型前就執行，模型看到的是結果。",
+      "section": "參數與動態注入"
+    },
+    {
+      "id": "q5",
+      "question": "一份「只需要讓 Claude 參考、不需要出現在 / 選單」的 API 規範 skill，適合設定？",
+      "options": [
+        "disable-model-invocation: true",
+        "user-invocable: false",
+        "allowed-tools: Bash",
+        "context: fork"
+      ],
+      "answer": 1,
+      "explain": "user-invocable: false 從選單隱藏，但 Claude 仍可自動參考。",
+      "section": "參考型與動作型 skill"
+    },
+    {
+      "id": "q6",
+      "question": "測試 skill 時為什麼建議開新 session？",
+      "options": [
+        "新 session 比較便宜",
+        "寫 skill 時留下的對話會掩蓋 skill 本身的問題",
+        "舊 session 無法載入 skill",
+        "沒有理由"
+      ],
+      "answer": 1,
+      "explain": "殘留的對話內容可能讓你誤以為 skill 有效。",
+      "section": "測試你的 skill"
+    }
+  ]
+}

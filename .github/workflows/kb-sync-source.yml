@@ -29,5 +29,5 @@ jobs:
       - name: Sync source code to KB
         env:
           KB_API_TOKEN: ${{ secrets.KB_API_TOKEN }}
-          KB_WEB_URL: https://frank210-kb-web.zeabur.app
+          KB_WEB_URL: https://kb.43-133-44-216.sslip.io
         run: python scripts/kb-sync-source.py

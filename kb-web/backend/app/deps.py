@@ -38,3 +38,10 @@ def require_auth(authorization: Optional[str] = Header(default=None)) -> str:
         return "web-user"
     except Exception as exc:
         raise HTTPException(status_code=401, detail="Invalid or expired token.") from exc
+
+
+def read_auth(authorization: Optional[str] = Header(default=None)) -> str:
+    """唯讀端點（notebook 列表、問答）：公開模式下免登入，否則同 require_auth。"""
+    if get_settings().kb_web_public:
+        return "anonymous"
+    return require_auth(authorization)

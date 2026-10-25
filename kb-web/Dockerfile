@@ -1,4 +1,4 @@
-# Build context is kb-web/ (Zeabur service root directory = kb-web).
+# Build context is kb-web/ (deploy/docker-compose.yml: build ../src/finlab/kb-web).
 # Build frontend
 FROM node:20-alpine AS frontend-build
 WORKDIR /app/frontend
@@ -12,7 +12,10 @@ FROM python:3.11-slim
 WORKDIR /app
 
 COPY backend/requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
+# 先裝 CPU 版 torch：sentence-transformers 預設會拉 CUDA 版（含好幾 GB 的
+# nvidia-* 套件），主機沒有 GPU 用不到，還曾讓建置吃垮共用伺服器。
+RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu && \
+    pip install --no-cache-dir -r requirements.txt
 
 COPY backend/ ./backend/
 COPY --from=frontend-build /app/frontend/dist ./backend/frontend_dist
