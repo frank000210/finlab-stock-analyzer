@@ -75,6 +75,8 @@ test('註冊登入後，測驗成績寫入進度並顯示在首頁', async ({ pa
   await page.goto('/learn/u/l7')
   const quiz = page.getByTestId('course-quiz')
   const groups = quiz.getByRole('radiogroup')
+  // 題目是 load 之後才由 API 帶回來的：先等第一題出現再數題數，否則數到 0 就一題都沒作答、送出鈕一直停用
+  await expect(groups.first()).toBeVisible()
   const count = await groups.count()
   for (let i = 0; i < count; i++) await groups.nth(i).getByRole('radio').nth(1).check()
   await quiz.getByRole('button', { name: '送出答案' }).click()
