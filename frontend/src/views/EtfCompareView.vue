@@ -95,7 +95,10 @@
                     <strong>{{ row.symbol }}</strong> <span class="nm">{{ row.name }}</span>
                     <span v-if="row.metrics.short_history" class="mini-badge" title="上市未滿一年，樣本短，數字僅供參考">未滿1年</span>
                   </td>
-                  <td class="total"><span class="score" :style="scoreStyle(row.scores.total)">{{ score(row.scores.total) }}</span></td>
+                  <td class="total">
+                    <span class="score" :style="scoreStyle(row.scores.total)">{{ score(row.scores.total) }}</span>
+                    <small v-if="axisCount(row) < 5" class="axes-n" :title="`總分只平均 ${axisCount(row)} 項有值的評分，與滿 5 項的標的不完全可比`">{{ axisCount(row) }}項</small>
+                  </td>
                   <td :title="axisTip(row, 'return')">{{ score(row.scores.return) }}</td>
                   <td :title="axisTip(row, 'defense')">{{ score(row.scores.defense) }}</td>
                   <td :title="axisTip(row, 'sharpe')">{{ score(row.scores.sharpe) }}</td>
@@ -104,7 +107,7 @@
                 </tr>
               </tbody>
             </table>
-            <p class="muted small">「—」代表該項不適用（不配息、無已結案的除息、或上市太短），不會被當成 0 分，總分只平均有值的項目。報酬潛力不足 3 年的標的改用上市以來年化報酬。</p>
+            <p class="muted small">「—」代表該項不適用（不配息、無已結案的除息、或上市太短），不會被當成 0 分，總分只平均有值的項目（少於 5 項的會在總分旁標示項數，與滿 5 項者不完全可比）。報酬潛力不足 3 年的標的改用上市以來年化報酬。</p>
           </div>
         </div>
       </section>
@@ -630,6 +633,8 @@ function fillDetail(f) {
   if (f.pending) parts.push(`${f.pending} 次未結案`)
   return parts.join('、')
 }
+const AXES = ['return', 'defense', 'sharpe', 'yield', 'fill']
+const axisCount = row => AXES.filter(k => row.scores[k] != null).length
 function axisTip(row, key) {
   if (row.scores[key] != null) return ''
   if (key === 'yield') return row.dividends.pays_dividend ? '殖利率資料不足' : '不配息，此項不適用'
@@ -752,7 +757,8 @@ onBeforeUnmount(() => {
 .table-scroll table { min-width: 520px; }
 .rank { display: inline-block; width: 1.4em; color: var(--text-muted); font-size: 0.75rem; }
 .nm { color: var(--text-muted); font-weight: 400; }
-.total { font-weight: 700; }
+.total { font-weight: 700; white-space: nowrap; }
+.axes-n { margin-left: 4px; font-size: 0.68rem; font-weight: 500; color: var(--text-muted); }
 .score { display: inline-block; min-width: 3.2em; padding: 2px 8px; border-radius: 6px; text-align: center; }
 .mini-badge { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px; font-size: 0.68rem; font-weight: 600; background: rgba(245, 158, 11, 0.14); color: var(--chart-warn, #f59e0b); border: 1px solid rgba(245, 158, 11, 0.35); white-space: nowrap; }
 

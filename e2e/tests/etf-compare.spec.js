@@ -144,6 +144,9 @@ test('一鍵情境載入：五張圖表與各表格依資料呈現', async ({ pa
   const nonPayer = page.locator('[data-testid="score-table"] tbody tr[data-symbol="009816"]')
   await expect(nonPayer.locator('td').nth(5)).toHaveText('—')
   await expect(nonPayer.locator('td').nth(6)).toHaveText('—')
+  // 只平均 3 項的總分要標出項數，避免與滿 5 項的總分被誤認為同一把尺
+  await expect(nonPayer.locator('.axes-n')).toContainText('3項')
+  await expect(page.locator('[data-testid="score-table"] tbody tr[data-symbol="0050"] .axes-n')).toHaveCount(0)
   await expect(page.locator('[data-testid="div-table"] tr[data-symbol="009816"]')).toContainText('沒有除息紀錄')
 
   // 急跌與反彈
