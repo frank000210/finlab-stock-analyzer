@@ -183,3 +183,32 @@ test('作戰台 warns when top picks are highly correlated', async ({ page }) =>
   await expect(page.locator('.corr-warn')).toContainText('0.88')
   await expect(page.locator('.corr-warn')).toContainText('同一注')
 })
+
+test('作戰台標示掃描清單的來源：範例、觀察清單、手動輸入', async ({ page }) => {
+  await page.goto('/command')
+  await page.evaluate(() => localStorage.removeItem('finlab_watchlist'))
+  await page.reload()
+  const src = page.getByTestId('list-source')
+  const input = page.locator('input.inp.w200')
+
+  // 觀察清單是空的 → 用範例標的，並說清楚去哪裡設定
+  await expect(src).toHaveAttribute('data-source', 'sample')
+  await expect(src).toContainText('你還沒設定觀察清單')
+  await expect(src.getByRole('link', { name: '到觀察清單加入股票' })).toHaveAttribute('href', '/watchlist')
+
+  // 有觀察清單 → 標示來源與檔數
+  await page.evaluate(() => localStorage.setItem('finlab_watchlist', JSON.stringify(['2882', '2330'])))
+  await page.reload()
+  await expect(src).toHaveAttribute('data-source', 'watchlist')
+  await expect(src).toContainText('觀察清單（2 檔）')
+  await expect(src.getByRole('link', { name: '編輯觀察清單' })).toHaveAttribute('href', '/watchlist')
+
+  // 改輸入框 → 變成臨時清單，並提供改回去的捷徑；不會動到觀察清單本身
+  await input.fill('2454')
+  await expect(src).toHaveAttribute('data-source', 'manual')
+  await expect(src).toContainText('不會改動觀察清單')
+  await page.getByTestId('use-watchlist').click()
+  await expect(src).toHaveAttribute('data-source', 'watchlist')
+  await expect(input).toHaveValue('2882,2330')
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('finlab_watchlist')))).toEqual(['2882', '2330'])
+})

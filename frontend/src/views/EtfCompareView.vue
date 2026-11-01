@@ -12,6 +12,16 @@
         <button type="button" class="chip-btn ghost" :disabled="!selected.length" @click="resetAll">重設</button>
       </div>
 
+      <div class="portfolio-row" data-testid="portfolio-row">
+        <span class="row-label">我的組合</span>
+        <span v-for="p in portfolios" :key="p.id" class="pf-chip" :data-portfolio="p.name">
+          <button type="button" class="pf-load" :title="p.symbols.join('、')" @click="applyPortfolio(p)">{{ p.name }} <small>{{ p.symbols.length }} 檔</small></button>
+          <button type="button" class="pf-del" :aria-label="`刪除組合 ${p.name}`" @click="deletePortfolio(p)">✕</button>
+        </span>
+        <span v-if="!portfolios.length" class="muted small">還沒有存過組合。選好標的後取個名字存起來，下次一鍵載入。</span>
+        <button type="button" class="chip-btn ghost" data-testid="import-watchlist" @click="importWatchlist">從觀察清單匯入</button>
+      </div>
+
       <div class="add-row">
         <div ref="searchShell" class="search-shell">
           <input
@@ -44,16 +54,27 @@
                 :class="{ active: categoryFilter === c.key }" @click="setCategory(c.key)">{{ c.label }}</button>
       </div>
 
-      <div v-if="selected.length" class="chip-row">
-        <span v-for="s in selected" :key="s.symbol" class="chip" :data-symbol="s.symbol">
+      <div v-if="selected.length" class="chip-row" data-testid="chip-row">
+        <span v-for="(s, i) in selected" :key="s.symbol" class="chip" :data-symbol="s.symbol" draggable="true"
+              :class="{ dragging: dragFrom === i, 'drag-over': dragOver === i && dragFrom !== i }"
+              @dragstart="onDragStart(i, $event)" @dragover.prevent="dragOver = i" @dragleave="dragOver = -1"
+              @drop.prevent="onDrop(i)" @dragend="dragFrom = -1; dragOver = -1">
+          <button type="button" class="chip-mv" :disabled="i === 0" :aria-label="`${s.symbol} 往前移`" @click="moveSymbol(i, -1)">◀</button>
           <i class="dot" :style="{ background: s.color }"></i>
           <strong>{{ s.symbol }}</strong> {{ s.name }}
+          <button type="button" class="chip-mv" :disabled="i === selected.length - 1" :aria-label="`${s.symbol} 往後移`" @click="moveSymbol(i, 1)">▶</button>
           <button type="button" class="chip-x" :aria-label="`移除 ${s.symbol}`" @click="removeSymbol(s.symbol)">✕</button>
         </span>
       </div>
+      <form v-if="selected.length" class="save-row" @submit.prevent="savePortfolio">
+        <input v-model="portfolioName" type="text" class="inp" maxlength="20" data-testid="portfolio-name" placeholder="替這組取個名字，例如：高股息核心" />
+        <button class="btn btn-secondary xs" type="submit" data-testid="portfolio-save" :disabled="!portfolioName.trim()">存成我的組合</button>
+        <button class="btn btn-secondary xs" type="button" data-testid="push-watchlist" @click="pushToWatchlist">全部加入觀察清單</button>
+      </form>
       <p class="muted small">
-        最多 {{ MAX_SYMBOLS }} 檔（目前 {{ selected.length }} 檔）。<span v-if="dirty" class="dirty">選擇已變更，按「{{ result ? '更新比較' : '開始比較' }}」套用。</span>
+        最多 {{ MAX_SYMBOLS }} 檔（目前 {{ selected.length }} 檔）。拖曳標的或按 ◀ ▶ 調整順序，圖例、各表格與 CSV 都依這個順序。<span v-if="dirty" class="dirty">選擇已變更，按「{{ result ? '更新比較' : '開始比較' }}」套用。</span>
       </p>
+      <p v-if="portfolioMsg" class="notice-text" role="status" data-testid="portfolio-msg">{{ portfolioMsg }}</p>
       <p v-if="catalogError" class="warn-text">{{ catalogError }}</p>
       <p v-if="errorMessage" class="error-text" role="alert">{{ errorMessage }}</p>
     </section>
@@ -121,15 +142,23 @@
                     :class="{ active: timeframe === t }" :aria-selected="timeframe === t" @click="timeframe = t">{{ t }}</button>
           </div>
         </div>
-        <div class="legend-row">
-          <span v-for="l in legend" :key="l.symbol" class="legend-item">
-            <i class="dot" :style="{ background: l.color }"></i>
+        <div class="legend-row" role="group" aria-label="走勢圖圖例">
+          <button v-for="l in legend" :key="l.symbol" type="button" class="legend-item legend-btn"
+                  :class="{ off: isHidden(l.symbol) }" :aria-pressed="!isHidden(l.symbol)" :data-symbol="l.symbol"
+                  title="點一下顯示／隱藏這條線；連點兩下只看這一條" @click="toggleSeries(l.symbol)" @dblclick="soloSeries(l.symbol)">
+            <i class="dot" :style="legendDotStyle(l)"></i>
             {{ l.symbol }} {{ l.name }}
             <strong :class="cls(l.ret)">{{ pct(l.ret, 1, true) }}</strong>
             <span v-if="l.late" class="mini-badge" title="這段區間內才上市，從上市日起算">較晚上市</span>
-          </span>
+          </button>
         </div>
-        <div ref="chartHost" class="chart-host" data-testid="trend-chart"></div>
+        <div class="legend-tools">
+          <button type="button" class="chip-btn" data-testid="series-show-all" @click="showAllSeries">全部顯示</button>
+          <button type="button" class="chip-btn" data-testid="series-hide-all" @click="hideAllSeries">全部隱藏</button>
+          <button type="button" class="chip-btn" data-testid="chart-reset" @click="resetZoom">重設縮放</button>
+          <span class="muted small">點圖例開關單條線，連點兩下只看這一條。</span>
+        </div>
+        <div ref="chartHost" class="chart-host" data-testid="trend-chart" :data-visible="visibleSymbols.join(',')"></div>
 
         <div class="table-scroll">
           <table data-testid="perf-table">
@@ -141,7 +170,7 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="row in result.symbols" :key="row.symbol" :data-symbol="row.symbol">
+              <tr v-for="row in orderedRows" :key="row.symbol" :data-symbol="row.symbol">
                 <td><i class="dot" :style="{ background: colorOf(row.symbol) }"></i><strong>{{ row.symbol }}</strong> <span class="nm">{{ row.name }}</span>
                   <span v-if="row.metrics.short_history" class="mini-badge" :title="`資料起日 ${row.metrics.first_date}，上市未滿一年`">上市未滿1年</span></td>
                 <td :class="cls(row.metrics.return_1y)">{{ pct(row.metrics.return_1y, 1, true) }}</td>
@@ -179,7 +208,7 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="row in result.symbols" :key="row.symbol" :data-symbol="row.symbol">
+              <tr v-for="row in orderedRows" :key="row.symbol" :data-symbol="row.symbol">
                 <td><i class="dot" :style="{ background: colorOf(row.symbol) }"></i><strong>{{ row.symbol }}</strong> <span class="nm">{{ row.name }}</span></td>
                 <template v-if="row.dividends.pays_dividend">
                   <td>{{ pct(row.dividends.yield_ttm, 2) }}</td>
@@ -222,29 +251,50 @@
           <table data-testid="event-table">
             <thead>
               <tr>
-                <th>標的</th><th>區間最高</th><th>其後最低</th><th>回落</th><th>反彈高點</th><th>反彈幅度</th><th>區間內除息</th>
+                <th>標的</th><th>區間最高</th><th>其後最低</th><th>回落</th><th>反彈高點</th><th>反彈幅度</th>
+                <th title="最新收盤 ÷ 區間最低 − 1；沒反彈時也看得出目前離低點多遠">目前價距低點</th><th>區間內除息</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="row in result.symbols" :key="row.symbol" :data-symbol="row.symbol">
+              <tr v-for="row in orderedRows" :key="row.symbol" :data-symbol="row.symbol">
                 <td><i class="dot" :style="{ background: colorOf(row.symbol) }"></i><strong>{{ row.symbol }}</strong> <span class="nm">{{ row.name }}</span></td>
                 <template v-if="row.event">
                   <td>{{ price(row.event.high) }} <span class="dt">{{ md(row.event.high_date) }}</span></td>
                   <td>{{ price(row.event.low) }} <span class="dt">{{ md(row.event.low_date) }}</span></td>
                   <td :class="cls(row.event.drawdown)">{{ pct(row.event.drawdown, 1) }}</td>
-                  <td>{{ row.event.rebound_high == null ? '—' : price(row.event.rebound_high) }} <span class="dt">{{ md(row.event.rebound_date) }}</span></td>
-                  <td :class="cls(row.event.rebound_pct)">{{ pct(row.event.rebound_pct, 1, true) }}</td>
-                  <td>{{ row.event.dividends_in_window > 0 ? row.event.dividends_in_window.toFixed(2) + ' 元' : '—' }}
+                  <template v-if="row.event.rebound_high != null">
+                    <td>{{ price(row.event.rebound_high) }} <span class="dt">{{ md(row.event.rebound_date) }}</span></td>
+                    <td :class="cls(row.event.rebound_pct)">{{ pct(row.event.rebound_pct, 1, true) }}</td>
+                  </template>
+                  <td v-else colspan="2" class="no-rebound" data-testid="no-rebound"
+                      :title="`最低點 ${row.event.low_date} 就是最新交易日，之後還沒有資料可以算反彈，不是缺資料。`">
+                    <span class="na-tag">尚未反彈</span>
+                    <span class="dt">最低點就是最新交易日 {{ md(row.event.low_date) }}</span>
+                  </td>
+                  <td :class="cls(fromLow(row))" data-testid="from-low">{{ pct(fromLow(row), 1, true) }}</td>
+                  <td>
+                    <template v-if="row.event.dividends_in_window > 0">{{ row.event.dividends_in_window.toFixed(2) }} 元</template>
+                    <template v-else-if="!row.dividends.pays_dividend">
+                      <span class="na-tag" data-testid="no-div" title="近幾年沒有除息紀錄：不配息，或上市至今還沒配過息。">尚未配息</span>
+                    </template>
+                    <template v-else>
+                      <span class="na-tag" data-testid="no-div" :title="`${result.event.start} ～ ${result.event.end} 之間沒有除息日，不是缺資料。`">無除息</span>
+                      <span v-if="exNeighbors(row)" class="dt">{{ exNeighbors(row) }}</span>
+                    </template>
                     <span v-if="row.event.partial" class="mini-badge" title="這檔在區間起點之後才上市">區間內才上市</span></td>
                 </template>
                 <template v-else>
-                  <td colspan="6" class="muted">此區間內沒有日線資料</td>
+                  <td colspan="7" class="muted">此區間內沒有日線資料</td>
                 </template>
               </tr>
             </tbody>
           </table>
         </div>
         <p class="muted small">價格為日內最高／最低、已處理分割、<strong>不含息</strong>（看盤軟體上看到的價格）；因此回落幅度會比上表「最大回撤（含息、收盤）」更深。區間內有除息的標的，部分跌幅是配息造成的。反彈幅度 =（最低之後的最高 ÷ 最低）− 1。</p>
+        <p class="muted small">
+          <strong>「尚未反彈」</strong>＝區間最低點就是最新交易日，之後還沒有資料可算，不是缺資料（此時看「目前價距低點」）；
+          <strong>「無除息」</strong>＝這段期間沒有除息日，旁邊小字是前後最近的除息日；<strong>「尚未配息」</strong>＝近幾年沒有除息紀錄（例如剛上市的 ETF）。
+        </p>
       </section>
 
       <!-- 圖表四：持股明細 -->
@@ -284,10 +334,13 @@ import EtfDividendBars from '../components/etf/EtfDividendBars.vue'
 import { metricGlossary } from '../lib/metricGlossary'
 import { useChartTheme } from '../composables/useChartTheme'
 import { downloadCsv, timestampedFilename } from '../lib/csvExport'
+import { loadWatchlist, saveWatchlist } from '../lib/watchlist'
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 const MAX_SYMBOLS = 10
 const STORAGE_KEY = 'finlab.etfCompare.symbols'
+const PORTFOLIO_KEY = 'finlab.etfCompare.portfolios'
+const MAX_PORTFOLIOS = 20
 const SYMBOL_RE = /^[0-9A-Z]{3,8}$/
 const TW_CODE_RE = /^\d{4,6}[A-Z]?$/
 const TIMEFRAMES = ['6M', 'YTD', '1Y', '3Y', '5Y']
@@ -330,13 +383,27 @@ const customEvent = ref(false)
 
 const chartHost = ref(null)
 let chartInstance = null
+let seriesBySymbol = new Map() // symbol -> lightweight-charts series（圖例開關要用）
 let loadSeq = 0
 let searchSeq = 0
 let searchTimer = null
+let msgTimer = null
+
+// 我的組合（存在本機瀏覽器）與已選標的的排序
+const portfolios = ref([]) // [{ id, name, symbols }]
+const portfolioName = ref('')
+const portfolioMsg = ref('')
+const dragFrom = ref(-1)
+const dragOver = ref(-1)
+// 走勢圖被使用者關掉的線（只影響走勢圖）
+const hiddenSymbols = ref([])
 
 // ── 標的選擇 ────────────────────────────────────────────────────────────────
 const selectedKey = computed(() => selected.value.map(s => s.symbol).join(','))
-const dirty = computed(() => !!selected.value.length && selectedKey.value !== loadedKey.value)
+const sameSet = (a, b) => a.length === b.length && [...a].sort().join(',') === [...b].sort().join(',')
+// 只調整順序不算「變更」：資料已經在手上，不必再打一次 API
+const dirty = computed(() => !!selected.value.length &&
+  !sameSet(selected.value.map(s => s.symbol), loadedKey.value.split(',').filter(Boolean)))
 
 function categoryLabel(key) {
   return catalog.value.category_labels?.[key] || CATEGORY_FILTERS.find(c => c.key === key)?.label || ''
@@ -369,6 +436,130 @@ function removeSymbol(symbol) {
   selected.value = selected.value.filter(s => s.symbol !== symbol)
 }
 
+// ── 順序（拖曳或 ◀ ▶） ─────────────────────────────────────────────────────
+function afterReorder() {
+  saveSelection()
+  if (result.value && !dirty.value) {
+    loadedKey.value = selectedKey.value
+    router.replace({ query: { symbols: selectedKey.value } }).catch(() => {})
+  }
+}
+
+function moveSymbol(i, delta) {
+  const j = i + delta
+  if (j < 0 || j >= selected.value.length) return
+  const arr = [...selected.value]
+  ;[arr[i], arr[j]] = [arr[j], arr[i]]
+  selected.value = arr
+  afterReorder()
+}
+
+function onDragStart(i, e) {
+  dragFrom.value = i
+  if (e?.dataTransfer) {
+    e.dataTransfer.effectAllowed = 'move'
+    try { e.dataTransfer.setData('text/plain', String(i)) } catch { /* 部分瀏覽器不允許，不影響拖曳 */ }
+  }
+}
+
+function onDrop(i) {
+  const from = dragFrom.value
+  dragFrom.value = -1
+  dragOver.value = -1
+  if (from < 0 || from === i || from >= selected.value.length) return
+  const arr = [...selected.value]
+  const [moved] = arr.splice(from, 1)
+  arr.splice(i, 0, moved)
+  selected.value = arr
+  afterReorder()
+}
+
+// ── 我的組合 ────────────────────────────────────────────────────────────────
+function say(text) {
+  portfolioMsg.value = text
+  clearTimeout(msgTimer)
+  msgTimer = setTimeout(() => { portfolioMsg.value = '' }, 6000)
+}
+
+function readPortfolios() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(PORTFOLIO_KEY) || '[]')
+    if (!Array.isArray(raw)) return []
+    return raw
+      .filter(p => p && typeof p.name === 'string' && Array.isArray(p.symbols))
+      .map(p => ({ id: String(p.id || p.name), name: p.name, symbols: p.symbols.map(String).filter(s => SYMBOL_RE.test(s)).slice(0, MAX_SYMBOLS) }))
+      .filter(p => p.symbols.length)
+  } catch { return [] }
+}
+
+function persistPortfolios() {
+  try {
+    localStorage.setItem(PORTFOLIO_KEY, JSON.stringify(portfolios.value))
+    return true
+  } catch {
+    say('瀏覽器封鎖了本機儲存空間（無痕模式？），組合只能在這次瀏覽期間使用。')
+    return false
+  }
+}
+
+function savePortfolio() {
+  const name = portfolioName.value.trim().slice(0, 20)
+  if (!name || !selected.value.length) return
+  const symbols = selected.value.map(s => s.symbol)
+  const idx = portfolios.value.findIndex(p => p.name === name)
+  if (idx >= 0) {
+    portfolios.value = portfolios.value.map((p, i) => (i === idx ? { ...p, symbols } : p))
+    persistPortfolios() && say(`已更新組合「${name}」（${symbols.length} 檔）。`)
+  } else {
+    if (portfolios.value.length >= MAX_PORTFOLIOS) {
+      say(`最多存 ${MAX_PORTFOLIOS} 組，請先刪除不用的組合。`)
+      return
+    }
+    portfolios.value = [...portfolios.value, { id: `pf-${Date.now().toString(36)}`, name, symbols }]
+    persistPortfolios() && say(`已存成組合「${name}」（${symbols.length} 檔），之後點它就能載入。`)
+  }
+  portfolioName.value = ''
+}
+
+function applyPortfolio(p) {
+  setSelection(p.symbols)
+  errorMessage.value = ''
+  customEvent.value = false
+  load()
+}
+
+function deletePortfolio(p) {
+  if (!window.confirm(`確定刪除組合「${p.name}」嗎？`)) return
+  portfolios.value = portfolios.value.filter(x => x.id !== p.id)
+  persistPortfolios()
+  say(`已刪除組合「${p.name}」。`)
+}
+
+// 從觀察清單「補進來」而不是整個取代：已選的標的與順序不動
+function importWatchlist() {
+  const wl = loadWatchlist().filter(s => SYMBOL_RE.test(s))
+  if (!wl.length) { say('觀察清單是空的，請先到「觀察清單」加入股票。'); return }
+  const have = new Set(selected.value.map(s => s.symbol))
+  const fresh = wl.filter(s => !have.has(s))
+  if (!fresh.length) { say('觀察清單的標的都已經在比較清單裡。'); return }
+  const room = Math.max(MAX_SYMBOLS - selected.value.length, 0)
+  if (!room) { say(`已滿 ${MAX_SYMBOLS} 檔，先移除幾檔再匯入。`); return }
+  const take = fresh.slice(0, room)
+  take.forEach(sym => addSymbol(sym, ''))
+  const skipped = fresh.length - take.length
+  say(`已從觀察清單加入 ${take.length} 檔${skipped ? `（另有 ${skipped} 檔超過 ${MAX_SYMBOLS} 檔上限沒加入）` : ''}，按「${result.value ? '更新比較' : '開始比較'}」套用。`)
+}
+
+// 只「新增」到觀察清單，不覆蓋：觀察清單是作戰台、訊號掃描等頁共用的同一份
+function pushToWatchlist() {
+  const wl = loadWatchlist()
+  const have = new Set(wl)
+  const add = selected.value.map(s => s.symbol).filter(s => !have.has(s))
+  if (!add.length) { say('這些標的都已經在觀察清單裡。'); return }
+  saveWatchlist([...add, ...wl])
+  say(`已把 ${add.length} 檔加入觀察清單（原有的 ${wl.length} 檔不受影響）。`)
+}
+
 function setSelection(symbols) {
   const list = []
   for (const sym of symbols.slice(0, MAX_SYMBOLS)) {
@@ -387,6 +578,7 @@ function applyPreset(p) {
 function resetAll() {
   loadSeq++ // 讓進行中的請求作廢
   selected.value = []
+  hiddenSymbols.value = []
   result.value = null
   loadedKey.value = ''
   errorMessage.value = ''
@@ -483,6 +675,9 @@ async function load(range) {
     }
     result.value = payload.data
     loadedKey.value = symbols
+    // 圖例開關：只保留還在結果裡的標的
+    const inResult = new Set(payload.data.symbols.map(s => s.symbol))
+    hiddenSymbols.value = hiddenSymbols.value.filter(s => inResult.has(s))
     // 名稱以後端回傳為準（個股不在 ETF 清單裡時才有名稱）
     const names = new Map(payload.data.symbols.map(s => [s.symbol, s.name]))
     selected.value = selected.value.map(s => ({ ...s, name: names.get(s.symbol) || s.name }))
@@ -522,16 +717,23 @@ function colorOf(symbol) {
   return PALETTE[Math.max(i, 0) % PALETTE.length]
 }
 
+// 結果依「已選標的的順序」排列（後端依請求順序回傳；使用者調整順序後不必重打 API）
+const orderedRows = computed(() => {
+  if (!result.value) return []
+  const order = new Map(selected.value.map((s, i) => [s.symbol, i]))
+  return [...result.value.symbols].sort((a, b) => (order.get(a.symbol) ?? 99) - (order.get(b.symbol) ?? 99))
+})
+
 const ranked = computed(() => {
   if (!result.value) return []
-  return [...result.value.symbols].sort((a, b) => (b.scores.total ?? -1) - (a.scores.total ?? -1))
+  return [...orderedRows.value].sort((a, b) => (b.scores.total ?? -1) - (a.scores.total ?? -1))
 })
 
 const radarSeries = computed(() =>
-  (result.value?.symbols || []).map(s => ({ symbol: s.symbol, color: colorOf(s.symbol), scores: s.scores })))
+  (orderedRows.value).map(s => ({ symbol: s.symbol, color: colorOf(s.symbol), scores: s.scores })))
 
 const divSeries = computed(() =>
-  (result.value?.symbols || []).map(s => ({
+  (orderedRows.value).map(s => ({
     symbol: s.symbol, name: s.name, color: colorOf(s.symbol),
     by_year: s.dividends.by_year, pays: s.dividends.pays_dividend,
   })))
@@ -551,7 +753,7 @@ const trend = computed(() => {
   const slack = new Date(`${start}T00:00:00Z`)
   slack.setUTCDate(slack.getUTCDate() + 10)
   const lateAfter = slack.toISOString().slice(0, 10)
-  return result.value.symbols.map(s => {
+  return orderedRows.value.map(s => {
     const { dates, adj } = s.series
     const i0 = dates.findIndex(d => d >= start)
     if (i0 < 0 || adj.length - i0 < 2) return { symbol: s.symbol, name: s.name, color: colorOf(s.symbol), points: [], ret: null, late: false }
@@ -568,8 +770,46 @@ const trend = computed(() => {
 
 const legend = computed(() => trend.value.map(t => ({ symbol: t.symbol, name: t.name, color: t.color, ret: t.ret, late: t.late })))
 
+// ── 走勢圖圖例開關 ──────────────────────────────────────────────────────────
+const isHidden = symbol => hiddenSymbols.value.includes(symbol)
+const visibleSymbols = computed(() => legend.value.filter(l => !isHidden(l.symbol)).map(l => l.symbol))
+const legendDotStyle = l => (isHidden(l.symbol)
+  ? { background: 'transparent', border: `2px solid ${l.color}`, boxSizing: 'border-box' }
+  : { background: l.color })
+
+function toggleSeries(symbol) {
+  hiddenSymbols.value = isHidden(symbol)
+    ? hiddenSymbols.value.filter(s => s !== symbol)
+    : [...hiddenSymbols.value, symbol]
+}
+
+// 連點兩下：只看這一條；已經是「只看這一條」時再連點兩下，回到全部顯示
+function soloSeries(symbol) {
+  const all = legend.value.map(l => l.symbol)
+  const alreadySolo = visibleSymbols.value.length === 1 && visibleSymbols.value[0] === symbol
+  hiddenSymbols.value = alreadySolo ? [] : all.filter(s => s !== symbol)
+}
+
+const showAllSeries = () => { hiddenSymbols.value = [] }
+const hideAllSeries = () => { hiddenSymbols.value = legend.value.map(l => l.symbol) }
+
+function applySeriesVisibility() {
+  if (!chartInstance) return
+  seriesBySymbol.forEach((series, symbol) => series.applyOptions({ visible: !isHidden(symbol) }))
+  // 關掉高點很高的那條線之後，Y 軸要重新貼合剩下的線
+  chartInstance.priceScale('right').applyOptions({ autoScale: true })
+}
+watch(hiddenSymbols, applySeriesVisibility)
+
+function resetZoom() {
+  if (!chartInstance) return
+  chartInstance.timeScale().fitContent()
+  chartInstance.priceScale('right').applyOptions({ autoScale: true })
+}
+
 // ── 圖表 ────────────────────────────────────────────────────────────────────
 function destroyChart() {
+  seriesBySymbol = new Map()
   if (chartInstance) {
     chartInstance.remove()
     chartInstance = null
@@ -587,11 +827,25 @@ function renderChart() {
     rightPriceScale: { borderColor: theme.border },
     timeScale: { borderColor: theme.border },
   })
-  trend.value.forEach((t, i) => {
+  // 基準線 100 用獨立的一條虛線：不跟著任何一檔，哪條被關掉都還在
+  const withPoints = trend.value.filter(t => t.points.length)
+  if (withPoints.length) {
+    const first = withPoints.map(t => t.points[0].time).sort()[0]
+    const last = withPoints.map(t => t.points[t.points.length - 1].time).sort().at(-1)
+    const base = chart.addLineSeries({
+      color: theme.muted, lineWidth: 1, lineStyle: 2, lastValueVisible: false, priceLineVisible: false,
+      crosshairMarkerVisible: false, priceFormat: { type: 'custom', formatter: v => v.toFixed(1) },
+    })
+    base.setData([{ time: first, value: 100 }, { time: last, value: 100 }])
+  }
+  trend.value.forEach(t => {
     if (!t.points.length) return
-    const series = chart.addLineSeries({ color: t.color, lineWidth: 2, title: t.symbol, priceFormat: { type: 'custom', formatter: v => v.toFixed(1) } })
+    const series = chart.addLineSeries({
+      color: t.color, lineWidth: 2, title: t.symbol, visible: !isHidden(t.symbol),
+      priceFormat: { type: 'custom', formatter: v => v.toFixed(1) },
+    })
     series.setData(t.points)
-    if (i === 0) series.createPriceLine({ price: 100, color: theme.muted, lineWidth: 1, lineStyle: 2, axisLabelVisible: false, title: '' })
+    seriesBySymbol.set(t.symbol, series)
   })
   chart.timeScale().fitContent()
   chartInstance = chart
@@ -617,6 +871,25 @@ const num = (x, d = 2) => (x == null ? '—' : Number(x).toFixed(d))
 const score = x => (x == null ? '—' : Math.round(x))
 const cls = x => (x == null || x === 0 ? '' : x > 0 ? 'up' : 'down')
 const md = iso => (iso ? iso.slice(5).replace('-', '/') : '')
+// 最新收盤 ÷ 區間最低 − 1（兩者都是已處理分割、未含息的看盤價，口徑一致）
+function fromLow(row) {
+  const last = row.metrics?.last_close
+  const low = row.event?.low
+  return last != null && low ? last / low - 1 : null
+}
+// 「無除息」旁的小字：區間外最近的前一次／下一次除息日，讓人看得出為什麼這段期間沒有
+function exNeighbors(row) {
+  const ev = result.value?.event
+  const list = row.dividends?.events || []
+  if (!ev || !list.length) return ''
+  const before = [...list].reverse().find(e => e.date < ev.start)
+  const after = list.find(e => e.date > ev.end)
+  const show = iso => (iso.slice(0, 4) === ev.start.slice(0, 4) ? md(iso) : iso.replace(/-/g, '/'))
+  const parts = []
+  if (before) parts.push(`前次 ${show(before.date)}`)
+  if (after) parts.push(`下次 ${show(after.date)}`)
+  return parts.join('・')
+}
 function price(x) {
   if (x == null) return '—'
   const big = x >= 1000
@@ -648,7 +921,7 @@ function exportCsv() {
   const cols = ['代號', '名稱', '分類', '總分', '報酬分', '抗跌分', '夏普分', '殖利率分', '填息分', '近1年報酬%', '3年年化%', '年化波動%',
     '夏普', '最大回撤%', '近12月殖利率%', '近12月配息(元)', '填息成功率%', '平均填息天數']
   const p = (x, d = 2) => (x == null ? '' : (x * 100).toFixed(d))
-  const rows = result.value.symbols.map(s => [
+  const rows = orderedRows.value.map(s => [
     s.symbol, s.name, categoryLabel(s.category), s.scores.total ?? '', s.scores.return ?? '', s.scores.defense ?? '', s.scores.sharpe ?? '',
     s.scores.yield ?? '', s.scores.fill ?? '', p(s.metrics.return_1y), p(s.metrics.cagr_3y), p(s.metrics.ann_vol),
     s.metrics.sharpe == null ? '' : s.metrics.sharpe.toFixed(2), p(s.metrics.mdd), p(s.dividends.yield_ttm), s.dividends.ttm_amount ?? '',
@@ -689,6 +962,7 @@ function restoreSelection() {
 onMounted(async () => {
   window.addEventListener('resize', handleResize)
   document.addEventListener('click', onDocClick)
+  portfolios.value = readPortfolios()
   await loadCatalog()
   restoreSelection()
 })
@@ -696,6 +970,7 @@ onBeforeUnmount(() => {
   window.removeEventListener('resize', handleResize)
   document.removeEventListener('click', onDocClick)
   clearTimeout(searchTimer)
+  clearTimeout(msgTimer)
   loadSeq++
   searchSeq++
   destroyChart()
@@ -740,6 +1015,23 @@ onBeforeUnmount(() => {
 .chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 999px; background: var(--bg-well, rgba(148, 163, 184, 0.1)); border: 1px solid var(--border-color); font-size: 0.82rem; }
 .chip-x { border: none; background: transparent; color: var(--text-muted); cursor: pointer; font-size: 0.75rem; }
 .chip-x:hover { color: var(--color-up); }
+.chip[draggable='true'] { cursor: grab; }
+.chip.dragging { opacity: 0.45; }
+.chip.drag-over { border-color: var(--accent-blue); box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25); }
+.chip-mv { border: none; background: transparent; color: var(--text-muted); cursor: pointer; font-size: 0.62rem; padding: 2px 2px; }
+.chip-mv:hover:not(:disabled) { color: var(--accent-blue); }
+.chip-mv:disabled { opacity: 0.25; cursor: default; }
+
+.portfolio-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.pf-chip { display: inline-flex; align-items: center; border: 1px solid var(--border-color); border-radius: 999px; background: var(--bg-secondary); overflow: hidden; }
+.pf-load { border: none; background: transparent; color: var(--text-secondary); font-size: 0.8rem; cursor: pointer; padding: 5px 4px 5px 12px; }
+.pf-load:hover { color: var(--text-primary); }
+.pf-load small { color: var(--text-muted); font-size: 0.7rem; }
+.pf-del { border: none; background: transparent; color: var(--text-muted); font-size: 0.7rem; cursor: pointer; padding: 5px 10px 5px 4px; }
+.pf-del:hover { color: var(--color-up); }
+.save-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.save-row .inp { width: auto; flex: 1; min-width: 200px; max-width: 320px; }
+.notice-text { color: var(--accent-blue); font-size: 0.82rem; margin: 0; }
 .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex: none; margin-right: 6px; }
 .chip .dot { margin-right: 0; }
 
@@ -764,6 +1056,15 @@ onBeforeUnmount(() => {
 
 .legend-row { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 0.84rem; margin-bottom: 8px; }
 .legend-item { display: inline-flex; align-items: center; gap: 4px; }
+.legend-btn { border: 1px solid transparent; background: transparent; color: inherit; font: inherit; padding: 2px 8px; border-radius: 999px; cursor: pointer; }
+.legend-btn:hover { border-color: var(--border-color); background: var(--bg-well, rgba(148, 163, 184, 0.1)); }
+.legend-btn:focus-visible { outline: 2px solid var(--accent-blue); outline-offset: 1px; }
+.legend-btn.off { opacity: 0.45; text-decoration: line-through; }
+.legend-btn .dot { margin-right: 4px; }
+.legend-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 8px; }
+.legend-tools .chip-btn { padding: 3px 10px; font-size: 0.75rem; }
+.na-tag { color: var(--text-muted); font-size: 0.8rem; }
+.no-rebound .na-tag { margin-right: 6px; }
 .chart-host { width: 100%; height: 360px; margin-bottom: 14px; }
 
 .fill-detail { font-size: 0.78rem; color: var(--text-muted); }

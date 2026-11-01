@@ -28,7 +28,7 @@ function mk(symbol, name, category, o = {}) {
   return {
     symbol, name, category,
     metrics: {
-      first_date: o.first_date || '2021-05-03', history_days: 1300, last_close: 50, last_date: '2026-10-30',
+      first_date: o.first_date || '2021-05-03', history_days: 1300, last_close: o.last_close ?? 100, last_date: '2026-10-30',
       return_1y: o.ret1y ?? 0.663, cagr_3y: 'cagr3y' in o ? o.cagr3y : 0.548, ann_return: 0.663, ann_vol: 0.292,
       sharpe: o.sharpe ?? 1.92, mdd: -0.154, short_history: !!o.short, window_days: 242,
     },
@@ -39,7 +39,7 @@ function mk(symbol, name, category, o = {}) {
         { year: 2025, amount: pays ? 1.035 : 0, yield: pays ? 0.016 : 0, count: pays ? 1 : 0, partial: false },
         { year: 2026, amount: pays ? 1.6 : 0, yield: pays ? 0.015 : 0, count: pays ? 2 : 0, partial: true },
       ],
-      events: [],
+      events: o.events || [],
     },
     fill: pays
       ? { n: 6, filled: 6, failed: 0, pending: 0, avg_days: 3.0, success_rate: 1.0, events: [] }
@@ -53,6 +53,7 @@ function mk(symbol, name, category, o = {}) {
     event: {
       high: 112.3, high_date: '2026-06-23', low: 91.8, low_date: '2026-07-29', drawdown: -0.1825,
       rebound_high: 116.6, rebound_date: '2026-10-06', rebound_pct: 0.2701, dividends_in_window: pays ? 0.6 : 0, partial: false,
+      ...(o.event || {}),
     },
   }
 }
@@ -81,7 +82,7 @@ const CATALOG = {
 }
 
 /** @param {import('@playwright/test').Page} page */
-async function mockApi(page, calls = []) {
+async function mockApi(page, calls = [], override = {}) {
   await page.route('**/api/v1/etf-compare/catalog', route =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(CATALOG) }))
   await page.route('**/api/v1/etf-compare/compare**', route => {
@@ -91,7 +92,8 @@ async function mockApi(page, calls = []) {
     const symbols = []
     const failed = []
     for (const s of syms) {
-      if (FIX[s]) symbols.push(FIX[s])
+      if (override[s]) symbols.push(override[s])
+      else if (FIX[s]) symbols.push(FIX[s])
       else if (s.startsWith('9999')) failed.push({ symbol: s, name: '', reason: '查無日線資料（代碼錯誤或尚未上市）' })
       else symbols.push({ ...FIX['0050'], symbol: s, name: `測試${s}`, category: 'other' })
     }
@@ -292,4 +294,163 @@ test('手機寬度：整頁不出現橫向捲動', async ({ page }) => {
   await expect(page.locator('[data-testid="score-table"] tbody tr')).toHaveCount(4)
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
   expect(overflow).toBeLessThanOrEqual(1)
+})
+
+// ── 品管回報後的改善：圖例開關、急跌表說明、我的組合、調整順序、觀察清單 ──────────
+
+test('走勢圖例：點一下開關單條線、連點兩下只看一條，切換區間後仍保持', async ({ page }) => {
+  await mockApi(page)
+  await page.goto('/etf-compare?symbols=0050,0056,00981A,009816')
+  const chart = page.getByTestId('trend-chart')
+  await expect(chart.locator('canvas').first()).toBeVisible()
+  await expect(chart).toHaveAttribute('data-visible', '0050,0056,00981A,009816')
+
+  const legend = sym => page.locator(`[data-section="trend"] .legend-btn[data-symbol="${sym}"]`)
+  await legend('0056').click()
+  await expect(legend('0056')).toHaveAttribute('aria-pressed', 'false')
+  await expect(legend('0056')).toHaveClass(/off/)
+  await expect(chart).toHaveAttribute('data-visible', '0050,00981A,009816')
+
+  // 切換區間會重畫圖表，被關掉的線要維持關閉
+  await page.getByRole('tab', { name: '6M' }).click()
+  await expect(chart).toHaveAttribute('data-visible', '0050,00981A,009816')
+  await expect(legend('0056')).toHaveClass(/off/)
+
+  await legend('0056').click()
+  await expect(chart).toHaveAttribute('data-visible', '0050,0056,00981A,009816')
+
+  // 連點兩下 → 只看這一條；再連點兩下 → 回到全部顯示
+  await legend('00981A').dblclick()
+  await expect(chart).toHaveAttribute('data-visible', '00981A')
+  await legend('00981A').dblclick()
+  await expect(chart).toHaveAttribute('data-visible', '0050,0056,00981A,009816')
+
+  await page.getByTestId('series-hide-all').click()
+  await expect(chart).toHaveAttribute('data-visible', '')
+  await page.getByTestId('series-show-all').click()
+  await expect(chart).toHaveAttribute('data-visible', '0050,0056,00981A,009816')
+
+  await page.getByTestId('chart-reset').click()
+  await expect(chart.locator('canvas').first()).toBeVisible()
+})
+
+test('急跌表：沒反彈、沒除息、沒配息各自有說明，不再是一個看不懂的「—」', async ({ page }) => {
+  const override = {
+    // 最低點就是最新交易日：之後沒有資料，算不出反彈
+    '0056': mk('0056', '元大高股息', 'dividend', {
+      total: 92.2, last_close: 50,
+      events: [{ date: '2026-06-16', amount: 0.5 }, { date: '2026-09-16', amount: 0.6 }],
+      event: { low: 48, low_date: '2026-10-30', rebound_high: null, rebound_date: null, rebound_pct: null, dividends_in_window: 0 },
+    }),
+  }
+  await mockApi(page, [], override)
+  await page.goto('/etf-compare?symbols=0050,0056,009816')
+  const row = sym => page.locator(`[data-testid="event-table"] tr[data-symbol="${sym}"]`)
+
+  await expect(row('0056').getByTestId('no-rebound')).toContainText('尚未反彈')
+  await expect(row('0056').getByTestId('no-rebound')).toContainText('最低點就是最新交易日 10/30')
+  await expect(row('0056').getByTestId('from-low')).toHaveText('+4.2%')
+  await expect(row('0056').getByTestId('no-div')).toHaveText('無除息')
+  await expect(row('0056')).toContainText('前次 06/16・下次 09/16')
+  await expect(row('0056')).not.toContainText('—')
+
+  // 有反彈、有除息的照常顯示數字
+  await expect(row('0050')).toContainText('+27.0%')
+  await expect(row('0050')).toContainText('0.60 元')
+  await expect(row('0050').getByTestId('from-low')).toHaveText('+8.9%')
+
+  // 從不配息的 ETF 寫「尚未配息」，不是「無除息」
+  await expect(row('009816').getByTestId('no-div')).toHaveText('尚未配息')
+})
+
+test('我的組合：存起來、重新整理後還在、一鍵載入、同名更新、刪除', async ({ page }) => {
+  const calls = []
+  await mockApi(page, calls)
+  await page.goto('/etf-compare')
+  await page.getByRole('button', { name: '市值 vs 高股息' }).click()
+  await expect(page.locator('[data-testid="score-table"] tbody tr')).toHaveCount(4)
+
+  await page.getByTestId('portfolio-name').fill('核心四檔')
+  await page.getByTestId('portfolio-save').click()
+  await expect(page.getByTestId('portfolio-msg')).toContainText('已存成組合「核心四檔」')
+  await expect(page.locator('[data-portfolio="核心四檔"]')).toContainText('4 檔')
+
+  // 存在本機瀏覽器：重新整理仍在；重設後點它能一鍵載入同一組
+  await page.reload()
+  await expect(page.locator('[data-portfolio="核心四檔"]')).toBeVisible()
+  await page.getByRole('button', { name: '重設', exact: true }).click()
+  await expect(page.locator('.chip')).toHaveCount(0)
+  await page.locator('[data-portfolio="核心四檔"] .pf-load').click()
+  await expect(page.locator('[data-testid="score-table"] tbody tr')).toHaveCount(4)
+  expect(calls.at(-1).searchParams.get('symbols')).toBe('0050,0056,00981A,009816')
+
+  // 同名再存 = 更新內容
+  await page.getByRole('button', { name: '移除 009816' }).click()
+  await page.getByTestId('portfolio-name').fill('核心四檔')
+  await page.getByTestId('portfolio-save').click()
+  await expect(page.getByTestId('portfolio-msg')).toContainText('已更新組合「核心四檔」（3 檔）')
+  await expect(page.locator('[data-portfolio]')).toHaveCount(1)
+  await expect(page.locator('[data-portfolio="核心四檔"]')).toContainText('3 檔')
+
+  // 刪除（有確認）
+  page.once('dialog', d => d.accept())
+  await page.getByRole('button', { name: '刪除組合 核心四檔' }).click()
+  await expect(page.locator('[data-portfolio]')).toHaveCount(0)
+  await page.reload()
+  await expect(page.locator('[data-portfolio]')).toHaveCount(0)
+})
+
+test('調整順序：◀ ▶ 與拖曳都會改圖例、表格與網址，且不用重打 API', async ({ page }) => {
+  const calls = []
+  await mockApi(page, calls)
+  await page.goto('/etf-compare?symbols=0050,0056,00981A,009816')
+  await expect(page.locator('[data-testid="score-table"] tbody tr')).toHaveCount(4)
+  const before = calls.length
+
+  const perfOrder = () => page.locator('[data-testid="perf-table"] tbody tr').evaluateAll(trs => trs.map(t => t.dataset.symbol))
+  const legendOrder = () => page.locator('[data-section="trend"] .legend-btn').evaluateAll(bs => bs.map(b => b.dataset.symbol))
+  expect(await perfOrder()).toEqual(['0050', '0056', '00981A', '009816'])
+
+  await page.getByRole('button', { name: '0056 往前移' }).click()
+  await expect.poll(perfOrder).toEqual(['0056', '0050', '00981A', '009816'])
+  await expect.poll(legendOrder).toEqual(['0056', '0050', '00981A', '009816'])
+  await expect(page).toHaveURL(/symbols=0056(%2C|,)0050/)
+  await expect(page.locator('.dirty')).toHaveCount(0)
+  // 第一個不能再往前、最後一個不能再往後
+  await expect(page.getByRole('button', { name: '0056 往前移' })).toBeDisabled()
+  await expect(page.getByRole('button', { name: '009816 往後移' })).toBeDisabled()
+
+  // 拖曳：把 009816 拖到最前面
+  await page.locator('.chip[data-symbol="009816"]').dragTo(page.locator('.chip[data-symbol="0056"]'))
+  await expect.poll(perfOrder).toEqual(['009816', '0056', '0050', '00981A'])
+
+  // 只是排序，沒有重新請求
+  expect(calls.length).toBe(before)
+  await expect(page.locator('[data-testid="chip-row"] .chip').first()).toHaveAttribute('data-symbol', '009816')
+})
+
+test('觀察清單：匯入只補進比較清單、全部加入只新增不覆蓋', async ({ page }) => {
+  await mockApi(page)
+  await page.goto('/etf-compare')
+
+  // 觀察清單是空的
+  await page.getByTestId('import-watchlist').click()
+  await expect(page.getByTestId('portfolio-msg')).toContainText('觀察清單是空的')
+
+  await page.evaluate(() => localStorage.setItem('finlab_watchlist', JSON.stringify(['2330', '0050'])))
+  await page.getByTestId('import-watchlist').click()
+  await expect(page.getByTestId('portfolio-msg')).toContainText('已從觀察清單加入 2 檔')
+  await expect(page.locator('.chip')).toHaveCount(2)
+  await page.getByTestId('import-watchlist').click()
+  await expect(page.getByTestId('portfolio-msg')).toContainText('都已經在比較清單裡')
+
+  // 全部加入觀察清單：只新增沒有的，原有的 2330、0050 保留
+  await page.getByRole('button', { name: '市值 vs 高股息' }).click()
+  await expect(page.locator('[data-testid="score-table"] tbody tr')).toHaveCount(4)
+  await page.getByTestId('push-watchlist').click()
+  await expect(page.getByTestId('portfolio-msg')).toContainText('已把 3 檔加入觀察清單（原有的 2 檔不受影響）')
+  const wl = await page.evaluate(() => JSON.parse(localStorage.getItem('finlab_watchlist')))
+  expect(wl).toEqual(['0056', '00981A', '009816', '2330', '0050'])
+  await page.getByTestId('push-watchlist').click()
+  await expect(page.getByTestId('portfolio-msg')).toContainText('都已經在觀察清單裡')
 })

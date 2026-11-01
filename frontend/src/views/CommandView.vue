@@ -10,6 +10,19 @@
         <div>
           <h2>作戰儀表板（Command）</h2>
           <p class="muted">評分 + 訊號 + 依 ATR 停損回推的建議張數，一次到位。</p>
+          <p class="list-src muted" data-testid="list-source" :data-source="listSource">
+            <template v-if="listSource === 'watchlist'">
+              掃描清單：來自<strong>觀察清單（{{ watchlistSymbols.length }} 檔）</strong>。<RouterLink to="/watchlist">編輯觀察清單</RouterLink>
+            </template>
+            <template v-else-if="listSource === 'sample'">
+              掃描清單：<strong>你還沒設定觀察清單</strong>，目前掃描的是範例標的。<RouterLink to="/watchlist">到觀察清單加入股票</RouterLink>
+            </template>
+            <template v-else>
+              掃描清單：<strong>手動輸入的臨時清單</strong>，只影響這次掃描，不會改動觀察清單。
+              <button v-if="watchlistSymbols.length" type="button" class="link-btn" data-testid="use-watchlist" @click="useWatchlist">改回觀察清單</button>
+              <RouterLink v-else to="/watchlist">到觀察清單加入股票</RouterLink>
+            </template>
+          </p>
         </div>
         <div class="ctrl">
           <label class="mini">資金<input v-model.number="account" type="number" min="0" step="10000" class="inp w130" @change="saveCfg" /></label>
@@ -123,8 +136,9 @@ import { realizedR, journalWinStats, halfKellyRiskPct, loadJournal, saveJournal,
 import { fetchWithRetry } from '../lib/apiFetch'
 import { useAuthStore } from '../stores/auth'
 import { loadLayoutPrefs, saveLayoutPrefs } from '../lib/layoutPrefs'
-import { loadWatchlist } from '../lib/watchlist'
+import { loadWatchlist, WATCHLIST_STORAGE_KEY } from '../lib/watchlist'
 
+const SAMPLE_SYMBOLS = '2330,2454,2317'
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 const authStore = useAuthStore()
 
@@ -152,6 +166,20 @@ const riskPct = ref(1)
 const dailyLimitR = ref(-3)
 const weeklyLimitR = ref(-6)
 const symbolsInput = ref('')
+// 掃描清單的來源：觀察清單（localStorage，每個瀏覽器各自一份）、範例（觀察清單是空的時的預設）、或手動輸入的臨時清單
+const watchlistSymbols = ref([])
+const inputSymbols = computed(() => [...new Set(String(symbolsInput.value || '').split(',').map(s => s.trim().toUpperCase()).filter(Boolean))])
+const sameList = (a, b) => a.length === b.length && a.every((s, i) => s === b[i])
+const listSource = computed(() => {
+  const wl = watchlistSymbols.value
+  if (wl.length) return sameList(inputSymbols.value, wl) ? 'watchlist' : 'manual'
+  return sameList(inputSymbols.value, SAMPLE_SYMBOLS.split(',')) ? 'sample' : 'manual'
+})
+function useWatchlist() {
+  if (!watchlistSymbols.value.length) return
+  symbolsInput.value = watchlistSymbols.value.join(',')
+  scan()
+}
 const rows = ref([])
 const asOf = ref('')
 const loading = ref(false)
@@ -366,6 +394,8 @@ async function analyzeCorr() {
 // storage 事件監聽。
 function onJournalStorage(e) {
   if (!e.key || e.key === JOURNAL_KEY) journalTrades.value = loadJournal()
+  // 觀察清單在別的分頁改了：只更新「來源提示」，不動使用者正在看的掃描清單
+  if (!e.key || e.key === WATCHLIST_STORAGE_KEY) watchlistSymbols.value = loadWatchlist()
   // II7：帳戶資金/風險%跟部位風控頁共用同一組 key，但這裡原本沒有跟著聽，
   // 另一分頁改了之後這頁的熔斷/半凱利建議會繼續用舊值，直到手動整理。
   if (e.key === 'portfolio_heat_account') {
@@ -384,7 +414,8 @@ onMounted(() => {
   const dl = Number(localStorage.getItem('finlab_daily_loss_limit_r')); if (dl < 0) dailyLimitR.value = dl
   const wkl = Number(localStorage.getItem('finlab_weekly_loss_limit_r')); if (wkl < 0) weeklyLimitR.value = wkl
   const wl = loadWatchlist()
-  symbolsInput.value = wl.length ? wl.join(',') : '2330,2454,2317'
+  watchlistSymbols.value = wl
+  symbolsInput.value = wl.length ? wl.join(',') : SAMPLE_SYMBOLS
   loadRegime()
   scan()
   window.addEventListener('storage', onJournalStorage)
@@ -488,5 +519,7 @@ tr.today-pick { background: rgba(245,158,11,0.07); box-shadow: inset 3px 0 0 #f5
 .corr-warn { margin: 12px 0 0; display: flex; flex-direction: column; gap: 6px; }
 .corr-warn div { background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.4); color: #f87171; border-radius: 10px; padding: 8px 12px; font-size: 0.84rem; }
 .kelly-hint { font-size: 0.78rem; color: var(--text-muted); display: inline-flex; align-items: center; gap: 4px; }
+.list-src { margin: 4px 0 0; font-size: 0.8rem; }
+.list-src a { color: var(--accent-blue); margin-left: 4px; }
 .link-btn { background: none; border: none; color: var(--accent-blue); cursor: pointer; padding: 0 2px; font-size: 0.78rem; }
 </style>
