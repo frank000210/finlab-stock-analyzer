@@ -172,7 +172,8 @@ const DATA = [
   {code:'—', tag:'warn', text:'與原計畫的差異（已自行決定、需使用者知悉）：（1）夏普與最大回撤只要有 60 個交易日就算，並標「上市未滿1年」，而計畫寫的是要滿 1 年——否則 2025 年才上市的主動式 ETF 全部顯示「—」；3 年年化仍嚴格要求滿 3 年。（2）不配息的 ETF 其殖利率、填息兩軸顯示「—」而非 0 分，總分只平均有值的項目，所以只有 3 項的標的總分可能高於 5 項的標的（例如 009816 排第一），因此總分旁標示項數。'},
   {code:'—', tag:'warn', text:'圖表四「持股明細與重疊度」沒有做：FinMind 免費版沒有成分股資料。探勘時試了 MoneyDJ（抓得到前十大持股），但它的 robots.txt 明文禁止資料探勘與 AI 用途，所以不採用，也已刪除探勘時下載的頁面。頁面以說明卡呈現，不放手寫數字。要補上這張圖需要改接各投信官網的持股揭露（每家格式不同）或付費資料源。'},
   {code:'—', tag:'neutral', text:'觀察一：lightweight-charts 在視窗由窄變寬時只呼叫 applyOptions({width}) 會沿用舊的 barSpacing，曲線被擠在右側約 15%（實測），要再呼叫 timeScale().fitContent()；StockCompareView 同款寫法（只改寬度）可能有同樣問題，尚未修。觀察二：StockCompareView 的 scoped 樣式把 .up／.down 寫死成綠／紅，與全站「漲紅跌綠」相反，漲幅會顯示成綠色，尚未修。'},
-  {code:'—', tag:'neutral', text:'驗證：後端 43 項單元測試（含 ETF 分類、事件視窗、真實日線對帳）、Playwright 10 項（API 全 mock，不消耗 FinMind 額度；含區間重算與日資料吻合、手機寬度無橫向捲動、CSV 下載）；真實後端 5 檔比較 2.2 秒；ETF 分類規則經過實測修正——最初把名稱含「50」的中國 A50、S&P500、正反向槓桿 ETF 都歸成市值型。'},
+  {code:'—', tag:'neutral', text:'驗證：後端 52 項單元測試（含 ETF 分類、事件視窗、真實日線對帳）、Playwright 10 項（API 全 mock，不消耗 FinMind 額度；含區間重算與日資料吻合、手機寬度無橫向捲動、CSV 下載）；真實後端 5 檔比較 2.2 秒；ETF 分類規則經過實測修正——最初把名稱含「50」的中國 A50、S&P500、正反向槓桿 ETF 都歸成市值型。上版閘門整套 351 項通過。'},
+  {code:'—', tag:'critical', text:'測試基礎建設（上版時撞到、順手修）：整套 e2e 一度要 21～35 分鐘且隨機 page.goto 逾時，根因不是功能，而是 main.css 的 @import 從 Google Fonts 與 jsdelivr 載入幾十個霞鶩文楷字型檔，頁面 load 事件要等它們抓完，外網一慢就 45 秒逾時（本機 API 其實都在幾十毫秒內回）。改在 Playwright 設定用 --host-resolver-rules 擋掉這三個網域後，整套降到約 1.5 分鐘。副作用：套件變快後，連續兩輪落在同一個 10 分鐘視窗，會撞到每 IP 限流（學習中心註冊登入 10 次、訊號規則異動 20 次），所以重跑前要先清掉限流計數。另一個坑：Windows Git Bash 呼叫 wsl 時 /mnt/c/... 參數會被改寫成 C:/Program Files/Git/...，造成容器管理員密鑰變空、登入失敗被鎖，要加 MSYS_NO_PATHCONV=1。'},
  ]},
 
 {date:'2026-10-24 11:06', range:'獨立功能', title:'學習中心 /learn：從 AI Agent 原理到 Claude Code 客製化的完整課程平台',
