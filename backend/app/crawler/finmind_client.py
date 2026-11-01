@@ -178,6 +178,19 @@ class FinMindClient:
             {"data_id": symbol, "start_date": start, "end_date": end},
         )
 
+    async def get_dividend_result(
+        self, symbol: str, start: str, end: str
+    ) -> pd.DataFrame:
+        """Fetch ex-dividend results (per ex-date: 除息前收盤、除息參考價、每股現金股利).
+
+        Unlike TaiwanStockDividend this carries the actual ex-date and the
+        before/reference prices, which is what 填息 and total-return adjustment need.
+        """
+        return await self._fetch(
+            "TaiwanStockDividendResult",
+            {"data_id": symbol, "start_date": start, "end_date": end},
+        )
+
     async def get_shareholding(
         self, symbol: str, start: str, end: str
     ) -> pd.DataFrame:

@@ -42,6 +42,9 @@ CACHE_TTL = {
     "rate_limit": 10,
     # 學習中心：AI 助教／專題初評的每人每日計數（key 含日期）
     "course_daily": 1440,
+    # ETF 綜合比較：單檔整理結果（日線＋除息）6 小時；FinMind 免費額度吃緊，
+    # key 另含日期，跨日自然失效。
+    "etf_compare": 360,
 }
 
 
