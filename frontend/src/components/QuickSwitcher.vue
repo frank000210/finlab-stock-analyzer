@@ -62,6 +62,7 @@ const PAGES = [
   { icon: '🕸️', title: '關聯圖', sub: '/graph', to: '/graph', alias: 'graph 關聯' },
   { icon: '🔄', title: '類股輪動', sub: '/rotation', to: '/rotation', alias: 'rotation 輪動 rrg' },
   { icon: '⚖️', title: '多股比較', sub: '/compare', to: '/compare', alias: 'compare 比較 多股' },
+  { icon: '🧬', title: 'ETF 綜合比較', sub: '/etf-compare', to: '/etf-compare', alias: 'etf compare 比較 ETF 高股息 市值型 主動型 配息 填息 殖利率 雷達' },
   { icon: '🚦', title: '大盤多空', sub: '/market-lights', to: '/market-lights', alias: 'market lights 大盤 多空 三燈號' },
   { icon: '🔍', title: '新聞可信度', sub: '/news-checker', to: '/news-checker', alias: 'news checker 新聞查核' },
   { icon: '🔎', title: 'AI 選股', sub: '/screener', to: '/screener', alias: 'screener 選股 自然語言' },

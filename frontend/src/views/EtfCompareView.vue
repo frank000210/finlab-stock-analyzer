@@ -1,0 +1,777 @@
+<template>
+  <div class="etf-page">
+    <PageFocusBanner text="最多 10 檔 ETF／個股放在同一頁比：五維評分、含息還原走勢、歷年配息與填息、急跌後的反彈。所有數字由 FinMind 日線與除息紀錄即時算出，不是手寫的。" />
+
+    <!-- 選擇標的 -->
+    <section class="card pick-card">
+      <div class="preset-row">
+        <span class="row-label">一鍵情境</span>
+        <button v-for="p in presets" :key="p.key" type="button" class="chip-btn" :data-preset="p.key" @click="applyPreset(p)">
+          {{ p.label }}
+        </button>
+        <button type="button" class="chip-btn ghost" :disabled="!selected.length" @click="resetAll">重設</button>
+      </div>
+
+      <div class="add-row">
+        <div ref="searchShell" class="search-shell">
+          <input
+            v-model="searchInput"
+            type="text"
+            class="inp"
+            data-testid="etf-search"
+            placeholder="輸入代碼或名稱，例如 0056 / 高股息 / 2330"
+            :disabled="selected.length >= MAX_SYMBOLS"
+            @focus="dropdownOpen = true"
+            @keydown.enter.prevent="submitSearchInput"
+          />
+          <ul v-if="dropdownOpen && dropdownItems.length" class="search-dropdown" role="listbox">
+            <li v-for="item in dropdownItems" :key="item.symbol" role="option" tabindex="0"
+                @click="addSymbol(item.symbol, item.name)" @keydown.enter.prevent="addSymbol(item.symbol, item.name)">
+              <strong>{{ item.symbol }}</strong>
+              <span class="dd-name">{{ item.name }}</span>
+              <span class="cat-tag">{{ categoryLabel(item.category) }}</span>
+            </li>
+          </ul>
+        </div>
+        <button class="btn btn-primary" type="button" data-testid="etf-run" :disabled="!selected.length || loading" @click="load()">
+          <span v-if="loading" class="loading-spinner btn-spinner" aria-hidden="true"></span>{{ result ? '更新比較' : '開始比較' }}
+        </button>
+      </div>
+
+      <div class="cat-row" role="group" aria-label="分類篩選">
+        <span class="row-label">分類</span>
+        <button v-for="c in CATEGORY_FILTERS" :key="c.key" type="button" class="cat-btn"
+                :class="{ active: categoryFilter === c.key }" @click="setCategory(c.key)">{{ c.label }}</button>
+      </div>
+
+      <div v-if="selected.length" class="chip-row">
+        <span v-for="s in selected" :key="s.symbol" class="chip" :data-symbol="s.symbol">
+          <i class="dot" :style="{ background: s.color }"></i>
+          <strong>{{ s.symbol }}</strong> {{ s.name }}
+          <button type="button" class="chip-x" :aria-label="`移除 ${s.symbol}`" @click="removeSymbol(s.symbol)">✕</button>
+        </span>
+      </div>
+      <p class="muted small">
+        最多 {{ MAX_SYMBOLS }} 檔（目前 {{ selected.length }} 檔）。<span v-if="dirty" class="dirty">選擇已變更，按「{{ result ? '更新比較' : '開始比較' }}」套用。</span>
+      </p>
+      <p v-if="catalogError" class="warn-text">{{ catalogError }}</p>
+      <p v-if="errorMessage" class="error-text" role="alert">{{ errorMessage }}</p>
+    </section>
+
+    <div v-if="loading && !result" class="state-box"><span class="loading-spinner" aria-hidden="true"></span> 正在向 FinMind 取得日線與除息資料…</div>
+
+    <div v-if="!result && !loading && !errorMessage" class="state-box empty">
+      先點上方「一鍵情境」，或搜尋加入至少一檔標的，再按「開始比較」。
+    </div>
+
+    <template v-if="result">
+      <p class="asof muted small">
+        資料至 {{ result.asof }}（FinMind 日線；價格已處理分割、走勢含息還原）。
+        <span v-if="result.failed.length" class="warn-text">
+          查無資料：{{ result.failed.map(f => `${f.symbol}${f.name ? ' ' + f.name : ''}`).join('、') }}（{{ result.failed[0].reason }}）。
+        </span>
+      </p>
+
+      <!-- 圖表一：五維評分 -->
+      <section class="card" data-section="radar">
+        <div class="section-head">
+          <h2>五維評分 <InfoTooltip v-bind="metricGlossary.etfRadar" /></h2>
+          <button class="btn xs" type="button" @click="exportCsv">📥 匯出 CSV</button>
+        </div>
+        <div class="radar-grid">
+          <EtfRadar :series="radarSeries" />
+          <div class="table-scroll">
+            <table class="score-table" data-testid="score-table">
+              <thead>
+                <tr>
+                  <th>標的</th><th>總分</th><th>報酬</th><th>抗跌</th><th>夏普</th><th>殖利率</th><th>填息</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(row, i) in ranked" :key="row.symbol" :data-symbol="row.symbol">
+                  <td>
+                    <span class="rank">{{ i + 1 }}</span>
+                    <i class="dot" :style="{ background: colorOf(row.symbol) }"></i>
+                    <strong>{{ row.symbol }}</strong> <span class="nm">{{ row.name }}</span>
+                    <span v-if="row.metrics.short_history" class="mini-badge" title="上市未滿一年，樣本短，數字僅供參考">未滿1年</span>
+                  </td>
+                  <td class="total"><span class="score" :style="scoreStyle(row.scores.total)">{{ score(row.scores.total) }}</span></td>
+                  <td :title="axisTip(row, 'return')">{{ score(row.scores.return) }}</td>
+                  <td :title="axisTip(row, 'defense')">{{ score(row.scores.defense) }}</td>
+                  <td :title="axisTip(row, 'sharpe')">{{ score(row.scores.sharpe) }}</td>
+                  <td :title="axisTip(row, 'yield')">{{ score(row.scores.yield) }}</td>
+                  <td :title="axisTip(row, 'fill')">{{ score(row.scores.fill) }}</td>
+                </tr>
+              </tbody>
+            </table>
+            <p class="muted small">「—」代表該項不適用（不配息、無已結案的除息、或上市太短），不會被當成 0 分，總分只平均有值的項目。報酬潛力不足 3 年的標的改用上市以來年化報酬。</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 圖表二：累積走勢 -->
+      <section class="card" data-section="trend">
+        <div class="section-head">
+          <h2>累積走勢（含息還原，起點 = 100） <InfoTooltip v-bind="metricGlossary.etfTotalReturn" /></h2>
+          <div class="tf-tabs" role="tablist" aria-label="走勢區間">
+            <button v-for="t in TIMEFRAMES" :key="t" type="button" role="tab" class="tf-btn"
+                    :class="{ active: timeframe === t }" :aria-selected="timeframe === t" @click="timeframe = t">{{ t }}</button>
+          </div>
+        </div>
+        <div class="legend-row">
+          <span v-for="l in legend" :key="l.symbol" class="legend-item">
+            <i class="dot" :style="{ background: l.color }"></i>
+            {{ l.symbol }} {{ l.name }}
+            <strong :class="cls(l.ret)">{{ pct(l.ret, 1, true) }}</strong>
+            <span v-if="l.late" class="mini-badge" title="這段區間內才上市，從上市日起算">較晚上市</span>
+          </span>
+        </div>
+        <div ref="chartHost" class="chart-host" data-testid="trend-chart"></div>
+
+        <div class="table-scroll">
+          <table data-testid="perf-table">
+            <thead>
+              <tr>
+                <th>標的</th><th>近 1 年報酬</th><th>3 年年化</th><th>年化波動</th>
+                <th>夏普 <InfoTooltip v-bind="metricGlossary.etfSharpe" /></th>
+                <th>最大回撤 <InfoTooltip v-bind="metricGlossary.etfMdd" /></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in result.symbols" :key="row.symbol" :data-symbol="row.symbol">
+                <td><i class="dot" :style="{ background: colorOf(row.symbol) }"></i><strong>{{ row.symbol }}</strong> <span class="nm">{{ row.name }}</span>
+                  <span v-if="row.metrics.short_history" class="mini-badge" :title="`資料起日 ${row.metrics.first_date}，上市未滿一年`">上市未滿1年</span></td>
+                <td :class="cls(row.metrics.return_1y)">{{ pct(row.metrics.return_1y, 1, true) }}</td>
+                <td :class="cls(row.metrics.cagr_3y)" :title="row.metrics.cagr_3y == null ? '上市不足 3 年' : ''">{{ pct(row.metrics.cagr_3y, 1, true) }}</td>
+                <td>{{ pct(row.metrics.ann_vol, 1) }}</td>
+                <td>{{ num(row.metrics.sharpe) }}</td>
+                <td :class="cls(row.metrics.mdd)">{{ pct(row.metrics.mdd, 1) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="muted small">近 1 年報酬、3 年年化皆為含息還原；「—」代表上市時間不夠長，不硬算。夏普的無風險利率採 {{ pct(result.method.risk_free, 1) }}。</p>
+      </section>
+
+      <!-- 圖表三：配息與填息 -->
+      <section class="card" data-section="dividend">
+        <div class="section-head">
+          <h2>歷年配息與填息 <InfoTooltip v-bind="metricGlossary.etfFill" /></h2>
+          <div class="tf-tabs" role="tablist" aria-label="配息顯示方式">
+            <button type="button" role="tab" class="tf-btn" :class="{ active: divMode === 'amount' }" @click="divMode = 'amount'">金額（元）</button>
+            <button type="button" role="tab" class="tf-btn" :class="{ active: divMode === 'yield' }" @click="divMode = 'yield'">殖利率（%）</button>
+          </div>
+        </div>
+        <div class="legend-row">
+          <span v-for="l in legend" :key="l.symbol" class="legend-item"><i class="dot" :style="{ background: l.color }"></i>{{ l.symbol }} {{ l.name }}</span>
+        </div>
+        <EtfDividendBars :series="divSeries" :mode="divMode" />
+        <p class="muted small">殖利率 = 該年累計現金股利 ÷ 該年最後一個交易日收盤價；今年為累計至最新交易日。不配息的標的長條為「–」。</p>
+
+        <div class="table-scroll">
+          <table data-testid="div-table">
+            <thead>
+              <tr>
+                <th>標的</th><th>近 12 月殖利率</th><th>近 12 月配息</th><th>填息成功率</th><th>平均填息天數</th><th>近 3 年除息</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in result.symbols" :key="row.symbol" :data-symbol="row.symbol">
+                <td><i class="dot" :style="{ background: colorOf(row.symbol) }"></i><strong>{{ row.symbol }}</strong> <span class="nm">{{ row.name }}</span></td>
+                <template v-if="row.dividends.pays_dividend">
+                  <td>{{ pct(row.dividends.yield_ttm, 2) }}</td>
+                  <td>{{ num(row.dividends.ttm_amount) }} 元</td>
+                  <td>{{ pct(row.fill.success_rate, 0) }}</td>
+                  <td>{{ row.fill.avg_days == null ? '—' : row.fill.avg_days.toFixed(1) + ' 天' }}</td>
+                  <td class="fill-detail">{{ fillDetail(row.fill) }}</td>
+                </template>
+                <template v-else>
+                  <td colspan="5" class="muted">近 5 年沒有除息紀錄（不配息或尚未配息）</td>
+                </template>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="muted small">填息 = 除息後收盤價站回「除息前一天收盤價」；{{ result.method.fill_window_days }} 個交易日內沒站回算失敗，尚未滿觀察期的算「未結案」、不計入成功率。僅統計最近 {{ result.method.fill_lookback_years }} 年。</p>
+      </section>
+
+      <!-- 圖表三之二：急跌與反彈 -->
+      <section class="card" data-section="event">
+        <div class="section-head">
+          <h2>急跌與反彈 <InfoTooltip v-bind="metricGlossary.etfEvent" /></h2>
+        </div>
+        <div class="event-bar">
+          <p v-if="result.event" class="event-desc" data-testid="event-desc">
+            比較區間 <strong>{{ result.event.start }} ～ {{ result.event.end }}</strong>
+            <span v-if="result.event.source === 'auto'" class="muted">（自動偵測：0050 近 180 天最大回落 {{ pct(result.event.drop, 1) }}）</span>
+            <span v-else class="muted">（自訂區間）</span>
+          </p>
+          <p v-else class="event-desc muted">近 180 天 0050 沒有達 5% 的明顯急跌，可在右側手動指定區間。</p>
+          <form class="event-form" @submit.prevent="applyEventRange">
+            <label class="field"><span>起</span><input v-model="eventStart" type="date" class="inp" /></label>
+            <label class="field"><span>迄</span><input v-model="eventEnd" type="date" class="inp" /></label>
+            <button class="btn btn-secondary xs" type="submit" :disabled="!eventStart || !eventEnd || loading">套用區間</button>
+            <button v-if="customEvent" class="btn btn-secondary xs" type="button" :disabled="loading" @click="resetEventRange">回到自動偵測</button>
+          </form>
+        </div>
+
+        <div v-if="result.event" class="table-scroll">
+          <table data-testid="event-table">
+            <thead>
+              <tr>
+                <th>標的</th><th>區間最高</th><th>其後最低</th><th>回落</th><th>反彈高點</th><th>反彈幅度</th><th>區間內除息</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in result.symbols" :key="row.symbol" :data-symbol="row.symbol">
+                <td><i class="dot" :style="{ background: colorOf(row.symbol) }"></i><strong>{{ row.symbol }}</strong> <span class="nm">{{ row.name }}</span></td>
+                <template v-if="row.event">
+                  <td>{{ price(row.event.high) }} <span class="dt">{{ md(row.event.high_date) }}</span></td>
+                  <td>{{ price(row.event.low) }} <span class="dt">{{ md(row.event.low_date) }}</span></td>
+                  <td :class="cls(row.event.drawdown)">{{ pct(row.event.drawdown, 1) }}</td>
+                  <td>{{ row.event.rebound_high == null ? '—' : price(row.event.rebound_high) }} <span class="dt">{{ md(row.event.rebound_date) }}</span></td>
+                  <td :class="cls(row.event.rebound_pct)">{{ pct(row.event.rebound_pct, 1, true) }}</td>
+                  <td>{{ row.event.dividends_in_window > 0 ? row.event.dividends_in_window.toFixed(2) + ' 元' : '—' }}
+                    <span v-if="row.event.partial" class="mini-badge" title="這檔在區間起點之後才上市">區間內才上市</span></td>
+                </template>
+                <template v-else>
+                  <td colspan="6" class="muted">此區間內沒有日線資料</td>
+                </template>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="muted small">價格為日內最高／最低、已處理分割、<strong>不含息</strong>（看盤軟體上看到的價格）；因此回落幅度會比上表「最大回撤（含息、收盤）」更深。區間內有除息的標的，部分跌幅是配息造成的。反彈幅度 =（最低之後的最高 ÷ 最低）− 1。</p>
+      </section>
+
+      <!-- 圖表四：持股明細 -->
+      <section class="card holdings-card" data-section="holdings">
+        <div class="section-head"><h2>持股明細與重疊度</h2></div>
+        <p class="holdings-note" data-testid="holdings-note">
+          這張圖需要各 ETF 的「成分股與權重」。FinMind 免費帳號沒有這份資料，而主要財經網站的使用條款禁止自動抓取，
+          所以目前不顯示，也<strong>不會用手寫的數字充數</strong>。要補上這張圖，需要改接各投信官網的持股揭露（每家格式不同）或付費資料源。
+        </p>
+      </section>
+
+      <details class="card method">
+        <summary>計算方式與資料限制</summary>
+        <ul>
+          <li><strong>資料來源</strong>：FinMind 免費帳號的 TaiwanStockPrice（原始日線）與 TaiwanStockDividendResult（除息日、除息前收盤、參考價、每股現金股利）。同一標的結果快取 6 小時。</li>
+          <li><strong>分割處理</strong>：原始日線沒有處理分割（例：0050 在 2025-06 一拆四，收盤從 188.65 掉到 47.57）。單日漲跌超過 ±40% 視為分割並依倍率還原，否則最大回撤會被算成 −75%。</li>
+          <li><strong>含息還原</strong>：除息日把除息前一天收盤 → 除息參考價的比例，連乘到之前所有日期，等於配息在除息日再投入。</li>
+          <li><strong>夏普</strong>：（年化報酬 − {{ pct(result.method.risk_free, 1) }}）÷ 年化波動，使用最近 1 年日報酬。上市不滿 1 年但至少 {{ result.method.min_stats_days }} 個交易日者仍會計算，並標示「上市未滿1年」；不足 {{ result.method.min_stats_days }} 個交易日則顯示「—」。</li>
+          <li><strong>五維評分</strong>：報酬 = 3 年年化 ÷ 30%；抗跌 = 100 −（|最大回撤| − 14%）× 3.5（限 30–95）；夏普 = 夏普 ÷ 1.4；殖利率 = 近 12 月殖利率 ÷ 10%；填息 = 60% 成功率 + 40% 速度。各項上限 100，總分為有值項目的平均。</li>
+          <li><strong>持股明細</strong>：目前沒有合法可用的資料來源（見該區塊說明），所以不顯示。</li>
+          <li><strong>分類</strong>：FinMind 沒有 ETF 子類別，市值型／高股息／主動型是依名稱規則判斷，個別標的可能判錯。</li>
+          <li><strong>不是建議</strong>：這是歷史資料的整理，不是預測，也不構成投資建議。</li>
+        </ul>
+      </details>
+    </template>
+  </div>
+</template>
+
+<script setup>
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { createChart } from 'lightweight-charts'
+import PageFocusBanner from '../components/PageFocusBanner.vue'
+import InfoTooltip from '../components/InfoTooltip.vue'
+import EtfRadar from '../components/etf/EtfRadar.vue'
+import EtfDividendBars from '../components/etf/EtfDividendBars.vue'
+import { metricGlossary } from '../lib/metricGlossary'
+import { useChartTheme } from '../composables/useChartTheme'
+import { downloadCsv, timestampedFilename } from '../lib/csvExport'
+
+const API_BASE = import.meta.env.VITE_API_BASE ?? ''
+const MAX_SYMBOLS = 10
+const STORAGE_KEY = 'finlab.etfCompare.symbols'
+const SYMBOL_RE = /^[0-9A-Z]{3,8}$/
+const TW_CODE_RE = /^\d{4,6}[A-Z]?$/
+const TIMEFRAMES = ['6M', 'YTD', '1Y', '3Y', '5Y']
+const CATEGORY_FILTERS = [
+  { key: 'all', label: '全部' },
+  { key: 'market', label: '市值型' },
+  { key: 'dividend', label: '高股息' },
+  { key: 'active', label: '主動型' },
+  { key: 'other', label: '其他 ETF' },
+  { key: 'stock', label: '個股' },
+]
+
+const theme = useChartTheme()
+// 紅／綠留給漲跌語意，系列色避開它們
+const PALETTE = [theme.blue, theme.purple, theme.cyan, theme.warn, '#ec4899', '#6366f1', '#fb923c', '#94a3b8', '#d946ef', '#38bdf8']
+
+const route = useRoute()
+const router = useRouter()
+
+const catalog = ref({ etfs: [], category_labels: {} })
+const presets = ref([])
+const catalogError = ref('')
+const selected = ref([]) // [{ symbol, name, color }]
+const searchInput = ref('')
+const remoteResults = ref([])
+const dropdownOpen = ref(false)
+const categoryFilter = ref('all')
+const searchShell = ref(null)
+
+const loading = ref(false)
+const errorMessage = ref('')
+const result = ref(null)
+const loadedKey = ref('')
+const timeframe = ref('1Y')
+// 預設看殖利率：不同價位的標的（例如 2,000 元的個股 vs 30 元的 ETF）比「配息金額」沒有意義
+const divMode = ref('yield')
+const eventStart = ref('')
+const eventEnd = ref('')
+const customEvent = ref(false)
+
+const chartHost = ref(null)
+let chartInstance = null
+let loadSeq = 0
+let searchSeq = 0
+let searchTimer = null
+
+// ── 標的選擇 ────────────────────────────────────────────────────────────────
+const selectedKey = computed(() => selected.value.map(s => s.symbol).join(','))
+const dirty = computed(() => !!selected.value.length && selectedKey.value !== loadedKey.value)
+
+function categoryLabel(key) {
+  return catalog.value.category_labels?.[key] || CATEGORY_FILTERS.find(c => c.key === key)?.label || ''
+}
+
+function nextColor() {
+  const used = new Set(selected.value.map(s => s.color))
+  return PALETTE.find(c => !used.has(c)) || PALETTE[selected.value.length % PALETTE.length]
+}
+
+function nameFromCatalog(symbol) {
+  return catalog.value.etfs.find(e => e.symbol === symbol)?.name || ''
+}
+
+function addSymbol(symbol, name) {
+  const sym = String(symbol || '').trim().toUpperCase()
+  if (!SYMBOL_RE.test(sym)) {
+    errorMessage.value = `「${symbol}」不是有效的台股代碼。`
+    return
+  }
+  if (selected.value.length >= MAX_SYMBOLS || selected.value.some(s => s.symbol === sym)) return
+  errorMessage.value = ''
+  selected.value = [...selected.value, { symbol: sym, name: name || nameFromCatalog(sym), color: nextColor() }]
+  searchInput.value = ''
+  remoteResults.value = []
+  dropdownOpen.value = false
+}
+
+function removeSymbol(symbol) {
+  selected.value = selected.value.filter(s => s.symbol !== symbol)
+}
+
+function setSelection(symbols) {
+  const list = []
+  for (const sym of symbols.slice(0, MAX_SYMBOLS)) {
+    list.push({ symbol: sym, name: nameFromCatalog(sym), color: PALETTE[list.length % PALETTE.length] })
+  }
+  selected.value = list
+}
+
+function applyPreset(p) {
+  setSelection(p.symbols)
+  errorMessage.value = ''
+  customEvent.value = false
+  load()
+}
+
+function resetAll() {
+  loadSeq++ // 讓進行中的請求作廢
+  selected.value = []
+  result.value = null
+  loadedKey.value = ''
+  errorMessage.value = ''
+  customEvent.value = false
+  saveSelection()
+  router.replace({ query: {} }).catch(() => {})
+}
+
+function setCategory(key) {
+  categoryFilter.value = key
+  dropdownOpen.value = true
+}
+
+function submitSearchInput() {
+  const q = searchInput.value.trim()
+  if (!q) return
+  const exact = dropdownItems.value.find(it => it.symbol.toUpperCase() === q.toUpperCase())
+  if (exact) addSymbol(exact.symbol, exact.name)
+  else if (SYMBOL_RE.test(q.toUpperCase())) addSymbol(q.toUpperCase(), '')
+  else if (dropdownItems.value.length) addSymbol(dropdownItems.value[0].symbol, dropdownItems.value[0].name)
+}
+
+const dropdownItems = computed(() => {
+  const q = searchInput.value.trim().toLowerCase()
+  const chosen = new Set(selected.value.map(s => s.symbol))
+  const cat = categoryFilter.value
+  let list = []
+  if (cat !== 'stock') {
+    list = catalog.value.etfs.filter(e =>
+      !chosen.has(e.symbol) && (cat === 'all' || e.category === cat) &&
+      (!q || e.symbol.toLowerCase().includes(q) || e.name.toLowerCase().includes(q)))
+  }
+  if (cat === 'all' || cat === 'stock') {
+    const known = new Set(list.map(e => e.symbol))
+    list = list.concat(remoteResults.value.filter(r => !chosen.has(r.symbol) && !known.has(r.symbol)))
+  }
+  if (!q && cat === 'all') return [] // 沒輸入也沒選分類時不展開，避免一長串清單
+  return list.slice(0, 14)
+})
+
+function onSearchInput() {
+  clearTimeout(searchTimer)
+  searchTimer = setTimeout(async () => {
+    const q = searchInput.value.trim()
+    if (!q || categoryFilter.value === 'market' || categoryFilter.value === 'dividend' || categoryFilter.value === 'active') {
+      remoteResults.value = []
+      return
+    }
+    const seq = ++searchSeq
+    try {
+      const resp = await fetch(`${API_BASE}/api/v1/stocks/search?q=${encodeURIComponent(q)}`)
+      const payload = await resp.json().catch(() => ({}))
+      if (seq !== searchSeq) return
+      remoteResults.value = (payload?.data?.items || [])
+        .filter(it => TW_CODE_RE.test(String(it.symbol || '')))
+        .map(it => ({ symbol: it.symbol, name: it.name_zh || it.name || '', category: 'stock' }))
+    } catch {
+      if (seq === searchSeq) remoteResults.value = []
+    }
+  }, 250)
+}
+watch(searchInput, () => { dropdownOpen.value = true; onSearchInput() })
+
+function onDocClick(e) {
+  if (searchShell.value && !searchShell.value.contains(e.target)) dropdownOpen.value = false
+}
+
+// ── 載入比較 ────────────────────────────────────────────────────────────────
+function saveSelection() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(selected.value.map(s => s.symbol)))
+  } catch { /* 無痕模式或被封鎖：不影響功能 */ }
+}
+
+async function load(range) {
+  if (!selected.value.length) return
+  const seq = ++loadSeq
+  loading.value = true
+  errorMessage.value = ''
+  const symbols = selectedKey.value
+  const params = new URLSearchParams({ symbols })
+  const useRange = range || (customEvent.value && eventStart.value && eventEnd.value ? { start: eventStart.value, end: eventEnd.value } : null)
+  if (useRange) {
+    params.set('event_start', useRange.start)
+    params.set('event_end', useRange.end)
+  }
+  try {
+    const resp = await fetch(`${API_BASE}/api/v1/etf-compare/compare?${params}`)
+    const payload = await resp.json().catch(() => ({}))
+    if (seq !== loadSeq) return
+    if (!resp.ok || !payload?.success) {
+      errorMessage.value = payload?.detail || `查詢失敗（HTTP ${resp.status}）`
+      return
+    }
+    result.value = payload.data
+    loadedKey.value = symbols
+    // 名稱以後端回傳為準（個股不在 ETF 清單裡時才有名稱）
+    const names = new Map(payload.data.symbols.map(s => [s.symbol, s.name]))
+    selected.value = selected.value.map(s => ({ ...s, name: names.get(s.symbol) || s.name }))
+    if (payload.data.event) {
+      eventStart.value = payload.data.event.start
+      eventEnd.value = payload.data.event.end
+    }
+    saveSelection()
+    router.replace({ query: { symbols } }).catch(() => {})
+  } catch (e) {
+    if (seq === loadSeq) errorMessage.value = e?.message || '查詢失敗'
+  } finally {
+    if (seq === loadSeq) loading.value = false
+  }
+}
+
+function applyEventRange() {
+  if (!eventStart.value || !eventEnd.value) return
+  if (eventStart.value >= eventEnd.value) {
+    errorMessage.value = '急跌區間的起日必須早於迄日。'
+    return
+  }
+  customEvent.value = true
+  load({ start: eventStart.value, end: eventEnd.value })
+}
+
+function resetEventRange() {
+  customEvent.value = false
+  load(null)
+}
+
+// ── 衍生資料 ────────────────────────────────────────────────────────────────
+function colorOf(symbol) {
+  const hit = selected.value.find(s => s.symbol === symbol)
+  if (hit) return hit.color
+  const i = result.value ? result.value.symbols.findIndex(s => s.symbol === symbol) : 0
+  return PALETTE[Math.max(i, 0) % PALETTE.length]
+}
+
+const ranked = computed(() => {
+  if (!result.value) return []
+  return [...result.value.symbols].sort((a, b) => (b.scores.total ?? -1) - (a.scores.total ?? -1))
+})
+
+const radarSeries = computed(() =>
+  (result.value?.symbols || []).map(s => ({ symbol: s.symbol, color: colorOf(s.symbol), scores: s.scores })))
+
+const divSeries = computed(() =>
+  (result.value?.symbols || []).map(s => ({
+    symbol: s.symbol, name: s.name, color: colorOf(s.symbol),
+    by_year: s.dividends.by_year, pays: s.dividends.pays_dividend,
+  })))
+
+function tfStart(asof, tf) {
+  const d = new Date(`${asof}T00:00:00Z`)
+  if (tf === 'YTD') return `${d.getUTCFullYear()}-01-01`
+  const months = { '6M': 6, '1Y': 12, '3Y': 36, '5Y': 60 }[tf] || 12
+  d.setUTCMonth(d.getUTCMonth() - months)
+  return d.toISOString().slice(0, 10)
+}
+
+// 依選定區間把每檔重新以 100 起算；上市較晚的從它的第一天起算
+const trend = computed(() => {
+  if (!result.value) return []
+  const start = tfStart(result.value.asof, timeframe.value)
+  const slack = new Date(`${start}T00:00:00Z`)
+  slack.setUTCDate(slack.getUTCDate() + 10)
+  const lateAfter = slack.toISOString().slice(0, 10)
+  return result.value.symbols.map(s => {
+    const { dates, adj } = s.series
+    const i0 = dates.findIndex(d => d >= start)
+    if (i0 < 0 || adj.length - i0 < 2) return { symbol: s.symbol, name: s.name, color: colorOf(s.symbol), points: [], ret: null, late: false }
+    const base = adj[i0]
+    const points = []
+    for (let i = i0; i < dates.length; i++) points.push({ time: dates[i], value: Number(((adj[i] / base) * 100).toFixed(2)) })
+    return {
+      symbol: s.symbol, name: s.name, color: colorOf(s.symbol), points,
+      ret: points[points.length - 1].value / 100 - 1,
+      late: dates[i0] > lateAfter,
+    }
+  })
+})
+
+const legend = computed(() => trend.value.map(t => ({ symbol: t.symbol, name: t.name, color: t.color, ret: t.ret, late: t.late })))
+
+// ── 圖表 ────────────────────────────────────────────────────────────────────
+function destroyChart() {
+  if (chartInstance) {
+    chartInstance.remove()
+    chartInstance = null
+  }
+}
+
+function renderChart() {
+  if (!chartHost.value) return
+  destroyChart()
+  const chart = createChart(chartHost.value, {
+    width: chartHost.value.clientWidth,
+    height: 360,
+    layout: { background: { color: 'transparent' }, textColor: theme.textSoft },
+    grid: { vertLines: { color: theme.grid }, horzLines: { color: theme.grid } },
+    rightPriceScale: { borderColor: theme.border },
+    timeScale: { borderColor: theme.border },
+  })
+  trend.value.forEach((t, i) => {
+    if (!t.points.length) return
+    const series = chart.addLineSeries({ color: t.color, lineWidth: 2, title: t.symbol, priceFormat: { type: 'custom', formatter: v => v.toFixed(1) } })
+    series.setData(t.points)
+    if (i === 0) series.createPriceLine({ price: 100, color: theme.muted, lineWidth: 1, lineStyle: 2, axisLabelVisible: false, title: '' })
+  })
+  chart.timeScale().fitContent()
+  chartInstance = chart
+}
+
+watch([() => result.value, timeframe], async () => {
+  if (!result.value) { destroyChart(); return }
+  await nextTick()
+  renderChart()
+})
+
+// 只改寬度不夠：lightweight-charts 會沿用舊的 barSpacing，資料被擠在右側一小塊，
+// 加上 fitContent 才會重新鋪滿（實測視窗由窄變寬時曲線只佔右邊約 15%）。
+function handleResize() {
+  if (!chartInstance || !chartHost.value) return
+  chartInstance.applyOptions({ width: chartHost.value.clientWidth })
+  chartInstance.timeScale().fitContent()
+}
+
+// ── 格式化 ──────────────────────────────────────────────────────────────────
+const pct = (x, d = 1, sign = false) => (x == null ? '—' : `${sign && x > 0 ? '+' : ''}${(x * 100).toFixed(d)}%`)
+const num = (x, d = 2) => (x == null ? '—' : Number(x).toFixed(d))
+const score = x => (x == null ? '—' : Math.round(x))
+const cls = x => (x == null || x === 0 ? '' : x > 0 ? 'up' : 'down')
+const md = iso => (iso ? iso.slice(5).replace('-', '/') : '')
+function price(x) {
+  if (x == null) return '—'
+  const big = x >= 1000
+  return Number(x).toLocaleString('en-US', { minimumFractionDigits: big ? 0 : 2, maximumFractionDigits: big ? 0 : 2 })
+}
+function scoreStyle(x) {
+  if (x == null) return {}
+  return { background: `linear-gradient(90deg, rgba(59,130,246,0.28) ${Math.max(0, Math.min(100, x))}%, transparent ${Math.max(0, Math.min(100, x))}%)` }
+}
+function fillDetail(f) {
+  if (!f.n) return '—'
+  const parts = [`${f.filled} 次填息`]
+  if (f.failed) parts.push(`${f.failed} 次未填`)
+  if (f.pending) parts.push(`${f.pending} 次未結案`)
+  return parts.join('、')
+}
+function axisTip(row, key) {
+  if (row.scores[key] != null) return ''
+  if (key === 'yield') return row.dividends.pays_dividend ? '殖利率資料不足' : '不配息，此項不適用'
+  if (key === 'fill') return row.dividends.pays_dividend ? '沒有已結案的除息，無法計算' : '不配息，此項不適用'
+  if (key === 'defense' || key === 'sharpe') return '上市交易日不足，無法計算'
+  return '資料不足'
+}
+
+function exportCsv() {
+  if (!result.value) return
+  const cols = ['代號', '名稱', '分類', '總分', '報酬分', '抗跌分', '夏普分', '殖利率分', '填息分', '近1年報酬%', '3年年化%', '年化波動%',
+    '夏普', '最大回撤%', '近12月殖利率%', '近12月配息(元)', '填息成功率%', '平均填息天數']
+  const p = (x, d = 2) => (x == null ? '' : (x * 100).toFixed(d))
+  const rows = result.value.symbols.map(s => [
+    s.symbol, s.name, categoryLabel(s.category), s.scores.total ?? '', s.scores.return ?? '', s.scores.defense ?? '', s.scores.sharpe ?? '',
+    s.scores.yield ?? '', s.scores.fill ?? '', p(s.metrics.return_1y), p(s.metrics.cagr_3y), p(s.metrics.ann_vol),
+    s.metrics.sharpe == null ? '' : s.metrics.sharpe.toFixed(2), p(s.metrics.mdd), p(s.dividends.yield_ttm), s.dividends.ttm_amount ?? '',
+    p(s.fill.success_rate, 0), s.fill.avg_days == null ? '' : s.fill.avg_days.toFixed(1),
+  ])
+  downloadCsv(timestampedFilename('etf-compare'), cols, rows)
+}
+
+// ── 生命週期 ────────────────────────────────────────────────────────────────
+async function loadCatalog() {
+  try {
+    const resp = await fetch(`${API_BASE}/api/v1/etf-compare/catalog`)
+    const payload = await resp.json().catch(() => ({}))
+    if (!resp.ok || !payload?.success) throw new Error(payload?.detail || `HTTP ${resp.status}`)
+    catalog.value = payload.data
+    presets.value = payload.data.presets || []
+  } catch (e) {
+    catalogError.value = `ETF 清單暫時無法載入（${e?.message || '未知錯誤'}），仍可直接輸入代碼加入。`
+  }
+}
+
+function restoreSelection() {
+  const fromUrl = typeof route.query.symbols === 'string' ? route.query.symbols : ''
+  let symbols = fromUrl.split(',').map(s => s.trim().toUpperCase()).filter(s => SYMBOL_RE.test(s))
+  if (!symbols.length) {
+    try {
+      const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]')
+      if (Array.isArray(raw)) symbols = raw.map(String).filter(s => SYMBOL_RE.test(s))
+    } catch { symbols = [] }
+  }
+  symbols = [...new Set(symbols)]
+  if (symbols.length) {
+    setSelection(symbols)
+    load()
+  }
+}
+
+onMounted(async () => {
+  window.addEventListener('resize', handleResize)
+  document.addEventListener('click', onDocClick)
+  await loadCatalog()
+  restoreSelection()
+})
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', handleResize)
+  document.removeEventListener('click', onDocClick)
+  clearTimeout(searchTimer)
+  loadSeq++
+  searchSeq++
+  destroyChart()
+})
+</script>
+
+<style scoped>
+.etf-page { display: flex; flex-direction: column; gap: 16px; }
+.muted { color: var(--text-muted); }
+.small { font-size: 0.78rem; margin: 0; line-height: 1.55; }
+.warn-text { color: var(--chart-warn, #f59e0b); font-size: 0.82rem; margin: 0; }
+.error-text { color: var(--color-up); font-size: 0.84rem; margin: 0; }
+.dirty { color: var(--accent-blue); font-weight: 600; }
+
+.pick-card { display: flex; flex-direction: column; gap: 10px; }
+.preset-row, .cat-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.row-label { font-size: 0.76rem; font-weight: 700; color: var(--text-muted); min-width: 4.5em; }
+.chip-btn, .cat-btn, .tf-btn {
+  padding: 5px 12px; border-radius: 999px; border: 1px solid var(--border-color);
+  background: var(--bg-secondary); color: var(--text-secondary); font-size: 0.8rem; cursor: pointer;
+}
+.chip-btn:hover, .cat-btn:hover, .tf-btn:hover { color: var(--text-primary); border-color: var(--accent-blue); }
+.chip-btn.ghost { background: transparent; }
+.chip-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.cat-btn.active, .tf-btn.active { background: var(--accent-blue); border-color: var(--accent-blue); color: #fff; font-weight: 600; }
+
+.add-row { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
+.search-shell { position: relative; flex: 1; min-width: 240px; }
+.inp { padding: 8px 10px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-primary); width: 100%; box-sizing: border-box; }
+.field { display: flex; flex-direction: column; gap: 4px; font-size: 0.78rem; color: var(--text-secondary); }
+.search-dropdown {
+  position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 20;
+  background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 10px;
+  list-style: none; margin: 0; padding: 4px; max-height: 300px; overflow-y: auto;
+}
+.search-dropdown li { display: flex; align-items: baseline; gap: 8px; padding: 8px 10px; border-radius: 8px; cursor: pointer; }
+.search-dropdown li:hover, .search-dropdown li:focus { background: var(--bg-well, rgba(148, 163, 184, 0.1)); outline: none; }
+.dd-name { flex: 1; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cat-tag { font-size: 0.7rem; color: var(--text-muted); border: 1px solid var(--border-color); border-radius: 999px; padding: 1px 8px; white-space: nowrap; }
+
+.chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 999px; background: var(--bg-well, rgba(148, 163, 184, 0.1)); border: 1px solid var(--border-color); font-size: 0.82rem; }
+.chip-x { border: none; background: transparent; color: var(--text-muted); cursor: pointer; font-size: 0.75rem; }
+.chip-x:hover { color: var(--color-up); }
+.dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex: none; margin-right: 6px; }
+.chip .dot { margin-right: 0; }
+
+.state-box { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 32px 16px; color: var(--text-muted); font-size: 0.9rem; }
+.state-box.empty { border: 1px dashed var(--border-color); border-radius: var(--radius); }
+.asof { margin: 0; }
+
+.section-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.section-head h2 { margin: 0; font-size: 1.05rem; }
+.btn.xs { padding: 5px 12px; font-size: 0.78rem; }
+.tf-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+
+.radar-grid { display: grid; grid-template-columns: minmax(280px, 380px) minmax(0, 1fr); gap: 20px; align-items: start; }
+.table-scroll { overflow-x: auto; display: flex; flex-direction: column; gap: 8px; }
+.table-scroll table { min-width: 520px; }
+.rank { display: inline-block; width: 1.4em; color: var(--text-muted); font-size: 0.75rem; }
+.nm { color: var(--text-muted); font-weight: 400; }
+.total { font-weight: 700; }
+.score { display: inline-block; min-width: 3.2em; padding: 2px 8px; border-radius: 6px; text-align: center; }
+.mini-badge { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px; font-size: 0.68rem; font-weight: 600; background: rgba(245, 158, 11, 0.14); color: var(--chart-warn, #f59e0b); border: 1px solid rgba(245, 158, 11, 0.35); white-space: nowrap; }
+
+.legend-row { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 0.84rem; margin-bottom: 8px; }
+.legend-item { display: inline-flex; align-items: center; gap: 4px; }
+.chart-host { width: 100%; height: 360px; margin-bottom: 14px; }
+
+.fill-detail { font-size: 0.78rem; color: var(--text-muted); }
+.event-bar { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.event-desc { margin: 0; font-size: 0.88rem; }
+.event-form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; }
+.dt { color: var(--text-muted); font-size: 0.72rem; margin-left: 2px; }
+
+.holdings-card .holdings-note { margin: 0; font-size: 0.86rem; line-height: 1.7; color: var(--text-secondary); }
+.method summary { cursor: pointer; font-weight: 600; }
+.method ul { margin: 10px 0 0; padding-left: 1.2em; display: flex; flex-direction: column; gap: 6px; font-size: 0.82rem; line-height: 1.65; color: var(--text-secondary); }
+
+@media (max-width: 860px) {
+  .radar-grid { grid-template-columns: 1fr; }
+  .row-label { min-width: 0; width: 100%; }
+}
+</style>

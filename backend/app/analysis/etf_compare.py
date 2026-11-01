@@ -209,7 +209,9 @@ def compute_metrics(bars: list[dict], adj: list[float], asof: Optional[str] = No
     last_i = _idx_on_or_before(dates, asof)
     last = _d(dates[last_i])
     out: dict[str, Any] = {
-        "listing_date": dates[0],
+        # 抓到的第一筆日線日期。只有「上市不滿一年」時才等於真正的上市日；
+        # 老標的是我們抓取區間的起點，UI 不可以把它當上市日顯示。
+        "first_date": dates[0],
         "history_days": last_i + 1,
         "last_close": bars[last_i]["close"],
         "last_date": dates[last_i],
@@ -509,19 +511,31 @@ def bundle_drawdown_episode(bundle: dict, lookback_days: int = 180, min_drop: fl
 
 CATEGORY_OVERRIDES: dict[str, str] = {}  # 例如 {"00xxx": "dividend"}，規則判斷錯時在這裡修
 
-_DIVIDEND_WORDS = ("高股息", "高息", "優息", "股利", "收益", "息")
-_MARKET_WORDS = ("台灣50", "臺灣50", "台50", "TOP50", "領袖50", "市值", "加權", "中型100", "50")
+_DIVIDEND_WORDS = ("高股息", "高息", "優息", "股利", "收益", "入息", "收息")
+# 市值型限定「台股」指數：名稱有 50／100 的外國指數（中國A50、S&P500、歐洲50…）不算
+_MARKET_WORDS = ("台灣50", "臺灣50", "台50", "TOP50", "領袖50", "市值", "加權", "中型100", "智慧50", "AI50", "科技50", "低碳50", "旗艦50")
+_LEVERAGED_WORDS = ("正2", "反1", "正二", "反一")
+_FOREIGN_WORDS = ("中國", "上證", "上証", "滬深", "深証", "深100", "日經", "日本", "S&P", "美國", "US", "歐洲",
+                  "恒生", "香港", "印度", "韓國", "NASDAQ", "全球", "亞太", "越南", "東協", "道瓊")
 
 
 def classify_etf(symbol: str, name: str) -> str:
-    """回傳 active（主動型）／dividend（高股息）／market（市值型）／other（其他）。"""
+    """回傳 active（主動型）／dividend（高股息）／market（市值型）／other（其他）。
+
+    FinMind 沒有 ETF 子類別，只能看名稱。順序有意義：先排除槓桿／反向與債券（不論名稱
+    長怎樣都不是使用者要比的標的），再判斷主動、高股息，最後才是「台股」市值型。
+    """
     if symbol in CATEGORY_OVERRIDES:
         return CATEGORY_OVERRIDES[symbol]
     n = name or ""
-    if n.startswith("主動") or "主動" in n:
+    if any(w in n for w in _LEVERAGED_WORDS) or "債" in n:
+        return "other"
+    if "主動" in n:
         return "active"
-    if any(w in n for w in _DIVIDEND_WORDS) and not n.endswith("債"):
+    if any(w in n for w in _DIVIDEND_WORDS):
         return "dividend"
+    if any(w in n for w in _FOREIGN_WORDS):
+        return "other"
     if any(w in n for w in _MARKET_WORDS):
         return "market"
     return "other"

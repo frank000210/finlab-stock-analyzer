@@ -37,6 +37,11 @@ const routes = [
     component: () => import('./views/StockCompareView.vue'),
   },
   {
+    path: '/etf-compare',
+    name: 'etf-compare',
+    component: () => import('./views/EtfCompareView.vue'),
+  },
+  {
     path: '/market-lights',
     name: 'market-lights',
     component: () => import('./views/MarketLightsView.vue'),

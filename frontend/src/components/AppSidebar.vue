@@ -90,7 +90,7 @@ import {
   Gauge, ScanSearch, Search, Shield, Flame, AlertTriangle,
   Calculator, BookOpen, Dices, Bell, Rocket, Newspaper, Puzzle,
   Settings, Wrench, Brain, Lightbulb, Diamond, Menu,
-  ChevronLeft, ChevronRight, Key, GraduationCap,
+  ChevronLeft, ChevronRight, Key, GraduationCap, Layers,
 } from 'lucide-vue-next'
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
@@ -180,6 +180,7 @@ const navGroups = [
       { key: 'social-buzz', icon: MessageCircle, label: '熱度', to: () => `/stocks/${stockStore.symbol}/social-buzz` },
       { key: 'public-data', icon: FileText, label: '公開資訊', to: () => `/stocks/${stockStore.symbol}/public-data` },
       { key: 'backtest', icon: FlaskConical, label: '回測', to: () => `/stocks/${stockStore.symbol}/backtest` },
+      { key: 'etf-compare', icon: Layers, label: 'ETF 比較', to: () => '/etf-compare' },
     ],
   },
   {

@@ -4,7 +4,9 @@
 急跌區間的高低點順序。不需要 FinMind、不需要 MongoDB。
 """
 
+import json
 from datetime import date, timedelta
+from pathlib import Path
 
 import pytest
 from fastapi import FastAPI
@@ -281,6 +283,15 @@ def test_build_symbol_bundle_none_when_no_usable_bars():
     ("0050", "元大台灣50", "market"),
     ("006208", "富邦台50", "market"),
     ("00679B", "元大美債20年", "other"),
+    ("00922", "國泰台灣領袖50", "market"),
+    ("00935", "野村臺灣新科技50", "market"),
+    ("00636", "國泰中國A50", "other"),          # 名稱有 50 的外國指數不是市值型
+    ("00646", "元大S&P500", "other"),
+    ("00631L", "元大台灣50正2", "other"),       # 槓桿／反向
+    ("00632R", "元大台灣50反1", "other"),
+    ("00725B", "國泰投資級公司債", "other"),
+    ("00927", "群益半導體收益", "dividend"),
+    ("00882", "中信中國高股息", "dividend"),
 ])
 def test_classify_etf(sym, name, cat):
     assert core.classify_etf(sym, name) == cat
@@ -314,3 +325,52 @@ def test_compare_rejects_bad_event_dates(client):
     assert client.get("/api/v1/etf-compare/compare", params={**base, "event_start": "2025-01-01"}).status_code == 400
     assert client.get("/api/v1/etf-compare/compare", params={**base, "event_start": "2025-05-01", "event_end": "2025-01-01"}).status_code == 400
     assert client.get("/api/v1/etf-compare/compare", params={**base, "event_start": "2023-01-01", "event_end": "2025-01-01"}).status_code == 400
+
+
+# ── 對帳：真實 FinMind 日線（2026-06-15 ~ 10-16）────────────────────────────
+# 這些數字是拿 Gemini 版的說法逐檔對過的：Gemini 說 0050 的 7 月最低是 98.50，
+# 實際日線是 91.80；南亞科的「7 月最高」其實是 8 月的高點。固定住真實資料，之後改計算
+# 邏輯若動到這幾個數字，測試會立刻報警。
+
+_REAL = json.loads((Path(__file__).parent / "fixtures" / "etf_compare_real_bars.json").read_text(encoding="utf-8"))["bars"]
+
+
+def _real_bars(sym):
+    return core.clean_bars(_REAL[sym])
+
+
+def test_real_fixture_has_no_weekend_bars():
+    # Gemini 版把 7/05、10/18（星期日）當成高點日；真實日線不會有週末
+    for sym, rows in _REAL.items():
+        for r in rows:
+            assert date.fromisoformat(r["date"]).weekday() < 5, (sym, r["date"])
+
+
+@pytest.mark.parametrize("sym,high,high_date,low,low_date,rebound,rebound_date", [
+    ("2330", 2535.0, "2026-06-23", 2180.0, "2026-07-29", 2590.0, "2026-10-06"),
+    ("0050", 112.3, "2026-06-23", 91.8, "2026-07-29", 116.6, "2026-10-06"),
+    ("00981A", 32.5, "2026-06-23", 23.2, "2026-07-29", 32.88, "2026-10-07"),
+])
+def test_real_event_window_reconciliation(sym, high, high_date, low, low_date, rebound, rebound_date):
+    bars = _real_bars(sym)
+    ev = core.event_window(bars, [], "2026-06-22", "2026-07-30")
+    assert (ev["high"], ev["high_date"]) == (high, high_date)
+    assert (ev["low"], ev["low_date"]) == (low, low_date)
+    assert (ev["rebound_high"], ev["rebound_date"]) == (rebound, rebound_date)
+    assert ev["drawdown"] == pytest.approx(low / high - 1)
+    assert ev["rebound_pct"] == pytest.approx(rebound / low - 1)
+
+
+def test_real_0050_july_low_is_not_what_gemini_claimed():
+    ev = core.event_window(_real_bars("0050"), [], "2026-07-01", "2026-07-31")
+    assert ev["low"] == 91.8
+    assert ev["low"] != 98.5  # Gemini 版的數字，高估約 7%
+
+
+def test_real_auto_episode_matches_the_july_selloff():
+    bars = _real_bars("0050")
+    ep = core.find_drawdown_episode(bars, [b["close"] for b in bars])
+    assert ep is not None
+    assert "2026-06-20" <= ep["start"] <= "2026-06-26"
+    assert ep["end"] in ("2026-07-29", "2026-07-30")
+    assert -0.20 < ep["drop"] < -0.10
