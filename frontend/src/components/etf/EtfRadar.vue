@@ -1,6 +1,6 @@
 <template>
   <figure class="radar-wrap">
-    <svg :viewBox="`0 0 ${SIZE} ${SIZE}`" class="radar" role="img" :aria-label="ariaLabel">
+    <svg :viewBox="`0 0 ${SIZE} ${SIZE}`" class="radar" role="img" :aria-label="ariaLabel" :data-visible="series.map(s => s.symbol).join(',')">
       <g class="rings">
         <polygon v-for="r in RINGS" :key="r" :points="ringPoints(r)" class="ring" />
         <line v-for="(a, i) in axes" :key="a.key" :x1="C" :y1="C" :x2="pt(i, 100).x" :y2="pt(i, 100).y" class="spoke" />
@@ -67,7 +67,9 @@ function labelPos(i) {
 }
 
 const hasMissing = computed(() => props.series.some(s => axes.some(a => s.scores[a.key] == null)))
-const ariaLabel = computed(() => `五維評分雷達圖：${props.series.map(s => s.symbol).join('、')}`)
+const ariaLabel = computed(() => (props.series.length
+  ? `五維評分雷達圖：${props.series.map(s => s.symbol).join('、')}`
+  : '五維評分雷達圖：目前沒有顯示任何標的'))
 </script>
 
 <style scoped>

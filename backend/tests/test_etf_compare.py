@@ -228,6 +228,22 @@ def test_event_window_low_must_come_after_high():
     assert ev["drawdown"] == pytest.approx(98 / 100 - 1)
 
 
+def test_event_window_reports_window_low_even_when_it_precedes_the_high():
+    # 品管要看的「區間最低」：整段區間不分先後的最低價；其後最低仍只看高點之後
+    closes = [50, 60, 70, 100, 99, 98]
+    bars = core.clean_bars(_bars(closes))
+    ev = core.event_window(bars, [], bars[0]["date"], bars[-1]["date"])
+    assert ev["window_low"] == 50 and ev["window_low_date"] == bars[0]["date"]
+    assert ev["low"] == 98 and ev["drawdown"] == pytest.approx(98 / 100 - 1)  # 回落口徑不變
+
+
+def test_event_window_window_low_equals_low_when_selloff_is_the_bottom():
+    closes = [100, 105, 110, 115, 118, 120, 118, 112, 108, 100, 95, 92, 90, 95, 100, 105, 110, 108]
+    bars = core.clean_bars(_bars(closes))
+    ev = core.event_window(bars, [], bars[0]["date"], bars[12]["date"], bars[-1]["date"])
+    assert ev["window_low"] == ev["low"] == 90
+
+
 def test_event_window_counts_dividends_and_partial_listing():
     bars = core.clean_bars(_bars([100, 98, 96, 94], start="2024-03-01"))
     ev = core.event_window(bars, [{"date": "2024-03-03", "amount": 0.7}], "2024-02-01", "2024-03-04")
@@ -300,8 +316,14 @@ def test_classify_etf(sym, name, cat):
 # ── API 層：輸入驗證（不碰 FinMind／Mongo）────────────────────────────────
 
 @pytest.fixture()
-def client():
+def client(monkeypatch):
     from app.api.etf_compare import router
+
+    # 限流計數器預設會寫 MongoDB；這組測試只驗輸入驗證，不該碰到真的資料庫
+    async def _no_limit(key, cost=1, category="rate_limit"):
+        return 1, 600
+
+    monkeypatch.setattr("app.db.cache.consume_fixed_window", _no_limit)
     app = FastAPI()
     app.include_router(router)
     return TestClient(app)
@@ -325,6 +347,199 @@ def test_compare_rejects_bad_event_dates(client):
     assert client.get("/api/v1/etf-compare/compare", params={**base, "event_start": "2025-01-01"}).status_code == 400
     assert client.get("/api/v1/etf-compare/compare", params={**base, "event_start": "2025-05-01", "event_end": "2025-01-01"}).status_code == 400
     assert client.get("/api/v1/etf-compare/compare", params={**base, "event_start": "2023-01-01", "event_end": "2025-01-01"}).status_code == 400
+
+
+# ── API 層：限流與自動偵測參數（以假快取、假計數器取代 FinMind／Mongo）──────────
+
+_DROP = [100] * 5 + [110, 120, 130, 125, 100, 95, 105, 115] + [116] * 100   # 130→95 的急跌，之後平穩 100 天
+_FLAT = [100 + (i % 3) for i in range(113)]
+
+
+def _fake_bundle(closes, start="2025-01-02"):
+    b = core.build_symbol_bundle(_bars(closes, start=start, spread=0.01), [])
+    b["ok"] = True
+    return b
+
+
+@pytest.fixture()
+def api(monkeypatch):
+    """回傳 (client, consumed, store, loaded)：consumed＝限流計數器被呼叫的 (key, cost)，
+    store＝假的單檔快取（symbol → bundle），loaded＝快取沒命中、被要求「真的去抓」的標的。"""
+    import app.api.etf_compare as mod
+    from app.api import analytics
+
+    consumed, loaded, store = [], [], {}
+
+    async def fake_consume(key, cost=1, category="rate_limit"):
+        consumed.append((key, cost))
+        return 1, 600
+
+    async def fake_cache_get(key):
+        return store.get(key.split(":")[2])
+
+    async def fake_load(symbol, sem, cached=mod._MISS):
+        if cached:
+            return cached if cached.get("ok") else None
+        loaded.append(symbol)
+        return _fake_bundle(_FLAT)
+
+    async def no_info():
+        return {}
+
+    monkeypatch.setattr("app.db.cache.consume_fixed_window", fake_consume)
+    monkeypatch.setattr(analytics, "_get_client_ip", lambda request: "9.9.9.9")
+    monkeypatch.setattr(mod, "_cache_get", fake_cache_get)
+    monkeypatch.setattr(mod, "_load_bundle", fake_load)
+    monkeypatch.setattr(mod, "_stock_info", no_info)
+    app = FastAPI()
+    app.include_router(mod.router)
+    return TestClient(app), consumed, store, loaded
+
+
+def test_cached_compare_does_not_charge_the_fetch_quota(api):
+    client, consumed, store, loaded = api
+    store.update({"0050": _fake_bundle(_FLAT), "0056": _fake_bundle(_FLAT)})
+    r = client.get("/api/v1/etf-compare/compare", params={"symbols": "0050,0056"})
+    assert r.status_code == 200
+    # 只有「請求數」那條很寬的計數器；沒有 FinMind 額度被扣
+    assert consumed == [("etf_compare_req:9.9.9.9", 1)]
+    assert loaded == []
+
+
+def test_compare_charges_one_fetch_per_missing_symbol(api):
+    client, consumed, store, loaded = api
+    store["0050"] = _fake_bundle(_FLAT)
+    r = client.get("/api/v1/etf-compare/compare", params={"symbols": "0050,0056,00878"})
+    assert r.status_code == 200
+    assert ("etf_compare_fetch:9.9.9.9", 2) in consumed
+    assert sorted(loaded) == ["0056", "00878"]
+
+
+def test_over_quota_returns_429_with_retry_after_and_minutes(api, monkeypatch):
+    client, *_ = api
+
+    async def over(key, cost=1, category="rate_limit"):
+        return 10_000, 125
+
+    monkeypatch.setattr("app.db.cache.consume_fixed_window", over)
+    r = client.get("/api/v1/etf-compare/compare", params={"symbols": "0050"})
+    assert r.status_code == 429
+    assert r.headers["retry-after"] == "125"
+    assert "3 分鐘" in r.json()["detail"]  # 125 秒 → 進位成 3 分鐘，而不是籠統的「10 分鐘」
+
+
+def test_rate_limit_machinery_failure_does_not_block(api, monkeypatch):
+    client, _, store, _ = api
+    store["0050"] = _fake_bundle(_FLAT)
+
+    async def boom(key, cost=1, category="rate_limit"):
+        raise RuntimeError("mongo down")
+
+    monkeypatch.setattr("app.db.cache.consume_fixed_window", boom)
+    assert client.get("/api/v1/etf-compare/compare", params={"symbols": "0050"}).status_code == 200
+
+
+def test_custom_range_skips_the_benchmark_and_returns_window_low(api):
+    client, consumed, store, loaded = api
+    store["0056"] = _fake_bundle(_DROP)
+    d0 = date.fromisoformat("2025-01-02")
+    params = {"symbols": "0056", "event_start": d0.isoformat(), "event_end": (d0 + timedelta(days=30)).isoformat()}
+    r = client.get("/api/v1/etf-compare/compare", params=params)
+    assert r.status_code == 200
+    data = r.json()["data"]
+    assert data["event"]["source"] == "custom"
+    ev = data["symbols"][0]["event"]
+    assert ev["window_low"] <= ev["low"] and "window_low_date" in ev
+    assert loaded == []  # 自訂區間不需要 0050，不該多抓一檔
+
+
+def test_auto_detection_honours_anchor_and_lookback(api):
+    client, _, store, _ = api
+    store.update({"0050": _fake_bundle(_FLAT), "0056": _fake_bundle(_DROP)})
+    base = {"symbols": "0050,0056"}
+    # 預設以 0050 偵測：0050 沒有明顯急跌
+    assert client.get("/api/v1/etf-compare/compare", params=base).json()["data"]["event"] is None
+    # 改以 0056 偵測：找得到那段 130→95 的急跌，並回報用的是哪個基準、回看幾天
+    ev = client.get("/api/v1/etf-compare/compare", params={**base, "auto_anchor": "0056"}).json()["data"]["event"]
+    assert ev["source"] == "auto" and ev["anchor"] == "0056" and ev["lookback_days"] == 180
+    assert ev["drop"] == pytest.approx(95 / 130 - 1, abs=0.01)
+    # 回看天數縮短到看不到那段急跌 → 沒有明顯急跌
+    short = client.get("/api/v1/etf-compare/compare", params={**base, "auto_anchor": "0056", "auto_lookback": 30})
+    assert short.json()["data"]["event"] is None
+
+
+def test_auto_parameters_are_validated(api):
+    client, *_ = api
+    assert client.get("/api/v1/etf-compare/compare", params={"symbols": "0050", "auto_anchor": "00878"}).status_code == 400
+    assert client.get("/api/v1/etf-compare/compare", params={"symbols": "0050", "auto_anchor": "0050;x"}).status_code == 400
+    assert client.get("/api/v1/etf-compare/compare", params={"symbols": "0050", "auto_lookback": 10}).status_code == 422
+    assert client.get("/api/v1/etf-compare/compare", params={"symbols": "0050", "auto_lookback": 9999}).status_code == 422
+
+
+# ── 固定視窗計數器（db/cache.consume_fixed_window）────────────────────────────
+
+class _FakeCacheCollection:
+    """只實作 consume_fixed_window 用到的 find_one_and_update 兩種形狀。"""
+
+    def __init__(self):
+        self.docs = {}
+
+    async def find_one_and_update(self, flt, upd, upsert=False, return_document=None):
+        doc = self.docs.get(flt["key"])
+        gt = (flt.get("expires_at") or {}).get("$gt")
+        if doc is not None and gt is not None and not doc["expires_at"] > gt:
+            doc = None
+        if "$inc" in upd:
+            if doc is None:
+                return None
+            for k, v in upd["$inc"].items():
+                doc[k] += v
+            return dict(doc)
+        if doc is None and not upsert:
+            return None
+        new = dict(self.docs.get(flt["key"]) or {"key": flt["key"]})
+        new.update(upd["$set"])
+        self.docs[flt["key"]] = new
+        return dict(new)
+
+
+@pytest.fixture()
+def fake_cache(monkeypatch):
+    from types import SimpleNamespace
+
+    from app.db import cache as cache_mod
+
+    coll = _FakeCacheCollection()
+
+    async def _db():
+        return SimpleNamespace(cache=coll)
+
+    monkeypatch.setattr(cache_mod, "_get_db", _db)
+    return cache_mod, coll
+
+
+def test_fixed_window_counts_and_never_extends_expiry(fake_cache):
+    import asyncio
+
+    cache_mod, coll = fake_cache
+    n1, left1 = asyncio.run(cache_mod.consume_fixed_window("k", 1))
+    expires = coll.docs["k"]["expires_at"]
+    counts = [asyncio.run(cache_mod.consume_fixed_window("k", 1))[0] for _ in range(5)]
+    assert n1 == 1 and 590 <= left1 <= 600
+    assert counts == [2, 3, 4, 5, 6]
+    # 滑動視窗會在每次（含被擋的）請求後把到期時間往後推；固定視窗不會
+    assert coll.docs["k"]["expires_at"] == expires
+
+
+def test_fixed_window_cost_and_reset_after_expiry(fake_cache):
+    import asyncio
+    from datetime import datetime, timedelta
+
+    cache_mod, coll = fake_cache
+    assert asyncio.run(cache_mod.consume_fixed_window("k", 3))[0] == 3
+    assert asyncio.run(cache_mod.consume_fixed_window("k", 4))[0] == 7
+    coll.docs["k"]["expires_at"] = datetime.utcnow() - timedelta(seconds=1)  # 視窗已過期（TTL 還沒清掉）
+    assert asyncio.run(cache_mod.consume_fixed_window("k", 2))[0] == 2       # 從頭計，不沿用舊的 7
 
 
 # ── 對帳：真實 FinMind 日線（2026-06-15 ~ 10-16）────────────────────────────

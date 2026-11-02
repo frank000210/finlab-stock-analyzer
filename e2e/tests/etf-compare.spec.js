@@ -52,6 +52,7 @@ function mk(symbol, name, category, o = {}) {
     splits: [],
     event: {
       high: 112.3, high_date: '2026-06-23', low: 91.8, low_date: '2026-07-29', drawdown: -0.1825,
+      window_low: 88.4, window_low_date: '2026-06-24', // 低點出現在最高點之前：區間最低 ≠ 其後最低
       rebound_high: 116.6, rebound_date: '2026-10-06', rebound_pct: 0.2701, dividends_in_window: pays ? 0.6 : 0, partial: false,
       ...(o.event || {}),
     },
@@ -100,7 +101,10 @@ async function mockApi(page, calls = [], override = {}) {
     const es = url.searchParams.get('event_start')
     const event = es
       ? { start: es, end: url.searchParams.get('event_end'), source: 'custom', drop: null }
-      : { start: '2026-06-22', end: '2026-07-30', source: 'auto', drop: -0.1537 }
+      : {
+        start: '2026-06-22', end: '2026-07-30', source: 'auto', drop: -0.1537,
+        anchor: url.searchParams.get('auto_anchor') || '0050', lookback_days: Number(url.searchParams.get('auto_lookback') || 180),
+      }
     route.fulfill({
       status: 200, contentType: 'application/json',
       body: JSON.stringify({
@@ -171,7 +175,7 @@ test('搜尋加入標的：變更後提示更新，送出的請求帶正確代�
   await page.goto('/etf-compare')
 
   await page.getByTestId('etf-search').fill('0056')
-  await page.getByRole('option', { name: /0056/ }).click()
+  await page.locator('.search-dropdown').getByRole('option', { name: /0056/ }).click()
   await expect(page.locator('.chip[data-symbol="0056"]')).toBeVisible()
   await expect(page.locator('.dirty')).toContainText('選擇已變更')
 
@@ -182,7 +186,7 @@ test('搜尋加入標的：變更後提示更新，送出的請求帶正確代�
 
   // 再加一檔 → 又出現提示、按鈕改為「更新比較」
   await page.getByTestId('etf-search').fill('0050')
-  await page.getByRole('option', { name: /0050/ }).click()
+  await page.locator('.search-dropdown').getByRole('option', { name: /0050/ }).click()
   await expect(page.locator('.dirty')).toBeVisible()
   await expect(page.getByTestId('etf-run')).toContainText('更新比較')
   await page.getByTestId('etf-run').click()
@@ -194,7 +198,7 @@ test('搜尋框也能找個股（經由股票搜尋 API）', async ({ page }) =>
   await mockApi(page)
   await page.goto('/etf-compare')
   await page.getByTestId('etf-search').fill('台積')
-  await page.getByRole('option', { name: /2330/ }).click()
+  await page.locator('.search-dropdown').getByRole('option', { name: /2330/ }).click()
   await expect(page.locator('.chip[data-symbol="2330"]')).toContainText('台積電')
 })
 
@@ -259,7 +263,7 @@ test('查無資料的標的只提示、不影響其他標的；全數失敗顯�
   await page.route('**/api/v1/etf-compare/compare**', route =>
     route.fulfill({ status: 502, contentType: 'application/json', body: JSON.stringify({ detail: '所選標的都查不到日線資料，請稍後再試。' }) }))
   await page.getByTestId('etf-search').fill('0056')
-  await page.getByRole('option', { name: /0056/ }).click()
+  await page.locator('.search-dropdown').getByRole('option', { name: /0056/ }).click()
   await page.getByTestId('etf-run').click()
   await expect(page.getByRole('alert')).toContainText('都查不到日線資料')
 })
@@ -453,4 +457,221 @@ test('觀察清單：匯入只補進比較清單、全部加入只新增不覆�
   expect(wl).toEqual(['0056', '00981A', '009816', '2330', '0050'])
   await page.getByTestId('push-watchlist').click()
   await expect(page.getByTestId('portfolio-msg')).toContainText('都已經在觀察清單裡')
+})
+
+// ── 品管第二輪回報 ──────────────────────────────────────────────────────────
+
+test('急跌表新增「區間最低」與「目前價位」，且區間最低可以比「其後最低」更低', async ({ page }) => {
+  await mockApi(page)
+  await page.goto('/etf-compare?symbols=0050,0056')
+  const row = sym => page.locator(`[data-testid="event-table"] tr[data-symbol="${sym}"]`)
+
+  const heads = await page.locator('[data-testid="event-table"] thead th').allInnerTexts()
+  expect(heads.slice(0, 6)).toEqual(['標的', '區間最低', '區間最高', '其後最低', '回落', '目前價位'])
+
+  // 區間最低 88.40（6/24，在高點之前）；其後最低 91.80（7/29）；目前價位 = 最新收盤 100.00（10/30）
+  await expect(row('0050').getByTestId('window-low')).toContainText('88.40')
+  await expect(row('0050').getByTestId('window-low')).toContainText('06/24')
+  await expect(row('0050')).toContainText('91.80')
+  await expect(row('0050').getByTestId('last-price')).toContainText('100.00')
+  await expect(row('0050').getByTestId('last-price')).toContainText('10/30')
+})
+
+test('自動偵測可設定基準與回看期間：維持自動模式，請求帶參數、說明文字跟著變', async ({ page }) => {
+  const calls = []
+  await mockApi(page, calls)
+  await page.goto('/etf-compare?symbols=0050,0056')
+  await expect(page.getByTestId('auto-settings')).toBeVisible()
+  await expect(page.getByTestId('event-desc')).toContainText('0050 近 180 天最大回落')
+  expect(calls.at(-1).searchParams.get('auto_anchor')).toBe('0050')
+  expect(calls.at(-1).searchParams.get('auto_lookback')).toBe('180')
+
+  await page.getByTestId('auto-lookback').selectOption('365')
+  await expect(page.getByTestId('event-desc')).toContainText('近 1 年最大回落')
+  expect(calls.at(-1).searchParams.get('auto_lookback')).toBe('365')
+
+  await page.getByTestId('auto-anchor').selectOption('0056')
+  await expect(page.getByTestId('event-desc')).toContainText('0056 近 1 年最大回落')
+  expect(calls.at(-1).searchParams.get('auto_anchor')).toBe('0056')
+  expect(calls.at(-1).searchParams.has('event_start')).toBe(false) // 還是自動偵測，沒變成自訂區間
+  await expect(page.getByTestId('event-desc')).toContainText('自動偵測')
+
+  // 基準那一檔被移除 → 選單退回 0050，不會送出後端會拒絕的參數
+  await page.getByRole('button', { name: '移除 0056' }).click()
+  await expect(page.getByTestId('auto-anchor')).toHaveValue('0050')
+  await page.getByTestId('etf-run').click()
+  await expect.poll(() => calls.at(-1).searchParams.get('auto_anchor')).toBe('0050')
+
+  // 自訂區間時不顯示偵測設定；回到自動後設定還在
+  await page.locator('[data-quick="6m"]').click()
+  await expect(page.getByTestId('auto-settings')).toHaveCount(0)
+  await page.getByRole('button', { name: '回到自動偵測' }).click()
+  await expect(page.getByTestId('auto-settings')).toBeVisible()
+  await expect(page.getByTestId('auto-lookback')).toHaveValue('365')
+})
+
+test('快速區間：一鍵套用成以最新資料日往回推的自訂區間', async ({ page }) => {
+  const calls = []
+  await mockApi(page, calls)
+  await page.goto('/etf-compare?symbols=0050')
+  await expect(page.getByTestId('event-desc')).toContainText('自動偵測')
+
+  await page.locator('[data-quick="3m"]').click()
+  await expect(page.getByTestId('event-desc')).toContainText('自訂區間')
+  let c = calls.at(-1)
+  expect(c.searchParams.get('event_start')).toBe('2026-07-30')
+  expect(c.searchParams.get('event_end')).toBe('2026-10-30')
+  await expect(page.locator('.event-form input[type="date"]').first()).toHaveValue('2026-07-30')
+
+  await page.locator('[data-quick="ytd"]').click()
+  c = calls.at(-1)
+  expect(c.searchParams.get('event_start')).toBe('2026-01-01')
+  expect(c.searchParams.get('event_end')).toBe('2026-10-30')
+
+  await page.locator('[data-quick="1y"]').click()
+  expect(calls.at(-1).searchParams.get('event_start')).toBe('2025-10-30')
+})
+
+test('被限流：保留畫面上已有的結果、顯示倒數，時間到自動重試；標的清單不必重新取得', async ({ page }) => {
+  const calls = []
+  await mockApi(page, calls)
+  let catalogHits = 0
+  await page.route('**/api/v1/etf-compare/catalog', route => {
+    catalogHits++
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(CATALOG) })
+  })
+  await page.goto('/etf-compare?symbols=0050,0056')
+  await expect(page.locator('[data-testid="score-table"] tbody tr')).toHaveCount(2)
+  expect(catalogHits).toBe(1)
+
+  // 重新整理：清單來自瀏覽器快取，不再打 /catalog（少一次請求，也不會再出現「ETF 清單暫時無法載入」）
+  await page.reload()
+  await expect(page.locator('[data-testid="score-table"] tbody tr')).toHaveCount(2)
+  expect(catalogHits).toBe(1)
+  await expect(page.getByRole('button', { name: '市值 vs 高股息' })).toBeVisible()
+
+  // 接下來的查詢被限流（附 Retry-After），之後恢復
+  let limited = 0
+  await page.route('**/api/v1/etf-compare/compare**', route => {
+    if (limited++ === 0) {
+      route.fulfill({
+        status: 429, contentType: 'application/json', headers: { 'Retry-After': '5' },
+        body: JSON.stringify({ detail: '查詢過於頻繁，請約 1 分鐘後再試。' }),
+      })
+    } else {
+      route.fallback()
+    }
+  })
+  await page.getByTestId('etf-search').fill('00981A')
+  await page.locator('.search-dropdown').getByRole('option', { name: /00981A/ }).click()
+  await page.getByTestId('etf-run').click()
+
+  await expect(page.locator('.error-text')).toContainText('查詢過於頻繁')
+  await expect(page.getByTestId('rate-limit-note')).toContainText('畫面上已有的結果會保留')
+  await expect(page.locator('[data-testid="score-table"] tbody tr')).toHaveCount(2) // 舊結果沒被清掉
+
+  // 倒數結束自動重試 → 三檔結果出現、提示消失
+  await expect(page.locator('[data-testid="score-table"] tbody tr')).toHaveCount(3, { timeout: 15_000 })
+  await expect(page.getByTestId('rate-limit-note')).toHaveCount(0)
+  await expect(page.locator('.error-text')).toHaveCount(0)
+})
+
+test('五維評分可像走勢圖一樣開關線：點一下開關、連點兩下只看一檔、全部顯示／隱藏', async ({ page }) => {
+  await mockApi(page)
+  await page.goto('/etf-compare?symbols=0050,0056,00981A,009816')
+  await expect(page.locator('[data-testid="score-table"] tbody tr')).toHaveCount(4)
+  const svg = page.locator('[data-section="radar"] svg.radar')
+  const polys = page.locator('[data-section="radar"] svg.radar g.poly')
+  const toggle = sym => page.locator(`[data-testid="radar-toggle"][data-symbol="${sym}"]`)
+  await expect(polys).toHaveCount(4)
+
+  await toggle('0056').click()
+  await expect(polys).toHaveCount(3)
+  await expect(svg).not.toHaveAttribute('data-visible', /0056/)
+  await expect(toggle('0056')).toHaveAttribute('aria-pressed', 'false')
+  // 表格資料與排名都還在，只是該列變淡
+  await expect(page.locator('[data-testid="score-table"] tbody tr')).toHaveCount(4)
+  await expect(page.locator('[data-testid="score-table"] tbody tr[data-symbol="0056"]')).toHaveClass(/radar-off/)
+  await toggle('0056').click()
+  await expect(polys).toHaveCount(4)
+
+  // 連點兩下 = 只看這一檔；再連點兩下回到全部
+  await toggle('0050').dblclick()
+  await expect(polys).toHaveCount(1)
+  await expect(svg).toHaveAttribute('data-visible', '0050')
+  await toggle('0050').dblclick()
+  await expect(polys).toHaveCount(4)
+
+  await page.getByTestId('radar-hide-all').click()
+  await expect(polys).toHaveCount(0)
+  await expect(page.getByTestId('radar-empty')).toBeVisible()
+  await page.getByTestId('radar-show-all').click()
+  await expect(polys).toHaveCount(4)
+  await expect(page.getByTestId('radar-empty')).toHaveCount(0)
+
+  // 雷達圖的開關不影響走勢圖
+  await toggle('0050').click()
+  await expect(page.getByTestId('trend-chart')).toHaveAttribute('data-visible', /0050/)
+})
+
+test('我的組合：載入後刪減，一鍵「更新這個組合」；另存新組合與同名覆蓋都有提示', async ({ page }) => {
+  await mockApi(page)
+  await page.goto('/etf-compare')
+  await page.getByRole('button', { name: '市值 vs 高股息' }).click()
+  await expect(page.locator('[data-testid="score-table"] tbody tr')).toHaveCount(4)
+  await page.getByTestId('portfolio-name').fill('核心四檔')
+  await page.getByTestId('portfolio-save').click()
+  await expect(page.locator('[data-portfolio="核心四檔"]')).toContainText('4 檔')
+
+  // 重設後載入：知道「目前是哪一組」，名稱欄預填，內容相同時不能更新
+  await page.getByRole('button', { name: '重設', exact: true }).click()
+  await page.locator('[data-portfolio="核心四檔"] .pf-load').click()
+  await expect(page.locator('[data-testid="score-table"] tbody tr')).toHaveCount(4)
+  await expect(page.getByTestId('portfolio-state')).toContainText('核心四檔')
+  await expect(page.getByTestId('portfolio-state')).toHaveAttribute('data-dirty', '0')
+  await expect(page.getByTestId('portfolio-name')).toHaveValue('核心四檔')
+  await expect(page.getByTestId('portfolio-update')).toBeDisabled()
+
+  // 刪掉兩檔 → 出現「已修改、尚未儲存」，組合標籤也標示；按更新比較套用後仍是未儲存
+  await page.getByRole('button', { name: '移除 009816' }).click()
+  await page.getByRole('button', { name: '移除 00981A' }).click()
+  await expect(page.getByTestId('portfolio-state')).toContainText('已修改、尚未儲存（已存 4 檔 → 現在 2 檔）')
+  await expect(page.locator('[data-portfolio="核心四檔"]').getByTestId('pf-unsaved')).toBeVisible()
+  await page.getByTestId('etf-run').click()
+  await expect(page.locator('[data-testid="score-table"] tbody tr')).toHaveCount(2)
+  await expect(page.getByTestId('portfolio-update')).toBeEnabled()
+
+  // 一鍵更新：不必重打名稱
+  await page.getByTestId('portfolio-update').click()
+  await expect(page.getByTestId('portfolio-msg')).toContainText('已更新組合「核心四檔」：4 檔 → 2 檔')
+  await expect(page.locator('[data-portfolio="核心四檔"]')).toContainText('2 檔')
+  await expect(page.getByTestId('portfolio-state')).toHaveAttribute('data-dirty', '0')
+  await expect(page.getByTestId('pf-unsaved')).toHaveCount(0)
+  await expect(page.getByTestId('portfolio-update')).toBeDisabled()
+
+  // 重新整理後仍記得是這一組；再調順序也算已修改
+  await page.reload()
+  await expect(page.getByTestId('portfolio-state')).toContainText('核心四檔')
+  await expect(page.getByTestId('portfolio-state')).toHaveAttribute('data-dirty', '0')
+  await page.getByRole('button', { name: '0056 往前移' }).click()
+  await expect(page.getByTestId('portfolio-state')).toHaveAttribute('data-dirty', '1')
+  await page.getByRole('button', { name: '0050 往前移' }).click() // 換回原順序 → 不再是已修改
+  await expect(page.getByTestId('portfolio-state')).toHaveAttribute('data-dirty', '0')
+
+  // 另存新組合：改個名字，原本那組不受影響
+  await page.getByRole('button', { name: '0056 往前移' }).click()
+  await expect(page.getByTestId('portfolio-save')).toHaveText('覆蓋同名組合') // 名稱欄還是舊名字
+  await page.getByTestId('portfolio-name').fill('調過順序')
+  await expect(page.getByTestId('portfolio-save')).toHaveText('另存新組合')
+  await page.getByTestId('portfolio-save').click()
+  await expect(page.getByTestId('portfolio-msg')).toContainText('已存成組合「調過順序」（2 檔）')
+  await expect(page.locator('[data-portfolio]')).toHaveCount(2)
+  await expect(page.locator('[data-portfolio="核心四檔"]')).toContainText('2 檔')
+
+  // 輸入別組的名字 → 事先提醒會覆蓋；名稱空白時有說明，按鈕停用
+  await page.getByTestId('portfolio-name').fill('核心四檔')
+  await expect(page.getByTestId('name-clash')).toContainText('已有同名組合「核心四檔」')
+  await page.getByTestId('portfolio-name').fill('')
+  await expect(page.getByTestId('name-hint')).toBeVisible()
+  await expect(page.getByTestId('portfolio-save')).toBeDisabled()
 })

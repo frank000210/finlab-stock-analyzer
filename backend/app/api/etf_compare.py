@@ -29,8 +29,16 @@ _MAX_SYMBOLS = 10
 _BENCHMARK = "0050"
 _HISTORY_DAYS = 2010  # ≈5.5 年：夠算 5 年走勢與 3 年 CAGR
 _FETCH_CONCURRENCY = 4
-_RATE_MAX_CALLS = 30  # 每個 IP 每 10 分鐘（cache.CACHE_TTL["rate_limit"]）
+# 限流（每個 IP、每 10 分鐘的固定視窗，視窗長度見 cache.CACHE_TTL["rate_limit"]）。
+# 兩個獨立的額度：
+# - 請求數：很寬，只擋腳本式連打。快取命中的請求不碰 FinMind，使用者重新整理、調區間都算正常使用。
+# - 真正要打 FinMind 的標的數：保護免費額度。每檔 = 日線＋除息 2 次呼叫；單檔結果快取 6 小時，
+#   所以同一批標的只有第一次會計。
+_RATE_MAX_REQUESTS = 300
+_RATE_MAX_FETCHES = 60
 _BUNDLE_VERSION = "v1"  # 改了計算邏輯就加一，舊快取自然作廢
+_AUTO_LOOKBACK_DEFAULT = 180
+_MISS = object()
 
 # 一鍵情境。只放「長期存在、不易下市」的標的；清單中不在 FinMind 的會被濾掉。
 PRESETS = [
@@ -43,19 +51,33 @@ PRESETS = [
 CATEGORY_LABELS = {"market": "市值型", "dividend": "高股息", "active": "主動型", "other": "其他 ETF", "stock": "個股"}
 
 
-async def _check_rate_limit(request: Request) -> None:
+def _too_many(seconds_left: int) -> HTTPException:
+    minutes = max(1, -(-seconds_left // 60))
+    return HTTPException(
+        status_code=429,
+        detail=f"查詢過於頻繁，請約 {minutes} 分鐘後再試。",
+        headers={"Retry-After": str(max(seconds_left, 1))},
+    )
+
+
+async def _consume(request: Request, kind: str, cost: int, limit: int) -> None:
+    """固定視窗計數；超量回 429（附剩餘秒數）。計數機制故障時放行，不擋功能。"""
     from ..api.analytics import _get_client_ip
-    from ..db.cache import increment_rate_limit
+    from ..db.cache import consume_fixed_window
 
     ip = _get_client_ip(request)
     if not ip or ip == "unknown":
         return
     try:
-        count = await increment_rate_limit(f"etf_compare_rate:{ip}", "rate_limit")
+        count, left = await consume_fixed_window(f"etf_compare_{kind}:{ip}", cost)
     except Exception:
         return
-    if count > _RATE_MAX_CALLS:
-        raise HTTPException(status_code=429, detail="查詢過於頻繁，請 10 分鐘後再試。")
+    if count > limit:
+        raise _too_many(left)
+
+
+async def _check_request_rate(request: Request) -> None:
+    await _consume(request, "req", 1, _RATE_MAX_REQUESTS)
 
 
 async def _cache_get(key: str):
@@ -105,7 +127,7 @@ def _category(sid: str, meta: dict) -> str:
     return core.classify_etf(sid, meta.get("name", ""))
 
 
-@router.get("/catalog", dependencies=[Depends(_check_rate_limit)])
+@router.get("/catalog", dependencies=[Depends(_check_request_rate)])
 async def catalog():
     """可選標的與一鍵情境。個股不列在清單裡（太多），由前端搜尋框補。"""
     try:
@@ -161,10 +183,18 @@ def _parse_day(raw: Optional[str], label: str) -> Optional[str]:
         raise HTTPException(status_code=400, detail=f"{label}日期格式需為 YYYY-MM-DD。")
 
 
-async def _load_bundle(symbol: str, sem: asyncio.Semaphore) -> Optional[dict]:
-    """單檔：先查快取，沒有才打 FinMind（日線＋除息結果）並整理。無資料回 None。"""
-    key = f"etf_compare:{_BUNDLE_VERSION}:{symbol}:{date.today().isoformat()}"
-    cached = await _cache_get(key)
+def _bundle_key(symbol: str) -> str:
+    return f"etf_compare:{_BUNDLE_VERSION}:{symbol}:{date.today().isoformat()}"
+
+
+async def _load_bundle(symbol: str, sem: asyncio.Semaphore, cached=_MISS) -> Optional[dict]:
+    """單檔：先查快取，沒有才打 FinMind（日線＋除息結果）並整理。無資料回 None。
+
+    cached 給呼叫端已經查過快取時帶進來（None＝沒命中），避免同一個 key 讀兩次。
+    """
+    key = _bundle_key(symbol)
+    if cached is _MISS:
+        cached = await _cache_get(key)
     if cached:
         return cached if cached.get("ok") else None
 
@@ -196,11 +226,14 @@ async def _load_bundle(symbol: str, sem: asyncio.Semaphore) -> Optional[dict]:
     return bundle
 
 
-@router.get("/compare", dependencies=[Depends(_check_rate_limit)])
+@router.get("/compare", dependencies=[Depends(_check_request_rate)])
 async def compare(
+    request: Request,
     symbols: str = Query(..., description="以逗號分隔的標的代碼，最多 10 檔"),
     event_start: Optional[str] = Query(None, description="急跌區間起日（YYYY-MM-DD），不給則自動偵測"),
     event_end: Optional[str] = Query(None, description="急跌區間迄日（YYYY-MM-DD）"),
+    auto_lookback: int = Query(_AUTO_LOOKBACK_DEFAULT, ge=30, le=730, description="自動偵測：往回看幾天（預設 180）"),
+    auto_anchor: Optional[str] = Query(None, description="自動偵測：用哪一檔找急跌區間，預設 0050；需是已選標的之一"),
 ):
     syms = _parse_symbols(symbols)
     ev_start, ev_end = _parse_day(event_start, "起"), _parse_day(event_end, "迄")
@@ -208,11 +241,20 @@ async def compare(
         raise HTTPException(status_code=400, detail="急跌區間需同時提供起日與迄日。")
     if ev_start and (ev_start >= ev_end or (date.fromisoformat(ev_end) - date.fromisoformat(ev_start)).days > 400):
         raise HTTPException(status_code=400, detail="急跌區間需起日早於迄日，且不超過 400 天。")
+    anchor = (auto_anchor or "").strip().upper() or _BENCHMARK
+    if not _SYMBOL_RE.match(anchor) or (anchor != _BENCHMARK and anchor not in syms):
+        raise HTTPException(status_code=400, detail=f"自動偵測的基準需是已選標的之一或 {_BENCHMARK}。")
 
     sem = asyncio.Semaphore(_FETCH_CONCURRENCY)
-    need = list(syms) + ([] if _BENCHMARK in syms else [_BENCHMARK])
+    # 自訂區間不需要基準；自動偵測才要（基準不在已選標的裡時才多載一檔）
+    need = list(syms) + ([anchor] if not ev_start and anchor not in syms else [])
+    # 先看快取：全部命中就不計 FinMind 額度（使用者重新整理、調區間都不該被擋）
+    cached = await asyncio.gather(*[_cache_get(_bundle_key(s)) for s in need])
+    misses = sum(1 for c in cached if not c)
+    if misses:
+        await _consume(request, "fetch", misses, _RATE_MAX_FETCHES)
     try:
-        results = await asyncio.gather(*[_load_bundle(s, sem) for s in need], return_exceptions=True)
+        results = await asyncio.gather(*[_load_bundle(s, sem, c) for s, c in zip(need, cached)], return_exceptions=True)
     except Exception as exc:  # pragma: no cover - gather(return_exceptions) 不會丟
         logger.exception("etf_compare: gather failed")
         raise HTTPException(status_code=502, detail=f"資料查詢失敗：{exc}")
@@ -236,14 +278,15 @@ async def compare(
         logger.warning("etf_compare: stock info unavailable, names omitted")
         info = {}
 
-    # 事件視窗：使用者指定優先，否則用基準偵測最近一次明顯急跌
+    # 事件視窗：使用者指定優先，否則用基準（預設 0050）偵測最近一次明顯急跌
     event = None
     if ev_start:
         event = {"start": ev_start, "end": ev_end, "source": "custom", "drop": None}
-    elif bundles.get(_BENCHMARK):
-        ep = core.bundle_drawdown_episode(bundles[_BENCHMARK])
+    elif bundles.get(anchor):
+        ep = core.bundle_drawdown_episode(bundles[anchor], lookback_days=auto_lookback)
         if ep:
-            event = {"start": ep["start"], "end": ep["end"], "source": "auto", "drop": ep["drop"]}
+            event = {"start": ep["start"], "end": ep["end"], "source": "auto", "drop": ep["drop"],
+                     "anchor": anchor, "lookback_days": auto_lookback}
 
     out_symbols, failed = [], []
     for s in syms:

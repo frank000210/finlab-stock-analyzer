@@ -235,6 +235,42 @@ async def increment_rate_limit(key: str, category: str = "rate_limit") -> int:
     return int(doc.get("count", 0))
 
 
+async def consume_fixed_window(key: str, cost: int = 1, category: str = "rate_limit") -> tuple[int, int]:
+    """固定視窗計數：回傳 (含這次的累計次數, 視窗還剩幾秒)。
+
+    跟 increment_rate_limit() 的差別：到期時間只在視窗「開始」時設一次，之後的呼叫
+    （包含被擋下來的）都不會續約。滑動視窗下，被擋的人越按重新整理越解不了鎖——
+    ETF 比較頁的品管測試就踩到這個。其他端點仍用 increment_rate_limit()，語意不變。
+
+    不用 aggregation-pipeline update（要 MongoDB 4.2+）；兩步做法在視窗剛開始的
+    瞬間若有兩個並行請求，最壞只會少算一次（偏寬鬆），不會多擋人。
+    """
+    from pymongo.errors import DuplicateKeyError
+
+    db = await _get_db()
+    for _ in range(2):
+        now = datetime.utcnow()
+        doc = await db.cache.find_one_and_update(
+            {"key": key, "expires_at": {"$gt": now}},
+            {"$inc": {"count": cost}},
+            return_document=ReturnDocument.AFTER,
+        )
+        if doc is None:
+            expires_at = now + timedelta(minutes=CACHE_TTL.get(category, 60))
+            try:
+                doc = await db.cache.find_one_and_update(
+                    {"key": key},
+                    {"$set": {"count": cost, "category": category, "expires_at": expires_at, "updated_at": now}},
+                    upsert=True,
+                    return_document=ReturnDocument.AFTER,
+                )
+            except DuplicateKeyError:
+                continue  # 別的請求剛好同時建立了視窗，回頭用 $inc 累加
+        left = int((doc["expires_at"] - datetime.utcnow()).total_seconds())
+        return int(doc.get("count", 0)), max(left, 1)
+    return cost, 1
+
+
 async def get_rate_limit_count(key: str) -> int:
     """Read a rate-limit counter without incrementing it (0 if absent/expired).
 

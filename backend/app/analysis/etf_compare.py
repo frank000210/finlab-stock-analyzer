@@ -416,9 +416,11 @@ def event_window(bars: list[dict], dividends: list[dict], start: str, end: str,
     """某檔在 [start, end] 的急跌與其後反彈（價格是分割調整後、未含息的看盤價）。
 
     - 區間最高：[start, end] 內最高的日內高點（含日期）
-    - 區間最低：最高點「之後」到 end 的最低日內低點（這樣跌幅一定是真的由高往低）
-    - 反彈高點：最低點之後到 rebound_end 的最高日內高點；反彈 % = 反彈高點 / 最低 − 1
+    - 其後最低（low）：最高點「之後」到 end 的最低日內低點（這樣跌幅一定是真的由高往低）
+    - 反彈高點：最低點之後到 rebound_end 的最高日內高點；反彈 % = 反彈高點 / 其後最低 − 1
     - 區間內除息：這段期間的除息金額（價格跌幅裡有一部分是除息造成的，不是真的下跌）
+    - 區間最低（window_low）：[start, end] 內「不分先後」的最低日內低點。低點若出現在高點之前，
+      它會比「其後最低」更低；要看整段區間的價格範圍時用它，回落與反彈仍以「其後最低」為準。
     """
     if not bars:
         return None
@@ -431,6 +433,7 @@ def event_window(bars: list[dict], dividends: list[dict], start: str, end: str,
     window = bars[i_s:i_e + 1]
     hi_bar = max(window, key=lambda b: b["high"])
     hi_i = i_s + window.index(hi_bar)
+    win_lo_bar = min(window, key=lambda b: b["low"])
     after_high = bars[hi_i:i_e + 1]
     lo_bar = min(after_high, key=lambda b: b["low"])
     lo_i = hi_i + after_high.index(lo_bar)
@@ -441,6 +444,7 @@ def event_window(bars: list[dict], dividends: list[dict], start: str, end: str,
     return {
         "high": hi_bar["high"], "high_date": hi_bar["date"],
         "low": lo_bar["low"], "low_date": lo_bar["date"],
+        "window_low": win_lo_bar["low"], "window_low_date": win_lo_bar["date"],
         "drawdown": lo_bar["low"] / hi_bar["high"] - 1,
         "rebound_high": reb["high"] if reb else None,
         "rebound_date": reb["date"] if reb else None,
