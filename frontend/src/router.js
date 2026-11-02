@@ -217,6 +217,12 @@ const routes = [
     name: 'learn-admin',
     component: () => import('./views/LearnAdminView.vue'),
   },
+  // 建站教學：給非 IT 人員看的「從申請帳號到上線」說明（純靜態頁，不需登入）
+  {
+    path: '/build-guide',
+    name: 'build-guide',
+    component: () => import('./views/BuildGuideView.vue'),
+  },
 ]
 
 const router = createRouter({

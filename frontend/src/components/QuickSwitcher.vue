@@ -78,6 +78,7 @@ const PAGES = [
   { icon: '🧩', title: '信號規則編輯器', sub: '/signal-rules', to: '/signal-rules', alias: 'signal rules 規則編輯器' },
   { icon: '⚙️', title: '設定', sub: '/settings', to: '/settings', alias: 'settings 設定' },
   { icon: '🔧', title: '後台', sub: '/admin', to: '/admin', alias: 'admin 後台 管理' },
+  { icon: '🔨', title: '建站教學', sub: '/build-guide', to: '/build-guide', alias: 'build guide 建站 教學 github 主機 部署 申請 非工程 新手' },
 ]
 
 const pageHits = computed(() => {
