@@ -257,7 +257,7 @@
 </template>
 
 <script setup>
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   Bot, ChevronDown, ClipboardCheck, ExternalLink, GitBranch, Globe, Info,
@@ -325,15 +325,29 @@ const overall = computed(() => {
 const activeId = ref(CHAPTERS[0].id)
 const tocOpen = ref(false)
 
+// 最近一次捲去的章節：點目錄時我們自己會改網址 #，這時 watch 不必再捲一次
+let lastTarget = ''
+
 function goTo(id) {
   const el = document.getElementById(id)
   if (!el) return
   const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+  lastTarget = id
   el.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' })
   activeId.value = id
   tocOpen.value = false
   router.replace({ hash: '#' + id }).catch(() => {})
 }
+
+// 網址的 #章節 被改掉（手動改網址、瀏覽器上一頁）而不是點目錄時，也要捲到該章。
+// 用立即捲動：它會中斷還在進行的平滑捲動，不會被舊動畫拉回原處。
+watch(() => route.hash, (h) => {
+  const id = h.replace(/^#/, '')
+  if (!id || id === lastTarget || !CHAPTERS.some(c => c.id === id)) return
+  lastTarget = id
+  document.getElementById(id)?.scrollIntoView({ behavior: 'auto', block: 'start' })
+  activeId.value = id
+})
 
 let observer = null
 function watchChapters() {

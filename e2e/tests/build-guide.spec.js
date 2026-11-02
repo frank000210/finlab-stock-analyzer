@@ -55,17 +55,44 @@ test('Ctrl+K 快速切換搜得到「建站教學」並可直接前往', async (
   await expect(page).toHaveURL(/\/build-guide$/)
 })
 
-test('章節目錄：點擊會捲到該章並標示目前章節；網址帶 # 也會直達', async ({ page }) => {
+// 等捲動停下來（點目錄是平滑捲動，toBeInViewport 一碰到就算過，動畫其實還在跑）
+async function scrollSettled(page) {
+  await expect.poll(async () => {
+    const a = await page.evaluate(() => window.scrollY)
+    await page.waitForTimeout(120)
+    return a === await page.evaluate(() => window.scrollY)
+  }).toBe(true)
+}
+
+test('章節目錄：點擊會捲到該章並標示目前章節', async ({ page }) => {
   await page.setViewportSize({ width: 1360, height: 900 })
   await page.goto('/build-guide')
+  await expect(page.getByTestId('toc')).toBeVisible()
 
   const hosting = page.getByTestId('toc').locator('a[href="#hosting"]')
   await hosting.click()
   await expect(page.locator('#hosting-h')).toBeInViewport()
   await expect(hosting).toHaveAttribute('aria-current', 'true')
   await expect(page).toHaveURL(/#hosting$/)
+})
 
+test('網址帶 #章節 會直達；同一頁改網址的 # 與瀏覽器上一頁也會捲過去', async ({ page }) => {
+  await page.setViewportSize({ width: 1360, height: 900 })
   await page.goto('/build-guide#roles')
+  await expect(page.locator('#roles-h')).toBeInViewport()
+  await scrollSettled(page)
+
+  // 同一份文件內只改 #（手動改網址、書籤）
+  await page.evaluate(() => { location.hash = '#after' })
+  await expect(page.locator('#after-h')).toBeInViewport()
+  await scrollSettled(page)
+
+  // 點目錄捲走後再改回去，不會被舊的平滑捲動拉回原處
+  await page.getByTestId('toc').locator('a[href="#hosting"]').click()
+  await expect(page.locator('#hosting-h')).toBeInViewport()
+  await page.evaluate(() => { location.hash = '#roles' })
+  await expect(page.locator('#roles-h')).toBeInViewport()
+  await scrollSettled(page)
   await expect(page.locator('#roles-h')).toBeInViewport()
 })
 
