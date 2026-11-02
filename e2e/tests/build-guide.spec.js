@@ -149,6 +149,10 @@ test('手機：不橫向捲動，章節收成按鈕，點章節後收起並捲�
 test('列印：隱藏側邊欄與章節，並自動展開常見問題', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 })
   await page.goto('/build-guide')
+  // 路由元件是 load 之後才載入；先等頁面掛好（beforeprint 監聽在掛載時才註冊），
+  // 否則在較慢的環境（正式站）事件會比監聽先發出，永遠數到 0 個展開
+  await expect(page.getByTestId('guide-hero')).toBeVisible()
+  await expect(page.getByTestId('toc')).toBeVisible()
   await page.emulateMedia({ media: 'print' })
   await expect(page.locator('.app-sidebar')).toBeHidden()
   await expect(page.getByTestId('toc')).toBeHidden()
