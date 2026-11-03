@@ -312,7 +312,10 @@
             </thead>
             <tbody>
               <tr v-for="row in orderedRows" :key="row.symbol" :data-symbol="row.symbol">
-                <td><i class="dot" :style="{ background: colorOf(row.symbol) }"></i><strong>{{ row.symbol }}</strong> <span class="nm">{{ row.name }}</span></td>
+                <td>
+                  <i class="dot" :style="{ background: colorOf(row.symbol) }"></i><strong>{{ row.symbol }}</strong> <span class="nm">{{ row.name }}</span>
+                  <button type="button" class="row-chart-btn" data-testid="show-chart" :aria-label="`看 ${row.symbol} 的走勢圖`" @click="showChart(row.symbol)">走勢圖</button>
+                </td>
                 <template v-if="row.event">
                   <td data-testid="window-low">{{ price(row.event.window_low ?? row.event.low) }} <span class="dt">{{ md(row.event.window_low_date ?? row.event.low_date) }}</span></td>
                   <td>{{ price(row.event.high) }} <span class="dt">{{ md(row.event.high_date) }}</span></td>
@@ -346,6 +349,22 @@
               </tr>
             </tbody>
           </table>
+        </div>
+        <!-- 個股走勢：把上表的項目標在圖上，才看得出先後順序；下方同步的 KD -->
+        <div v-if="result.event && chartRow" ref="chartPanel" class="event-chart-panel" data-testid="event-chart-panel">
+          <div class="chart-panel-head">
+            <h3>個股走勢</h3>
+            <span class="muted small">上表的項目標在走勢圖上，看得出先後順序；下方是同步的 KD。</span>
+          </div>
+          <div class="chart-chips" role="group" aria-label="選擇要看走勢的標的">
+            <button v-for="r in orderedRows" :key="r.symbol" type="button" class="chip-btn"
+                    :class="{ active: r.symbol === chartRow.symbol }" :aria-pressed="r.symbol === chartRow.symbol"
+                    :data-testid="`chart-chip-${r.symbol}`" @click="chartSymbol = r.symbol">
+              <i class="dot" :style="{ background: colorOf(r.symbol) }"></i>{{ r.symbol }} <span class="nm">{{ r.name }}</span>
+            </button>
+          </div>
+          <EtfEventChart :symbol="chartRow.symbol" :name="chartRow.name" :range="result.event"
+                         :event="chartRow.event" :last-close="chartRow.metrics.last_close" :last-date="chartRow.metrics.last_date" />
         </div>
         <p class="muted small">價格為日內最高／最低、已處理分割、<strong>不含息</strong>（看盤軟體上看到的價格）；因此回落幅度會比上表「最大回撤（含息、收盤）」更深。區間內有除息的標的，部分跌幅是配息造成的。反彈幅度 =（其後最低之後的最高 ÷ 其後最低）− 1。</p>
         <p class="muted small">
@@ -392,6 +411,7 @@ import PageFocusBanner from '../components/PageFocusBanner.vue'
 import InfoTooltip from '../components/InfoTooltip.vue'
 import EtfRadar from '../components/etf/EtfRadar.vue'
 import EtfDividendBars from '../components/etf/EtfDividendBars.vue'
+import EtfEventChart from '../components/etf/EtfEventChart.vue'
 import { metricGlossary } from '../lib/metricGlossary'
 import { useChartTheme } from '../composables/useChartTheme'
 import { downloadCsv, timestampedFilename } from '../lib/csvExport'
@@ -893,6 +913,17 @@ const ranked = computed(() => {
   return [...orderedRows.value].sort((a, b) => (b.scores.total ?? -1) - (a.scores.total ?? -1))
 })
 
+// ── 急跌與反彈：個股走勢圖（品管 11/02、11/03）───────────────────────────────
+// 一次只畫一檔（10 檔各畫一組 K 線＋KD 太長，手機上更是）；預設第一檔，
+// 表格每列的「走勢」按鈕與上方晶片都可以切換。
+const chartSymbol = ref('')
+const chartPanel = ref(null)
+const chartRow = computed(() => orderedRows.value.find(r => r.symbol === chartSymbol.value) || orderedRows.value[0] || null)
+function showChart(symbol) {
+  chartSymbol.value = symbol
+  nextTick(() => chartPanel.value?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+}
+
 const radarSeries = computed(() =>
   (orderedRows.value).map(s => ({ symbol: s.symbol, color: colorOf(s.symbol), scores: s.scores })))
 
@@ -1320,6 +1351,18 @@ onBeforeUnmount(() => {
 .quick-range { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .quick-range .chip-btn { padding: 3px 10px; font-size: 0.75rem; }
 .dt { color: var(--text-muted); font-size: 0.72rem; margin-left: 2px; }
+.row-chart-btn { margin-left: 8px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--border-color); background: transparent; color: var(--accent-blue); font-size: 0.72rem; cursor: pointer; white-space: nowrap; }
+.row-chart-btn:hover { border-color: var(--accent-blue); }
+.row-chart-btn:focus-visible { outline: 2px solid var(--accent-blue); outline-offset: 1px; }
+
+/* 個股走勢：放在急跌表下面，淡淡的邊框與表格區隔 */
+.event-chart-panel { margin: 16px 0 12px; padding: 14px; display: flex; flex-direction: column; gap: 10px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); background: var(--bg-well, rgba(148, 163, 184, 0.04)); min-width: 0; }
+.chart-panel-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 12px; }
+.chart-panel-head h3 { margin: 0; font-size: 0.98rem; }
+.chart-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chart-chips .chip-btn { display: inline-flex; align-items: center; gap: 2px; padding: 3px 10px; font-size: 0.78rem; }
+.chip-btn.active { background: var(--accent-blue); border-color: var(--accent-blue); color: #fff; font-weight: 600; }
+.chip-btn.active .nm { color: rgba(255, 255, 255, 0.8); }
 
 .radar-col { display: flex; flex-direction: column; gap: 8px; align-items: center; }
 .radar-empty { margin: 0; font-size: 0.82rem; color: var(--text-muted); text-align: center; }

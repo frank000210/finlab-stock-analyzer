@@ -23,6 +23,37 @@ function adjSeries(base, drift) {
   return DATES.map((_, i) => Number((base * Math.pow(1 + drift, i) * (1 + 0.01 * Math.sin(i / 7))).toFixed(4)))
 }
 
+// 走勢圖（/chart）用的合成日線：可手算——收盤＝基準＋三角波＋緩升，開盤＝前一日收盤，量有規律。
+// 測試端自己用這份陣列算 MA／KD，與畫面圖例對帳。
+function chartSeries(symbol) {
+  const shift = symbol === '0056' ? 10 : 0
+  const close = DATES.map((_, i) => Number((100 + shift + (i % 20) * 0.5 + i * 0.02).toFixed(2)))
+  const open = close.map((c, i) => (i ? close[i - 1] : Number((c - 0.3).toFixed(2))))
+  const high = close.map((c, i) => Number((Math.max(c, open[i]) + 0.5).toFixed(2)))
+  const low = close.map((c, i) => Number((Math.min(c, open[i]) - 0.5).toFixed(2)))
+  const volume = close.map((_, i) => 40000 + (i % 7) * 1000)
+  return { dates: DATES, open, high, low, close, volume }
+}
+const chartBody = symbol => JSON.stringify({
+  success: true,
+  data: { symbol, ...chartSeries(symbol), dividend_events: [{ date: '2026-01-20', amount: 0.5 }, { date: '2026-07-21', amount: 0.6 }], splits: [] },
+})
+const avg = (arr, end, n) => arr.slice(end - n + 1, end + 1).reduce((a, b) => a + b, 0) / n
+// 測試端自己算一次 KD（9,3,3，起始 50），不借用前端的實作
+function refKd(s) {
+  let k = 50, d = 50
+  const out = []
+  for (let i = 8; i < s.close.length; i++) {
+    const hh = Math.max(...s.high.slice(i - 8, i + 1))
+    const ll = Math.min(...s.low.slice(i - 8, i + 1))
+    const rsv = hh > ll ? ((s.close[i] - ll) / (hh - ll)) * 100 : 50
+    k = (2 / 3) * k + (1 / 3) * rsv
+    d = (2 / 3) * d + (1 / 3) * k
+    out[i] = { rsv, k, d, j9: 3 * d - 2 * k, k3d2: 3 * k - 2 * d }
+  }
+  return out
+}
+
 function mk(symbol, name, category, o = {}) {
   const pays = o.pays !== false
   return {
@@ -83,7 +114,13 @@ const CATALOG = {
 }
 
 /** @param {import('@playwright/test').Page} page */
-async function mockApi(page, calls = [], override = {}) {
+async function mockApi(page, calls = [], override = {}, chartCalls = []) {
+  // 走勢圖資料一律 mock：不然急跌表下面的走勢圖會去打真的後端／FinMind
+  await page.route('**/api/v1/etf-compare/chart**', route => {
+    const url = new URL(route.request().url())
+    chartCalls.push(url)
+    route.fulfill({ status: 200, contentType: 'application/json', body: chartBody(url.searchParams.get('symbol')) })
+  })
   await page.route('**/api/v1/etf-compare/catalog', route =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(CATALOG) }))
   await page.route('**/api/v1/etf-compare/compare**', route => {
@@ -700,4 +737,237 @@ test('我的組合：載入後刪減，一鍵「更新這個組合」；另存�
   await page.getByTestId('portfolio-name').fill('')
   await expect(page.getByTestId('name-hint')).toBeVisible()
   await expect(page.getByTestId('portfolio-save')).toBeDisabled()
+})
+
+// ── 品管 11/02、11/03：急跌與反彈的個股走勢圖 ─────────────────────────────────────
+// canvas 的內容不做像素比對；圖例、頂部資訊列與「圖上標註」清單都是 DOM，數字拿測試端自己算的值對帳。
+
+const chartPanel = page => page.getByTestId('event-chart-panel')
+const f2 = x => x.toFixed(2)
+const numOf = async loc => Number((await loc.innerText()).replace(/,/g, ''))
+// 圖例是 2 位小數的四捨五入，與測試端的直接加總在剛好對半時可能差 0.01，所以用容許誤差比
+const expectNear = async (loc, want) => {
+  await expect.poll(async () => Math.abs((await numOf(loc)) - want)).toBeLessThan(0.011)
+}
+
+test('急跌與反彈：表格下方有個股走勢圖，預設第一檔，頂部是最新一日的開高低收量與漲跌', async ({ page }) => {
+  const errors = []
+  page.on('pageerror', e => errors.push(e.message))
+  const chartCalls = []
+  await mockApi(page, [], {}, chartCalls)
+  await page.goto('/etf-compare?symbols=0050,0056')
+
+  await expect(chartPanel(page)).toBeVisible()
+  await expect(page.getByTestId('chart-chip-0050')).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByTestId('chart-chip-0056')).toHaveAttribute('aria-pressed', 'false')
+  await expect(page.getByTestId('chart-ohlc')).toBeVisible()
+  expect(chartCalls.map(u => u.searchParams.get('symbol'))).toEqual(['0050'])
+
+  const s = chartSeries('0050')
+  const n = s.close.length
+  const chg = s.close[n - 1] - s.close[n - 2]
+  await expect(page.getByTestId('ohlc-date')).toHaveText('2026/10/30')
+  await expect(page.getByTestId('ohlc-open')).toHaveText(f2(s.open[n - 1]))
+  await expect(page.getByTestId('ohlc-high')).toHaveText(f2(s.high[n - 1]))
+  await expect(page.getByTestId('ohlc-low')).toHaveText(f2(s.low[n - 1]))
+  await expect(page.getByTestId('ohlc-close')).toHaveText(f2(s.close[n - 1]))
+  await expect(page.getByTestId('ohlc-volume')).toHaveText(s.volume[n - 1].toLocaleString('en-US'))
+  await expect(page.getByTestId('ohlc-change')).toHaveText(`${chg > 0 ? '+' : ''}${f2(chg)}`)
+
+  // 主圖與 KD 副圖兩張 canvas 都畫出來了
+  await expect(page.getByTestId('chart-price').locator('canvas').first()).toBeVisible()
+  await expect(page.getByTestId('chart-kd').locator('canvas').first()).toBeVisible()
+  expect(errors).toEqual([])
+})
+
+test('均線圖例：預設勾 5／10／20／60，數值等於測試端自己算的簡單平均，可再勾 120／240', async ({ page }) => {
+  await mockApi(page)
+  await page.goto('/etf-compare?symbols=0050,0056')
+  await expect(page.getByTestId('chart-ma')).toBeVisible()
+
+  for (const m of [5, 10, 20, 60]) await expect(page.getByTestId(`ma-toggle-${m}`)).toBeChecked()
+  for (const m of [120, 240]) await expect(page.getByTestId(`ma-toggle-${m}`)).not.toBeChecked()
+
+  const s = chartSeries('0050')
+  const last = s.close.length - 1
+  for (const m of [5, 10, 20, 60, 120, 240]) await expectNear(page.getByTestId(`ma-val-${m}`), avg(s.close, last, m))
+
+  await page.getByTestId('ma-toggle-120').check()
+  await expect(page.getByTestId('ma-toggle-120')).toBeChecked()
+  await page.getByTestId('ma-toggle-5').uncheck()
+  await expect(page.getByTestId('ma-toggle-5')).not.toBeChecked()
+  await expect(page.getByTestId('ma-val-5')).not.toHaveText('—') // 沒勾也還是看得到數值（同 Yahoo）
+})
+
+test('KD 圖例：K9／D9／RSV 與測試端自算一致，J9＝3D−2K、K3D2＝3K−2D（Yahoo 口徑）', async ({ page }) => {
+  await mockApi(page)
+  await page.goto('/etf-compare?symbols=0050,0056')
+  await expect(page.getByTestId('chart-kd-legend')).toBeVisible()
+
+  const s = chartSeries('0050')
+  const want = refKd(s)[s.close.length - 1]
+  await expectNear(page.getByTestId('kd-k'), want.k)
+  await expectNear(page.getByTestId('kd-d'), want.d)
+  await expectNear(page.getByTestId('kd-rsv'), want.rsv)
+  await expectNear(page.getByTestId('kd-j9'), want.j9)
+  await expectNear(page.getByTestId('kd-k3d2'), want.k3d2)
+
+  // 畫面上自己的數字也要互相對得起來
+  const k = await numOf(page.getByTestId('kd-k'))
+  const d = await numOf(page.getByTestId('kd-d'))
+  expect(Math.abs((await numOf(page.getByTestId('kd-j9'))) - (3 * d - 2 * k))).toBeLessThan(0.03)
+  expect(Math.abs((await numOf(page.getByTestId('kd-k3d2'))) - (3 * k - 2 * d))).toBeLessThan(0.03)
+})
+
+test('十字線：滑過主圖時頂部資訊列、均線與 KD 圖例一起換成那一天；移到 KD 圖也同步；離開回到最新一日', async ({ page }) => {
+  await mockApi(page)
+  await page.goto('/etf-compare?symbols=0050,0056')
+  await expect(page.getByTestId('chart-ohlc')).toBeVisible()
+  await chartPanel(page).scrollIntoViewIfNeeded()
+
+  const s = chartSeries('0050')
+  const kd = refKd(s)
+  const check = async () => {
+    const label = await page.getByTestId('ohlc-date').innerText()
+    const i = DATES.indexOf(label.replace(/\//g, '-'))
+    expect(i).toBeGreaterThanOrEqual(8)
+    await expect(page.getByTestId('ohlc-close')).toHaveText(f2(s.close[i]))
+    await expectNear(page.getByTestId('ma-val-5'), avg(s.close, i, 5))
+    await expectNear(page.getByTestId('kd-k'), kd[i].k)
+    return label
+  }
+
+  const box = await page.getByTestId('chart-price').boundingBox()
+  await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.5)
+  await expect(page.getByTestId('ohlc-date')).not.toHaveText('2026/10/30')
+  const onPrice = await check()
+  await page.waitForTimeout(300) // 十字線不會自己彈回最新一日（兩張圖互相觸發會這樣）
+  expect(await page.getByTestId('ohlc-date').innerText()).toBe(onPrice)
+
+  const kdBox = await page.getByTestId('chart-kd').boundingBox()
+  await page.mouse.move(kdBox.x + kdBox.width * 0.25, kdBox.y + kdBox.height * 0.5)
+  await expect(page.getByTestId('ohlc-date')).not.toHaveText(onPrice)
+  await check()
+
+  await page.mouse.move(2, 2)
+  await expect(page.getByTestId('ohlc-date')).toHaveText('2026/10/30')
+})
+
+test('圖上標註清單與急跌表同一組數字；區間最低與其後最低相同、尚未反彈時對應項目不出現', async ({ page }) => {
+  const override = {
+    '0056': mk('0056', '元大高股息', 'dividend', {
+      total: 92.2, drift: 0.0012, last_close: 50,
+      event: { window_low: 91.8, window_low_date: '2026-07-29', rebound_high: null, rebound_date: null, rebound_pct: null },
+    }),
+  }
+  await mockApi(page, [], override)
+  await page.goto('/etf-compare?symbols=0050,0056')
+  const row = sym => page.locator(`[data-testid="event-table"] tr[data-symbol="${sym}"]`)
+  const marks = page.getByTestId('chart-marks')
+  await expect(marks).toBeVisible()
+
+  // 0050：高 112.30（6/23）、其後最低 91.80（7/29）、區間最低 88.40（6/24，比其後最低更低所以另標）、反彈高點 116.60（10/06）、目前價位 100.00（10/30）
+  await expect(page.getByTestId('mark-high')).toContainText('112.30')
+  await expect(page.getByTestId('mark-high')).toContainText('06/23')
+  await expect(page.getByTestId('mark-low')).toContainText('91.80')
+  await expect(page.getByTestId('mark-low')).toContainText('07/29')
+  await expect(page.getByTestId('mark-window-low')).toContainText('88.40')
+  await expect(page.getByTestId('mark-window-low')).toContainText('06/24')
+  await expect(page.getByTestId('mark-rebound')).toContainText('116.60')
+  await expect(page.getByTestId('mark-rebound')).toContainText('10/06')
+  await expect(page.getByTestId('mark-last')).toContainText('100.00')
+  await expect(page.getByTestId('mark-last')).toContainText('10/30')
+  // 回落與表格「回落」欄是同一個字串
+  const drop = (await row('0050').locator('td').nth(4).innerText()).trim()
+  await expect(page.getByTestId('mark-low')).toContainText(`回落 ${drop}`)
+  await expect(page.getByTestId('mark-rebound')).toContainText('+27.0%')
+
+  await page.getByTestId('chart-chip-0056').click()
+  await expect(page.locator('[data-testid="event-chart"][data-symbol="0056"]')).toBeVisible()
+  await expect(page.getByTestId('mark-high')).toContainText('112.30')
+  await expect(page.getByTestId('mark-low')).toContainText('91.80')
+  await expect(page.getByTestId('mark-window-low')).toHaveCount(0) // 區間最低＝其後最低，不重複標
+  await expect(page.getByTestId('mark-rebound')).toHaveCount(0) // 尚未反彈
+  await expect(page.getByTestId('mark-last')).toContainText('50.00')
+})
+
+test('切換標的：晶片與表格每列的「走勢圖」按鈕都能切；切回已看過的不重抓', async ({ page }) => {
+  const chartCalls = []
+  await mockApi(page, [], {}, chartCalls)
+  await page.goto('/etf-compare?symbols=0050,0056')
+  await expect(page.getByTestId('chart-ohlc')).toBeVisible()
+  const syms = () => chartCalls.map(u => u.searchParams.get('symbol'))
+  expect(syms()).toEqual(['0050'])
+
+  const s56 = chartSeries('0056')
+  await page.getByTestId('chart-chip-0056').click()
+  await expect(page.getByTestId('chart-chip-0056')).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByTestId('ohlc-close')).toHaveText(f2(s56.close[s56.close.length - 1]))
+  expect(syms()).toEqual(['0050', '0056'])
+
+  await page.getByTestId('chart-chip-0050').click()
+  await expect(page.getByTestId('ohlc-close')).toHaveText(f2(chartSeries('0050').close[DATES.length - 1]))
+  expect(syms()).toEqual(['0050', '0056']) // 已經載過，不再打 API
+
+  // 表格列的按鈕：選到那一檔，並把走勢圖捲到畫面裡
+  await page.locator('[data-testid="event-table"] tr[data-symbol="0056"]').getByTestId('show-chart').click()
+  await expect(page.getByTestId('chart-chip-0056')).toHaveAttribute('aria-pressed', 'true')
+  await expect(chartPanel(page)).toBeInViewport()
+})
+
+test('走勢圖載入失敗：只在圖的位置顯示原因與重試，其他表格不受影響；重試成功後出圖', async ({ page }) => {
+  await mockApi(page)
+  let attempt = 0
+  await page.route('**/api/v1/etf-compare/chart**', route => {
+    attempt += 1
+    if (attempt === 1) {
+      route.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ detail: '查無日線資料（代碼錯誤或尚未上市）。' }) })
+    } else {
+      route.fulfill({ status: 200, contentType: 'application/json', body: chartBody('0050') })
+    }
+  })
+  await page.goto('/etf-compare?symbols=0050,0056')
+
+  await expect(page.getByTestId('chart-error')).toContainText('查無日線資料')
+  await expect(page.getByTestId('chart-ohlc')).toHaveCount(0)
+  await expect(page.locator('[data-testid="event-table"] tr[data-symbol="0050"]')).toBeVisible()
+
+  await page.getByTestId('chart-error').getByRole('button', { name: '重試' }).click()
+  await expect(page.getByTestId('chart-ohlc')).toBeVisible()
+  await expect(page.getByTestId('chart-error')).toHaveCount(0)
+  expect(attempt).toBe(2)
+})
+
+test('改急跌區間只重畫標註，不會重新抓走勢圖資料', async ({ page }) => {
+  const chartCalls = []
+  await mockApi(page, [], {}, chartCalls)
+  await page.goto('/etf-compare?symbols=0050,0056')
+  await expect(page.getByTestId('chart-ohlc')).toBeVisible()
+  expect(chartCalls).toHaveLength(1)
+
+  await page.locator('.event-form input[type="date"]').first().fill('2026-03-02')
+  await page.locator('.event-form input[type="date"]').nth(1).fill('2026-04-10')
+  await page.getByTestId('apply-range').click()
+  await expect(page.getByTestId('event-desc')).toContainText('自訂區間')
+  await expect(page.getByTestId('chart-ohlc')).toBeVisible()
+  await expect(page.getByTestId('chart-price').locator('canvas').first()).toBeVisible()
+  expect(chartCalls).toHaveLength(1)
+})
+
+test('手機：走勢圖不撐寬頁面，圖例會換行，兩張圖都在畫面寬度內', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await mockApi(page)
+  await page.goto('/etf-compare?symbols=0050,0056')
+  await expect(page.getByTestId('chart-ohlc')).toBeVisible()
+  await chartPanel(page).scrollIntoViewIfNeeded()
+
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
+  expect(overflow).toBeLessThanOrEqual(0)
+  for (const id of ['chart-price', 'chart-kd']) {
+    const b = await page.getByTestId(id).boundingBox()
+    expect(b.x).toBeGreaterThanOrEqual(0)
+    expect(b.x + b.width).toBeLessThanOrEqual(390)
+  }
+  await expect(page.getByTestId('chart-ma')).toBeVisible()
+  await expect(page.getByTestId('chart-marks')).toBeVisible()
 })
