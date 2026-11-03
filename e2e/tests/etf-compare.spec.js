@@ -466,8 +466,10 @@ test('急跌表新增「區間最低」與「目前價位」，且區間最低�
   await page.goto('/etf-compare?symbols=0050,0056')
   const row = sym => page.locator(`[data-testid="event-table"] tr[data-symbol="${sym}"]`)
 
-  const heads = await page.locator('[data-testid="event-table"] thead th').allInnerTexts()
-  expect(heads.slice(0, 6)).toEqual(['標的', '區間最低', '區間最高', '其後最低', '回落', '目前價位'])
+  // 品管 11/03：「目前價位」放在「目前價距低點」的前面（反彈幅度之後）
+  const headCells = page.locator('[data-testid="event-table"] thead th')
+  const heads = ['標的', '區間最低', '區間最高', '其後最低', '回落', '反彈高點', '反彈幅度', '目前價位', '目前價距低點', '區間內除息']
+  await expect(headCells).toHaveText(heads) // 會等表格畫出來（allInnerTexts 不會等）
 
   // 區間最低 88.40（6/24，在高點之前）；其後最低 91.80（7/29）；目前價位 = 最新收盤 100.00（10/30）
   await expect(row('0050').getByTestId('window-low')).toContainText('88.40')
@@ -475,6 +477,30 @@ test('急跌表新增「區間最低」與「目前價位」，且區間最低�
   await expect(row('0050')).toContainText('91.80')
   await expect(row('0050').getByTestId('last-price')).toContainText('100.00')
   await expect(row('0050').getByTestId('last-price')).toContainText('10/30')
+
+  // 資料列的格子順序跟表頭一致：目前價位緊接在反彈幅度之後、目前價距低點之前
+  const cells = await row('0050').locator('td').allInnerTexts()
+  expect(cells).toHaveLength(heads.length)
+  expect(cells[6]).toContain('+27.0%')
+  expect(cells[7]).toContain('100.00')
+  expect(cells[8]).toContain('+8.9%')
+})
+
+test('急跌表：尚未反彈的列，目前價位仍然在目前價距低點前面，欄數不跑掉', async ({ page }) => {
+  const override = {
+    '0056': mk('0056', '元大高股息', 'dividend', {
+      total: 92.2, last_close: 50,
+      event: { low: 48, low_date: '2026-10-30', rebound_high: null, rebound_date: null, rebound_pct: null, dividends_in_window: 0 },
+    }),
+  }
+  await mockApi(page, [], override)
+  await page.goto('/etf-compare?symbols=0050,0056')
+  const cells = page.locator('[data-testid="event-table"] tr[data-symbol="0056"] td')
+  // 標的、區間最低、區間最高、其後最低、回落、〔尚未反彈 ×2 欄〕、目前價位、目前價距低點、區間內除息
+  await expect(cells).toHaveCount(9)
+  await expect(cells.nth(5)).toContainText('尚未反彈')
+  await expect(cells.nth(6)).toContainText('50.00')
+  await expect(cells.nth(7)).toContainText('+4.2%')
 })
 
 test('自動偵測可設定基準與回看期間：維持自動模式，請求帶參數、說明文字跟著變', async ({ page }) => {

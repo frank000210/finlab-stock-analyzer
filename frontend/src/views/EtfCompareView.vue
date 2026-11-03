@@ -305,8 +305,8 @@
                 <th title="整段區間內最高的日內高點">區間最高</th>
                 <th title="區間最高點之後的最低點；回落與反彈都以它為準">其後最低</th>
                 <th>回落</th>
-                <th title="最新交易日的收盤價（已處理分割、不含息）">目前價位</th>
                 <th>反彈高點</th><th>反彈幅度</th>
+                <th title="最新交易日的收盤價（已處理分割、不含息）">目前價位</th>
                 <th title="最新收盤 ÷ 其後最低 − 1；沒反彈時也看得出目前離低點多遠">目前價距低點</th><th>區間內除息</th>
               </tr>
             </thead>
@@ -318,7 +318,6 @@
                   <td>{{ price(row.event.high) }} <span class="dt">{{ md(row.event.high_date) }}</span></td>
                   <td>{{ price(row.event.low) }} <span class="dt">{{ md(row.event.low_date) }}</span></td>
                   <td :class="cls(row.event.drawdown)">{{ pct(row.event.drawdown, 1) }}</td>
-                  <td data-testid="last-price">{{ price(row.metrics.last_close) }} <span class="dt">{{ md(row.metrics.last_date) }}</span></td>
                   <template v-if="row.event.rebound_high != null">
                     <td>{{ price(row.event.rebound_high) }} <span class="dt">{{ md(row.event.rebound_date) }}</span></td>
                     <td :class="cls(row.event.rebound_pct)">{{ pct(row.event.rebound_pct, 1, true) }}</td>
@@ -328,6 +327,7 @@
                     <span class="na-tag">尚未反彈</span>
                     <span class="dt">最低點就是最新交易日 {{ md(row.event.low_date) }}</span>
                   </td>
+                  <td data-testid="last-price">{{ price(row.metrics.last_close) }} <span class="dt">{{ md(row.metrics.last_date) }}</span></td>
                   <td :class="cls(fromLow(row))" data-testid="from-low">{{ pct(fromLow(row), 1, true) }}</td>
                   <td>
                     <template v-if="row.event.dividends_in_window > 0">{{ row.event.dividends_in_window.toFixed(2) }} 元</template>
@@ -1127,7 +1127,7 @@ function exportCsv() {
   const ev = result.value.event
   const cols = ['代號', '名稱', '分類', '總分', '報酬分', '抗跌分', '夏普分', '殖利率分', '填息分', '近1年報酬%', '3年年化%', '年化波動%',
     '夏普', '最大回撤%', '近12月殖利率%', '近12月配息(元)', '填息成功率%', '平均填息天數',
-    '急跌區間起', '急跌區間迄', '區間最低', '區間最高', '其後最低', '回落%', '目前價位', '反彈高點', '反彈幅度%', '目前價距低點%', '區間內除息(元)']
+    '急跌區間起', '急跌區間迄', '區間最低', '區間最高', '其後最低', '回落%', '反彈高點', '反彈幅度%', '目前價位', '目前價距低點%', '區間內除息(元)']
   const p = (x, d = 2) => (x == null ? '' : (x * 100).toFixed(d))
   const rows = orderedRows.value.map(s => [
     s.symbol, s.name, categoryLabel(s.category), s.scores.total ?? '', s.scores.return ?? '', s.scores.defense ?? '', s.scores.sharpe ?? '',
@@ -1135,7 +1135,7 @@ function exportCsv() {
     s.metrics.sharpe == null ? '' : s.metrics.sharpe.toFixed(2), p(s.metrics.mdd), p(s.dividends.yield_ttm), s.dividends.ttm_amount ?? '',
     p(s.fill.success_rate, 0), s.fill.avg_days == null ? '' : s.fill.avg_days.toFixed(1),
     ev?.start ?? '', ev?.end ?? '', s.event ? (s.event.window_low ?? s.event.low) : '', s.event?.high ?? '', s.event?.low ?? '', p(s.event?.drawdown),
-    s.metrics.last_close ?? '', s.event?.rebound_high ?? '', p(s.event?.rebound_pct), p(fromLow(s)), s.event?.dividends_in_window ?? '',
+    s.event?.rebound_high ?? '', p(s.event?.rebound_pct), s.metrics.last_close ?? '', p(fromLow(s)), s.event?.dividends_in_window ?? '',
   ])
   downloadCsv(timestampedFilename('etf-compare'), cols, rows)
 }
