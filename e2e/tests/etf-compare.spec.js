@@ -326,6 +326,16 @@ test('匯出 CSV 下載一份含每檔指標的檔案', async ({ page }) => {
     page.getByRole('button', { name: /匯出 CSV/ }).click(),
   ])
   expect(dl.suggestedFilename()).toMatch(/^etf-compare-\d{4}-\d{2}-\d{2}\.csv$/)
+
+  // 急跌欄位的順序與畫面一致：…回落%、反彈高點、反彈幅度%、目前價位、目前價距低點%（品管 11/03）
+  const text = require('fs').readFileSync(await dl.path(), 'utf8')
+  const body = text.charCodeAt(0) === 0xFEFF ? text.slice(1) : text // Excel 用的 UTF-8 BOM
+  const header = body.split('\n')[0].split(',')
+  expect(header[0]).toBe('代號')
+  const at = name => header.indexOf(name)
+  expect(at('回落%')).toBeGreaterThan(0)
+  expect(['回落%', '反彈高點', '反彈幅度%', '目前價位', '目前價距低點%', '區間內除息(元)'].map(at))
+    .toEqual([0, 1, 2, 3, 4, 5].map(n => at('回落%') + n))
 })
 
 test('手機寬度：整頁不出現橫向捲動', async ({ page }) => {
