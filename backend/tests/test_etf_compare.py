@@ -290,6 +290,77 @@ def test_build_symbol_bundle_none_when_no_usable_bars():
     assert core.build_symbol_bundle([{"date": "2024-01-02", "close": 0}], []) is None
 
 
+# ── 走勢圖資料：開盤與成交量、整段歷史 ─────────────────────────────────────────
+
+def _vol_rows(n=10, start="2024-01-02", vol=2_000_000):
+    rows = _bars([100 + i for i in range(n)], start=start, spread=0.01)
+    for i, r in enumerate(rows):
+        r["open"] = r["close"] - 0.5          # 開盤和收盤不同，才看得出有沒有用到真正的 open
+        r["volume"] = vol + i * 1000
+    return rows
+
+
+def test_clean_bars_keeps_volume_and_defaults_missing_to_zero():
+    rows = _vol_rows(3)
+    rows.append({"date": "2024-02-01", "close": 50, "max": 51, "min": 49, "open": 50})   # 沒有量
+    rows.append({"date": "2024-02-02", "close": 50, "max": 51, "min": 49, "open": 50, "Trading_Volume": 7000})
+    out = core.clean_bars(rows)
+    assert [b["volume"] for b in out] == [2_000_000, 2_001_000, 2_002_000, 0.0, 7000]
+
+
+def test_apply_splits_scales_volume_with_the_price_so_turnover_stays_continuous():
+    bars = core.clean_bars([
+        {"date": "2024-01-02", "close": 188.0, "max": 189, "min": 187, "open": 188, "volume": 1000},
+        {"date": "2024-01-03", "close": 47.0, "max": 47.5, "min": 46.5, "open": 47, "volume": 4000},
+    ])
+    adj = core.apply_splits(bars, [{"date": "2024-01-03", "factor": 4.0}])
+    assert adj[0]["close"] == pytest.approx(47.0) and adj[0]["volume"] == pytest.approx(4000)  # 價 ÷4、量 ×4
+    assert adj[1]["volume"] == pytest.approx(4000)                                              # 分割後不動
+
+
+def test_bundle_ohlc_has_open_and_volume_and_keeps_the_whole_history():
+    n = 2000   # ≈ 5.5 年的日曆日：超過保留年限（5 年＋10 天）的最舊幾筆要被丟掉
+    rows = _vol_rows(n, start="2020-01-02")
+    b = core.build_symbol_bundle(rows, [])
+    ohlc = b["ohlc"]
+    assert all(len(r) == 6 for r in ohlc)
+    assert len(ohlc) == len(b["series"]["dates"])
+    assert 740 * 2 < len(ohlc) < n                                          # 不再只留 740 天，但也不是無限長
+    assert [r[0] for r in ohlc] == b["series"]["dates"]
+    d, o, h, lo, c, v = ohlc[-1]
+    assert d == rows[-1]["date"]
+    assert (o, c) == (pytest.approx(rows[-1]["close"] - 0.5), pytest.approx(rows[-1]["close"]))
+    assert lo < o < h and v == rows[-1]["volume"]
+
+
+def test_event_window_numbers_are_unchanged_by_the_richer_ohlc():
+    """事件視窗改讀完整歷史與六欄 ohlc 後，每個數字必須跟直接用日線算的一樣。"""
+    rows = _bars(_DROP, start="2025-01-02", spread=0.01)
+    b = core.build_symbol_bundle(rows, [])
+    start, end = rows[0]["date"], rows[12]["date"]
+    ref = core.event_window(core.apply_splits(core.clean_bars(rows), []), [], start, end)
+    got = core.bundle_event(b, start, end)
+    assert got is not None and ref is not None
+    for k, v in ref.items():
+        if isinstance(v, float):
+            assert got[k] == pytest.approx(v, abs=1e-3), k
+        else:
+            assert got[k] == v, k
+
+
+def test_chart_payload_is_columnar_and_converts_volume_to_lots():
+    rows = _vol_rows(5)
+    b = core.build_symbol_bundle(rows, [])
+    p = core.chart_payload(b)
+    n = len(p["dates"])
+    assert n == 5 and all(len(p[k]) == n for k in ("open", "high", "low", "close", "volume"))
+    assert p["volume"][0] == 2000        # 2,000,000 股 → 2,000 張
+    assert p["open"][0] == pytest.approx(rows[0]["close"] - 0.5)
+    assert p["dividend_events"] == [] and p["splits"] == []
+    assert core.chart_payload({}) == {"dates": [], "open": [], "high": [], "low": [], "close": [], "volume": [],
+                                      "dividend_events": [], "splits": []}
+
+
 # ── 分類 ────────────────────────────────────────────────────────────────────
 
 @pytest.mark.parametrize("sym,name,cat", [
@@ -474,6 +545,67 @@ def test_auto_parameters_are_validated(api):
     assert client.get("/api/v1/etf-compare/compare", params={"symbols": "0050", "auto_anchor": "0050;x"}).status_code == 400
     assert client.get("/api/v1/etf-compare/compare", params={"symbols": "0050", "auto_lookback": 10}).status_code == 422
     assert client.get("/api/v1/etf-compare/compare", params={"symbols": "0050", "auto_lookback": 9999}).status_code == 422
+
+
+# ── /chart：單檔走勢圖資料 ─────────────────────────────────────────────────────
+
+def test_chart_from_cached_bundle_does_not_charge_the_fetch_quota(api):
+    client, consumed, store, loaded = api
+    store["0050"] = _fake_bundle(_FLAT)
+    r = client.get("/api/v1/etf-compare/chart", params={"symbol": "0050"})
+    assert r.status_code == 200
+    d = r.json()["data"]
+    assert d["symbol"] == "0050" and len(d["dates"]) == len(_FLAT)
+    assert all(len(d[k]) == len(d["dates"]) for k in ("open", "high", "low", "close", "volume"))
+    assert consumed == [("etf_compare_req:9.9.9.9", 1)]   # 只有很寬的「請求數」；沒扣 FinMind 額度
+    assert loaded == []
+
+
+def test_chart_normalises_the_symbol_and_charges_one_fetch_on_a_cache_miss(api):
+    client, consumed, store, loaded = api
+    r = client.get("/api/v1/etf-compare/chart", params={"symbol": " 0056 "})
+    assert r.status_code == 200 and r.json()["data"]["symbol"] == "0056"
+    assert ("etf_compare_fetch:9.9.9.9", 1) in consumed
+    assert loaded == ["0056"]
+
+
+@pytest.mark.parametrize("sym", ["", "  ", "0050;DROP", "../etc", "ABCDEFGHI", "00"])
+def test_chart_rejects_bad_symbols(api, sym):
+    client, _, _, loaded = api
+    r = client.get("/api/v1/etf-compare/chart", params={"symbol": sym})
+    assert r.status_code in (400, 422)
+    assert loaded == []   # 驗證在抓資料之前
+
+
+def test_chart_404_when_the_symbol_has_no_price_data(api):
+    client, _, store, _ = api
+    store["99999"] = {"ok": False}     # /compare 查過、確定沒有日線的標記
+    r = client.get("/api/v1/etf-compare/chart", params={"symbol": "99999"})
+    assert r.status_code == 404 and "查無日線資料" in r.json()["detail"]
+
+
+def test_chart_502_hides_the_upstream_error_detail(api, monkeypatch):
+    import app.api.etf_compare as mod
+    client, *_ = api
+
+    async def boom(symbol, sem, cached=mod._MISS):
+        raise RuntimeError("secret finmind token abc123")
+
+    monkeypatch.setattr(mod, "_load_bundle", boom)
+    r = client.get("/api/v1/etf-compare/chart", params={"symbol": "0050"})
+    assert r.status_code == 502
+    assert "abc123" not in r.text
+
+
+def test_chart_respects_the_fetch_quota(api, monkeypatch):
+    client, *_ = api
+
+    async def over(key, cost=1, category="rate_limit"):
+        return (1, 600) if "_req:" in key else (10_000, 125)
+
+    monkeypatch.setattr("app.db.cache.consume_fixed_window", over)
+    r = client.get("/api/v1/etf-compare/chart", params={"symbol": "0050"})   # 快取沒命中 → 要扣額度 → 被擋
+    assert r.status_code == 429 and r.headers["retry-after"] == "125"
 
 
 # ── 固定視窗計數器（db/cache.consume_fixed_window）────────────────────────────

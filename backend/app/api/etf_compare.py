@@ -1,8 +1,9 @@
 """ETF／個股綜合比較 API。
 
-兩支端點：
+三支端點：
 - GET /api/v1/etf-compare/catalog  可選標的（FinMind 的 ETF 清單＋分類）與一鍵情境
 - GET /api/v1/etf-compare/compare  最多 10 檔的績效、配息、填息、五維評分、急跌與反彈
+- GET /api/v1/etf-compare/chart    單檔看盤價日線（開高低收量）與除息日，給急跌與反彈的走勢圖
 
 所有數字由 analysis/etf_compare.py 從 FinMind 日線與除息紀錄算出；單檔結果快取 6 小時
 （key 含日期，跨日自然失效），所以重複比較同一批標的不會再打 FinMind（免費額度很吃緊）。
@@ -36,7 +37,7 @@ _FETCH_CONCURRENCY = 4
 #   所以同一批標的只有第一次會計。
 _RATE_MAX_REQUESTS = 300
 _RATE_MAX_FETCHES = 60
-_BUNDLE_VERSION = "v1"  # 改了計算邏輯就加一，舊快取自然作廢
+_BUNDLE_VERSION = "v2"  # 改了計算邏輯或快取內容就加一，舊快取自然作廢（v2：ohlc 加開盤與成交量、保留整段歷史）
 _AUTO_LOOKBACK_DEFAULT = 180
 _MISS = object()
 
@@ -224,6 +225,31 @@ async def _load_bundle(symbol: str, sem: asyncio.Semaphore, cached=_MISS) -> Opt
     bundle["ok"] = True
     await _cache_set(key, bundle)
     return bundle
+
+
+@router.get("/chart", dependencies=[Depends(_check_request_rate)])
+async def chart(
+    request: Request,
+    symbol: str = Query(..., description="單一標的代碼；回傳看盤價日線（含開高低收量）與除息日，給急跌與反彈的走勢圖用"),
+):
+    """單檔走勢圖資料。優先讀 /compare 剛存好的單檔快取（不碰 FinMind）；沒快取才真的去抓，並計入抓取額度。
+
+    不併進 /compare：10 檔 × 約 1,350 根日線會讓每次比較多出數百 KB，而走勢圖一次只看一檔。
+    """
+    s = (symbol or "").strip().upper()
+    if not _SYMBOL_RE.match(s):
+        raise HTTPException(status_code=400, detail=f"不支援的標的代碼格式：{(symbol or '').strip()[:12]}")
+    cached = await _cache_get(_bundle_key(s))
+    if not cached:
+        await _consume(request, "fetch", 1, _RATE_MAX_FETCHES)
+    try:
+        bundle = await _load_bundle(s, asyncio.Semaphore(1), cached)
+    except Exception:
+        logger.exception("etf_compare chart: load failed for %s", s)
+        raise HTTPException(status_code=502, detail="資料來源暫時無法取得，請稍後再試。")
+    if bundle is None:
+        raise HTTPException(status_code=404, detail="查無日線資料（代碼錯誤或尚未上市）。")
+    return {"success": True, "data": {"symbol": s, **core.chart_payload(bundle)}}
 
 
 @router.get("/compare", dependencies=[Depends(_check_request_rate)])

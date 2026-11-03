@@ -57,9 +57,10 @@ def _clamp(x: float, lo: float, hi: float) -> float:
 # ═════════════════════════════════════════════════════════════════════════════
 
 def clean_bars(rows: list[dict]) -> list[dict]:
-    """FinMind TaiwanStockPrice 的列 → [{date, open, high, low, close}]，依日期排序。
+    """FinMind TaiwanStockPrice 的列 → [{date, open, high, low, close, volume}]，依日期排序。
 
     收盤價 <= 0（停牌日）的列直接丟掉，否則會產生 -100% / 無限大的報酬。
+    volume 是成交股數（FinMind 的 Trading_Volume；走勢圖才用，缺值當 0）。
     """
     out = []
     for r in rows or []:
@@ -72,7 +73,12 @@ def clean_bars(rows: list[dict]) -> list[dict]:
         high = float(r.get("max", r.get("high", close)) or close)
         low = float(r.get("min", r.get("low", close)) or close)
         opn = float(r.get("open", close) or close)
-        out.append({"date": str(r["date"])[:10], "open": opn, "high": high, "low": low, "close": close})
+        try:
+            vol = float(r.get("volume", r.get("Trading_Volume", 0)) or 0)
+        except (TypeError, ValueError):
+            vol = 0.0
+        out.append({"date": str(r["date"])[:10], "open": opn, "high": high, "low": low, "close": close,
+                    "volume": max(vol, 0.0)})
     out.sort(key=lambda b: b["date"])
     return out
 
@@ -94,7 +100,7 @@ def detect_splits(bars: list[dict]) -> list[dict]:
 
 
 def apply_splits(bars: list[dict], splits: list[dict]) -> list[dict]:
-    """把分割日之前的價格除以倍率，讓整段價格是現在的尺度。"""
+    """把分割日之前的價格除以倍率（成交股數乘上倍率），讓整段價格與量都是現在的尺度。"""
     if not splits:
         return [dict(b) for b in bars]
     out = []
@@ -106,6 +112,7 @@ def apply_splits(bars: list[dict], splits: list[dict]) -> list[dict]:
         out.append({
             "date": b["date"],
             "open": b["open"] / f, "high": b["high"] / f, "low": b["low"] / f, "close": b["close"] / f,
+            "volume": b.get("volume", 0.0) * f,
         })
     return out
 
@@ -486,19 +493,40 @@ def build_symbol_bundle(price_rows: list[dict], dividend_rows: list[dict], max_s
         "splits": splits,
         # 走勢用：還原價（含息），前端依時間範圍重新以 100 起算
         "series": {"dates": [sbars[i]["date"] for i in keep], "adj": [round(adj[i], 4) for i in keep]},
-        # 事件視窗用：看盤價的日內高低（只留近 2 年，夠用且省空間）
-        "ohlc": [[b["date"], round(b["high"], 4), round(b["low"], 4), round(b["close"], 4)]
-                 for b in sbars if b["date"] >= (last - timedelta(days=740)).isoformat()],
+        # 事件視窗與走勢圖用：看盤價（已處理分割、未含息）的 [日期, 開, 高, 低, 收, 成交股數]。
+        # 留整段（約 5.5 年）：走勢圖的 MA240 需要 240 根日線暖機，只留 2 年會讓前半段的長均線是空的
+        "ohlc": [[sbars[i]["date"], round(sbars[i]["open"], 4), round(sbars[i]["high"], 4),
+                  round(sbars[i]["low"], 4), round(sbars[i]["close"], 4), int(round(sbars[i]["volume"]))]
+                 for i in keep],
         "dividend_events": [{"date": d["date"], "amount": round(d["amount"], 4)} for d in dividends
-                            if d["date"] >= (last - timedelta(days=740)).isoformat()],
+                            if d["date"] >= cut],
     }
 
 
 def bundle_event(bundle: dict, start: str, end: str, rebound_end: Optional[str] = None) -> Optional[dict]:
-    """用快取的 bundle 算事件視窗（bundle['ohlc'] 是 [date, high, low, close]）。"""
-    bars = [{"date": d, "high": h, "low": lo, "close": c, "open": c} for d, h, lo, c in bundle.get("ohlc", [])]
+    """用快取的 bundle 算事件視窗（bundle['ohlc'] 是 [date, open, high, low, close, volume]）。"""
+    bars = [{"date": d, "open": o, "high": h, "low": lo, "close": c}
+            for d, o, h, lo, c, _v in bundle.get("ohlc", [])]
     divs = [{"date": e["date"], "amount": e["amount"]} for e in bundle.get("dividend_events", [])]
     return event_window(bars, divs, start, end, rebound_end)
+
+
+def chart_payload(bundle: dict) -> dict:
+    """走勢圖端點的回傳：欄式陣列的日線（價格＝看盤價，量換算成「張」）＋除息日與分割。
+
+    指標（MA、KD）不在這裡算，由前端用同一份日線即時算，才能隨勾選與縮放自由變動。
+    """
+    rows = bundle.get("ohlc") or []
+    return {
+        "dates": [r[0] for r in rows],
+        "open": [r[1] for r in rows],
+        "high": [r[2] for r in rows],
+        "low": [r[3] for r in rows],
+        "close": [r[4] for r in rows],
+        "volume": [int(round(r[5] / 1000)) for r in rows],
+        "dividend_events": list(bundle.get("dividend_events") or []),
+        "splits": list(bundle.get("splits") or []),
+    }
 
 
 def bundle_drawdown_episode(bundle: dict, lookback_days: int = 180, min_drop: float = 0.05) -> Optional[dict]:
