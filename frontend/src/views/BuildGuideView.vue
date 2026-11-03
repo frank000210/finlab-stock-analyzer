@@ -65,6 +65,7 @@
         <section id="overview" class="chapter" aria-labelledby="overview-h">
           <h2 id="overview-h"><span class="ch-no">1</span>先看全貌：網站就像一間餐廳</h2>
           <p class="ch-lead">想像你要開一間餐廳。網站從想法到上線，剛好對應這六個動作。</p>
+          <GuideFigure :fig="FIGURES.overview" />
           <ol class="flow">
             <li v-for="(f, i) in FLOW" :key="f.name" class="flow-card" data-testid="flow-step">
               <span class="flow-no">{{ i + 1 }}</span>
@@ -97,6 +98,7 @@
               <p class="gloss-like">{{ w.like }}</p>
             </article>
           </div>
+          <GuideFigure :fig="FIGURES.words" />
         </section>
 
         <!-- 3 GitHub -->
@@ -139,6 +141,9 @@
 
           <p class="callout warn"><TriangleAlert :size="16" aria-hidden="true" /><span><b>{{ HOSTING.lesson.title }}</b><br />{{ HOSTING.lesson.text }}</span></p>
 
+          <h3 class="sub">先看一張圖：別人怎麼走進你的網站</h3>
+          <GuideFigure :fig="FIGURES.hosting" />
+
           <h3 class="sub">照本站的做法申請（騰訊雲 Lighthouse）</h3>
           <div class="steps">
             <GuideStep
@@ -180,6 +185,7 @@
         <section id="cycle" class="chapter" aria-labelledby="cycle-h">
           <h2 id="cycle-h"><span class="ch-no">6</span>日常開發一輪長怎樣</h2>
           <p class="ch-lead">{{ CYCLE.lead }}</p>
+          <GuideFigure :fig="FIGURES.cycle" />
           <ol class="timeline">
             <li v-for="(s, i) in CYCLE.steps" :key="s.name" data-testid="cycle-step">
               <span class="tl-no">{{ i + 1 }}</span>
@@ -263,10 +269,11 @@ import {
   Bot, ChevronDown, ClipboardCheck, ExternalLink, GitBranch, Globe, Info,
   Lightbulb, Printer, Server, TriangleAlert, User,
 } from 'lucide-vue-next'
+import GuideFigure from '../components/guide/GuideFigure.vue'
 import GuideStep from '../components/guide/GuideStep.vue'
 import { richText } from '../lib/guideText.js'
 import {
-  AFTER, CHAPTERS, CHECKLIST, CYCLE, FAQ, FLOW, GITHUB, HOSTING, LINKS, META,
+  AFTER, CHAPTERS, CHECKLIST, CYCLE, FAQ, FIGURES, FLOW, GITHUB, HOSTING, LINKS, META,
   OUR_SETUP, QUICK, ROLES, SOURCES, WORDS,
 } from '../lib/buildGuideContent.js'
 

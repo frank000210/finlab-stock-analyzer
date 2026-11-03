@@ -2,9 +2,53 @@
 // 標記語法見 guideText.js：**粗體**、`程式碼`、[文字](https://…)。
 // 申請步驟與價格會隨官網改版而變：每次更新內容時一併更新 META.checkedOn 與 SOURCES。
 
+import overviewImg from '../assets/guide/overview.svg'
+import wordsImg from '../assets/guide/words.svg'
+import hostingImg from '../assets/guide/hosting.svg'
+import cycleImg from '../assets/guide/cycle.svg'
+
 export const META = {
   checkedOn: '2026-11-02',
   readMinutes: 15,
+}
+
+// 示意圖（FigureLabs 產生的 SVG，放在 assets/guide/；檔名帶雜湊，換圖不會被 service worker 的舊快取卡住）。
+// 圖只放不易變的概念（流程、關係、比喻）；價格、日期、官網按鈕名稱一律寫在文字裡，不進圖。
+// 配色與頁面的「你／AI／機器人」標籤一致：橘＝你、藍＝AI、綠＝機器人、灰＝主機與網路。
+// alt 是給讀屏軟體的完整說明，caption 是圖下方的一句話。
+export const FIGURES = {
+  overview: {
+    id: 'overview',
+    src: overviewImg,
+    width: 1320,
+    height: 680,
+    alt: '網站從想法到上線的六個站，像開一間餐廳：1 說出想法（你做，像點菜）、2 AI 寫程式（像廚房）、3 存到 GitHub（像食譜本）、4 自動測試（機器人做，像試吃）、5 放上主機（像店面）、6 對外網址（像招牌，訪客可以走進來）。第 4 站測試沒過關，會退回第 2 站請 AI 修正。',
+    caption: '橘色是你做、藍色是 AI 做、綠色是機器人做。測試沒過關就退回修，不會上線。',
+  },
+  words: {
+    id: 'words',
+    src: wordsImg,
+    width: 1320,
+    height: 620,
+    alt: '存檔、上傳、部署發生在三個不同的地方。第一，你的電腦：改好的程式經過 commit（存檔）變成一個存檔點，像遊戲存檔。第二，GitHub（雲端食譜本）：用 push（上傳）把存檔點送上去，倉庫裡留著所有存檔點，可以退回任何一天；本站在上傳之前，必須先通過自動測試。第三，主機（店面）：用 deploy（部署）把網站放上去，訪客看到的才是這個版本。所以程式存到 GitHub，不等於線上版已更新，要部署才算上線。',
+    caption: '存檔在你的電腦、上傳到 GitHub、部署到主機，是三個不同的動作。',
+  },
+  hosting: {
+    id: 'hosting',
+    src: hostingImg,
+    width: 1320,
+    height: 740,
+    alt: '訪客在瀏覽器輸入網址（像招牌，例如 1-2-3-4.sslip.io），網址對應到主機的 IP 位址（像門牌，例如 1.2.3.4），經過 80、443 號門來到你的主機。主機裡依序是：防火牆（像大樓門禁，只開 80 與 443 兩道門給訪客）、Caddy（負責加密，網址前出現小鎖頭）、網站程式（裝在 Docker 貨櫃裡）、資料庫（每天自動備份）。另外，管理者（你）用金鑰從 22 號門進入主機做管理，這道門只收金鑰。',
+    caption: '網址是招牌、IP 是門牌；防火牆只開必要的門。下面的申請步驟，就是在把這幾樣東西一一備齊。',
+  },
+  cycle: {
+    id: 'cycle',
+    src: cycleImg,
+    width: 1320,
+    height: 640,
+    alt: '日常開發一輪的泳道圖，分「你」「AI」「機器人」三條泳道。第 1 步，你：品管回報問題。第 2 步，AI：整理成計畫，之後是你的關卡 1：看計畫。第 3 步，AI：找原因並修正。第 4 步，AI：本機先驗證，之後是你的關卡 2：看預覽。第 5 步，機器人：自動檢查把關，沒過關會退回第 3 步重修。第 6 步，AI：上線並驗證，之後是你的關卡 3：看上線結果。第 7 步，AI：回報品管。',
+    caption: '一輪下來，你只要把三道關：看計畫、看預覽、看上線結果；其餘交給 AI 與機器人。',
+  },
 }
 
 export const CHAPTERS = [

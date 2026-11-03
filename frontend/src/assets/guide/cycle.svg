@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1320" height="640" viewBox="0 0 1320 640">
+  <title>日常開發一輪：誰做什麼</title>
+  <desc>日常開發一輪的泳道圖，分「你」「AI」「機器人」三條泳道。1 你：品管回報問題。2 AI：整理成計畫，之後是你的關卡 1：看計畫。3 AI：找原因並修正。4 AI：本機先驗證，之後是關卡 2：看預覽。5 機器人：自動檢查把關，沒過關會退回第 3 步重修。6 AI：上線並驗證，之後是關卡 3：看上線結果。7 AI：回報品管。</desc>
+  <defs>
+    <marker id="a-slate" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M 0 0 L 10 5 L 0 10 Z" fill="#475569"/></marker>
+    <marker id="a-red" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M 0 0 L 10 5 L 0 10 Z" fill="#dc2626"/></marker>
+    <style>
+      text { font-family: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", Arial, sans-serif; fill: #1f2937; }
+      .title { font-size: 44px; font-weight: 700; text-anchor: middle; }
+      .laneName { font-size: 28px; font-weight: 700; text-anchor: middle; dominant-baseline: middle; }
+      .stepText { font-size: 19px; font-weight: 700; text-anchor: middle; }
+      .badgeText { font-size: 16px; font-weight: 700; fill: #fff; text-anchor: middle; dominant-baseline: middle; }
+      .gateNo { font-size: 17px; font-weight: 700; fill: #b45309; text-anchor: middle; }
+      .gateText { font-size: 19px; font-weight: 700; text-anchor: middle; }
+      .flow { stroke: #475569; stroke-width: 3; fill: none; marker-end: url(#a-slate); stroke-linecap: round; stroke-linejoin: round; }
+      .fail { stroke: #dc2626; stroke-width: 3; fill: none; stroke-dasharray: 9,7; marker-end: url(#a-red); stroke-linecap: round; stroke-linejoin: round; }
+      .tie { stroke: #d97706; stroke-width: 2.5; fill: none; stroke-dasharray: 2,6; stroke-linecap: round; }
+      .failLabel { font-size: 19px; font-weight: 700; fill: #b91c1c; text-anchor: middle; }
+    </style>
+  </defs>
+  <rect x="0" y="0" width="1320" height="640" fill="#fff"/>
+  <text x="660" y="66" class="title">日常開發一輪：誰做什麼</text>
+  <rect x="40" y="100" width="1240" height="150" rx="18" fill="#fffbeb" stroke="#fde68a" stroke-width="2"/>
+  <rect x="40" y="100" width="116" height="150" rx="18" fill="#fde68a"/>
+  <rect x="130" y="100" width="26" height="150" fill="#fde68a"/>
+  <text x="98" y="175" class="laneName" style="fill:#b45309">你</text>
+  <rect x="40" y="260" width="1240" height="160" rx="18" fill="#eff6ff" stroke="#bfdbfe" stroke-width="2"/>
+  <rect x="40" y="260" width="116" height="160" rx="18" fill="#bfdbfe"/>
+  <rect x="130" y="260" width="26" height="160" fill="#bfdbfe"/>
+  <text x="98" y="340" class="laneName" style="fill:#1d4ed8">AI</text>
+  <rect x="40" y="430" width="1240" height="160" rx="18" fill="#ecfdf5" stroke="#a7f3d0" stroke-width="2"/>
+  <rect x="40" y="430" width="116" height="160" rx="18" fill="#a7f3d0"/>
+  <rect x="130" y="430" width="26" height="160" fill="#a7f3d0"/>
+  <text x="98" y="510" class="laneName" style="fill:#047857">機器人</text>
+  <path d="M 405.5 213 V 300" class="tie"/>
+  <path d="M 722.5 213 V 300" class="tie"/>
+  <path d="M 1039.5 213 V 300" class="tie"/>
+  <rect x="343.5" y="137" width="124" height="76" rx="14" fill="#fff7ed" stroke="#d97706" stroke-width="2.4"/>
+  <path d="M 357.5 179 V 149 H 375.5 L 370.5 156 L 375.5 163 H 361.5 V 179 Z" fill="#d97706"/>
+  <text x="413.5" y="165" class="gateNo">關卡 1</text>
+  <text x="405.5" y="195" class="gateText">看計畫</text>
+  <rect x="660.5" y="137" width="124" height="76" rx="14" fill="#fff7ed" stroke="#d97706" stroke-width="2.4"/>
+  <path d="M 674.5 179 V 149 H 692.5 L 687.5 156 L 692.5 163 H 678.5 V 179 Z" fill="#d97706"/>
+  <text x="730.5" y="165" class="gateNo">關卡 2</text>
+  <text x="722.5" y="195" class="gateText">看預覽</text>
+  <rect x="977.5" y="137" width="124" height="76" rx="14" fill="#fff7ed" stroke="#d97706" stroke-width="2.4"/>
+  <path d="M 991.5 179 V 149 H 1009.5 L 1004.5 156 L 1009.5 163 H 995.5 V 179 Z" fill="#d97706"/>
+  <text x="1047.5" y="165" class="gateNo">關卡 3</text>
+  <text x="1039.5" y="195" class="gateText">看上線結果</text>
+  <rect x="185" y="137" width="124" height="76" rx="14" fill="#fff" stroke="#d97706" stroke-width="2.6"/>
+  <circle cx="189" cy="141" r="15" fill="#d97706"/>
+  <text x="189" y="141" class="badgeText">1</text>
+  <text x="247" y="185" class="stepText">品管回報問題</text>
+  <rect x="343.5" y="302" width="124" height="76" rx="14" fill="#fff" stroke="#2563eb" stroke-width="2.6"/>
+  <circle cx="347.5" cy="306" r="15" fill="#2563eb"/>
+  <text x="347.5" y="306" class="badgeText">2</text>
+  <text x="405.5" y="350" class="stepText">整理成計畫</text>
+  <rect x="502" y="302" width="124" height="76" rx="14" fill="#fff" stroke="#2563eb" stroke-width="2.6"/>
+  <circle cx="506" cy="306" r="15" fill="#2563eb"/>
+  <text x="506" y="306" class="badgeText">3</text>
+  <text x="564" y="350" class="stepText">找原因並修正</text>
+  <rect x="660.5" y="302" width="124" height="76" rx="14" fill="#fff" stroke="#2563eb" stroke-width="2.6"/>
+  <circle cx="664.5" cy="306" r="15" fill="#2563eb"/>
+  <text x="664.5" y="306" class="badgeText">4</text>
+  <text x="722.5" y="350" class="stepText">本機先驗證</text>
+  <rect x="819" y="452" width="124" height="76" rx="14" fill="#fff" stroke="#059669" stroke-width="2.6"/>
+  <circle cx="823" cy="456" r="15" fill="#059669"/>
+  <text x="823" y="456" class="badgeText">5</text>
+  <text x="881" y="500" class="stepText">自動檢查把關</text>
+  <rect x="977.5" y="302" width="124" height="76" rx="14" fill="#fff" stroke="#2563eb" stroke-width="2.6"/>
+  <circle cx="981.5" cy="306" r="15" fill="#2563eb"/>
+  <text x="981.5" y="306" class="badgeText">6</text>
+  <text x="1039.5" y="350" class="stepText">上線並驗證</text>
+  <rect x="1136" y="302" width="124" height="76" rx="14" fill="#fff" stroke="#2563eb" stroke-width="2.6"/>
+  <circle cx="1140" cy="306" r="15" fill="#2563eb"/>
+  <text x="1140" y="306" class="badgeText">7</text>
+  <text x="1198" y="350" class="stepText">回報品管</text>
+  <path d="M 247 214 V 340 H 340.5" class="flow"/>
+  <path d="M 468.5 340 H 499" class="flow"/>
+  <path d="M 627 340 H 657.5" class="flow"/>
+  <path d="M 722.5 379 V 490 H 816" class="flow"/>
+  <path d="M 944 490 H 1039.5 V 381" class="flow"/>
+  <path d="M 1102.5 340 H 1133" class="flow"/>
+  <path d="M 881 529 V 562 H 564 V 381" class="fail"/>
+  <text x="722.5" y="552" class="failLabel">沒過關，退回修</text>
+</svg>

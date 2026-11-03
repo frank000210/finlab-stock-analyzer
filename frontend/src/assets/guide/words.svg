@@ -1,0 +1,90 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1320" height="620" viewBox="0 0 1320 620">
+  <title>存檔、上傳、部署，差在哪？</title>
+  <desc>commit 存檔發生在你的電腦，push 上傳把存檔點送到 GitHub，deploy 部署把網站放到主機。程式存到 GitHub，不等於線上版已更新，要部署才算上線。</desc>
+  <defs>
+    <marker id="a-amber" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 Z" fill="#d97706"/>
+    </marker>
+    <marker id="a-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 Z" fill="#2563eb"/>
+    </marker>
+    <marker id="a-slate" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 Z" fill="#475569"/>
+    </marker>
+    <style>
+      text { font-family: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", Arial, sans-serif; fill: #1f2937; }
+      .title { font-size: 44px; font-weight: 700; text-anchor: middle; }
+      .panel { fill: #fff; stroke: #cbd5e1; stroke-width: 2.5; }
+      .head { font-size: 26px; font-weight: 700; text-anchor: middle; }
+      .sub { font-size: 18px; text-anchor: middle; fill: #475569; }
+      .divider { stroke: #e2e8f0; stroke-width: 2; }
+      .card { fill: #fff; stroke: #cbd5e1; stroke-width: 2.2; }
+      .cardText { font-size: 22px; font-weight: 700; text-anchor: middle; }
+      .note { font-size: 18px; font-weight: 600; text-anchor: middle; }
+      .chip { fill: #dbeafe; stroke: #93c5fd; stroke-width: 1.5; }
+      .chipText { font-size: 16px; font-weight: 600; text-anchor: middle; fill: #1e3a8a; }
+      .label { font-size: 20px; font-weight: 700; }
+      .small { font-size: 17px; font-weight: 600; text-anchor: middle; fill: #1d4ed8; }
+      .banner { fill: #fef3c7; stroke: #f59e0b; stroke-width: 2.2; }
+      .bannerText { font-size: 26px; font-weight: 700; text-anchor: middle; fill: #b45309; }
+    </style>
+  </defs>
+
+  <rect x="0" y="0" width="1320" height="620" fill="#fff"/>
+  <text x="660" y="76" class="title">存檔、上傳、部署，差在哪？</text>
+
+  <!-- 面板 1：你的電腦 -->
+  <rect x="60" y="120" width="300" height="360" rx="26" class="panel"/>
+  <text x="210" y="168" class="head" style="fill:#b45309">你的電腦</text>
+  <text x="210" y="198" class="sub">程式在這裡修改</text>
+  <line x1="80" y1="216" x2="340" y2="216" class="divider"/>
+  <rect x="100" y="240" width="220" height="56" rx="12" class="card"/>
+  <text x="210" y="276" class="cardText">改好的程式</text>
+  <rect x="100" y="366" width="220" height="56" rx="12" class="card" style="stroke:#d97706"/>
+  <text x="210" y="402" class="cardText">存檔點</text>
+  <text x="210" y="452" class="note" style="fill:#b45309">像遊戲存檔</text>
+
+  <!-- 面板 2：GitHub -->
+  <rect x="510" y="120" width="300" height="360" rx="26" class="panel"/>
+  <text x="660" y="168" class="head" style="fill:#1d4ed8">GitHub（雲端食譜本）</text>
+  <text x="660" y="198" class="sub">所有存檔點都留在這</text>
+  <line x1="530" y1="216" x2="790" y2="216" class="divider"/>
+  <rect x="540" y="236" width="240" height="186" rx="14" style="fill:#f1f5fd;stroke:#2563eb;stroke-width:2.2"/>
+  <text x="660" y="268" class="cardText" style="font-size:20px">倉庫（repository）</text>
+  <rect x="565" y="284" width="190" height="30" rx="8" class="chip"/>
+  <text x="660" y="305" class="chipText">存檔點 3（最新）</text>
+  <rect x="565" y="322" width="190" height="30" rx="8" class="chip"/>
+  <text x="660" y="343" class="chipText">存檔點 2</text>
+  <rect x="565" y="360" width="190" height="30" rx="8" class="chip"/>
+  <text x="660" y="381" class="chipText">存檔點 1</text>
+  <text x="660" y="452" class="note" style="fill:#1d4ed8">可以退回任何一天</text>
+
+  <!-- 面板 3：主機 -->
+  <rect x="960" y="120" width="300" height="360" rx="26" class="panel"/>
+  <text x="1110" y="168" class="head" style="fill:#475569">主機（店面）</text>
+  <text x="1110" y="198" class="sub">網站在這裡營業</text>
+  <line x1="980" y1="216" x2="1240" y2="216" class="divider"/>
+  <rect x="990" y="236" width="240" height="186" rx="14" style="fill:#fff;stroke:#475569;stroke-width:2.2"/>
+  <path d="M 990 266 V 250 a 14 14 0 0 1 14 -14 H 1216 a 14 14 0 0 1 14 14 V 266 Z" style="fill:#e2e8f0"/>
+  <circle cx="1010" cy="251" r="4.5" fill="#94a3b8"/>
+  <circle cx="1026" cy="251" r="4.5" fill="#94a3b8"/>
+  <circle cx="1042" cy="251" r="4.5" fill="#94a3b8"/>
+  <text x="1110" y="338" class="cardText">正在營業的網站</text>
+  <text x="1110" y="452" class="note" style="fill:#475569">訪客看到的版本</text>
+
+  <!-- 箭頭（畫在面板之後，尖端停在方塊邊緣） -->
+  <path d="M 210 300 V 362" style="stroke:#d97706;stroke-width:4;fill:none;marker-end:url(#a-amber);stroke-linecap:round"/>
+  <text x="226" y="338" class="label" style="fill:#b45309">commit 存檔</text>
+
+  <path d="M 324 394 H 536" style="stroke:#2563eb;stroke-width:4;fill:none;marker-end:url(#a-blue);stroke-linecap:round"/>
+  <text x="435" y="376" class="label" style="fill:#1d4ed8;text-anchor:middle">push 上傳</text>
+  <text x="435" y="424" class="small">本站：先通過</text>
+  <text x="435" y="445" class="small">自動測試才能上傳</text>
+
+  <path d="M 784 394 H 986" style="stroke:#475569;stroke-width:4;fill:none;marker-end:url(#a-slate);stroke-linecap:round"/>
+  <text x="885" y="376" class="label" style="fill:#475569;text-anchor:middle">deploy 部署</text>
+
+  <!-- 重點提醒 -->
+  <rect x="210" y="520" width="900" height="64" rx="18" class="banner"/>
+  <text x="660" y="562" class="bannerText">存到 GitHub ≠ 線上版已更新，要「部署」才算上線</text>
+</svg>

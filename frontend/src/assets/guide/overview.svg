@@ -1,0 +1,100 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1320" height="680" viewBox="0 0 1320 680">
+  <title>網站從想法到上線，六個站</title>
+  <desc>以開餐廳比喻網站從想法到上線的六個步驟：說出想法（你）、AI 寫程式、存到 GitHub、自動測試（機器人）、放上主機、對外網址。測試沒過關會退回 AI 修正。</desc>
+  <defs>
+    <marker id="arrow-main" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 Z" fill="#475569"/>
+    </marker>
+    <marker id="arrow-fail" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 Z" fill="#dc2626"/>
+    </marker>
+    <style>
+      text { font-family: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", Arial, sans-serif; fill: #1f2937; }
+      .title { font-size: 44px; font-weight: 700; text-anchor: middle; }
+      .card { fill: #fff; stroke: #cbd5e1; stroke-width: 2.5; }
+      .num { font-size: 44px; font-weight: 700; }
+      .n-you { fill: #d97706; }
+      .n-ai { fill: #2563eb; }
+      .n-bot { fill: #059669; }
+      .n-net { fill: #475569; }
+      .stepTitle { font-size: 28px; font-weight: 700; text-anchor: middle; }
+      .meta { font-size: 20px; fill: #475569; text-anchor: middle; }
+      .pillText { font-size: 18px; font-weight: 700; fill: #fff; text-anchor: middle; dominant-baseline: middle; }
+      .p-you { fill: #b45309; }
+      .p-ai { fill: #1d4ed8; }
+      .p-bot { fill: #047857; }
+      .p-net { fill: #475569; }
+      .flow { stroke: #475569; stroke-width: 4; fill: none; marker-end: url(#arrow-main); stroke-linecap: round; stroke-linejoin: round; }
+      .fail { stroke: #dc2626; stroke-width: 3.5; fill: none; stroke-dasharray: 9,8; marker-end: url(#arrow-fail); stroke-linecap: round; stroke-linejoin: round; }
+      .label { font-size: 20px; font-weight: 700; fill: #475569; text-anchor: middle; }
+      .failLabel { font-size: 20px; font-weight: 700; fill: #b91c1c; text-anchor: middle; }
+    </style>
+  </defs>
+
+  <rect x="0" y="0" width="1320" height="680" fill="#fff"/>
+  <text x="660" y="74" class="title">網站從想法到上線，六個站</text>
+
+  <!-- 第一排：1 → 2 → 3 -->
+  <g>
+    <rect x="90" y="130" width="300" height="170" rx="24" class="card"/>
+    <text x="122" y="180" class="num n-you">1</text>
+    <text x="240" y="208" class="stepTitle">說出想法</text>
+    <text x="240" y="244" class="meta">像是：點菜</text>
+    <rect x="160" y="258" width="160" height="32" rx="16" class="p-you"/>
+    <text x="240" y="274" class="pillText">你</text>
+  </g>
+  <g>
+    <rect x="510" y="130" width="300" height="170" rx="24" class="card"/>
+    <text x="542" y="180" class="num n-ai">2</text>
+    <text x="660" y="208" class="stepTitle">AI 寫程式</text>
+    <text x="660" y="244" class="meta">像是：廚房</text>
+    <rect x="580" y="258" width="160" height="32" rx="16" class="p-ai"/>
+    <text x="660" y="274" class="pillText">AI</text>
+  </g>
+  <g>
+    <rect x="930" y="130" width="300" height="170" rx="24" class="card"/>
+    <text x="962" y="180" class="num n-ai">3</text>
+    <text x="1080" y="208" class="stepTitle">存到 GitHub</text>
+    <text x="1080" y="244" class="meta">像是：食譜本</text>
+    <rect x="1000" y="258" width="160" height="32" rx="16" class="p-ai"/>
+    <text x="1080" y="274" class="pillText">AI</text>
+  </g>
+
+  <!-- 第二排（由右往左）：4 → 5 → 6，4 在 3 的正下方 -->
+  <g>
+    <rect x="930" y="440" width="300" height="170" rx="24" class="card"/>
+    <text x="962" y="490" class="num n-bot">4</text>
+    <text x="1080" y="518" class="stepTitle">自動測試</text>
+    <text x="1080" y="554" class="meta">像是：試吃</text>
+    <rect x="1000" y="568" width="160" height="32" rx="16" class="p-bot"/>
+    <text x="1080" y="584" class="pillText">機器人</text>
+  </g>
+  <g>
+    <rect x="510" y="440" width="300" height="170" rx="24" class="card"/>
+    <text x="542" y="490" class="num n-ai">5</text>
+    <text x="660" y="518" class="stepTitle">放上主機</text>
+    <text x="660" y="554" class="meta">像是：店面</text>
+    <rect x="580" y="568" width="160" height="32" rx="16" class="p-ai"/>
+    <text x="660" y="584" class="pillText">AI</text>
+  </g>
+  <g>
+    <rect x="90" y="440" width="300" height="170" rx="24" class="card"/>
+    <text x="122" y="490" class="num n-net">6</text>
+    <text x="240" y="518" class="stepTitle">對外網址</text>
+    <text x="240" y="554" class="meta">像是：招牌</text>
+    <rect x="140" y="568" width="200" height="32" rx="16" class="p-net"/>
+    <text x="240" y="584" class="pillText">訪客可以走進來</text>
+  </g>
+
+  <!-- 主流程箭頭（箭頭畫在方塊之後，尖端停在方塊邊緣） -->
+  <path d="M 394 215 H 506" class="flow"/>
+  <path d="M 814 215 H 926" class="flow"/>
+  <path d="M 1080 304 V 436" class="flow"/>
+  <path d="M 926 525 H 814" class="flow"/>
+  <text x="870" y="506" class="label">全部通過</text>
+  <path d="M 506 525 H 394" class="flow"/>
+
+  <!-- 測試沒過關：從 4 的上緣退回 2 的下緣 -->
+  <path d="M 990 436 V 368 H 700 V 304" class="fail"/>
+  <text x="845" y="352" class="failLabel">沒過關，退回修</text>
+</svg>

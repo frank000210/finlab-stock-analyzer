@@ -173,6 +173,64 @@ test('手機：不橫向捲動，章節收成按鈕，點章節後收起並捲�
   await expect(page.locator('.table-hint')).toBeVisible()
 })
 
+// 示意圖（FigureLabs 產生）：各章要有對應的圖，且圖要有替代文字、圖說、確實載入
+const FIGURES = {
+  overview: 'overview',
+  words: 'words',
+  hosting: 'hosting',
+  cycle: 'cycle',
+}
+
+test('示意圖：各章都有對應的圖，有替代文字與「示意圖」圖說，滑到畫面內後確實載入', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 })
+  await page.goto('/build-guide')
+  await expect(page.getByTestId('guide-figure')).toHaveCount(Object.keys(FIGURES).length)
+
+  for (const [chapter, id] of Object.entries(FIGURES)) {
+    const fig = page.locator(`#${chapter} [data-testid="guide-figure"][data-fig="${id}"]`)
+    await fig.scrollIntoViewIfNeeded()
+    const img = fig.locator('.gfig-frame img')
+    // 替代文字要寫成一段完整說明，不是檔名或「圖片」
+    await expect(img).toHaveAttribute('alt', /.{30,}/)
+    await expect(fig.locator('figcaption')).toContainText('示意圖')
+    await expect.poll(() => img.evaluate(el => el.complete && el.naturalWidth > 0)).toBe(true)
+  }
+})
+
+test('點圖放大：開啟對話框、Esc 關閉；手機版也能開關', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 })
+  await page.goto('/build-guide')
+  const fig = page.locator('#overview [data-testid="guide-figure"]')
+  const dialog = fig.getByTestId('guide-figure-dialog')
+  await fig.scrollIntoViewIfNeeded()
+  await expect(dialog).toBeHidden()
+
+  await fig.locator('.gfig-frame').click()
+  await expect(dialog).toBeVisible()
+  await expect(dialog.locator('img')).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(dialog).toBeHidden()
+
+  await page.setViewportSize({ width: 390, height: 844 })
+  await fig.locator('.gfig-frame').click()
+  await expect(dialog).toBeVisible()
+  await dialog.getByRole('button', { name: /關閉放大圖片/ }).click()
+  await expect(dialog).toBeHidden()
+})
+
+test('示意圖檔案大小：每張不超過 300KB（手機與慢網路也載得動）', async ({ page }) => {
+  await page.goto('/build-guide')
+  const srcs = await page.locator('.gfig-frame img').evaluateAll(els => els.map(e => e.getAttribute('src')))
+  expect(srcs.length).toBeGreaterThanOrEqual(Object.keys(FIGURES).length)
+  for (const src of srcs) {
+    // 很小的圖會被打包工具直接內嵌成 data: 網址，這時量字串長度即可
+    if (src.startsWith('data:')) { expect(src.length, 'inline image').toBeLessThan(300 * 1024); continue }
+    const res = await page.request.get(new URL(src, page.url()).toString())
+    expect(res.ok(), src).toBe(true)
+    expect((await res.body()).length, src).toBeLessThan(300 * 1024)
+  }
+})
+
 test('列印：隱藏側邊欄與章節，並自動展開常見問題', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 })
   await page.goto('/build-guide')
