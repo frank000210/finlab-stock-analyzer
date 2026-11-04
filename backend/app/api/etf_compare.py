@@ -37,7 +37,7 @@ _FETCH_CONCURRENCY = 4
 #   所以同一批標的只有第一次會計。
 _RATE_MAX_REQUESTS = 300
 _RATE_MAX_FETCHES = 60
-_BUNDLE_VERSION = "v2"  # 改了計算邏輯或快取內容就加一，舊快取自然作廢（v2：ohlc 加開盤與成交量、保留整段歷史）
+_BUNDLE_VERSION = "v3"  # 改了計算邏輯或快取內容就加一，舊快取自然作廢（v2：ohlc 加開盤與成交量、保留整段歷史；v3：加 health 配息體檢）
 _AUTO_LOOKBACK_DEFAULT = 180
 _MISS = object()
 
@@ -330,6 +330,7 @@ async def compare(
             "dividends": b["dividends"],
             "fill": b["fill"],
             "scores": b["scores"],
+            "health": b.get("health"),
             "series": b["series"],
             "splits": b.get("splits", []),
             "event": core.bundle_event(b, event["start"], event["end"]) if event else None,

@@ -27,6 +27,8 @@ from bisect import bisect_left, bisect_right
 from datetime import date, datetime, timedelta
 from typing import Any, Optional
 
+from .etf_dividend_health import dividend_health
+
 # ── 評分與統計參數（全部在這裡，頁面上的「計算方式」說明要與此一致）────────────
 RISK_FREE_RATE = 0.015  # 夏普值的無風險利率（年）
 TRADING_DAYS = 252
@@ -481,6 +483,8 @@ def build_symbol_bundle(price_rows: list[dict], dividend_rows: list[dict], max_s
     div = dividend_summary(sbars, dividends)
     fill = fill_stats(sbars, dividends)
     scores = radar_scores(metrics, div, fill)
+    # 配息體檢（殖利率膨脹／配息穩定度／近期趨勢／吃本金）：吃全部歷史，所以在裁切走勢之前算
+    health = dividend_health(sbars, dividends, fill, adj)
 
     last = _d(sbars[-1]["date"])
     cut = (last - timedelta(days=int(365.25 * max_series_years) + 10)).isoformat()
@@ -490,6 +494,7 @@ def build_symbol_bundle(price_rows: list[dict], dividend_rows: list[dict], max_s
         "dividends": div,
         "fill": fill,
         "scores": scores,
+        "health": health,
         "splits": splits,
         # 走勢用：還原價（含息），前端依時間範圍重新以 100 起算
         "series": {"dates": [sbars[i]["date"] for i in keep], "adj": [round(adj[i], 4) for i in keep]},
