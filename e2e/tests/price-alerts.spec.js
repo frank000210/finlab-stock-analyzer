@@ -183,3 +183,66 @@ test('新增警報數量達上限（50 筆）會被擋下，刪除不存在的�
 
   await Promise.all(created.map((id) => request.delete(`/api/v1/risk/alerts/${id}`, { headers: h })))
 })
+
+// 配息體檢串接：殖利率達標警報。股價大跌時殖利率會被撐高，所以推播時一定附配息體檢
+// （內容格式與觸發邏輯由 backend/tests/test_etf_dividend_alerts.py 鎖定；這裡驗證 API 驗證與頁面操作）。
+test('殖利率警報 API：目標殖利率驗證、建立與刪除', async ({ request }) => {
+  const token = await getAdminToken(request)
+  const h = { 'X-Admin-Token': token }
+  const existing = await request.get('/api/v1/risk/alerts', { headers: h })
+  for (const a of (await existing.json()).data.items) {
+    await request.delete(`/api/v1/risk/alerts/${a.id}`, { headers: h })
+  }
+
+  for (const bad of [undefined, 0, -1, 51]) {
+    const r = await request.post('/api/v1/risk/alerts', {
+      headers: h, data: { symbol: '00919', alert_type: 'yield_target', target_yield_pct: bad },
+    })
+    expect(r.status(), `target_yield_pct=${bad}`).toBe(400)
+  }
+
+  const ok = await request.post('/api/v1/risk/alerts', {
+    headers: h, data: { symbol: '00919', alert_type: 'yield_target', direction: 'below', target_price: 5, target_yield_pct: 7.5, note: 'e2e' },
+  })
+  expect(ok.ok()).toBeTruthy()
+  const a = (await ok.json()).data
+  expect(a).toMatchObject({ alert_type: 'yield_target', direction: 'above', target_price: null, target_yield_pct: 7.5, triggered: false })
+
+  const del = await request.delete(`/api/v1/risk/alerts/${a.id}`, { headers: h })
+  expect(del.ok()).toBeTruthy()
+})
+
+test('價格警報頁：新增殖利率達標警報並顯示條件', async ({ page }) => {
+  const token = await getAdminToken(page.request)
+  const h = { 'X-Admin-Token': token }
+  const existing = await page.request.get('/api/v1/risk/alerts', { headers: h })
+  for (const a of (await existing.json()).data.items) {
+    await page.request.delete(`/api/v1/risk/alerts/${a.id}`, { headers: h })
+  }
+  await page.addInitScript(({ adminToken }) => {
+    localStorage.setItem('admin_token', adminToken)
+    localStorage.setItem('admin_user', JSON.stringify({ is_admin: true, email: 'test@admin', name: 'Test', avatar: '' }))
+  }, { adminToken: token })
+
+  await page.goto('/price-alerts')
+  await page.getByPlaceholder('代碼 2330').fill('00919')
+  await page.locator('select.inp').first().selectOption({ label: '殖利率達標' })
+  await expect(page.locator('.threshold-hint')).toContainText('近 12 月配息')
+
+  // 沒填目標殖利率 → 擋下
+  await page.getByRole('button', { name: '加入' }).click()
+  await expect(page.locator('.error-text')).toContainText('0～50')
+
+  await page.getByTestId('yield-target').fill('7')
+  await page.getByRole('button', { name: '加入' }).click()
+
+  const row = page.locator('.alert-table tbody tr')
+  await expect(row).toHaveCount(1)
+  await expect(row).toContainText('殖利率達標')
+  await expect(row).toContainText('殖利率 ≥ 7.00%')
+  await expect(row).toContainText('監控中')
+
+  page.once('dialog', (d) => d.accept())
+  await page.locator('.alert-table .del').click()
+  await expect(page.locator('.alert-table tbody tr')).toHaveCount(0)
+})

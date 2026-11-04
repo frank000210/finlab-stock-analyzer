@@ -11,6 +11,7 @@
         <input v-model="form.symbol" class="inp" placeholder="代碼 2330" @keyup.enter="addAlert" />
         <select v-model="form.alert_type" class="inp">
           <option v-if="notifPrefs.price" value="price">價格</option>
+          <option v-if="notifPrefs.price" value="yield_target">殖利率達標</option>
           <option v-if="notifPrefs.signal" value="volume_spike">成交量異常</option>
           <option v-if="notifPrefs.signal" value="rsi_extreme">RSI 極端值</option>
         </select>
@@ -30,7 +31,12 @@
           v-model.number="form.target_price"
           type="number" class="inp" placeholder="目標價" step="0.05" @keyup.enter="addAlert"
         />
-        <span v-else class="muted small threshold-hint">{{ thresholdHint }}</span>
+        <input
+          v-else-if="form.alert_type === 'yield_target'"
+          v-model.number="form.target_yield_pct"
+          type="number" class="inp" placeholder="目標殖利率 %" step="0.1" min="0" data-testid="yield-target" @keyup.enter="addAlert"
+        />
+        <span v-if="form.alert_type !== 'price'" class="muted small threshold-hint">{{ thresholdHint }}</span>
         <input v-model="form.note" class="inp note-inp" placeholder="備註（選填）" @keyup.enter="addAlert" />
         <button class="btn btn-primary" :disabled="adding" @click="addAlert">加入</button>
       </div>
@@ -56,7 +62,7 @@
               <td class="sym">{{ a.symbol }}</td>
               <td>{{ typeLabel(a.alert_type) }}</td>
               <td>{{ conditionLabel(a) }}</td>
-              <td>{{ a.last_price != null ? fmt(a.last_price) : '—' }}</td>
+              <td>{{ currentLabel(a) }}</td>
               <td><span :class="a.triggered ? 'ok-text' : 'muted'">{{ statusLabel(a) }}</span></td>
               <td class="muted">{{ a.note || '—' }}</td>
               <td><button class="del" @click="remove(a.id)" title="刪除" aria-label="刪除警報">✕</button></td>
@@ -65,7 +71,7 @@
         </table>
       </div>
       <p v-else class="muted empty">尚無警報。加入一筆條件，系統會在盤中自動檢查。</p>
-      <p class="disclaimer">※ 系統每 20 分鐘於盤中（週一~五 09:00–13:35）自動檢查，觸發後推播 Telegram 且僅推播一次（避免洗版）。需先在設定頁設定 TELEGRAM_BOT_TOKEN／CHAT_ID。成交量異常／RSI 門檻與全站訊號掃描（作戰台/訊號頁）用同一套標準：成交量 ≥20 日均量 1.5 倍、RSI ≥70 超買 /≤30 超賣。本工具僅為提醒，非投資建議。</p>
+      <p class="disclaimer">※ 系統每 20 分鐘於盤中（週一~五 09:00–13:35）自動檢查，觸發後推播 Telegram 且僅推播一次（避免洗版）。需先在設定頁設定 TELEGRAM_BOT_TOKEN／CHAT_ID。成交量異常／RSI 門檻與全站訊號掃描（作戰台/訊號頁）用同一套標準：成交量 ≥20 日均量 1.5 倍、RSI ≥70 超買 /≤30 超賣。殖利率達標警報用的是 ETF 比較頁同一份資料（近 12 月配息 ÷ 收盤價），觸發時會附上「配息體檢」，因為殖利率變高多半是股價跌出來的。本工具僅為提醒，非投資建議。</p>
     </section>
 
     <!-- Y3：警報歷史中心——原本觸發後只把同一筆警報標成已觸發，沒有時間序列可查 -->
@@ -116,7 +122,7 @@ const historyLoading = ref(false)
 const form = reactive({
   symbol: '',
   alert_type: notifPrefs.value.price ? 'price' : (notifPrefs.value.signal ? 'volume_spike' : 'price'),
-  direction: 'above', target_price: null, note: '',
+  direction: 'above', target_price: null, target_yield_pct: null, note: '',
 })
 const formError = ref('')
 const adding = ref(false)
@@ -126,20 +132,27 @@ const checkMsg = ref('')
 const thresholdHint = computed(() => {
   if (form.alert_type === 'volume_spike') return '門檻：成交量 ≥ 20 日均量 1.5 倍'
   if (form.alert_type === 'rsi_extreme') return form.direction === 'above' ? '門檻：RSI ≥ 70' : '門檻：RSI ≤ 30'
+  if (form.alert_type === 'yield_target') return '殖利率＝近 12 月配息 ÷ 現價；達標時推播會附配息體檢（撐不撐得住）'
   return ''
 })
 
 function fmt(v) { return (v == null || isNaN(v)) ? '—' : Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }
 function statusLabel(a) { return a.triggered ? '✓ 已觸發' : (a.active ? '監控中' : '已停用') }
-function typeLabel(t) { return { price: '價格', volume_spike: '成交量異常', rsi_extreme: 'RSI 極端值' }[t] || t }
+function typeLabel(t) { return { price: '價格', volume_spike: '成交量異常', rsi_extreme: 'RSI 極端值', yield_target: '殖利率達標' }[t] || t }
+function currentLabel(a) {
+  if (a.alert_type === 'yield_target') return a.last_yield_pct != null ? `殖利率 ${fmt(a.last_yield_pct)}%` : '—'
+  return a.last_price != null ? fmt(a.last_price) : '—'
+}
 function conditionLabel(a) {
   if (a.alert_type === 'volume_spike') return '≥ 1.5× 均量'
   if (a.alert_type === 'rsi_extreme') return a.direction === 'above' ? 'RSI ≥ 70' : 'RSI ≤ 30'
+  if (a.alert_type === 'yield_target') return `殖利率 ≥ ${fmt(a.target_yield_pct)}%`
   return `${a.direction === 'above' ? '漲破' : '跌破'} ${fmt(a.target_price)}`
 }
 function historyValueLabel(h) {
   if (h.alert_type === 'volume_spike') return `${h.vol_ratio}× 均量（價 ${fmt(h.price)}）`
   if (h.alert_type === 'rsi_extreme') return `RSI ${h.rsi}（價 ${fmt(h.price)}）`
+  if (h.alert_type === 'yield_target') return `殖利率 ${fmt(h.yield_pct)}%（價 ${fmt(h.price)}）`
   return `價 ${fmt(h.price)}`
 }
 function formatTime(iso) {
@@ -184,6 +197,13 @@ async function addAlert() {
     formError.value = '價格警報請填入有效的目標價（大於 0）。'
     return
   }
+  if (form.alert_type === 'yield_target') {
+    const y = Number(form.target_yield_pct)
+    if (!(y > 0 && y <= 50)) {
+      formError.value = '殖利率警報請填入 0～50 之間的目標殖利率（單位 %，例如 7 代表 7%）。'
+      return
+    }
+  }
   adding.value = true
   try {
     // GG7：新增警報是非冪等的 POST（每次呼叫都會建立一筆新資源）——如果
@@ -196,6 +216,7 @@ async function addAlert() {
       body: JSON.stringify({
         symbol, alert_type: form.alert_type, direction: form.direction,
         target_price: form.alert_type === 'price' ? Number(form.target_price) : null,
+        target_yield_pct: form.alert_type === 'yield_target' ? Number(form.target_yield_pct) : null,
         note: form.note || '',
       }),
     })
@@ -204,6 +225,7 @@ async function addAlert() {
     alerts.value.push(payload.data)
     form.symbol = ''
     form.target_price = null
+    form.target_yield_pct = null
     form.note = ''
   } catch (e) {
     formError.value = e?.message || '新增失敗'
