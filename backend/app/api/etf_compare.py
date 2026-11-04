@@ -20,6 +20,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from ..analysis import etf_compare as core
+from ..analysis import etf_dividend_health as health_core
 
 logger = logging.getLogger(__name__)
 
@@ -350,6 +351,7 @@ async def compare(
                 "min_stats_days": core.MIN_STATS_DAYS,
                 "fill_window_days": core.FILL_WINDOW_DAYS,
                 "fill_lookback_years": core.FILL_LOOKBACK_YEARS,
+                "health": health_core.THRESHOLDS,
             },
         },
     }

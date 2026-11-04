@@ -256,6 +256,15 @@
         <p class="muted small">填息 = 除息後收盤價站回「除息前一天收盤價」；{{ result.method.fill_window_days }} 個交易日內沒站回算失敗，尚未滿觀察期的算「未結案」、不計入成功率。僅統計最近 {{ result.method.fill_lookback_years }} 年。</p>
       </section>
 
+      <!-- 圖表三之一：配息體檢（高殖利率撐不撐得住） -->
+      <section class="card" data-section="div-health">
+        <div class="section-head">
+          <h2>配息體檢：這個殖利率撐得住嗎？ <InfoTooltip v-bind="metricGlossary.etfDivHealth" /></h2>
+        </div>
+        <p class="muted small health-intro">股價大跌時，殖利率（過去配息 ÷ 現價）會被分母變小撐高，但過去配得出來不代表以後也配得出來。這裡用同一份除息紀錄做四項檢查：殖利率是不是被跌價撐大、每次配息穩不穩、最近有沒有縮水、配息有沒有被價格下跌吃掉。</p>
+        <EtfDividendHealth :rows="orderedRows" :color-of="colorOf" :thresholds="result.method.health" />
+      </section>
+
       <!-- 圖表三之二：急跌與反彈 -->
       <section class="card" data-section="event">
         <div class="section-head">
@@ -412,6 +421,7 @@ import InfoTooltip from '../components/InfoTooltip.vue'
 import EtfRadar from '../components/etf/EtfRadar.vue'
 import EtfDividendBars from '../components/etf/EtfDividendBars.vue'
 import EtfEventChart from '../components/etf/EtfEventChart.vue'
+import EtfDividendHealth from '../components/etf/EtfDividendHealth.vue'
 import { metricGlossary } from '../lib/metricGlossary'
 import { useChartTheme } from '../composables/useChartTheme'
 import { downloadCsv, timestampedFilename } from '../lib/csvExport'
@@ -1314,6 +1324,7 @@ onBeforeUnmount(() => {
 
 .section-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
 .section-head h2 { margin: 0; font-size: 1.05rem; }
+.health-intro { margin: 0 0 12px; }
 .btn.xs { padding: 5px 12px; font-size: 0.78rem; }
 .tf-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
 

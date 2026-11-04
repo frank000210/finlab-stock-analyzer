@@ -35,6 +35,18 @@ EROSION_LEVELS = (0.30, 0.70)  # 價格跌幅 ÷ 配息貢獻
 FILL_WEAK_RATE = 0.5  # 填息成功率低於這個，吃本金檢查再加重一級
 YOY_TOLERANCE_DAYS = 45  # 找「去年同期」的容許誤差
 
+# 給前端「判斷門檻」說明用：頁面上的數字一律從這裡來，不在前端另寫一份
+THRESHOLDS = {
+    "inflation": list(INFLATION_LEVELS),
+    "cv": list(CV_LEVELS),
+    "trend": list(TREND_LEVELS),
+    "erosion": list(EROSION_LEVELS),
+    "fill_weak_rate": FILL_WEAK_RATE,
+    "min_payouts": MIN_PAYOUTS,
+    "recent_n": RECENT_N,
+    "principal_years": PRINCIPAL_YEARS,
+}
+
 FREQ_LABELS = {12: "月配", 4: "季配", 2: "半年配", 1: "年配"}
 LEVEL_RANK = {"good": 0, "warn": 1, "bad": 2}
 VERDICT_LABELS = {"steady": "穩定", "watch": "留意", "weak": "偏弱", "unknown": "資料不足"}

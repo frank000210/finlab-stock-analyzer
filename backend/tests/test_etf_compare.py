@@ -721,3 +721,19 @@ def test_real_auto_episode_matches_the_july_selloff():
     assert "2026-06-20" <= ep["start"] <= "2026-06-26"
     assert ep["end"] in ("2026-07-29", "2026-07-30")
     assert -0.20 < ep["drop"] < -0.10
+
+
+# ── 配息體檢：compare 回傳帶 health 與門檻（給前端說明用，不在前端另寫一份）──────
+
+def test_compare_returns_health_per_symbol_and_thresholds(api):
+    client, _consumed, store, _loaded = api
+    store.update({"0050": _fake_bundle(_FLAT), "0056": _fake_bundle(_FLAT)})
+    r = client.get("/api/v1/etf-compare/compare", params={"symbols": "0050,0056"})
+    assert r.status_code == 200
+    data = r.json()["data"]
+    for item in data["symbols"]:
+        # 假 bundle 沒有除息紀錄 → 體檢回「資料不足」，但欄位一定存在，前端不用判斷有沒有
+        assert item["health"]["enough"] is False and item["health"]["verdict"] == "unknown"
+    th = data["method"]["health"]
+    from app.analysis import etf_dividend_health as h
+    assert th["inflation"] == list(h.INFLATION_LEVELS) and th["min_payouts"] == h.MIN_PAYOUTS
