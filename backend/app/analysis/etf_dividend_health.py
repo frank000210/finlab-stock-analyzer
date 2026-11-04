@@ -5,7 +5,9 @@
 做四項檢查，並給出「保守／中性」情境殖利率：
 
 1. 殖利率膨脹：現價殖利率 vs 用過去 12 個月平均價算的「常態殖利率」。
-2. 配息穩定度：最近幾次配息金額的變異度（CV）。
+2. 配息穩定度：最近 4 次配息各自跟「去年同期」（沒有就跟前一次）比，有幾次縮水超過 20%。
+   只看縮水、不看起伏：半年配、季節性高低、或越配越多的 ETF，用變異度會被誤判成不穩
+   （2026-11 用真實資料檢查時抓到：0050、00929 因此被判偏弱）。
 3. 近期趨勢：最近一次配息 vs 去年同期（沒有就比前幾次的平均）——台股配息有季節性，
    同期比才不會把「淡季本來就少」誤判成縮水。
 4. 吃本金：近 3 年含息報酬 vs 純價格報酬——價格跌掉的幅度吃掉多少配息；再看填息成功率。
@@ -29,7 +31,10 @@ PRINCIPAL_YEARS = 3
 
 # 各項檢查的門檻：(留意, 偏弱)。膨脹與 CV、吃本金是「越大越糟」，趨勢比值是「越小越糟」
 INFLATION_LEVELS = (1.10, 1.30)  # 平均價 ÷ 現價
-CV_LEVELS = (0.15, 0.35)  # 配息金額變異係數（母體標準差 ÷ 平均）
+CUT_RATIO = 0.80  # 比去年同期（或前一次）少超過 20% 算「縮水」
+CUT_LEVELS = (1, 2)  # 最近 4 次裡縮水幾次：>= 1 次留意、>= 2 次偏弱
+STABILITY_WINDOW = 4
+SURGE_RATIO = 1.5  # 最近一次比去年同期多超過 50%：不算警訊，但提醒對照配息來源
 TREND_LEVELS = (0.90, 0.75)  # 最近一次 ÷ 去年同期（或前幾次平均）
 EROSION_LEVELS = (0.30, 0.70)  # 價格跌幅 ÷ 配息貢獻
 FILL_WEAK_RATE = 0.5  # 填息成功率低於這個，吃本金檢查再加重一級
@@ -38,7 +43,9 @@ YOY_TOLERANCE_DAYS = 45  # 找「去年同期」的容許誤差
 # 給前端「判斷門檻」說明用：頁面上的數字一律從這裡來，不在前端另寫一份
 THRESHOLDS = {
     "inflation": list(INFLATION_LEVELS),
-    "cv": list(CV_LEVELS),
+    "cut_ratio": CUT_RATIO,
+    "cut_levels": list(CUT_LEVELS),
+    "stability_window": STABILITY_WINDOW,
     "trend": list(TREND_LEVELS),
     "erosion": list(EROSION_LEVELS),
     "fill_weak_rate": FILL_WEAK_RATE,
@@ -102,6 +109,19 @@ def _pct(x: float, digits: int = 1) -> str:
     return f"{x * 100:.{digits}f}%"
 
 
+def _vs_year_ago(dividends: list[dict], i: int) -> Optional[float]:
+    """第 i 次配息 ÷ 去年同期那次（找最接近 365 天前、誤差在容許範圍內的）；找不到就 ÷ 前一次；都沒有回 None。"""
+    cur = dividends[i]
+    target = _d(cur["date"]) - timedelta(days=365)
+    older = dividends[:i]
+    best = min(older, key=lambda d: abs((_d(d["date"]) - target).days), default=None)
+    if best is not None and abs((_d(best["date"]) - target).days) <= YOY_TOLERANCE_DAYS and best["amount"] > 0:
+        return cur["amount"] / best["amount"]
+    if i > 0 and dividends[i - 1]["amount"] > 0:
+        return cur["amount"] / dividends[i - 1]["amount"]
+    return None
+
+
 def _unknown(reason: str, payouts: Optional[list[dict]] = None) -> dict:
     return {
         "enough": False,
@@ -158,18 +178,24 @@ def dividend_health(bars: list[dict], dividends: list[dict], fill: Optional[dict
             txt = f"現價殖利率 {_pct(yield_now)}，股價不低於近 12 個月平均價（{avg_close:.2f}），沒有跌價撐高的情形。"
         checks.append({"key": "inflation", "label": "殖利率膨脹", "level": lvl, "text": txt})
 
-    # 2. 配息穩定度
+    # 2. 配息穩定度：最近 4 次各自比去年同期（沒有就比前一次），少超過 20% 算縮水
     mean_amt = statistics.fmean(amounts)
-    cv = (statistics.pstdev(amounts) / mean_amt) if mean_amt > 0 else None
-    if cv is None:
-        checks.append({"key": "stability", "label": "配息穩定度", "level": "na", "text": "配息金額異常，無法計算。"})
+    cv = (statistics.pstdev(amounts) / mean_amt) if mean_amt > 0 else None  # 只留作參考，不參與判斷
+    ratios = [r for r in (_vs_year_ago(dividends, i) for i in range(len(dividends) - STABILITY_WINDOW, len(dividends))) if r is not None]
+    cuts = sum(1 for r in ratios if r < CUT_RATIO)
+    worst = min(ratios) if ratios else None
+    if worst is None:
+        checks.append({"key": "stability", "label": "配息穩定度", "level": "na", "text": "沒有可比較的前期配息。"})
     else:
-        lvl = _level_up(cv, *CV_LEVELS)
-        checks.append({
-            "key": "stability", "label": "配息穩定度", "level": lvl,
-            "text": (f"最近 {len(amounts)} 次配息 {min(amounts):.3f}～{max(amounts):.3f} 元，平均 {mean_amt:.3f}，"
-                     f"變異度 {_pct(cv, 0)}（{'每次差不多' if lvl == 'good' else '每次金額有明顯起伏' if lvl == 'warn' else '每次金額落差很大'}）。"),
-        })
+        lvl = "bad" if cuts >= CUT_LEVELS[1] else ("warn" if cuts >= CUT_LEVELS[0] else "good")
+        rng = f"最近 {len(amounts)} 次配息 {min(amounts):.3f}～{max(amounts):.3f} 元，平均 {mean_amt:.3f}。"
+        if cuts:
+            txt = (f"最近 {len(ratios)} 次中有 {cuts} 次比去年同期（沒有同期就比前一次）少了 {_pct(1 - CUT_RATIO, 0)} 以上，"
+                   f"最差只有 {_pct(worst, 0)}。{rng}")
+        else:
+            txt = (f"最近 {len(ratios)} 次都沒有比去年同期（沒有同期就比前一次）少超過 {_pct(1 - CUT_RATIO, 0)}"
+                   f"（最差 {_pct(worst, 0)}）。{rng}")
+        checks.append({"key": "stability", "label": "配息穩定度", "level": lvl, "text": txt})
 
     # 3. 近期趨勢：優先比去年同期
     last_div = dividends[-1]
@@ -187,7 +213,12 @@ def dividend_health(bars: list[dict], dividends: list[dict], fill: Optional[dict
         checks.append({"key": "trend", "label": "近期趨勢", "level": "na", "text": "沒有可比較的前期配息。"})
     else:
         lvl = _level_down(trend_ratio, *TREND_LEVELS)
-        verb = "持平或增加" if trend_ratio >= 0.98 else f"減少 {_pct(1 - trend_ratio, 0)}"
+        if trend_ratio >= SURGE_RATIO:
+            verb = f"增加 {_pct(trend_ratio - 1, 0)}（增幅很大，建議對照配息來源，確認不是一次性的資本利得）"
+        elif trend_ratio >= 0.98:
+            verb = "持平或增加"
+        else:
+            verb = f"減少 {_pct(1 - trend_ratio, 0)}"
         checks.append({
             "key": "trend", "label": "近期趨勢", "level": lvl,
             "text": f"最近一次（{last_div['date']}）配 {last_amt:.3f} 元，相較{ref_label} {ref_amt:.3f} 元{verb}。",
@@ -197,17 +228,20 @@ def dividend_health(bars: list[dict], dividends: list[dict], fill: Optional[dict
     principal = _principal(bars, adj, fill)
     checks.append(principal["check"])
 
-    # 情境殖利率：用最近 4 次配息推「下一年」，以現價換算
-    scenarios = None
-    if freq:
-        recent = amounts[-4:]
-        scenarios = {
-            "freq": freq,
-            "freq_label": FREQ_LABELS[freq],
-            "conservative": min(recent) * freq / last_close,
-            "neutral": statistics.median(recent) * freq / last_close,
-            "last_annualized": amounts[-1] * freq / last_close,
-        }
+    # 情境殖利率（以現價換算）：
+    #  保守 = 近 12 個月 與 前一個 12 個月的配息總額取低者；中性 = 近 12 個月（就是現價殖利率）；
+    #  最近一次年化 = 最近一次 × 年配次數，僅供對照（最近一次常是季節性高點，也可能是一次性配息）。
+    prior_start = (last - timedelta(days=730)).isoformat()
+    prior = [d for d in dividends if prior_start < d["date"] <= ttm_start]
+    covers_prior = bool(prior) and bars[0]["date"] <= prior_start  # 前一個 12 個月 ETF 已經存在，總額才可比
+    prior_amount = sum(d["amount"] for d in prior) if covers_prior else None
+    scenarios = {
+        "freq": freq,
+        "freq_label": FREQ_LABELS.get(freq) if freq else None,
+        "conservative": (min(ttm_amount, prior_amount) / last_close) if prior_amount else None,
+        "neutral": ttm_amount / last_close,
+        "last_annualized": (amounts[-1] * freq / last_close) if freq else None,
+    }
 
     verdict = verdict_from_levels([c["level"] for c in checks])
 
@@ -226,11 +260,12 @@ def dividend_health(bars: list[dict], dividends: list[dict], fill: Optional[dict
         "ttm_amount": round(ttm_amount, 4),
         "payouts": payouts,
         "stability": {"n": len(amounts), "mean": round(mean_amt, 4), "min": round(min(amounts), 4),
-                      "max": round(max(amounts), 4), "cv": round(cv, 4) if cv is not None else None},
+                      "max": round(max(amounts), 4), "cv": round(cv, 4) if cv is not None else None,
+                      "cuts": cuts, "compared": len(ratios), "worst_ratio": round(worst, 4) if worst is not None else None},
         "trend": {"basis": basis, "last": round(last_amt, 4), "ref": round(ref_amt, 4),
                   "ratio": round(trend_ratio, 4) if trend_ratio is not None else None},
         "principal": principal["data"],
-        "scenarios": {k: (round(v, 6) if isinstance(v, float) else v) for k, v in scenarios.items()} if scenarios else None,
+        "scenarios": {k: (round(v, 6) if isinstance(v, float) else v) for k, v in scenarios.items()},
         "checks": checks,
     }
 
@@ -321,9 +356,10 @@ def yield_alert_message(symbol: str, name: str, target_pct: float, yield_now: fl
         labels = _flagged_labels(health)
         if labels:
             msg += f"｜需留意：{'、'.join(labels)}"
-        sc = health.get("scenarios")
-        if sc:
-            msg += f"\n保守 {_pct(sc['conservative'])}／中性 {_pct(sc['neutral'])}／最近一次年化 {_pct(sc['last_annualized'])}"
+        sc = health.get("scenarios") or {}
+        parts = [f"{n} {_pct(sc[k])}" for n, k in (("保守", "conservative"), ("中性", "neutral"), ("最近一次年化", "last_annualized")) if sc.get(k) is not None]
+        if parts:
+            msg += "\n" + "／".join(parts)
     elif health and health.get("reason"):
         msg += f"\n配息體檢：資料不足（{health['reason']}）"
     msg += "\n（殖利率是過去配息 ÷ 現價，不代表未來配得出來；詳見 ETF 比較頁「配息體檢」，非投資建議）"

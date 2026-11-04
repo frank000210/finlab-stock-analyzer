@@ -34,10 +34,10 @@
         </div>
 
         <div v-if="row.health.scenarios" class="scen" data-testid="health-scenarios">
-          <span class="scen-title">若之後都照最近 4 次的水準配（{{ row.health.scenarios.freq_label }}，以現價換算）</span>
-          <span class="scen-item"><em>保守</em>{{ pct(row.health.scenarios.conservative) }}</span>
+          <span class="scen-title">換算成年化殖利率（以現價）：保守＝近 12 月與前一年取低、中性＝近 12 月、最近一次年化僅供對照</span>
+          <span v-if="row.health.scenarios.conservative != null" class="scen-item"><em>保守</em>{{ pct(row.health.scenarios.conservative) }}</span>
           <span class="scen-item"><em>中性</em>{{ pct(row.health.scenarios.neutral) }}</span>
-          <span class="scen-item"><em>最近一次年化</em>{{ pct(row.health.scenarios.last_annualized) }}</span>
+          <span v-if="row.health.scenarios.last_annualized != null" class="scen-item"><em>最近一次年化{{ row.health.scenarios.freq_label ? '（' + row.health.scenarios.freq_label + '）' : '' }}</em>{{ pct(row.health.scenarios.last_annualized) }}</span>
         </div>
 
         <ul class="checks">
@@ -66,11 +66,11 @@
       <summary>判斷門檻與算法</summary>
       <ul>
         <li><strong>殖利率膨脹</strong>：近 12 個月均價 ÷ 現價（等於現價殖利率 ÷ 常態殖利率）。&gt; {{ thresholds.inflation[0].toFixed(2) }} 留意、&gt; {{ thresholds.inflation[1].toFixed(2) }} 偏弱。</li>
-        <li><strong>配息穩定度</strong>：最近 {{ thresholds.recent_n }} 次配息金額的變異係數（標準差 ÷ 平均）。&gt; {{ pct(thresholds.cv[0], 0) }} 留意、&gt; {{ pct(thresholds.cv[1], 0) }} 偏弱。</li>
+        <li><strong>配息穩定度</strong>：最近 {{ thresholds.stability_window }} 次配息，各自跟去年同期（沒有同期就跟前一次）比，少超過 {{ pct(1 - thresholds.cut_ratio, 0) }} 的算「縮水」；{{ thresholds.cut_levels[0] }} 次留意、{{ thresholds.cut_levels[1] }} 次以上偏弱。只看縮水：季節性高低、越配越多都不算不穩。</li>
         <li><strong>近期趨勢</strong>：最近一次 ÷ 去年同期（找不到去年同期才比前 4 次平均；台股配息有季節性，所以優先比同期）。&lt; {{ thresholds.trend[0].toFixed(2) }} 留意、&lt; {{ thresholds.trend[1].toFixed(2) }} 偏弱。</li>
         <li><strong>吃本金</strong>：近 {{ thresholds.principal_years }} 年價格跌幅 ÷ 配息貢獻（含息報酬 − 價格報酬）。&gt; {{ pct(thresholds.erosion[0], 0) }} 留意、&gt; {{ pct(thresholds.erosion[1], 0) }} 偏弱；填息成功率低於 {{ pct(thresholds.fill_weak_rate, 0) }} 再加重一級。</li>
         <li><strong>總評</strong>：任一項偏弱、或三項以上留意＝偏弱；一～兩項留意＝留意；都沒事＝穩定。配息少於 {{ thresholds.min_payouts }} 次或近 12 個月沒配息，顯示「資料不足」，不硬判。</li>
-        <li><strong>情境殖利率</strong>：用最近 4 次配息（保守取最低、中性取中位數），乘上年配次數，除以現價。</li>
+        <li><strong>情境殖利率</strong>：保守＝近 12 個月與前一個 12 個月的配息總額取低者 ÷ 現價（上市不到兩年不推算）；中性＝近 12 個月 ÷ 現價；最近一次年化＝最近一次 × 年配次數 ÷ 現價，最近一次常是季節性高點或一次性配息，只拿來對照。</li>
       </ul>
       <p class="muted small">這是把歷史資料換個角度看，不是預測，也不是投資建議。看不到配息的「來源」（股利、資本利得、收益平準金、本金），那要看各投信的配息公告。</p>
     </details>

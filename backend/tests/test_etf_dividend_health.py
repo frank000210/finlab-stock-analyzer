@@ -99,20 +99,55 @@ def test_no_inflation_when_price_is_flat_or_higher():
 
 # ── 配息穩定度 ──────────────────────────────────────────────────────────────
 
-def test_stability_good_when_amounts_equal():
-    bars = _bars([100] * 600)
-    divs = _divs(bars, [156, 247, 338, 429, 520], [1.0] * 5)
-    out = h.dividend_health(bars, divs, adj=_adj(bars, divs))
-    assert out["stability"]["cv"] == 0.0
-    assert next(c for c in out["checks"] if c["key"] == "stability")["level"] == "good"
+IDX8 = [100 + 91 * k for k in range(8)]  # 8 次季配：100,191,…,737；第 k 次與第 k-4 次相隔 364 天＝去年同期
 
 
-def test_stability_bad_when_amounts_swing():
-    bars = _bars([100] * 600)
-    divs = _divs(bars, [65, 156, 247, 338, 429, 520], [0.5, 1.5, 0.5, 1.5, 0.5, 1.5])
+def _stability(amounts, idxs=None, n_bars=800):
+    bars = _bars([100] * n_bars)
+    divs = _divs(bars, idxs or IDX8, amounts)
     out = h.dividend_health(bars, divs, adj=_adj(bars, divs))
-    assert out["stability"]["cv"] == pytest.approx(0.5)  # 平均 1.0、母體標準差 0.5
-    assert next(c for c in out["checks"] if c["key"] == "stability")["level"] == "bad"
+    return out, next(c for c in out["checks"] if c["key"] == "stability")
+
+
+def test_stability_good_when_no_payout_was_cut():
+    out, chk = _stability([1.0] * 8)
+    assert chk["level"] == "good" and out["stability"]["cuts"] == 0 and out["stability"]["worst_ratio"] == 1.0
+
+
+def test_stability_one_cut_vs_same_period_last_year_is_warn():
+    out, chk = _stability([1, 1, 1, 1, 1, 1, 0.7, 1])  # 第 7 次只有去年同期的 70%
+    assert chk["level"] == "warn" and out["stability"]["cuts"] == 1 and out["stability"]["compared"] == 4
+    assert out["stability"]["worst_ratio"] == pytest.approx(0.7)
+
+
+def test_stability_two_or_more_cuts_is_bad():
+    out, chk = _stability([1, 1, 1, 1, 0.7, 0.7, 0.7, 1.0])
+    assert chk["level"] == "bad" and out["stability"]["cuts"] == 3
+
+
+def test_stability_exactly_at_cut_ratio_is_not_a_cut():
+    out, chk = _stability([1, 1, 1, 1, 1, 1, 1, 0.8])  # 正好 80%：「少超過 20%」才算縮水
+    assert out["stability"]["cuts"] == 0 and chk["level"] == "good"
+
+
+def test_rising_payouts_are_not_flagged_as_unstable():
+    # 越配越多（例如 00929 這類配息逐步調高）：金額起伏大，但沒有縮水，不能判不穩
+    out, chk = _stability([0.1, 0.1, 0.1, 0.1, 0.4, 0.4, 0.4, 0.4])
+    assert out["stability"]["cv"] > 0.5 and chk["level"] == "good"
+
+
+def test_seasonal_high_low_pattern_is_not_flagged_as_unstable():
+    # 半年配／季節性：高低每年都一樣（例如 0050），跟去年同期比沒縮水
+    out, chk = _stability([1.0, 0.4, 1.0, 0.4, 1.0, 0.4, 1.0, 0.4])
+    assert out["stability"]["cv"] > 0.4 and chk["level"] == "good"
+
+
+def test_stability_falls_back_to_previous_payout_without_a_year_ago_match():
+    bars = _bars([100] * 400)
+    divs = _divs(bars, [100, 191, 282, 373], [1.0, 1.0, 1.0, 0.5])
+    out = h.dividend_health(bars, divs, adj=_adj(bars, divs))
+    # 第一次沒有前期可比（略過）；其餘跟前一次比：1.0、1.0、0.5
+    assert out["stability"]["compared"] == 3 and out["stability"]["cuts"] == 1
 
 
 # ── 近期趨勢（季節性：先比去年同期）────────────────────────────────────────
@@ -135,6 +170,14 @@ def test_trend_flags_real_cut_vs_same_period_last_year():
     assert next(c for c in out["checks"] if c["key"] == "trend")["level"] == "bad"  # 0.6 < 0.75
 
 
+def test_trend_surge_is_not_a_warning_but_points_to_the_distribution_source():
+    bars = _bars([100] * 700)
+    divs = _divs(bars, [65, 156, 247, 338, 429, 520, 611, 702 - 3], [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.8])
+    out = h.dividend_health(bars, divs, adj=_adj(bars, divs))
+    chk = next(c for c in out["checks"] if c["key"] == "trend")
+    assert chk["level"] == "good" and "增幅很大" in chk["text"] and "配息來源" in chk["text"]
+
+
 def test_trend_falls_back_to_previous_average_when_no_year_ago_event():
     bars = _bars([100] * 400)
     divs = _divs(bars, [100, 191, 282, 373], [1.0, 1.0, 1.0, 0.5])  # 沒有一年前的事件
@@ -143,17 +186,49 @@ def test_trend_falls_back_to_previous_average_when_no_year_ago_event():
 
 
 # ── 情境殖利率 ──────────────────────────────────────────────────────────────
+# 保守＝近 12 月與前一個 12 月配息總額取低者；中性＝近 12 月；最近一次年化＝最近一次 × 年配次數。
+# 都以現價換算。1,100 根日線、11 次季配（idx 100,191,…,1010），最後一根是 idx 1099：
+# 近 12 月 = idx 737/828/919/1010，前一個 12 月 = idx 373/464/555/646。
 
-def test_scenarios_use_last_four_payouts_and_current_price():
-    bars = _bars([50] * 600)
-    divs = _divs(bars, [65, 156, 247, 338, 429, 520], [1.0, 1.0, 1.0, 0.8, 1.2, 1.0])
-    out = h.dividend_health(bars, divs, adj=_adj(bars, divs))
-    s = out["scenarios"]
+IDX11 = [100 + 91 * k for k in range(11)]
+
+
+def _scen(amounts, n_bars=1100, idxs=None):
+    bars = _bars([50] * n_bars)
+    divs = _divs(bars, idxs or IDX11, amounts)
+    return h.dividend_health(bars, divs, adj=_adj(bars, divs))["scenarios"]
+
+
+def test_scenarios_conservative_uses_lower_of_this_year_and_prior_year():
+    s = _scen([1, 1, 1] + [1.0] * 4 + [1.2] * 4)  # 前一年 4.0、近 12 月 4.8
     assert s["freq"] == 4 and s["freq_label"] == "季配"
-    # 最近 4 次 = [1.0, 0.8, 1.2, 1.0]
-    assert s["conservative"] == pytest.approx(0.8 * 4 / 50)
-    assert s["neutral"] == pytest.approx(1.0 * 4 / 50)  # 中位數 (1.0+1.0)/2
-    assert s["last_annualized"] == pytest.approx(1.0 * 4 / 50)
+    assert s["conservative"] == pytest.approx(4.0 / 50)
+    assert s["neutral"] == pytest.approx(4.8 / 50)
+    assert s["last_annualized"] == pytest.approx(1.2 * 4 / 50)
+
+
+def test_scenarios_conservative_is_this_year_when_it_was_lower():
+    s = _scen([1, 1, 1] + [1.5] * 4 + [1.2] * 4)  # 前一年 6.0 > 近 12 月 4.8
+    assert s["conservative"] == pytest.approx(4.8 / 50) and s["neutral"] == pytest.approx(4.8 / 50)
+
+
+def test_scenarios_conservative_is_none_without_a_full_prior_year():
+    # 只有 500 根日線：前一個 12 個月 ETF 還不存在，總額不可比，不硬推算保守情境
+    s = _scen([1.0] * 4, n_bars=500, idxs=[150, 241, 332, 423])
+    assert s["conservative"] is None
+    assert s["neutral"] == pytest.approx(4.0 / 50) and s["last_annualized"] == pytest.approx(4.0 / 50)
+
+
+def test_monthly_payer_scenarios_do_not_collapse_to_one_number():
+    # 月配、最近幾個月配息調高（最近 4 次都是 0.38）：最近一次年化 ≠ 近 12 月 ≠ 保守，三個數字要拉開
+    n = 1100
+    bars = _bars([26] * n)
+    idxs = [n - 1 - 30 * k for k in range(18)][::-1]
+    amounts = [0.1] * 12 + [0.13, 0.26, 0.38, 0.38, 0.38, 0.38]
+    divs = _divs(bars, idxs, amounts)
+    s = h.dividend_health(bars, divs, adj=_adj(bars, divs))["scenarios"]
+    assert s["freq"] == 12
+    assert s["conservative"] < s["neutral"] < s["last_annualized"]
 
 
 # ── 吃本金 ──────────────────────────────────────────────────────────────────

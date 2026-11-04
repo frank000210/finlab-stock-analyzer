@@ -32,16 +32,18 @@ const WEAK = {
   stability: { n: 4, mean: 0.4, min: 0.2, max: 0.5, cv: 0.3 },
   trend: { basis: 'yoy', last: 0.2, ref: 0.5, ratio: 0.4 },
   principal: { years: 3, price_return: -0.3, total_return: -0.05, dist_contribution: 0.25, erosion: 1.2 },
-  scenarios: { freq: 4, freq_label: '季配', conservative: 0.04, neutral: 0.08, last_annualized: 0.04 },
+  scenarios: { freq: 4, freq_label: '季配', conservative: 0.05, neutral: 0.08, last_annualized: 0.04 },
   checks: [
     { key: 'inflation', label: '殖利率膨脹', level: 'warn', text: '現價殖利率 8.0%，若股價在近 12 個月平均價則為 6.2%。' },
-    { key: 'stability', label: '配息穩定度', level: 'warn', text: '最近 4 次配息 0.200～0.500 元，變異度 30%。' },
+    { key: 'stability', label: '配息穩定度', level: 'warn', text: '最近 4 次中有 1 次比去年同期少了 20% 以上，最差只有 40%。' },
     { key: 'trend', label: '近期趨勢', level: 'bad', text: '最近一次配 0.200 元，相較去年同期 0.500 元減少 60%。' },
     { key: 'principal', label: '吃本金檢查', level: 'bad', text: '近 3.0 年價格 -30.0%、含息 -5.0%。' },
   ],
 }
 const STEADY = {
   ...WEAK, verdict: 'steady', verdict_label: '穩定', inflation: 1.0, yield_now: 0.05, yield_norm: 0.05,
+  // 上市不到兩年：沒有前一個 12 個月可比，保守情境後端回 null，頁面不能顯示成 0 或 NaN
+  scenarios: { ...WEAK.scenarios, conservative: null },
   checks: WEAK.checks.map(c => ({ ...c, level: 'good', text: c.label + ' 正常。' })),
 }
 const NOT_ENOUGH = {
@@ -56,7 +58,7 @@ const FIX = {
   '009816': base('009816', '凱基台灣TOP50', 'market', { pays: false, health: { ...NOT_ENOUGH, reason: '近 5 年沒有除息紀錄。' } }),
 }
 const THRESHOLDS = {
-  inflation: [1.1, 1.3], cv: [0.15, 0.35], trend: [0.9, 0.75], erosion: [0.3, 0.7],
+  inflation: [1.1, 1.3], cut_ratio: 0.8, cut_levels: [1, 2], stability_window: 4, trend: [0.9, 0.75], erosion: [0.3, 0.7],
   fill_weak_rate: 0.5, min_payouts: 4, recent_n: 8, principal_years: 3,
 }
 
@@ -122,7 +124,8 @@ test('配息體檢：總評、四項檢查、情境殖利率與最近配息', as
   // 情境殖利率：保守、中性、最近一次年化
   const scen = weak.getByTestId('health-scenarios')
   await expect(scen).toContainText('保守')
-  await expect(scen).toContainText('4.0%')
+  await expect(scen).toContainText('5.0%')
+  await expect(scen).toContainText('最近一次年化（季配）')
   await expect(scen).toContainText('中性')
   await expect(scen).toContainText('8.0%')
 
@@ -132,6 +135,10 @@ test('配息體檢：總評、四項檢查、情境殖利率與最近配息', as
   const steady = section.locator('article[data-symbol="0050"]')
   await expect(steady).toHaveAttribute('data-verdict', 'steady')
   await expect(steady.getByTestId('health-verdict')).toContainText('穩定')
+  const steadyScen = steady.getByTestId('health-scenarios')
+  await expect(steadyScen.locator('.scen-item')).toHaveCount(2) // 沒有保守情境就不顯示，不硬湊
+  await expect(steadyScen.locator('.scen-item em')).toHaveText(['中性', '最近一次年化（季配）'])
+  await expect(steady).not.toContainText('NaN')
 })
 
 test('配息體檢：資料不足顯示原因、不配息的標的不出現', async ({ page }) => {
@@ -156,7 +163,8 @@ test('配息體檢：判斷門檻說明的數字來自後端 method.health', asy
   const method = page.locator('[data-section="div-health"] details.method')
   await method.locator('summary').click()
   await expect(method).toContainText('> 1.10 留意、> 1.30 偏弱')
-  await expect(method).toContainText('> 15% 留意、> 35% 偏弱')
+  await expect(method).toContainText('少超過 20% 的算「縮水」')
+  await expect(method).toContainText('1 次留意、2 次以上偏弱')
   await expect(method).toContainText('< 0.90 留意、< 0.75 偏弱')
 })
 
