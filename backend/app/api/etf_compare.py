@@ -20,6 +20,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from ..analysis import etf_compare as core
+from ..analysis import etf_distribution as dist_core
 from ..analysis import etf_dividend_health as health_core
 
 logger = logging.getLogger(__name__)
@@ -226,6 +227,20 @@ async def _load_bundle(symbol: str, sem: asyncio.Semaphore, cached=_MISS) -> Opt
     bundle["ok"] = True
     await _cache_set(key, bundle)
     return bundle
+
+
+@router.get("/distribution-sources", dependencies=[Depends(_check_request_rate)])
+async def distribution_sources(
+    symbols: str = Query(..., description="以逗號分隔的標的代碼，最多 10 檔"),
+):
+    """配息「來源」（本期淨投資收益／已實現資本利得／收益平準金／本金）的人工整理資料。
+
+    只讀 backend/app/data/etf_distribution_sources.json（每筆都有出處連結與公告日，驗證過才收），
+    不碰 FinMind、不爬投信網站——為什麼不爬見 analysis/etf_distribution.py。沒收錄的標的就是空陣列。
+    """
+    syms = _parse_symbols(symbols)
+    table = dist_core.load_entries()
+    return {"success": True, "data": {"entries": {s: table.get(s, []) for s in syms}, "parts": list(dist_core.PARTS)}}
 
 
 @router.get("/chart", dependencies=[Depends(_check_request_rate)])
