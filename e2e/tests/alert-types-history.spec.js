@@ -24,7 +24,7 @@ test('價格警報頁 可新增成交量異常/RSI極端值警報，類型受設
   await page.goto('/price-alerts')
   const typeSelect = page.locator('select').first()
   await expect(typeSelect).toBeVisible({ timeout: 20_000 })
-  await expect(typeSelect.locator('option')).toHaveCount(3) // 預設全部通知偏好開啟：價格/成交量異常/RSI
+  await expect(typeSelect.locator('option')).toHaveCount(4) // 預設全部通知偏好開啟：價格/殖利率達標/成交量異常/RSI
 
   await page.locator('input[placeholder="代碼 2330"]').fill('2330')
   await typeSelect.selectOption('rsi_extreme')
@@ -54,9 +54,10 @@ test('設定頁 通知偏好持久化，關閉技術訊號通知後價格警報�
   await page.goto('/price-alerts')
   const typeSelect = page.locator('select').first()
   await expect(typeSelect).toBeVisible({ timeout: 20_000 })
-  // 技術訊號通知關閉後，成交量異常/RSI 極端值選項應該消失，只剩「價格」
-  await expect(typeSelect.locator('option')).toHaveCount(1)
-  await expect(typeSelect.locator('option')).toHaveText('價格')
+  // 技術訊號通知關閉後，成交量異常/RSI 極端值選項應該消失，只剩跟「價格通知」同一類的
+  // 「價格」與「殖利率達標」（殖利率警報是價格通知的一種，不受技術訊號偏好影響）
+  await expect(typeSelect.locator('option')).toHaveCount(2)
+  await expect(typeSelect.locator('option')).toHaveText(['價格', '殖利率達標'])
 })
 
 test('價格警報頁 觸發歷史中心顯示過去觸發紀錄 (Y3)', async ({ page }) => {
