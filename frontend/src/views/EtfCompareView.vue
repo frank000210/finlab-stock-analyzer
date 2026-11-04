@@ -262,7 +262,11 @@
           <h2>配息體檢：這個殖利率撐得住嗎？ <InfoTooltip v-bind="metricGlossary.etfDivHealth" /></h2>
         </div>
         <p class="muted small health-intro">股價大跌時，殖利率（過去配息 ÷ 現價）會被分母變小撐高，但過去配得出來不代表以後也配得出來。這裡用同一份除息紀錄做四項檢查：殖利率是不是被跌價撐大、每次配息穩不穩、最近有沒有縮水、配息有沒有被價格下跌吃掉。</p>
-        <EtfDividendHealth :rows="orderedRows" :color-of="colorOf" :thresholds="result.method.health" />
+        <EtfDividendHealth :rows="orderedRows" :color-of="colorOf" :thresholds="result.method.health">
+          <template #extra="{ row }">
+            <EtfDistributionSource v-if="row.health.payouts.length" :symbol="row.symbol" :payouts="row.health.payouts" :curated="distCurated[row.symbol] || []" />
+          </template>
+        </EtfDividendHealth>
       </section>
 
       <!-- 圖表三之二：急跌與反彈 -->
@@ -422,6 +426,7 @@ import EtfRadar from '../components/etf/EtfRadar.vue'
 import EtfDividendBars from '../components/etf/EtfDividendBars.vue'
 import EtfEventChart from '../components/etf/EtfEventChart.vue'
 import EtfDividendHealth from '../components/etf/EtfDividendHealth.vue'
+import EtfDistributionSource from '../components/etf/EtfDistributionSource.vue'
 import { metricGlossary } from '../lib/metricGlossary'
 import { useChartTheme } from '../composables/useChartTheme'
 import { downloadCsv, timestampedFilename } from '../lib/csvExport'
@@ -476,6 +481,18 @@ const searchShell = ref(null)
 const loading = ref(false)
 const errorMessage = ref('')
 const result = ref(null)
+// 配息來源：後端收錄（有出處）的人工整理資料；沒有、或取不到都不影響體檢本身
+const distCurated = ref({})
+let distToken = 0
+async function loadDistributionSources(symbols) {
+  const token = ++distToken
+  try {
+    const resp = await fetch(`${API_BASE}/api/v1/etf-compare/distribution-sources?symbols=${symbols.join(',')}`)
+    const payload = await resp.json().catch(() => ({}))
+    if (token !== distToken || !resp.ok) return
+    distCurated.value = payload?.data?.entries || {}
+  } catch { /* 取不到就維持「尚未收錄」，使用者仍可自己填 */ }
+}
 const loadedKey = ref('')
 const timeframe = ref('1Y')
 // 預設看殖利率：不同價位的標的（例如 2,000 元的個股 vs 30 元的 ETF）比「配息金額」沒有意義
@@ -1257,6 +1274,11 @@ onBeforeUnmount(() => {
   loadSeq++
   searchSeq++
   destroyChart()
+})
+
+watch(result, (r) => {
+  const syms = ((r && r.symbols) || []).filter(x => x.health && x.health.payouts && x.health.payouts.length).map(x => x.symbol)
+  if (syms.length) loadDistributionSources(syms)
 })
 </script>
 

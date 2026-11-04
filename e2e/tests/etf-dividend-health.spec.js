@@ -60,7 +60,9 @@ const THRESHOLDS = {
   fill_weak_rate: 0.5, min_payouts: 4, recent_n: 8, principal_years: 3,
 }
 
-async function mockApi(page, { withThresholds = true, stripHealth = false } = {}) {
+async function mockApi(page, { withThresholds = true, stripHealth = false, curated = {} } = {}) {
+  await page.route('**/api/v1/etf-compare/distribution-sources**', route =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, data: { entries: curated, parts: ['income', 'gain', 'equalization', 'principal'] } }) }))
   await page.route('**/api/v1/etf-compare/chart**', route =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, data: { symbol: '0050', dates: [], open: [], high: [], low: [], close: [], volume: [], dividend_events: [], splits: [] } }) }))
   await page.route('**/api/v1/etf-compare/catalog', route =>
@@ -168,4 +170,125 @@ test('配息體檢：後端沒給 health（舊快取）時整頁不報錯、只�
 
   await expect(page.getByTestId('div-health-empty')).toBeVisible()
   expect(errors).toEqual([])
+})
+
+// ── 階段二：配息來源 ─────────────────────────────────────────────────────────
+// 數字只來自「有出處的收錄資料」或「使用者自己填的」；兩者都沒有就老實顯示尚無資料。
+
+const CURATED = {
+  '0056': [{
+    symbol: '0056', ex_date: '2026-07-20', as_of: '2026-07-10',
+    per_unit: { income: 0.12, gain: 0.06, equalization: 0.02, principal: 0 },
+    source: '○○投信 收益分配公告', source_url: 'https://example.com/notice/0056-2026-07',
+  }],
+}
+
+async function openDist(page, symbol) {
+  const dist = page.locator(`[data-section="div-health"] article[data-symbol="${symbol}"] [data-testid="dist-source"]`)
+  await dist.locator('summary').click()
+  return dist
+}
+
+test('配息來源：收錄的資料顯示占比、來源連結與合併判讀', async ({ page }) => {
+  await mockApi(page, { curated: CURATED })
+  await page.goto('/etf-compare')
+  await page.getByRole('button', { name: '體檢情境' }).click()
+
+  const dist = await openDist(page, '0056')
+  const row = dist.locator('li.row[data-date="2026-07-20"]')
+  await expect(row).toHaveAttribute('data-kind', 'curated')
+  await expect(row).toContainText('收錄')
+  await expect(row.getByRole('link', { name: '○○投信 收益分配公告' })).toHaveAttribute('href', 'https://example.com/notice/0056-2026-07')
+  await expect(row).toContainText('公告日 2026-07-10')
+  await expect(row.locator('.seg')).toHaveCount(3) // 本金 0 不畫
+
+  // 非收益來源 = (0.06+0.02)/0.20 = 40% → 留意
+  await expect(dist.getByTestId('dist-summary-tag')).toContainText('非收益來源 40%')
+  await expect(dist.getByTestId('dist-verdict')).toContainText('收益 60%、資本利得 30%、收益平準金 10%、本金 0%')
+  await expect(dist.locator('.verdict')).toHaveClass(/a-warn/)
+
+  // 其他次沒有資料 → 只給「填寫」，不顯示任何假比例
+  const none = dist.locator('li.row[data-date="2026-04-20"]')
+  await expect(none).toHaveAttribute('data-kind', 'none')
+  await expect(none.locator('.stack')).toHaveCount(0)
+})
+
+test('配息來源：沒有收錄也沒填時顯示「尚無資料」，不出現合併判讀', async ({ page }) => {
+  await mockApi(page)
+  await page.goto('/etf-compare')
+  await page.getByRole('button', { name: '體檢情境' }).click()
+  await page.evaluate(() => localStorage.removeItem('finlab.etfDistSources.v1'))
+  await page.reload()
+  await page.getByRole('button', { name: '體檢情境' }).click()
+
+  const dist = await openDist(page, '0056')
+  await expect(dist.locator('summary')).toContainText('尚無資料')
+  await expect(dist.getByTestId('dist-verdict')).toHaveCount(0)
+})
+
+test('配息來源：自己填、存在瀏覽器、重新整理還在、可清除', async ({ page }) => {
+  await mockApi(page)
+  await page.goto('/etf-compare')
+  await page.evaluate(() => localStorage.removeItem('finlab.etfDistSources.v1'))
+  await page.reload()
+  await page.getByRole('button', { name: '體檢情境' }).click()
+
+  let dist = await openDist(page, '0056')
+  const row = dist.locator('li.row[data-date="2026-04-20"]') // 配 0.4 元
+  await row.getByTestId('dist-fill').click()
+  await row.locator('input[data-part="income"]').fill('0.3')
+  await row.locator('input[data-part="gain"]').fill('0.1')
+  await row.getByTestId('dist-save').click()
+
+  await expect(row).toHaveAttribute('data-kind', 'personal')
+  await expect(row).toContainText('我填的')
+  await expect(row.locator('.seg')).toHaveCount(2)
+  await expect(row).toContainText('收益 0.300')
+  await expect(dist.getByTestId('dist-summary-tag')).toContainText('非收益來源 25%') // 0.1 / 0.4，剛好不超過 25% 門檻 → 好
+  await expect(dist.getByTestId('dist-mismatch')).toHaveCount(0) // 合計 0.4 = 除息紀錄 0.4
+
+  const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('finlab.etfDistSources.v1')))
+  expect(stored['0056']['2026-04-20']).toEqual({ income: 0.3, gain: 0.1, equalization: 0, principal: 0 })
+
+  // 重新整理後還在
+  await page.reload()
+  await page.getByRole('button', { name: '體檢情境' }).click()
+  dist = await openDist(page, '0056')
+  await expect(dist.locator('li.row[data-date="2026-04-20"]')).toHaveAttribute('data-kind', 'personal')
+
+  // 清除
+  await dist.locator('li.row[data-date="2026-04-20"]').getByTestId('dist-clear').click()
+  await expect(dist.locator('li.row[data-date="2026-04-20"]')).toHaveAttribute('data-kind', 'none')
+  const after = await page.evaluate(() => JSON.parse(localStorage.getItem('finlab.etfDistSources.v1')))
+  expect(after['0056']).toBeUndefined()
+})
+
+test('配息來源：填錯會擋下；合計和除息紀錄差太多會提醒；有本金至少「留意」', async ({ page }) => {
+  await mockApi(page)
+  await page.goto('/etf-compare')
+  await page.evaluate(() => localStorage.removeItem('finlab.etfDistSources.v1'))
+  await page.reload()
+  await page.getByRole('button', { name: '體檢情境' }).click()
+
+  const dist = await openDist(page, '0056')
+  const row = dist.locator('li.row[data-date="2026-04-20"]')
+  await row.getByTestId('dist-fill').click()
+
+  // 全空 → 擋下、不寫入
+  await row.getByTestId('dist-save').click()
+  await expect(row.getByTestId('dist-error')).toContainText('合計需要大於 0')
+  expect(await page.evaluate(() => localStorage.getItem('finlab.etfDistSources.v1'))).toBeNull()
+
+  // 負數 → 擋下
+  await row.locator('input[data-part="income"]').fill('-1')
+  await row.getByTestId('dist-save').click()
+  await expect(row.getByTestId('dist-error')).toContainText('0 或正數')
+
+  // 合計 2.0 對 0.4：存得進去，但要提醒；有本金 → 即使其他都是收益也不能是「好」
+  await row.locator('input[data-part="income"]').fill('1.9')
+  await row.locator('input[data-part="principal"]').fill('0.1')
+  await row.getByTestId('dist-save').click()
+  await expect(row.getByTestId('dist-mismatch')).toContainText('差太多')
+  await expect(dist.getByTestId('dist-verdict')).toHaveClass(/a-warn/)
+  await expect(dist.getByTestId('dist-verdict')).toContainText('本金 5%')
 })

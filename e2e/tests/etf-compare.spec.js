@@ -121,6 +121,9 @@ async function mockApi(page, calls = [], override = {}, chartCalls = []) {
     chartCalls.push(url)
     route.fulfill({ status: 200, contentType: 'application/json', body: chartBody(url.searchParams.get('symbol')) })
   })
+  // 配息來源（人工整理資料）：沒有收錄就回空，頁面照樣可用
+  await page.route('**/api/v1/etf-compare/distribution-sources**', route =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, data: { entries: {}, parts: ['income', 'gain', 'equalization', 'principal'] } }) }))
   await page.route('**/api/v1/etf-compare/catalog', route =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(CATALOG) }))
   await page.route('**/api/v1/etf-compare/compare**', route => {
