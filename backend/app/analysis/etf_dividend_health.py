@@ -192,6 +192,8 @@ def dividend_health(bars: list[dict], dividends: list[dict], fill: Optional[dict
         if cuts:
             txt = (f"最近 {len(ratios)} 次中有 {cuts} 次比去年同期（沒有同期就比前一次）少了 {_pct(1 - CUT_RATIO, 0)} 以上，"
                    f"最差只有 {_pct(worst, 0)}。{rng}")
+        elif worst >= 1.0:
+            txt = f"最近 {len(ratios)} 次都沒有比去年同期（沒有同期就比前一次）減少。{rng}"
         else:
             txt = (f"最近 {len(ratios)} 次都沒有比去年同期（沒有同期就比前一次）少超過 {_pct(1 - CUT_RATIO, 0)}"
                    f"（最差 {_pct(worst, 0)}）。{rng}")

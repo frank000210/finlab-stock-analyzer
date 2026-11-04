@@ -112,6 +112,12 @@ def _stability(amounts, idxs=None, n_bars=800):
 def test_stability_good_when_no_payout_was_cut():
     out, chk = _stability([1.0] * 8)
     assert chk["level"] == "good" and out["stability"]["cuts"] == 0 and out["stability"]["worst_ratio"] == 1.0
+    assert "都沒有比去年同期" in chk["text"] and "減少" in chk["text"]
+
+
+def test_stability_text_reports_worst_ratio_when_some_payout_dipped_but_not_enough_to_cut():
+    out, chk = _stability([1, 1, 1, 1, 1, 1, 0.9, 1])  # 最差 90%，未達縮水門檻
+    assert chk["level"] == "good" and "最差 90%" in chk["text"]
 
 
 def test_stability_one_cut_vs_same_period_last_year_is_warn():
