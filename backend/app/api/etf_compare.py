@@ -229,6 +229,56 @@ async def _load_bundle(symbol: str, sem: asyncio.Semaphore, cached=_MISS) -> Opt
     return bundle
 
 
+async def yield_snapshot(symbol: str) -> Optional[dict]:
+    """單檔「近 12 月殖利率＋配息體檢」快照，給殖利率警報用。走單檔快取（同一檔當天只打一次
+    FinMind）；任何失敗都回 None，不丟例外——警報排程不能被它拖垮。"""
+    try:
+        bundle = await _load_bundle(symbol, asyncio.Semaphore(1))
+    except Exception:
+        logger.warning("etf_compare.yield_snapshot: load failed for %s", symbol)
+        return None
+    if not bundle:
+        return None
+    metrics = bundle.get("metrics") or {}
+    return {
+        "symbol": symbol,
+        "yield_ttm": (bundle.get("dividends") or {}).get("yield_ttm"),
+        "last_close": metrics.get("last_close"),
+        "last_date": metrics.get("last_date"),
+        "health": bundle.get("health"),
+    }
+
+
+_BRIEF_MAX_ETFS = 6
+
+
+async def brief_dividend_health(symbols: list[str], limit: int = _BRIEF_MAX_ETFS) -> list[dict]:
+    """盤後日報用：觀察清單裡的 ETF（依 TaiwanStockInfo 判斷）的配息體檢。高股息型優先、最多 limit 檔
+    （每檔沒快取時是 2 次 FinMind 呼叫，要守住免費額度）。資料取不到就回空，日報照常產生。"""
+    try:
+        info = await _stock_info()
+    except Exception:
+        logger.warning("etf_compare.brief_dividend_health: stock info unavailable")
+        return []
+    picked = []
+    for s in symbols:
+        meta = info.get(s, {})
+        if _is_etf(s, meta):
+            picked.append((0 if _category(s, meta) == "dividend" else 1, s, meta.get("name", "")))
+    picked = sorted(picked)[:limit]
+    if not picked:
+        return []
+    sem = asyncio.Semaphore(_FETCH_CONCURRENCY)
+    results = await asyncio.gather(*[_load_bundle(s, sem) for _, s, _ in picked], return_exceptions=True)
+    out = []
+    for (_, s, name), b in zip(picked, results):
+        if isinstance(b, Exception) or not b or not b.get("health"):
+            continue
+        out.append({"symbol": s, "name": name, "health": b["health"],
+                    "yield_ttm": (b.get("dividends") or {}).get("yield_ttm")})
+    return out
+
+
 @router.get("/distribution-sources", dependencies=[Depends(_check_request_rate)])
 async def distribution_sources(
     symbols: str = Query(..., description="以逗號分隔的標的代碼，最多 10 檔"),

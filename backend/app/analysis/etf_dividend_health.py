@@ -271,3 +271,60 @@ def _principal(bars: list[dict], adj: Optional[list[float]], fill: Optional[dict
         txt = (f"近 {years:.1f} 年價格 {price_ret * 100:+.1f}%、含息 {total_ret * 100:+.1f}%，"
                f"配息貢獻約 {dist * 100:.1f}%，價格下跌吃掉其中 {_pct(min(erosion, 9.99), 0)}。{fill_txt}")
     return {"check": {"key": "principal", "label": label, "level": lvl, "text": txt}, "data": data}
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# 文字輸出：盤後日報與殖利率警報共用（純函式）
+# ═════════════════════════════════════════════════════════════════════════════
+
+def _flagged_labels(health: dict) -> list[str]:
+    return [c["label"] for c in health.get("checks", []) if c.get("level") in ("warn", "bad")]
+
+
+def brief_lines(items: list[dict]) -> list[str]:
+    """盤後日報的「配息體檢」段落。items＝[{symbol, name, health, yield_ttm}]。
+
+    只列「留意／偏弱」的標的（穩定的不佔版面）；都沒事就一行帶過；全部資料不足就回空，
+    日報不要塞沒有資訊的字。"""
+    judged = [it for it in items if (it.get("health") or {}).get("enough")]
+    if not judged:
+        return []
+    flagged = [it for it in judged if it["health"]["verdict"] in ("watch", "weak")]
+    if not flagged:
+        return [f"✓ 配息體檢：觀察清單內 {len(judged)} 檔有配息的 ETF 都沒有警示"]
+    out = ["💰 配息體檢（觀察清單內的 ETF）："]
+    # 偏弱排前面，同級再依殖利率膨脹由大到小
+    flagged.sort(key=lambda it: (it["health"]["verdict"] != "weak", -(it["health"].get("inflation") or 0)))
+    for it in flagged:
+        h = it["health"]
+        nm = f" {it['name']}" if it.get("name") else ""
+        parts = [f"{it['symbol']}{nm}：{h['verdict_label']}", f"現價殖利率 {_pct(h['yield_now'])}"]
+        if h.get("yield_norm") is not None and h.get("inflation") and h["inflation"] > 1.0:
+            parts.append(f"常態 {_pct(h['yield_norm'])}（跌價撐高 {h['inflation']:.2f}×）")
+        labels = _flagged_labels(h)
+        if labels:
+            parts.append("、".join(labels))
+        out.append("・" + "｜".join(parts))
+    return out
+
+
+def yield_alert_message(symbol: str, name: str, target_pct: float, yield_now: float,
+                        last_close: Optional[float], health: Optional[dict]) -> str:
+    """殖利率警報的 Telegram 文字：殖利率高不等於配得起，所以一定附上配息體檢。"""
+    nm = f" {name}" if name else ""
+    close_txt = f"（收盤 {last_close:g}）" if last_close else ""
+    msg = f"💰 殖利率警報：{symbol}{nm} 現價殖利率 {yield_now * 100:.2f}% 已達 {target_pct:g}%{close_txt}"
+    if health and health.get("enough"):
+        msg += f"\n配息體檢：{health['verdict_label']}"
+        if health.get("yield_norm") is not None and health.get("inflation") and health["inflation"] > 1.0:
+            msg += f"｜常態殖利率 {_pct(health['yield_norm'])}，跌價撐高 {health['inflation']:.2f}×"
+        labels = _flagged_labels(health)
+        if labels:
+            msg += f"｜需留意：{'、'.join(labels)}"
+        sc = health.get("scenarios")
+        if sc:
+            msg += f"\n保守 {_pct(sc['conservative'])}／中性 {_pct(sc['neutral'])}／最近一次年化 {_pct(sc['last_annualized'])}"
+    elif health and health.get("reason"):
+        msg += f"\n配息體檢：資料不足（{health['reason']}）"
+    msg += "\n（殖利率是過去配息 ÷ 現價，不代表未來配得出來；詳見 ETF 比較頁「配息體檢」，非投資建議）"
+    return msg

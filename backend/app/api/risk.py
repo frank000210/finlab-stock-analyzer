@@ -213,6 +213,18 @@ async def build_daily_brief() -> dict:
     if warn_lines:
         lines.append("注意：")
         lines.extend(warn_lines[:8])
+    # 配息體檢：觀察清單裡的 ETF（殖利率是不是被跌價撐大、配息穩不穩、有沒有吃本金）。
+    # 用 ETF 比較頁同一份單檔資料與快取；取不到、逾時都只略過這一段，日報照常產生與推播。
+    try:
+        import asyncio as _asyncio
+
+        from . import etf_compare as etf_api
+        from ..analysis.etf_dividend_health import brief_lines
+
+        div_items = await _asyncio.wait_for(etf_api.brief_dividend_health(list(syms)), timeout=45)
+        lines.extend(brief_lines(div_items))
+    except Exception:
+        logger.exception("build_daily_brief: dividend health skipped")
     lines.append("（僅為訊號摘要，非投資建議）")
     template_text = "\n".join(lines)[:3500]
 
@@ -282,7 +294,9 @@ async def daily_brief_send():
 _MAX_PRICE_ALERTS = 50
 
 
-_ALERT_TYPES = ("price", "volume_spike", "rsi_extreme")
+_ALERT_TYPES = ("price", "volume_spike", "rsi_extreme", "yield_target")
+# 殖利率警報的目標殖利率（%）合理範圍：超過這個多半是填錯（例如把 0.07 當 7、或填成股價）
+_MAX_TARGET_YIELD_PCT = 50.0
 _MAX_ALERT_HISTORY = 200
 
 # Y2：門檻直接沿用 watchlist_signals()（O1/既有）已經在用的數字，不重新發明
@@ -298,6 +312,7 @@ class PriceAlertReq(BaseModel):
     alert_type: str = "price"  # price | volume_spike | rsi_extreme
     direction: str = "above"  # price: above=漲破/below=跌破；rsi_extreme: above=超買/below=超賣；volume_spike 不使用
     target_price: float | None = None  # 只有 price 類型需要
+    target_yield_pct: float | None = None  # 只有 yield_target 類型需要：現價殖利率（近 12 月配息 ÷ 現價）達到這個 % 就通知
     note: str = ""
 
 
@@ -426,6 +441,16 @@ async def run_alert_check() -> dict:
     results = await asyncio.gather(*[_fetch_metrics(sym) for sym in symbols])
     metrics: dict[str, dict] = {sym: m for sym, m in results if m is not None}
 
+    # 殖利率警報：用 ETF 比較頁同一份單檔資料（近 12 月配息 ÷ 收盤價＋配息體檢），
+    # 單檔快取當天只打一次 FinMind，所以排程每 20 分鐘跑一次也不會多燒額度。
+    yield_syms = sorted({normalize_symbol(a["symbol"]) for a in active if a.get("alert_type") == "yield_target"})
+    snaps: dict[str, dict] = {}
+    if yield_syms:
+        from . import etf_compare as etf_api
+
+        snap_results = await asyncio.gather(*[etf_api.yield_snapshot(sym) for sym in yield_syms])
+        snaps = {sym: sn for sym, sn in zip(yield_syms, snap_results) if sn}
+
     s = get_settings()
     token = (s.telegram_bot_token or "").strip()
     chat = (s.telegram_chat_id or "").strip()
@@ -453,7 +478,20 @@ async def run_alert_check() -> dict:
         alert_type = a.get("alert_type", "price")
         hit = False
         msg = None
-        if alert_type == "price":
+        yield_pct = None
+        if alert_type == "yield_target":
+            sn = snaps.get(normalize_symbol(a["symbol"]))
+            if sn and sn.get("yield_ttm") is not None:
+                yield_pct = round(sn["yield_ttm"] * 100, 2)
+                a["last_yield_pct"] = yield_pct
+                updates[a["id"]]["last_yield_pct"] = yield_pct
+                hit = sn["yield_ttm"] * 100 >= float(a.get("target_yield_pct") or 0) > 0
+                if hit:
+                    from ..analysis.etf_dividend_health import yield_alert_message
+
+                    msg = yield_alert_message(a["symbol"], "", float(a["target_yield_pct"]), sn["yield_ttm"],
+                                              sn.get("last_close"), sn.get("health"))
+        elif alert_type == "price":
             hit = (
                 (a["direction"] == "above" and price >= a["target_price"])
                 or (a["direction"] == "below" and price <= a["target_price"])
@@ -496,6 +534,7 @@ async def run_alert_check() -> dict:
             await _append_alert_history({
                 "id": a["id"], "symbol": a["symbol"], "alert_type": alert_type,
                 "direction": a.get("direction"), "target_price": a.get("target_price"),
+                "target_yield_pct": a.get("target_yield_pct"), "yield_pct": yield_pct,
                 "price": price, "rsi": rsi, "vol_ratio": vol_ratio,
                 "note": a.get("note", ""), "triggered_at": now_iso, "date": today_iso,
             })
@@ -535,9 +574,16 @@ async def create_alert(req: PriceAlertReq):
     if direction not in ("above", "below"):
         raise HTTPException(status_code=400, detail="direction 必須是 above 或 below")
     target_price = req.target_price
+    target_yield_pct = None
     if alert_type == "price":
         if not target_price or target_price <= 0:
             raise HTTPException(status_code=400, detail="目標價必須大於 0")
+    elif alert_type == "yield_target":
+        target_price = None
+        target_yield_pct = req.target_yield_pct
+        if not target_yield_pct or not (0 < target_yield_pct <= _MAX_TARGET_YIELD_PCT):
+            raise HTTPException(status_code=400, detail=f"目標殖利率需介於 0～{_MAX_TARGET_YIELD_PCT:g}（單位是 %，例如 7 代表 7%）")
+        direction = "above"  # 殖利率警報只有「達到以上」一種：目的是在殖利率變高時提醒你先做配息體檢
     else:
         target_price = None  # 成交量異常/RSI 極端值不使用目標價，門檻是站內固定值
     symbol = normalize_symbol(req.symbol)
@@ -558,6 +604,8 @@ async def create_alert(req: PriceAlertReq):
         "alert_type": alert_type,
         "direction": direction,
         "target_price": target_price,
+        "target_yield_pct": target_yield_pct,
+        "last_yield_pct": None,
         "note": req.note.strip()[:200],
         "created_at": datetime.utcnow().isoformat(),
         "active": True,
