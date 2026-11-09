@@ -54,6 +54,18 @@
       <p class="sc-foot muted small">
         {{ card.label.note }}　✓＝符合門檻、✗＝不符合、—＝資料不足或不適用（不計入分母，不是 0 分）。旗標只提醒、不計分。
       </p>
+      <details class="sc-howto" data-testid="sc-howto">
+        <summary>怎麼用這張評分卡</summary>
+        <ol>
+          <li><b>基本面當門檻</b>：可判定項目裡通過的太少（約 6 成以下）先別碰，目的是避開地雷，不是找買點。</li>
+          <li><b>技術面決定時機與位置</b>：大多數沒過，就算基本面再好也先等；它看的是數日到數週。</li>
+          <li><b>籌碼面當確認</b>：不單獨決定；沒有券商分點資料，只看法人、集保、融資、當沖與外資持股。</li>
+          <li><b>看「沒過的那幾項」比看總分重要</b>：例如只差「KD 黃金交叉」，代表還在等訊號。</li>
+          <li><b>三個面向當三軸看，不要只看加總</b>：基本面好、技術面弱＝等待；基本面弱、技術面強＝短線投機，部位要小。</li>
+          <li><b>看變化</b>：一週內技術面由 3 項升到 6 項，比單看 6 項更有資訊。</li>
+          <li><b>留意「不適用」</b>：金融股沒有毛利、新上市資料不足，分母會縮小，通過比例才是重點。</li>
+        </ol>
+      </details>
     </template>
   </section>
 </template>
@@ -143,6 +155,9 @@ function dimSub(d) {
 .sc-flag.tone-warn { background: rgba(245, 158, 11, 0.1); border-color: rgba(245, 158, 11, 0.35); }
 .sc-flag.tone-info { background: rgba(59, 130, 246, 0.1); border-color: rgba(59, 130, 246, 0.3); }
 .sc-foot { margin: 0; line-height: 1.6; }
+.sc-howto { font-size: 0.86rem; color: var(--text-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-sm, 8px); padding: 8px 14px; }
+.sc-howto summary { cursor: pointer; font-weight: 600; color: var(--text-primary, #f1f5f9); }
+.sc-howto ol { margin: 8px 0 2px; padding-left: 1.3em; display: flex; flex-direction: column; gap: 5px; line-height: 1.6; }
 .btn.xs { padding: 5px 12px; font-size: 0.78rem; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 

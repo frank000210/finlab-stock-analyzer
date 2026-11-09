@@ -89,6 +89,13 @@ test('個股分析頁顯示三面向評分卡：三欄各 10 項、面向分數�
   await expect(page.getByTestId('sc-flag')).toHaveCount(2)
   await expect(page.locator('[data-flag="overextended"]')).toContainText('追價風險')
   await expect(sc).toContainText('不是預測')
+
+  // 「怎麼用」說明預設收合、點開看得到 7 點
+  const howto = page.getByTestId('sc-howto')
+  await expect(howto).not.toHaveAttribute('open', '')
+  await howto.locator('summary').click()
+  await expect(howto.locator('li')).toHaveCount(7)
+  await expect(howto).toContainText('基本面當門檻')
 })
 
 test('每個檢核項標示通過／未通過／不適用，附實際值與門檻；不適用不是 0 分', async ({ page }) => {
@@ -205,7 +212,7 @@ test('換股會清掉上一檔的評分卡，再依新代號重新載入', async
   expect(calls.map(u => u.split('/analysis/')[1].split('/')[0])).toEqual(['2330', '2317'])
 })
 
-test('手機：三欄改單欄堆疊，頁面不橫向溢出', async ({ page }) => {
+test('手機：三欄改單欄堆疊，評分卡不撐寬', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await mockScorecard(page, card())
   await page.goto('/stocks/2330')
@@ -216,8 +223,9 @@ test('手機：三欄改單欄堆疊，頁面不橫向溢出', async ({ page }) 
   expect(boxes[1].y).toBeGreaterThan(boxes[0].y + boxes[0].height - 2)       // 由上往下堆疊，不是並排
   expect(boxes[2].y).toBeGreaterThan(boxes[1].y + boxes[1].height - 2)
   for (const b of boxes) expect(b.x + b.width).toBeLessThanOrEqual(390)
-  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
-  expect(overflow).toBeLessThanOrEqual(0)
+  // 只檢查評分卡自己不撐寬（分析頁別處的 D3 日曆圖在手機上本來就比螢幕寬，不是這張卡造成的）
+  const cardOverflow = await page.getByTestId('scorecard-section').evaluate(el => el.scrollWidth - el.clientWidth)
+  expect(cardOverflow).toBeLessThanOrEqual(1)
 })
 
 test('桌機：三欄並排', async ({ page }) => {
