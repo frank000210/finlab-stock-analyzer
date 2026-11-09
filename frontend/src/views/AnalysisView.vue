@@ -136,7 +136,7 @@
       <article class="card decision-card">
         <div class="section-head compact">
           <div>
-            <h2>AI 決策評分 <InfoTooltip label="AI 決策評分" text="技術面（35%）+ 基本面（25%）+ 籌碼面（20%）+ 情緒面（20%）加權組成的 0-100 分。≥68 分判定為 BUY、≤42 分判定為 SELL，中間區間判定為 HOLD——分數本身只是四個面向的綜合傾向，不是漲跌機率。" /></h2>
+            <h2>AI 決策評分 <InfoTooltip label="AI 決策評分" text="技術面（35%）+ 基本面（25%）+ 籌碼面（20%）+ 情緒面（20%）加權組成的 0-100 分。台股個股的技術、基本、籌碼三項＝下方「個股評分卡」的通過率（通過數 ÷ 可判定數 × 100，資料不足當 50）；ETF、美股用原本的算法。≥68 分判定為 BUY、≤42 分判定為 SELL，中間區間判定為 HOLD——分數本身只是四個面向的綜合傾向，不是漲跌機率；這組門檻尚未經回測驗證。" /></h2>
           </div>
         </div>
 
@@ -167,6 +167,11 @@
           </div>
         </div>
       </article>
+    </section>
+
+    <!-- 個股三面向評分卡：台股個股才顯示（美股、載入失敗時整區隱藏，「AI 決策評分」退回原算法） -->
+    <section v-if="scorecard || scorecardLoading || scorecardError" class="card scorecard-section" data-testid="scorecard-section">
+      <StockScorecard :card="scorecard" :loading="scorecardLoading" :error="scorecardError" @retry="loadScorecard(symbol, requestToken)" />
     </section>
 
     <!-- W2：AI 摘要——刻意設計為使用者主動觸發（每次呼叫有成本、需 15~40 秒），
@@ -566,6 +571,7 @@ import DataLineage from '../components/DataLineage.vue'
 import TradingViewChart from '../components/TradingViewChart.vue'
 import InfoTooltip from '../components/InfoTooltip.vue'
 import MetricScale from '../components/MetricScale.vue'
+import StockScorecard from '../components/StockScorecard.vue'
 import { metricGlossary } from '../lib/metricGlossary'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -620,6 +626,11 @@ const technicalPayload = ref({})
 const fundamentalData = ref({})
 const chipData = ref({})
 const aiSignal = ref(null)
+// 個股三面向評分卡（台股個股才有；ETF 回 applicable=false，美股與取不到時為 null）。
+// 「AI 決策評分」的技術／基本／籌碼三個分數優先用它的通過率，兩處才不會互相矛盾。
+const scorecard = ref(null)
+const scorecardLoading = ref(false)
+const scorecardError = ref('')
 
 const priceChartEl = ref(null)
 const rsiChartEl = ref(null)
@@ -1008,7 +1019,8 @@ const marginShortRatio = computed(() => {
   return `${formatNumber(shortBalance / marginBalance, 2)}x`
 })
 
-const technicalScore = computed(() => {
+// 以下三個 legacy* 是評分卡不可用時（美股、載入失敗）的後備算法；台股個股優先用評分卡（見 technicalScore 等）。
+const legacyTechnicalScore = computed(() => {
   let score = 50
   if (latestClose.value && latestMa20.value) score += latestClose.value > latestMa20.value ? 12 : -12
   if (latestMa5.value && latestMa20.value) score += latestMa5.value > latestMa20.value ? 8 : -8
@@ -1021,7 +1033,7 @@ const technicalScore = computed(() => {
   return clampScore(score)
 })
 
-const fundamentalScore = computed(() => {
+const legacyFundamentalScore = computed(() => {
   let score = 50
   score += clampBetween(revenueGrowth.value / 2, -15, 15)
   score += clampBetween(epsGrowth.value / 2, -18, 18)
@@ -1033,7 +1045,7 @@ const fundamentalScore = computed(() => {
   return clampScore(score)
 })
 
-const chipScore = computed(() => {
+const legacyChipScore = computed(() => {
   let score = 50
   score += clampBetween(foreignNetBuy5.value / 50000, -18, 18)
   score += clampBetween(foreignBuyStreak.value * 4, 0, 16)
@@ -1041,6 +1053,12 @@ const chipScore = computed(() => {
   if (investmentTrustTrendText.value === '偏空') score -= 10
   return clampScore(score)
 })
+
+// 評分卡可用時，三個面向的分數＝通過率（通過數 ÷ 可判定數 × 100）；某面向資料不足就當中性 50。
+const scoreFromCard = key => (scorecard.value?.applicable ? (scorecard.value.scores?.[key] ?? 50) : null)
+const technicalScore = computed(() => scoreFromCard('technical') ?? legacyTechnicalScore.value)
+const fundamentalScore = computed(() => scoreFromCard('fundamental') ?? legacyFundamentalScore.value)
+const chipScore = computed(() => scoreFromCard('chip') ?? legacyChipScore.value)
 
 const sentimentScore = computed(() => {
   const signal = aiSignal.value
@@ -1101,21 +1119,21 @@ const scoreBreakdown = computed(() => [
     label: '技術面',
     score: technicalScore.value,
     color: theme.blue,
-    description: technicalDescription(),
+    description: cardDescription('technical', technicalDescription),
   },
   {
     key: 'fundamental',
     label: '基本面',
     score: fundamentalScore.value,
     color: theme.cyan,
-    description: fundamentalDescription(),
+    description: cardDescription('fundamental', fundamentalDescription),
   },
   {
     key: 'chip',
     label: '籌碼面',
     score: chipScore.value,
     color: theme.purple,
-    description: chipDescription(),
+    description: cardDescription('chip', chipDescription),
   },
   {
     key: 'sentiment',
@@ -1283,6 +1301,9 @@ async function loadAnalysis() {
   peerDraft.value = []
   aiCandidates.value = []
   eventCalendar.value = []
+  scorecard.value = null
+  scorecardLoading.value = false
+  scorecardError.value = ''
   const token = ++requestToken
 
   // 中文名（含漢字）才需要解析成代號轉址；美股字母代號（AAPL、^GSPC）
@@ -1344,6 +1365,25 @@ async function loadAnalysis() {
   loadTurnover(sym, token)
   loadChipSummary(sym, token)
   loadPeerComparison(sym, token)
+  loadScorecard(sym, token)
+}
+
+// 評分卡只支援台股個股（4～6 位數字代號，可帶一位英文尾碼）；美股、指數不載入、不顯示。
+async function loadScorecard(sym, token) {
+  if (!/^\d{4,6}[A-Za-z]?$/.test(sym || '')) return
+  scorecardLoading.value = true
+  scorecardError.value = ''
+  try {
+    const payload = await apiGet(`/api/v1/analysis/${sym}/scorecard`)
+    if (token !== requestToken) return
+    scorecard.value = (payload && typeof payload === 'object' && 'applicable' in payload) ? payload : null
+  } catch (e) {
+    if (token !== requestToken) return
+    // 評分卡是加值資訊：失敗只影響這張卡，「AI 決策評分」退回原本的前端算法
+    scorecardError.value = e?.message || '評分卡載入失敗'
+  } finally {
+    if (token === requestToken) scorecardLoading.value = false
+  }
 }
 
 async function loadTurnover(sym, token) {
@@ -2128,6 +2168,13 @@ function buildReasonPool() {
     })
   }
   return reasons
+}
+
+// 評分卡可用時，說明文字直接寫「通過幾項」，與下方評分卡一致；否則用原本的文字描述。
+function cardDescription(key, fallback) {
+  const d = scorecard.value?.applicable ? scorecard.value.dimensions.find(x => x.key === key) : null
+  if (!d) return fallback()
+  return d.score10 == null ? '資料不足，視為中性' : `評分卡通過 ${d.passed} / ${d.decidable} 項`
 }
 
 function technicalDescription() {
