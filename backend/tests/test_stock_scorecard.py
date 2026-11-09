@@ -548,3 +548,93 @@ def test_scorecard_over_quota_returns_429_with_retry_after(api, monkeypatch):
     monkeypatch.setattr("app.db.cache.consume_fixed_window", over)
     r = client.get("/api/v1/analysis/2330/scorecard")
     assert r.status_code == 429 and r.headers["retry-after"] == "125" and state["built"] == []
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# build_scorecard：資料來源失敗／逾時時，只讓對應項目變不適用，並標記 failed（API 不快取）
+# ═════════════════════════════════════════════════════════════════════════════
+
+def _fake_sources(monkeypatch, chip_delay=0.0, bars_n=120):
+    import app.api.chip as chip_mod
+    import app.crawler as crawler
+
+    df = pd.DataFrame(make_bars([100 + i for i in range(bars_n)]))
+    empty = pd.DataFrame()
+
+    class FakePrice:
+        async def get_price(self, *a, **k):
+            return df
+
+    class FakeFM:
+        async def get_stock_price(self, *a):
+            return empty
+
+        async def get_valuation(self, *a):
+            return empty
+
+        async def get_financial_statements(self, *a):
+            return empty
+
+        async def get_balance_sheet(self, *a):
+            return empty
+
+        async def get_cash_flows(self, *a):
+            return empty
+
+        async def get_shares_outstanding(self, *a):
+            return empty
+
+        async def get_stock_info(self):
+            return pd.DataFrame([{"stock_id": "2330", "stock_name": "台積電", "industry_category": "半導體業"}])
+
+    class FakeFund:
+        async def get_monthly_revenue(self, *a):
+            return []
+
+    async def fake_chip(symbol, days):
+        await asyncio.sleep(chip_delay)
+        return {"major_players": None}
+
+    monkeypatch.setattr(crawler, "StockPriceCrawler", FakePrice)
+    monkeypatch.setattr(crawler, "FinMindClient", FakeFM)
+    monkeypatch.setattr(crawler, "FundamentalCrawler", FakeFund)
+    monkeypatch.setattr(chip_mod, "_build_chip_analysis", fake_chip)
+
+
+def test_build_scorecard_survives_a_hanging_chip_source(monkeypatch):
+    _fake_sources(monkeypatch, chip_delay=5.0)
+    monkeypatch.setattr(sc, "CHIP_TIMEOUT_SECONDS", 0.05)
+    card = asyncio.run(sc.build_scorecard("2330"))
+    assert card["applicable"] and card["symbol"] == "2330" and card["name"] == "台積電"
+    assert "chip" in card["meta"]["failed"]                      # API 看到 failed 就不快取
+    chip = next(d for d in card["dimensions"] if d["key"] == "chip")
+    assert chip["decidable"] == 0 and chip["score10"] is None     # 籌碼面全部不適用，不是 0 分
+    tech = next(d for d in card["dimensions"] if d["key"] == "technical")
+    assert tech["decidable"] >= 8                                 # 技術面照常算
+
+
+def test_build_scorecard_raises_value_error_without_price_data(monkeypatch):
+    import app.crawler as crawler
+    _fake_sources(monkeypatch)
+
+    class NoPrice:
+        async def get_price(self, *a, **k):
+            return pd.DataFrame()
+
+    monkeypatch.setattr(crawler, "StockPriceCrawler", NoPrice)
+    with pytest.raises(ValueError, match="查無日線資料"):
+        asyncio.run(sc.build_scorecard("9999"))
+
+
+def test_build_scorecard_etf_by_industry_is_not_applicable(monkeypatch):
+    import app.crawler as crawler
+    _fake_sources(monkeypatch)
+    base = crawler.FinMindClient
+
+    class EtfInfo(base):
+        async def get_stock_info(self):
+            return pd.DataFrame([{"stock_id": "9999", "stock_name": "某ETF", "industry_category": "ETF"}])
+
+    monkeypatch.setattr(crawler, "FinMindClient", EtfInfo)
+    card = asyncio.run(sc.build_scorecard("9999"))
+    assert card["applicable"] is False and "ETF" in card["reason"]

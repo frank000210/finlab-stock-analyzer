@@ -571,6 +571,7 @@ def compute_scorecard(data: dict) -> dict:
 # 一次未命中快取大約打 FinMind 14 次：日線、加權指數、PER、營收、損益、資產負債、現金流、外資持股、
 # 股票基本資料，加上籌碼分析（法人、融資、當沖、籌碼用的日線）。API 層用這個數字扣額度。
 FETCH_COST = 14
+CHIP_TIMEOUT_SECONDS = 60
 
 
 def _records(df: Optional[pd.DataFrame], cols: dict[str, str]) -> list[dict]:
@@ -644,7 +645,9 @@ async def build_scorecard(symbol: str) -> dict:
 
     async def chip():
         from ..api.chip import _build_chip_analysis  # 延後 import：避免 api ↔ analysis 循環
-        return await _build_chip_analysis(symbol, 90)
+        # 籌碼分析含集保（TDCC）下載，來源連不上時每次可能卡 90 秒、重試 3 次；
+        # 這裡設上限，逾時就只讓籌碼面的項目變「不適用」，不要整張評分卡等幾分鐘。
+        return await asyncio.wait_for(_build_chip_analysis(symbol, 90), timeout=CHIP_TIMEOUT_SECONDS)
 
     async def guarded(coro_fn):
         async with sem:
