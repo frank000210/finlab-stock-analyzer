@@ -5,6 +5,30 @@ from typing import Optional
 from .finmind_client import FinMindClient
 
 
+def quarter_label(date_str: str) -> str:
+    """'2026-06-30' → '2026Q2'（FinMind 財報的 date 是季底日）。"""
+    s = str(date_str)[:10]
+    return f"{s[:4]}Q{(int(s[5:7]) - 1) // 3 + 1}"
+
+
+def pivot_quarters(df: pd.DataFrame) -> dict[str, dict[str, float]]:
+    """FinMind 財報長表（date/type/value）→ {'2026Q2': {'Revenue': ..., 'EPS': ...}}。
+
+    損益表、資產負債表、現金流量表都是這個形狀。同一季若有多個 date
+    （例如補送），後面的覆蓋前面的。
+    """
+    out: dict[str, dict[str, float]] = {}
+    if df is None or df.empty or not {"date", "type", "value"} <= set(df.columns):
+        return out
+    for _, row in df.sort_values("date").iterrows():
+        try:
+            value = float(row["value"])
+        except (TypeError, ValueError):
+            continue
+        out.setdefault(quarter_label(row["date"]), {})[str(row["type"])] = value
+    return out
+
+
 class FundamentalCrawler:
     """Fetches fundamental financial data for a stock."""
 
@@ -78,7 +102,9 @@ class FundamentalCrawler:
 
                 gross = metrics.get("GrossProfit", 0)
                 operating = metrics.get("OperatingIncome", 0)
-                net = metrics.get("NetIncome", 0)
+                # FinMind 損益表沒有 "NetIncome" 欄位（以前讀它，net_margin 永遠是 None）；
+                # 稅後淨利是 IncomeAfterTaxes（金融保險業是 IncomeAfterTax）。
+                net = metrics.get("IncomeAfterTaxes", metrics.get("IncomeAfterTax", metrics.get("NetIncome", 0)))
                 revenue = metrics.get("Revenue", 1)
 
                 if revenue and float(revenue) > 0:
@@ -90,15 +116,23 @@ class FundamentalCrawler:
                         "net_margin": round(float(net) / rev * 100, 2) if net else None,
                     })
 
-                debt_ratio = metrics.get("DebtRatio", None)
-                if debt_ratio:
-                    debt_data.append({
-                        "quarter": quarter,
-                        "debt_ratio": float(debt_ratio),
-                    })
+                # 損益表沒有負債比（以前讀 "DebtRatio"，永遠是空的）：負債比由
+                # get_debt_ratios() 用資產負債表算，這裡保留欄位維持回傳格式。
 
         return {
             "eps_quarterly": eps_data,
             "margins": margins_data,
             "debt_ratios": debt_data,
         }
+
+    async def get_debt_ratios(
+        self, symbol: str, start: str, end: str
+    ) -> list[dict]:
+        """負債比（%）＝ 負債總額 ÷ 資產總額，逐季，用資產負債表算。"""
+        df = await self.finmind.get_balance_sheet(symbol, start, end)
+        rows = []
+        for quarter, m in sorted(pivot_quarters(df).items()):
+            liabilities, assets = m.get("Liabilities"), m.get("TotalAssets")
+            if liabilities is not None and assets and assets > 0:
+                rows.append({"quarter": quarter, "debt_ratio": round(liabilities / assets * 100, 2)})
+        return rows

@@ -2,10 +2,12 @@
 
 import logging
 
-from fastapi import APIRouter, Query, HTTPException
+from fastapi import APIRouter, Query, HTTPException, Request
 from datetime import date, timedelta
 from ..crawler import StockPriceCrawler, FundamentalCrawler, InstitutionalCrawler
 from ..analysis import TechnicalAnalyzer
+from ..analysis import stock_scorecard as scorecard_core
+from . import rate_guard
 
 logger = logging.getLogger(__name__)
 
@@ -95,7 +97,7 @@ async def get_fundamental(
                 symbol, str(start), str(end)
             )
 
-        if any(m in metric_list for m in ["eps", "margins", "debt_ratios"]):
+        if any(m in metric_list for m in ["eps", "margins"]):
             financials = await crawler.get_financial_statements(
                 symbol, str(start), str(end)
             )
@@ -103,8 +105,15 @@ async def get_fundamental(
                 result["eps_quarterly"] = financials["eps_quarterly"]
             if "margins" in metric_list:
                 result["margins"] = financials["margins"]
-            if "debt_ratios" in metric_list:
-                result["debt_ratios"] = financials["debt_ratios"]
+        if "debt_ratios" in metric_list:
+            # 損益表沒有負債比，要另外用資產負債表算；取不到不影響其他指標
+            try:
+                result["debt_ratios"] = await crawler.get_debt_ratios(
+                    symbol, str(start), str(end)
+                )
+            except Exception:
+                logger.warning("get_fundamental: debt ratios unavailable for %s", symbol)
+                result["debt_ratios"] = []
 
         return {"success": True, "data": {"symbol": symbol, **result}}
     except Exception as e:
@@ -351,3 +360,53 @@ async def get_chip_analysis(
     except Exception as e:
         logger.exception("get_chip_analysis failed for %s", symbol)
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ── 個股三面向評分卡 ────────────────────────────────────────────────────────
+# 一份資料、一套算法、後端算：前端只顯示（見 analysis/stock_scorecard.py）。
+_SCORECARD_REQ_LIMIT = 300      # 每 IP 每 10 分鐘的請求數：很寬，只擋腳本式連打
+_SCORECARD_FETCH_LIMIT = 70     # 每 IP 每 10 分鐘「未命中快取」的 FinMind 呼叫數（約 5 檔）
+
+
+@router.get("/{symbol}/scorecard")
+async def get_scorecard(symbol: str, request: Request):
+    """個股三面向評分卡：基本面、技術面、籌碼面各 10 項通過／未通過／不適用，
+    加上旗標與標籤。結果快取 6 小時；只有未命中快取才計入 FinMind 額度。"""
+    from ..data.us_symbols import is_tw_symbol, normalize_symbol
+
+    sym = normalize_symbol(symbol)
+    if not is_tw_symbol(sym):
+        raise HTTPException(status_code=400, detail="評分卡目前只支援台股個股代號。")
+    await rate_guard.consume(request, "scorecard_req", 1, _SCORECARD_REQ_LIMIT)
+
+    if sym.startswith("00"):  # ETF：沒有財報與個股籌碼
+        return {"success": True, "data": {
+            "version": scorecard_core.SCORECARD_VERSION, "applicable": False, "symbol": sym,
+            "reason": "ETF 沒有財報與個股籌碼，請改用「ETF 比較」頁。"}}
+
+    key = f"stock_scorecard:{scorecard_core.SCORECARD_VERSION}:{sym}:{date.today().isoformat()}"
+    try:
+        from ..db.cache import get_cache
+        cached = await get_cache(key)
+    except Exception:
+        cached = None
+    if cached:
+        return {"success": True, "data": cached}
+
+    await rate_guard.consume(request, "scorecard_fetch", scorecard_core.FETCH_COST, _SCORECARD_FETCH_LIMIT)
+    try:
+        data = await scorecard_core.build_scorecard(sym)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception:
+        logger.exception("get_scorecard failed for %s", sym)
+        raise HTTPException(status_code=502, detail="資料來源暫時無法取得，請稍後再試。")
+
+    # 有資料來源失敗的殘缺結果（例如 FinMind 額度用盡）不快取，免得存 6 小時
+    if not (data.get("meta") or {}).get("failed"):
+        try:
+            from ..db.cache import set_cache
+            await set_cache(key, data, "stock_scorecard")
+        except Exception:
+            logger.warning("scorecard cache write failed for %s", sym)
+    return {"success": True, "data": data}

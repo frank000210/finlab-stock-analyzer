@@ -169,6 +169,29 @@ class FinMindClient:
             {"data_id": symbol, "start_date": start, "end_date": end},
         )
 
+    async def get_balance_sheet(
+        self, symbol: str, start: str, end: str
+    ) -> pd.DataFrame:
+        """Fetch quarterly balance sheet（資產負債表）。
+
+        欄位是長表：type（如 TotalAssets、Liabilities、Equity、
+        EquityAttributableToOwnersOfParent）＋ value；FinMind 的綜合損益表
+        （get_financial_statements）沒有負債比，負債比要用這支算。
+        """
+        return await self._fetch(
+            "TaiwanStockBalanceSheet",
+            {"data_id": symbol, "start_date": start, "end_date": end},
+        )
+
+    async def get_cash_flows(
+        self, symbol: str, start: str, end: str
+    ) -> pd.DataFrame:
+        """Fetch cash-flow statement（現金流量表；金額為當年度累計，非單季）。"""
+        return await self._fetch(
+            "TaiwanStockCashFlowsStatement",
+            {"data_id": symbol, "start_date": start, "end_date": end},
+        )
+
     async def get_dividend_history(
         self, symbol: str, start: str, end: str
     ) -> pd.DataFrame:
