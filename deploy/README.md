@@ -6,6 +6,7 @@ Zeabur 於 2026-12-31 停運，正式站改跑在騰訊雲 Lighthouse（新加�
 | 服務 | 網址 | 來源 |
 |---|---|---|
 | 入口頁（所有服務連結＋狀態燈號） | `https://43-133-44-216.sslip.io` | `deploy/portal/index.html`（Caddy 靜態檔＋templates） |
+| 知識分享（靜態教學頁，主題逐步增加） | `https://43-133-44-216.sslip.io/share/` | `deploy/portal/share/`（同一個 Caddy 站台；新增課程見 `share/index.html` 裡的註解） |
 | finlab-stock-analyzer | `https://finlab.43-133-44-216.sslip.io` | 本 repo 根目錄 Dockerfile |
 | kb-web | `https://kb.43-133-44-216.sslip.io` | 本 repo `kb-web/` |
 | 訂餐前台 / 後台 | `https://food.…` / `https://food-admin.…` | `food-ordering-system` repo |

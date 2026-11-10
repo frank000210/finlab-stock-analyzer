@@ -1,0 +1,140 @@
+/* 知識分享（/share/）共用樣式：目錄頁與各課程頁都用這一份。配色跟入口頁一致。 */
+:root {
+  --bg: #f6f7f9; --card: #ffffff; --text: #111827; --muted: #6b7280;
+  --border: #e5e7eb; --accent: #2563eb; --soft: #f1f5f9;
+  --shadow: 0 1px 2px rgba(0,0,0,.04), 0 4px 16px rgba(0,0,0,.06);
+  /* 五種條目的顏色：定義、公設、定理、輔助定理、推論 */
+  --def: #1d4ed8; --def-bg: #dbeafe;
+  --axm: #6d28d9; --axm-bg: #ede9fe;
+  --thm: #be123c; --thm-bg: #ffe4e6;
+  --lem: #b45309; --lem-bg: #fef3c7;
+  --cor: #15803d; --cor-bg: #dcfce7;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1115; --card: #181b22; --text: #e5e7eb; --muted: #9ca3af;
+    --border: #2a2f3a; --accent: #60a5fa; --soft: #1f242e;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 4px 16px rgba(0,0,0,.3);
+    --def: #93c5fd; --def-bg: #172554;
+    --axm: #c4b5fd; --axm-bg: #2e1065;
+    --thm: #fda4af; --thm-bg: #4c0519;
+    --lem: #fcd34d; --lem-bg: #451a03;
+    --cor: #86efac; --cor-bg: #052e16;
+  }
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font: 16px/1.75 system-ui, -apple-system, "Segoe UI", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+}
+main { max-width: 880px; margin: 0 auto; padding: 28px 16px 48px; }
+a { color: var(--accent); }
+.crumbs { font-size: .85rem; color: var(--muted); margin-bottom: 20px; }
+.crumbs a { color: inherit; }
+h1 { font-size: 1.8rem; line-height: 1.3; margin: 0 0 6px; }
+.lede { color: var(--muted); margin: 0 0 6px; }
+.byline { color: var(--muted); font-size: .85rem; margin: 0 0 28px; }
+h2 { font-size: 1.35rem; margin: 44px 0 12px; padding-bottom: 6px; border-bottom: 2px solid var(--border); scroll-margin-top: 12px; }
+h3 { font-size: 1.08rem; margin: 28px 0 10px; }
+p { margin: 0 0 12px; }
+ul, ol { margin: 0 0 12px; padding-left: 1.4em; }
+li { margin-bottom: 4px; }
+code, .mono { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: .92em; }
+
+/* 目錄頁的課程卡片 */
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+a.card {
+  display: block; padding: 16px 18px; background: var(--card); border: 1px solid var(--border);
+  border-radius: 14px; color: inherit; text-decoration: none; box-shadow: var(--shadow);
+  transition: border-color .15s, transform .15s;
+}
+a.card:hover { border-color: var(--accent); transform: translateY(-1px); }
+a.card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.card .title { font-weight: 650; display: block; }
+.card .desc { color: var(--muted); font-size: .9rem; display: block; margin-top: 2px; }
+.card .meta { display: flex; gap: 8px; align-items: center; margin-top: 10px; font-size: .75rem; color: var(--muted); }
+.pill { background: var(--soft); border: 1px solid var(--border); border-radius: 999px; padding: 1px 9px; }
+
+/* 課程頁：目錄、表格、提示框 */
+.toc { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 12px 18px; }
+.toc ol { margin: 0; }
+.tablewrap { overflow-x: auto; margin: 0 0 14px; }
+table { border-collapse: collapse; width: 100%; background: var(--card); font-size: .95rem; }
+th, td { border: 1px solid var(--border); padding: 7px 10px; text-align: left; vertical-align: top; }
+th { background: var(--soft); font-weight: 650; white-space: nowrap; }
+.note { background: var(--soft); border-left: 4px solid var(--accent); border-radius: 0 10px 10px 0; padding: 10px 14px; margin: 0 0 14px; }
+.compare { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 0 0 14px; }
+.compare > div { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; min-width: 0; }
+.compare .cap { font-size: .78rem; color: var(--muted); font-weight: 650; letter-spacing: .04em; margin-bottom: 6px; }
+@media (max-width: 640px) { .compare { grid-template-columns: 1fr; } }
+
+/* 條目卡片：左邊的色條代表種類 */
+.item {
+  --c: var(--thm); --cbg: var(--thm-bg);
+  background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--c);
+  border-radius: 12px; padding: 12px 16px 10px; margin: 0 0 14px; scroll-margin-top: 12px;
+}
+.item:target { box-shadow: 0 0 0 3px var(--c); }
+.def { --c: var(--def); --cbg: var(--def-bg); }
+.axm { --c: var(--axm); --cbg: var(--axm-bg); }
+.thm { --c: var(--thm); --cbg: var(--thm-bg); }
+.lem { --c: var(--lem); --cbg: var(--lem-bg); }
+.cor { --c: var(--cor); --cbg: var(--cor-bg); }
+.item .head { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; margin-bottom: 8px; }
+.tag { background: var(--cbg); color: var(--c); border-radius: 6px; padding: 0 8px; font-size: .8rem; font-weight: 700; white-space: nowrap; }
+.item .name { font-weight: 700; }
+.item .en { color: var(--muted); font-size: .88rem; }
+
+/* 簡式：每列＝連接詞｜編號｜內容 */
+.stmt { background: var(--soft); border-radius: 10px; padding: 8px 12px; margin: 0 0 8px; overflow-x: auto; }
+.stmt + .stmt { margin-top: -2px; }
+.row { display: grid; grid-template-columns: 2.9em 1.9em minmax(0, 1fr); align-items: baseline; gap: 0 4px; padding: 2px 0; min-width: 260px; }
+.row.pre { grid-template-columns: 2.9em minmax(0, 1fr); color: var(--muted); font-size: .93rem; }
+.row.pre .kw { color: var(--muted); font-size: .78rem; font-weight: 650; }
+.kw { font-weight: 700; color: var(--accent); font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; }
+.n { display: inline-flex; align-items: center; justify-content: center; width: 1.45em; height: 1.45em; font-size: .85rem; font-weight: 700; line-height: 1; }
+.n.c { border: 1.6px solid var(--text); border-radius: 50%; }                 /* 條件：1 2 3 */
+.n.r { background: var(--text); color: var(--card); border-radius: 5px; }     /* 結果：a b c */
+.item details { font-size: .92rem; color: var(--muted); margin: 0 0 6px; }
+.item summary { cursor: pointer; }
+.item .remark { font-size: .92rem; margin: 0 0 6px; }
+.links { display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: center; font-size: .8rem; color: var(--muted); }
+.links + .links { margin-top: 4px; }
+a.chip { text-decoration: none; border-radius: 6px; padding: 0 7px; font-weight: 700; }
+a.chip.def { background: var(--def-bg); color: var(--def); }
+a.chip.axm { background: var(--axm-bg); color: var(--axm); }
+a.chip.thm { background: var(--thm-bg); color: var(--thm); }
+a.chip.lem { background: var(--lem-bg); color: var(--lem); }
+a.chip.cor { background: var(--cor-bg); color: var(--cor); }
+
+/* 心智圖：手機上寬度不夠時只在這個框內左右捲動 */
+.mapwrap { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 8px; overflow-x: auto; margin: 0 0 8px; }
+.mapwrap svg { display: block; width: 100%; min-width: 680px; height: auto; }
+.map text { font-family: inherit; fill: var(--text); }
+.map .code { font-size: 12px; font-weight: 700; }
+.map .label { font-size: 13.5px; }
+.map .edge { fill: none; stroke: var(--muted); stroke-width: 1.6; }
+.map .arrow { fill: var(--muted); }
+.map rect { stroke-width: 1.8; }
+.map a:hover rect, .map a:focus rect { stroke-width: 3.2; }
+.map a { cursor: pointer; }
+.map .def rect { fill: var(--def-bg); stroke: var(--def); } .map .def .code { fill: var(--def); }
+.map .axm rect { fill: var(--axm-bg); stroke: var(--axm); } .map .axm .code { fill: var(--axm); }
+.map .thm rect { fill: var(--thm-bg); stroke: var(--thm); } .map .thm .code { fill: var(--thm); }
+.map .lem rect { fill: var(--lem-bg); stroke: var(--lem); } .map .lem .code { fill: var(--lem); }
+.map .cor rect { fill: var(--cor-bg); stroke: var(--cor); } .map .cor .code { fill: var(--cor); }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: .82rem; color: var(--muted); margin: 0 0 14px; }
+.legend span { display: inline-flex; align-items: center; gap: 5px; }
+.legend i { width: 14px; height: 14px; border-radius: 4px; border: 1.8px solid; display: inline-block; }
+.legend .def i { background: var(--def-bg); border-color: var(--def); }
+.legend .axm i { background: var(--axm-bg); border-color: var(--axm); }
+.legend .thm i { background: var(--thm-bg); border-color: var(--thm); }
+.legend .lem i { background: var(--lem-bg); border-color: var(--lem); }
+.legend .cor i { background: var(--cor-bg); border-color: var(--cor); }
+
+footer { margin-top: 48px; color: var(--muted); font-size: .8rem; }
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  a.card { transition: none; } a.card:hover { transform: none; }
+}

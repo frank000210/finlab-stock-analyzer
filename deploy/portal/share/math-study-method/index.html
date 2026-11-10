@@ -1,0 +1,543 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>讀書方法分享 — 高等數學</title>
+<meta name="description" content="照課本順序抄寫定義、公設、定理、輔助定理、推論，改寫成簡式並編號，再用心智圖整理彼此的關聯。附均值定理與實數完備性兩章的示範。">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%232563eb'/%3E%3Cpath d='M9 9h14v14H9zM16 9v14' stroke='white' stroke-width='2.5' fill='none' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous">
+<link rel="stylesheet" href="/share/share.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js" crossorigin="anonymous"></script>
+<script>
+  // 數學式寫成 \( ... \)，載入後由 KaTeX 排版。這一頁會經過 Caddy templates，
+  // 所以 HTML 裡不能出現連續兩個左大括號。
+  document.addEventListener('DOMContentLoaded', function () {
+    if (window.renderMathInElement) {
+      renderMathInElement(document.body, { delimiters: [{ left: '\\(', right: '\\)', display: false }], throwOnError: false });
+    }
+  });
+</script>
+</head>
+<body>
+<main>
+  <nav class="crumbs"><a href="/">服務入口</a> › <a href="/share/">知識分享</a> › 讀書方法分享 — 高等數學</nav>
+  <h1>讀書方法分享 — 高等數學</h1>
+  <p class="lede">數學課本很厚，但真正要記住的是一條一條的定義和定理，以及它們之間誰推出誰。這一頁說明我怎麼把一章抄成幾頁好背的筆記。</p>
+  <p class="byline">Frank · 2026-11-10</p>
+
+  <nav class="toc" aria-label="本頁目錄">
+    <ol>
+      <li><a href="#method">方法：照課本順序抄五種條目</a></li>
+      <li><a href="#notation">把文字改寫成簡式</a></li>
+      <li><a href="#numbering">給條件和結果編號</a></li>
+      <li><a href="#calc">示範一：微積分「均值定理」</a></li>
+      <li><a href="#adv">示範二：高等微積分「實數的完備性」</a></li>
+      <li><a href="#practice">自己動手的步驟</a></li>
+    </ol>
+  </nav>
+
+  <h2 id="method">1. 方法：照課本順序抄五種條目</h2>
+  <p>讀每一章時，我照課本的順序，把下面五種條目一條一條抄到筆記本，並且弄清楚它們之間的關係。例題、說明文字、證明的細節先不抄。</p>
+  <div class="tablewrap"><table>
+    <tr><th>種類</th><th>代號</th><th>它是什麼</th><th>抄的時候要問自己</th></tr>
+    <tr><td><span class="tag def" style="background:var(--def-bg);color:var(--def)">定義 Definition</span></td><td>D</td><td>規定一個名詞的意思，不需要證明。</td><td>這個名詞要滿足哪幾個條件？</td></tr>
+    <tr><td><span class="tag" style="background:var(--axm-bg);color:var(--axm)">公設 Axiom</span></td><td>A</td><td>不證明、直接接受的出發點。</td><td>整章有哪些結論最後都靠它？</td></tr>
+    <tr><td><span class="tag" style="background:var(--thm-bg);color:var(--thm)">定理 Theorem</span></td><td>T</td><td>證明出來的主要結論。</td><td>條件有幾個？結果有幾個？證明用到前面哪幾條？</td></tr>
+    <tr><td><span class="tag" style="background:var(--lem-bg);color:var(--lem)">輔助定理 Lemma</span></td><td>L</td><td>為了證明某個定理，先證的小結果。</td><td>它是為了哪一個定理準備的？</td></tr>
+    <tr><td><span class="tag" style="background:var(--cor-bg);color:var(--cor)">推論 Corollary</span></td><td>C</td><td>從定理直接得到的結果。</td><td>它是哪一個定理的推論？</td></tr>
+  </table></div>
+  <p>每一條給一個代號：種類的字母加流水號，例如 D1、T3、C2。之後寫「用到 T3」就不用把整條定理再抄一次。</p>
+  <p>照課本順序抄有一個好處：課本的順序本身就是邏輯順序，後面的條目只會用到前面的。抄完一章，關聯圖幾乎已經在筆記裡了。</p>
+
+  <h2 id="notation">2. 把文字改寫成簡式</h2>
+  <p>課本敘述定義和定理時文字很多。我抄的時候改用固定的幾個符號，句型就只剩下「if … then …」和「… iff …」兩種，容易讀也容易背。</p>
+  <div class="tablewrap"><table>
+    <tr><th>課本的文字</th><th>簡式</th><th>課本的文字</th><th>簡式</th></tr>
+    <tr><td>若…，則…</td><td><span class="kw">if</span> … <span class="kw">then</span> …</td><td>對所有、對任意</td><td>\(\forall\)</td></tr>
+    <tr><td>若且唯若、充要條件</td><td><span class="kw">iff</span></td><td>存在</td><td>\(\exists\)</td></tr>
+    <tr><td>且、並且、同時</td><td><span class="kw">&amp;</span></td><td>使得</td><td>s.t.</td></tr>
+    <tr><td>或</td><td><span class="kw">or</span></td><td>連續、可微</td><td>conti.、diff.</td></tr>
+    <tr><td>有界、有上界</td><td>bdd、bdd above</td><td>數列、子數列、收斂</td><td>seq.、subseq.、conv.</td></tr>
+  </table></div>
+  <p>以均值定理為例，左邊是課本的寫法，右邊是筆記上的寫法：</p>
+  <div class="compare">
+    <div><div class="cap">課本的寫法</div>設函數 f 在閉區間 [a, b] 上連續，在開區間 (a, b) 內可微，則在 (a, b) 內至少存在一點 c，使得 f′(c) 等於 f(b) − f(a) 除以 b − a。</div>
+    <div><div class="cap">簡式</div>
+      <div class="stmt" style="margin:0">
+        <div class="row pre"><span class="kw">前提</span><span>\(f: [a,b] \to \mathbb{R}\)</span></div>
+        <div class="row"><span class="kw">if</span><span class="n c">1</span><span>\(f\) conti. on \([a,b]\)</span></div>
+        <div class="row"><span class="kw">&amp;</span><span class="n c">2</span><span>\(f\) diff. on \((a,b)\)</span></div>
+        <div class="row"><span class="kw">then</span><span></span><span>\(\exists\, c \in (a,b)\) s.t.</span></div>
+        <div class="row"><span class="kw"></span><span class="n r">a</span><span>\(f'(c) = \dfrac{f(b)-f(a)}{b-a}\)</span></div>
+      </div>
+    </div>
+  </div>
+  <p>右邊一眼就看得出結構：兩個條件、一個結果。左邊要讀完整句才知道。</p>
+
+  <h2 id="numbering">3. 給條件和結果編號</h2>
+  <p>一條定理常常有好幾個條件、好幾個結果。我的做法：</p>
+  <ul>
+    <li><b>條件</b>用數字 <span class="n c">1</span> <span class="n c">2</span> <span class="n c">3</span> 編號，每個條件寫一行。</li>
+    <li><b>結果</b>用英文字母 <span class="n r">a</span> <span class="n r">b</span> <span class="n r">c</span> 編號，每個結果寫一行。</li>
+    <li>行首寫 <span class="kw">&amp;</span> 或 <span class="kw">or</span>，表示這一行和上一行的關係。</li>
+    <li>量詞（\(\forall\)、\(\exists\)）和背景設定<b>不編號</b>：背景寫在最前面的「前提」，量詞寫在它管的那幾行前面。</li>
+  </ul>
+  <p>這樣背的時候先背「骨架」：例如 Rolle 定理是「3 個條件、1 個結果」，均值定理是「2 個條件、1 個結果」，兩者只差條件 3。骨架記住了，再填內容。</p>
+  <h3>考試時怎麼用</h3>
+  <p>要用某個定理之前，照編號一條一條打勾，全部成立才能寫下結果。例如想對 \(f(x) = |x|\) 在 \([-1, 1]\) 用均值定理：</p>
+  <div class="tablewrap"><table>
+    <tr><th>條件</th><th>檢查</th><th>成立？</th></tr>
+    <tr><td><span class="n c">1</span> \(f\) conti. on \([-1,1]\)</td><td>\(|x|\) 處處連續</td><td>成立</td></tr>
+    <tr><td><span class="n c">2</span> \(f\) diff. on \((-1,1)\)</td><td>\(|x|\) 在 \(x=0\) 不可微</td><td>不成立</td></tr>
+  </table></div>
+  <p>條件 2 不成立，所以不能用。實際上結果也真的不對：\(\dfrac{f(1)-f(-1)}{1-(-1)} = 0\)，但 \(f'(x)\) 只會是 \(1\) 或 \(-1\)，找不到 \(c\)。沒有編號時，最容易漏掉的就是這種「看起來理所當然」的條件。</p>
+  <p>結果有編號也有用：題目要求證明某個定理時，寫完可以對照 a、b、c，確認每個結果都證到了。</p>
+
+  <h2 id="calc">4. 示範一：微積分「均值定理」</h2>
+  <p>這一章從極值的定義開始，一路推到均值定理和它的應用。共 1 個定義、6 個定理、3 個推論。這一章沒有公設，也沒有課本標成 Lemma 的條目。</p>
+  <h3>4.1 依課本順序的筆記</h3>
+  <article class="item def" id="a-d1">
+<div class="head"><span class="tag">定義 Definition D1</span><span class="name">極大值與極小值</span><span class="en">Maximum &amp; Minimum</span></div>
+<div class="stmt">
+<div class="row pre"><span class="kw">前提</span><span>\(f: D \to \mathbb{R},\ c \in D\)</span></div>
+<div class="row"><span class="kw"></span><span></span><span>\(f\) has an <b>absolute max</b> at \(c\)</span></div>
+<div class="row"><span class="kw">iff</span><span class="n c">1</span><span>\(f(x) \le f(c)\ \ \forall x \in D\)</span></div>
+</div>
+<div class="stmt">
+<div class="row"><span class="kw"></span><span></span><span>\(f\) has a <b>local max</b> at \(c\)</span></div>
+<div class="row"><span class="kw">iff</span><span></span><span>\(\exists\, \delta \gt 0\) s.t.</span></div>
+<div class="row"><span class="kw"></span><span class="n c">1</span><span>\((c-\delta,\ c+\delta) \subseteq D\)</span></div>
+<div class="row"><span class="kw">&amp;</span><span class="n c">2</span><span>\(f(x) \le f(c)\ \ \forall x \in (c-\delta,\ c+\delta)\)</span></div>
+</div>
+<p class="remark">極小值（min）：把 \(\le\) 換成 \(\ge\)。注意 local max 的條件 1 表示 \(c\) 不能是定義域的端點。</p>
+<details><summary>課本的寫法</summary>若定義域 D 中的每一個 x 都滿足 f(x) ≤ f(c)，則稱 f 在 c 有絕對極大值。若存在一個包含 c 的開區間，使得區間內的每一個 x 都滿足 f(x) ≤ f(c)，則稱 f 在 c 有局部極大值。</details>
+<div class="links">被用於：<a class="chip thm" href="#a-t1">T1</a> <a class="chip thm" href="#a-t2">T2</a></div>
+</article>
+<article class="item thm" id="a-t1">
+<div class="head"><span class="tag">定理 Theorem T1</span><span class="name">極值定理</span><span class="en">Extreme Value Theorem</span></div>
+<div class="stmt">
+<div class="row pre"><span class="kw">前提</span><span>\(f: [a,b] \to \mathbb{R}\)</span></div>
+<div class="row"><span class="kw">if</span><span class="n c">1</span><span>\(f\) conti. on \([a,b]\)</span></div>
+<div class="row"><span class="kw">then</span><span></span><span>\(\exists\, c, d \in [a,b]\) s.t.</span></div>
+<div class="row"><span class="kw"></span><span class="n r">a</span><span>\(f(c) \ge f(x)\ \ \forall x \in [a,b]\)</span></div>
+<div class="row"><span class="kw">&amp;</span><span class="n r">b</span><span>\(f(d) \le f(x)\ \ \forall x \in [a,b]\)</span></div>
+</div>
+<p class="remark">微積分課本通常只敘述、不證明這一條。證明要用到實數的完備性，見下一章的 <a href="#b-t6">定理 T6</a>。</p>
+<details><summary>課本的寫法</summary>若函數 f 在閉區間 [a, b] 上連續，則 f 在 [a, b] 上必有絕對極大值與絕對極小值。</details>
+<div class="links">用到：<a class="chip def" href="#a-d1">D1</a></div>
+<div class="links">被用於：<a class="chip thm" href="#a-t3">T3</a></div>
+</article>
+<article class="item thm" id="a-t2">
+<div class="head"><span class="tag">定理 Theorem T2</span><span class="name">Fermat 定理</span><span class="en">Fermat's Theorem</span></div>
+<div class="stmt">
+<div class="row pre"><span class="kw">前提</span><span>\(f\) defined on an open interval containing \(c\)</span></div>
+<div class="row"><span class="kw">if</span><span class="n c">1</span><span>\(f\) has a local max or min at \(c\)</span></div>
+<div class="row"><span class="kw">then</span><span class="n r">a</span><span>\(f'(c) = 0\)</span></div>
+<div class="row"><span class="kw">or</span><span class="n r">b</span><span>\(f'(c)\) does not exist</span></div>
+</div>
+<p class="remark">課本把「\(f'(c)\) 存在」寫成條件。我把它搬到結果，變成 a or b，兩種寫法邏輯上相同。這樣找極值時就不會漏掉不可微的點，例如 \(f(x)=|x|\) 在 \(x=0\)。</p>
+<details><summary>課本的寫法</summary>若 f 在 c 有局部極大值或局部極小值，且 f′(c) 存在，則 f′(c) = 0。</details>
+<div class="links">用到：<a class="chip def" href="#a-d1">D1</a></div>
+<div class="links">被用於：<a class="chip thm" href="#a-t3">T3</a></div>
+</article>
+<article class="item thm" id="a-t3">
+<div class="head"><span class="tag">定理 Theorem T3</span><span class="name">Rolle 定理</span><span class="en">Rolle's Theorem</span></div>
+<div class="stmt">
+<div class="row pre"><span class="kw">前提</span><span>\(f: [a,b] \to \mathbb{R}\)</span></div>
+<div class="row"><span class="kw">if</span><span class="n c">1</span><span>\(f\) conti. on \([a,b]\)</span></div>
+<div class="row"><span class="kw">&amp;</span><span class="n c">2</span><span>\(f\) diff. on \((a,b)\)</span></div>
+<div class="row"><span class="kw">&amp;</span><span class="n c">3</span><span>\(f(a) = f(b)\)</span></div>
+<div class="row"><span class="kw">then</span><span></span><span>\(\exists\, c \in (a,b)\) s.t.</span></div>
+<div class="row"><span class="kw"></span><span class="n r">a</span><span>\(f'(c) = 0\)</span></div>
+</div>
+<details><summary>課本的寫法</summary>設函數 f 在閉區間 [a, b] 上連續，在開區間 (a, b) 內可微，且 f(a) = f(b)，則在 (a, b) 內至少存在一點 c，使得 f′(c) = 0。</details>
+<div class="links">用到：<a class="chip thm" href="#a-t1">T1</a> <a class="chip thm" href="#a-t2">T2</a></div>
+<div class="links">被用於：<a class="chip thm" href="#a-t4">T4</a> <a class="chip thm" href="#a-t5">T5</a></div>
+</article>
+<article class="item thm" id="a-t4">
+<div class="head"><span class="tag">定理 Theorem T4</span><span class="name">均值定理</span><span class="en">Mean Value Theorem</span></div>
+<div class="stmt">
+<div class="row pre"><span class="kw">前提</span><span>\(f: [a,b] \to \mathbb{R}\)</span></div>
+<div class="row"><span class="kw">if</span><span class="n c">1</span><span>\(f\) conti. on \([a,b]\)</span></div>
+<div class="row"><span class="kw">&amp;</span><span class="n c">2</span><span>\(f\) diff. on \((a,b)\)</span></div>
+<div class="row"><span class="kw">then</span><span></span><span>\(\exists\, c \in (a,b)\) s.t.</span></div>
+<div class="row"><span class="kw"></span><span class="n r">a</span><span>\(f'(c) = \dfrac{f(b)-f(a)}{b-a}\)</span></div>
+</div>
+<details><summary>課本的寫法</summary>設函數 f 在閉區間 [a, b] 上連續，在開區間 (a, b) 內可微，則在 (a, b) 內至少存在一點 c，使得 f′(c) 等於 f(b) − f(a) 除以 b − a。</details>
+<div class="links">用到：<a class="chip thm" href="#a-t3">T3</a></div>
+<div class="links">被用於：<a class="chip cor" href="#a-c1">C1</a> <a class="chip cor" href="#a-c3">C3</a></div>
+</article>
+<article class="item cor" id="a-c1">
+<div class="head"><span class="tag">推論 Corollary C1</span><span class="name">導數為 0 則為常數</span><span class="en">Zero derivative</span></div>
+<div class="stmt">
+<div class="row pre"><span class="kw">前提</span><span>\(f\) diff. on \((a,b)\)</span></div>
+<div class="row"><span class="kw">if</span><span class="n c">1</span><span>\(f'(x) = 0\ \ \forall x \in (a,b)\)</span></div>
+<div class="row"><span class="kw">then</span><span class="n r">a</span><span>\(f\) is constant on \((a,b)\)</span></div>
+</div>
+<details><summary>課本的寫法</summary>若在區間 (a, b) 內的每一點 x 都有 f′(x) = 0，則 f 在 (a, b) 上是常數函數。</details>
+<div class="links">用到：<a class="chip thm" href="#a-t4">T4</a></div>
+<div class="links">被用於：<a class="chip cor" href="#a-c2">C2</a></div>
+</article>
+<article class="item cor" id="a-c2">
+<div class="head"><span class="tag">推論 Corollary C2</span><span class="name">導數相同則只差常數</span><span class="en">Equal derivatives</span></div>
+<div class="stmt">
+<div class="row pre"><span class="kw">前提</span><span>\(f, g\) diff. on \((a,b)\)</span></div>
+<div class="row"><span class="kw">if</span><span class="n c">1</span><span>\(f'(x) = g'(x)\ \ \forall x \in (a,b)\)</span></div>
+<div class="row"><span class="kw">then</span><span></span><span>\(\exists\, C \in \mathbb{R}\) s.t.</span></div>
+<div class="row"><span class="kw"></span><span class="n r">a</span><span>\(f(x) = g(x) + C\ \ \forall x \in (a,b)\)</span></div>
+</div>
+<details><summary>課本的寫法</summary>若在區間 (a, b) 內的每一點 x 都有 f′(x) = g′(x)，則 f − g 在 (a, b) 上是常數，也就是 f(x) = g(x) + C。</details>
+<div class="links">用到：<a class="chip cor" href="#a-c1">C1</a></div>
+</article>
+<article class="item cor" id="a-c3">
+<div class="head"><span class="tag">推論 Corollary C3</span><span class="name">遞增判別</span><span class="en">Increasing test</span></div>
+<div class="stmt">
+<div class="row pre"><span class="kw">前提</span><span>\(f\) diff. on \((a,b)\)</span></div>
+<div class="row"><span class="kw">if</span><span class="n c">1</span><span>\(f'(x) \gt 0\ \ \forall x \in (a,b)\)</span></div>
+<div class="row"><span class="kw">then</span><span class="n r">a</span><span>\(f\) is strictly increasing on \((a,b)\)</span></div>
+</div>
+<p class="remark">把 \(\gt\) 換成 \(\lt\)，結果就換成 strictly decreasing。</p>
+<details><summary>課本的寫法</summary>若在區間 (a, b) 內的每一點 x 都有 f′(x) > 0，則 f 在 (a, b) 上嚴格遞增。</details>
+<div class="links">用到：<a class="chip thm" href="#a-t4">T4</a></div>
+</article>
+<article class="item thm" id="a-t5">
+<div class="head"><span class="tag">定理 Theorem T5</span><span class="name">Cauchy 均值定理</span><span class="en">Cauchy's Mean Value Theorem</span></div>
+<div class="stmt">
+<div class="row pre"><span class="kw">前提</span><span>\(f, g: [a,b] \to \mathbb{R}\)</span></div>
+<div class="row"><span class="kw">if</span><span class="n c">1</span><span>\(f, g\) conti. on \([a,b]\)</span></div>
+<div class="row"><span class="kw">&amp;</span><span class="n c">2</span><span>\(f, g\) diff. on \((a,b)\)</span></div>
+<div class="row"><span class="kw">then</span><span></span><span>\(\exists\, c \in (a,b)\) s.t.</span></div>
+<div class="row"><span class="kw"></span><span class="n r">a</span><span>\([f(b)-f(a)]\, g'(c) = [g(b)-g(a)]\, f'(c)\)</span></div>
+</div>
+<p class="remark">取 \(g(x) = x\) 就回到 <a href="#a-t4">定理 T4</a>，所以 T4 是 T5 的特例。</p>
+<details><summary>課本的寫法</summary>設函數 f 與 g 在閉區間 [a, b] 上連續，在開區間 (a, b) 內可微，則在 (a, b) 內至少存在一點 c，使得 [f(b) − f(a)] g′(c) = [g(b) − g(a)] f′(c)。</details>
+<div class="links">用到：<a class="chip thm" href="#a-t3">T3</a></div>
+<div class="links">被用於：<a class="chip thm" href="#a-t6">T6</a></div>
+</article>
+<article class="item thm" id="a-t6">
+<div class="head"><span class="tag">定理 Theorem T6</span><span class="name">L'Hôpital 法則（0/0 型）</span><span class="en">L'Hôpital's Rule</span></div>
+<div class="stmt">
+<div class="row pre"><span class="kw">前提</span><span>\(I\) open interval, \(a \in I\)；\(f, g\) diff. on \(I \setminus \{a\}\)</span></div>
+<div class="row"><span class="kw">if</span><span class="n c">1</span><span>\(\lim\limits_{x \to a} f(x) = 0\) &amp; \(\lim\limits_{x \to a} g(x) = 0\)</span></div>
+<div class="row"><span class="kw">&amp;</span><span class="n c">2</span><span>\(g'(x) \ne 0\ \ \forall x \in I \setminus \{a\}\)</span></div>
+<div class="row"><span class="kw">&amp;</span><span class="n c">3</span><span>\(\lim\limits_{x \to a} \dfrac{f'(x)}{g'(x)} = L\)</span></div>
+<div class="row"><span class="kw">then</span><span class="n r">a</span><span>\(\lim\limits_{x \to a} \dfrac{f(x)}{g(x)} = L\)</span></div>
+</div>
+<p class="remark">\(L\) 可以是實數，也可以是 \(\pm\infty\)。考試最常漏的是條件 1：沒先確認是 0/0 型就直接微分。</p>
+<details><summary>課本的寫法</summary>設 f 與 g 在包含 a 的開區間 I 上（a 點本身可以除外）可微，且 g′(x) ≠ 0。若 x 趨近 a 時 f(x) 與 g(x) 的極限都是 0，而且 f′(x)/g′(x) 的極限存在（或為正負無限大），則 f(x)/g(x) 的極限等於 f′(x)/g′(x) 的極限。</details>
+<div class="links">用到：<a class="chip thm" href="#a-t5">T5</a></div>
+</article>
+  <h3>4.2 關聯心智圖</h3>
+  <div class="mapwrap"><svg class="map" viewBox="0 0 700 640" role="img" aria-label="均值定理一章的關聯心智圖">
+<defs><marker id="arr-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="arrow" d="M0 0L10 5L0 10z"/></marker></defs>
+<path class="edge" d="M225.0 40L403.0 40" marker-end="url(#arr-a)"/>
+<path class="edge" d="M150 66.0C150 94.0 150 94.0 150 122.0" marker-end="url(#arr-a)"/>
+<path class="edge" d="M480 66.0C480 149.0 315 149.0 315 232.0" marker-end="url(#arr-a)"/>
+<path class="edge" d="M150 176.0C150 204.0 315 204.0 315 232.0" marker-end="url(#arr-a)"/>
+<path class="edge" d="M315 286.0C315 314.0 190 314.0 190 342.0" marker-end="url(#arr-a)"/>
+<path class="edge" d="M315 286.0C315 314.0 540 314.0 540 342.0" marker-end="url(#arr-a)"/>
+<path class="edge" d="M190 396.0C190 424.0 90 424.0 90 452.0" marker-end="url(#arr-a)"/>
+<path class="edge" d="M190 396.0C190 424.0 290 424.0 290 452.0" marker-end="url(#arr-a)"/>
+<path class="edge" d="M90 506.0C90 534.0 90 534.0 90 562.0" marker-end="url(#arr-a)"/>
+<path class="edge" d="M540 396.0C540 424.0 540 424.0 540 452.0" marker-end="url(#arr-a)"/>
+<a href="#a-d1" class="def"><title>定義 D1　極大值與極小值</title><rect x="75.0" y="14.0" width="150" height="52" rx="10"/><text class="code" x="150" y="34" text-anchor="middle">定義 D1</text><text class="label" x="150" y="54" text-anchor="middle">極大值與極小值</text></a>
+<a href="#a-t1" class="thm"><title>定理 T1　極值定理</title><rect x="405.0" y="14.0" width="150" height="52" rx="10"/><text class="code" x="480" y="34" text-anchor="middle">定理 T1</text><text class="label" x="480" y="54" text-anchor="middle">極值定理</text></a>
+<a href="#a-t2" class="thm"><title>定理 T2　Fermat 定理</title><rect x="75.0" y="124.0" width="150" height="52" rx="10"/><text class="code" x="150" y="144" text-anchor="middle">定理 T2</text><text class="label" x="150" y="164" text-anchor="middle">Fermat 定理</text></a>
+<a href="#a-t3" class="thm"><title>定理 T3　Rolle 定理</title><rect x="240.0" y="234.0" width="150" height="52" rx="10"/><text class="code" x="315" y="254" text-anchor="middle">定理 T3</text><text class="label" x="315" y="274" text-anchor="middle">Rolle 定理</text></a>
+<a href="#a-t4" class="thm"><title>定理 T4　均值定理</title><rect x="115.0" y="344.0" width="150" height="52" rx="10"/><text class="code" x="190" y="364" text-anchor="middle">定理 T4</text><text class="label" x="190" y="384" text-anchor="middle">均值定理</text></a>
+<a href="#a-t5" class="thm"><title>定理 T5　Cauchy 均值定理</title><rect x="465.0" y="344.0" width="150" height="52" rx="10"/><text class="code" x="540" y="364" text-anchor="middle">定理 T5</text><text class="label" x="540" y="384" text-anchor="middle">Cauchy 均值定理</text></a>
+<a href="#a-c1" class="cor"><title>推論 C1　導數為 0 則為常數</title><rect x="15.0" y="454.0" width="150" height="52" rx="10"/><text class="code" x="90" y="474" text-anchor="middle">推論 C1</text><text class="label" x="90" y="494" text-anchor="middle">f′=0 則為常數</text></a>
+<a href="#a-c3" class="cor"><title>推論 C3　遞增判別</title><rect x="215.0" y="454.0" width="150" height="52" rx="10"/><text class="code" x="290" y="474" text-anchor="middle">推論 C3</text><text class="label" x="290" y="494" text-anchor="middle">f′>0 則遞增</text></a>
+<a href="#a-t6" class="thm"><title>定理 T6　L'Hôpital 法則（0/0 型）</title><rect x="465.0" y="454.0" width="150" height="52" rx="10"/><text class="code" x="540" y="474" text-anchor="middle">定理 T6</text><text class="label" x="540" y="494" text-anchor="middle">L'Hôpital 法則</text></a>
+<a href="#a-c2" class="cor"><title>推論 C2　導數相同則只差常數</title><rect x="15.0" y="564.0" width="150" height="52" rx="10"/><text class="code" x="90" y="584" text-anchor="middle">推論 C2</text><text class="label" x="90" y="604" text-anchor="middle">f′=g′ 則差常數</text></a>
+</svg></div>
+  <div class="legend"><span class="def"><i></i>定義 Definition（D）</span><span class="axm"><i></i>公設 Axiom（A）</span><span class="thm"><i></i>定理 Theorem（T）</span><span class="lem"><i></i>輔助定理 Lemma（L）</span><span class="cor"><i></i>推論 Corollary（C）</span><span>箭頭 A → B：證明 B 時用到 A。點方塊可跳到該條。</span></div>
+  <h3>4.3 這張圖怎麼讀</h3>
+  <ol>
+    <li><b>D1 → T1、T2</b>：兩個定理講的都是極大值、極小值，要先有定義。</li>
+    <li><b>T1、T2 → T3</b>：T1 保證 \(f\) 在 \([a,b]\) 上有最大值和最小值。如果兩個都出現在端點，條件 3 \(f(a)=f(b)\) 讓 \(f\) 是常數，\(f'\) 處處為 0。否則至少一個出現在 \((a,b)\) 內，它也是局部極值，T2 給出 \(f'(c)=0\) or \(f'(c)\) 不存在；條件 2 排除了後者。</li>
+    <li><b>T3 → T4</b>：把 \(f\) 減掉通過兩端點的直線，令 \(h(x) = f(x) - f(a) - \dfrac{f(b)-f(a)}{b-a}(x-a)\)。\(h\) 滿足 Rolle 定理的條件 1、2、3，\(h'(c)=0\) 整理後就是 T4 的結果。</li>
+    <li><b>T4 → C1、C3</b>：在 \((a,b)\) 內任取 \(x_1 \lt x_2\)，對 \([x_1, x_2]\) 用 T4，得到 \(f(x_2) - f(x_1) = f'(c)(x_2 - x_1)\)。\(f'(c)=0\) 就得到 C1，\(f'(c) \gt 0\) 就得到 C3。</li>
+    <li><b>C1 → C2</b>：對 \(f - g\) 用 C1。</li>
+    <li><b>T3 → T5</b>：令 \(h(x) = [f(b)-f(a)]\,g(x) - [g(b)-g(a)]\,f(x)\)，可以算出 \(h(a) = h(b)\)，再用 Rolle 定理。</li>
+    <li><b>T5 → T6</b>：補上 \(f(a) = g(a) = 0\) 之後，對 \(a\) 和 \(x\) 之間的區間用 T5，得到 \(\dfrac{f(x)}{g(x)} = \dfrac{f'(c)}{g'(c)}\)，再讓 \(x \to a\)。</li>
+  </ol>
+  <div class="note">畫完圖可以看出三件事。第一，Rolle 定理（T3）是整章的樞紐：它名字叫定理，實際上扮演的是輔助定理的角色，T4 和 T5 都從它出來。第二，C1、C2、C3 都掛在 T4 底下，所以課本才叫它們推論。第三，指向 T1 的只有定義 D1，沒有任何定理：微積分課本直接接受它，真正的證明在下一章。</div>
+
+  <h2 id="adv">5. 示範二：高等微積分「實數的完備性」</h2>
+  <p>高等微積分會把微積分裡「直接接受」的事實追到最源頭。這一章的源頭是一條公設，其他定理都從它推出來。共 5 個定義、1 個公設、6 個定理、3 個輔助定理、1 個推論。</p>
+  <h3>5.1 依課本順序的筆記</h3>
+  <article class="item def" id="b-d1">
+<div class="head"><span class="tag">定義 Definition D1</span><span class="name">上界與有上界</span><span class="en">Upper bound</span></div>
+<div class="stmt">
+<div class="row pre"><span class="kw">前提</span><span>\(S \subseteq \mathbb{R},\ S \ne \emptyset,\ u \in \mathbb{R}\)</span></div>
+<div class="row"><span class="kw"></span><span></span><span>\(u\) is an <b>upper bound</b> of \(S\)</span></div>
+<div class="row"><span class="kw">iff</span><span class="n c">1</span><span>\(s \le u\ \ \forall s \in S\)</span></div>
+</div>
+<div class="stmt">
+<div class="row"><span class="kw"></span><span></span><span>\(S\) is <b>bdd above</b></span></div>
+<div class="row"><span class="kw">iff</span><span></span><span>\(\exists\, u \in \mathbb{R}\) s.t.</span></div>
+<div class="row"><span class="kw"></span><span class="n c">1</span><span>\(u\) is an upper bound of \(S\)</span></div>
+</div>
+<p class="remark">下界（lower bound）與有下界（bdd below）：把 \(\le\) 換成 \(\ge\)。</p>
+<details><summary>課本的寫法</summary>設 S 是實數的非空子集。若實數 u 滿足：S 中的每一個元素 s 都小於或等於 u，則稱 u 是 S 的一個上界。若 S 至少有一個上界，則稱 S 有上界。</details>
+<div class="links">被用於：<a class="chip def" href="#b-d2">D2</a></div>
+</article>
+<article class="item def" id="b-d2">
+<div class="head"><span class="tag">定義 Definition D2</span><span class="name">最小上界</span><span class="en">Supremum</span></div>
+<div class="stmt">
+<div class="row pre"><span class="kw">前提</span><span>\(S \subseteq \mathbb{R},\ S \ne \emptyset,\ u \in \mathbb{R}\)</span></div>
+<div class="row"><span class="kw"></span><span></span><span>\(u = \sup S\)</span></div>
+<div class="row"><span class="kw">iff</span><span class="n c">1</span><span>\(u\) is an upper bound of \(S\)</span></div>
+<div class="row"><span class="kw">&amp;</span><span class="n c">2</span><span>if \(v\) is an upper bound of \(S\), then \(u \le v\)</span></div>
+</div>
+<p class="remark">最大下界 \(\inf S\) 的定義對稱：把上界換成下界、\(u \le v\) 換成 \(u \ge v\)。</p>
+<details><summary>課本的寫法</summary>若 u 是 S 的上界，而且 S 的任何一個上界 v 都滿足 u ≤ v，則稱 u 是 S 的最小上界，記為 sup S。</details>
+<div class="links">用到：<a class="chip def" href="#b-d1">D1</a></div>
+<div class="links">被用於：<a class="chip axm" href="#b-a1">A1</a> <a class="chip lem" href="#b-l1">L1</a></div>
+</article>
+<article class="item axm" id="b-a1">
+<div class="head"><span class="tag">公設 Axiom A1</span><span class="name">完備性公設</span><span class="en">Completeness Axiom</span></div>
+<div class="stmt">
+<div class="row pre"><span class="kw">前提</span><span>\(S \subseteq \mathbb{R}\)</span></div>
+<div class="row"><span class="kw">if</span><span class="n c">1</span><span>\(S \ne \emptyset\)</span></div>
+<div class="row"><span class="kw">&amp;</span><span class="n c">2</span><span>\(S\) is bdd above</span></div>
+<div class="row"><span class="kw">then</span><span class="n r">a</span><span>\(\sup S\) exists in \(\mathbb{R}\)</span></div>
+</div>
+<p class="remark">這一條不證明，是整章的出發點。有理數 \(\mathbb{Q}\) 沒有這個性質：\(\{q \in \mathbb{Q} : q^2 \lt 2\}\) 在 \(\mathbb{Q}\) 裡沒有最小上界。</p>
+<details><summary>課本的寫法</summary>實數的每一個非空且有上界的子集，都有最小上界，而且這個最小上界是實數。</details>
+<div class="links">用到：<a class="chip def" href="#b-d2">D2</a></div>
+<div class="links">被用於：<a class="chip thm" href="#b-t1">T1</a> <a class="chip thm" href="#b-t2">T2</a> <a class="chip thm" href="#b-t6">T6</a></div>
+</article>
+<article class="item lem" id="b-l1">
+<div class="head"><span class="tag">輔助定理 Lemma L1</span><span class="name">sup 的 ε 判別</span><span class="en">ε-characterization of sup</span></div>
+<div class="stmt">
+<div class="row pre"><span class="kw">前提</span><span>\(S \subseteq \mathbb{R},\ S \ne \emptyset\)；\(u\) is an upper bound of \(S\)</span></div>
+<div class="row"><span class="kw"></span><span></span><span>\(u = \sup S\)</span></div>
+<div class="row"><span class="kw">iff</span><span></span><span>\(\forall\, \varepsilon \gt 0,\ \exists\, s \in S\) s.t.</span></div>
+<div class="row"><span class="kw"></span><span class="n c">1</span><span>\(u - \varepsilon \lt s\)</span></div>
+</div>
+<p class="remark">意思是：比 \(u\) 小一點點的數都不再是上界。後面的證明幾乎都是用這個形式，而不是直接用 D2。</p>
+<details><summary>課本的寫法</summary>設 u 是 S 的上界。則 u 是 S 的最小上界的充要條件是：對任意正數 ε，S 中都存在元素 s，使得 u − ε < s。</details>
+<div class="links">用到：<a class="chip def" href="#b-d2">D2</a></div>
+<div class="links">被用於：<a class="chip thm" href="#b-t1">T1</a> <a class="chip thm" href="#b-t2">T2</a> <a class="chip thm" href="#b-t6">T6</a></div>
+</article>
+<article class="item thm" id="b-t1">
+<div class="head"><span class="tag">定理 Theorem T1</span><span class="name">Archimedes 性質</span><span class="en">Archimedean Property</span></div>
+<div class="stmt">
+<div class="row pre"><span class="kw">前提</span><span>\(x \in \mathbb{R}\)</span></div>
+<div class="row"><span class="kw">then</span><span></span><span>\(\exists\, n \in \mathbb{N}\) s.t.</span></div>
+<div class="row"><span class="kw"></span><span class="n r">a</span><span>\(x \lt n\)</span></div>
+</div>
+<details><summary>課本的寫法</summary>對任意實數 x，都存在自然數 n，使得 n > x。換句話說，自然數集合在實數中沒有上界。</details>
+<div class="links">用到：<a class="chip axm" href="#b-a1">A1</a> <a class="chip lem" href="#b-l1">L1</a></div>
+<div class="links">被用於：<a class="chip cor" href="#b-c1">C1</a></div>
+</article>
+<article class="item cor" id="b-c1">
+<div class="head"><span class="tag">推論 Corollary C1</span><span class="name">1/n 可以任意小</span><span class="en">1/n is arbitrarily small</span></div>
+<div class="stmt">
+<div class="row pre"><span class="kw">前提</span><span>\(\varepsilon \gt 0\)</span></div>
+<div class="row"><span class="kw">then</span><span></span><span>\(\exists\, n \in \mathbb{N}\) s.t.</span></div>
+<div class="row"><span class="kw"></span><span class="n r">a</span><span>\(\dfrac{1}{n} \lt \varepsilon\)</span></div>
+</div>
+<details><summary>課本的寫法</summary>對任意正數 ε，都存在自然數 n，使得 1/n < ε。</details>
+<div class="links">用到：<a class="chip thm" href="#b-t1">T1</a></div>
+</article>
+<article class="item def" id="b-d3">
+<div class="head"><span class="tag">定義 Definition D3</span><span class="name">數列收斂</span><span class="en">Convergent sequence</span></div>
+<div class="stmt">
+<div class="row pre"><span class="kw">前提</span><span>\((x_n)\) seq. in \(\mathbb{R},\ x \in \mathbb{R}\)</span></div>
+<div class="row"><span class="kw"></span><span></span><span>\(\lim\limits_{n \to \infty} x_n = x\)</span></div>
+<div class="row"><span class="kw">iff</span><span></span><span>\(\forall\, \varepsilon \gt 0,\ \exists\, N \in \mathbb{N}\) s.t.</span></div>
+<div class="row"><span class="kw"></span><span class="n c">1</span><span>\(|x_n - x| \lt \varepsilon\ \ \forall n \ge N\)</span></div>
+</div>
+<p class="remark">存在這樣的 \(x\) 時，稱 \((x_n)\) conv.（收斂）。</p>
+<details><summary>課本的寫法</summary>設 (xₙ) 是實數數列。若對任意正數 ε，都存在自然數 N，使得所有 n ≥ N 都滿足 |xₙ − x| < ε，則稱數列 (xₙ) 收斂到 x，記為 lim xₙ = x。</details>
+<div class="links">被用於：<a class="chip thm" href="#b-t2">T2</a> <a class="chip thm" href="#b-t5">T5</a></div>
+</article>
+<article class="item def" id="b-d4">
+<div class="head"><span class="tag">定義 Definition D4</span><span class="name">單調與有界數列</span><span class="en">Monotone &amp; bounded sequence</span></div>
+<div class="stmt">
+<div class="row pre"><span class="kw">前提</span><span>\((x_n)\) seq. in \(\mathbb{R}\)</span></div>
+<div class="row"><span class="kw"></span><span></span><span>\((x_n)\) is <b>increasing</b></span></div>
+<div class="row"><span class="kw">iff</span><span class="n c">1</span><span>\(x_n \le x_{n+1}\ \ \forall n \in \mathbb{N}\)</span></div>
+</div>
+<div class="stmt">
+<div class="row"><span class="kw"></span><span></span><span>\((x_n)\) is <b>bdd</b></span></div>
+<div class="row"><span class="kw">iff</span><span></span><span>\(\exists\, M \gt 0\) s.t.</span></div>
+<div class="row"><span class="kw"></span><span class="n c">1</span><span>\(|x_n| \le M\ \ \forall n \in \mathbb{N}\)</span></div>
+</div>
+<p class="remark">decreasing：把 \(\le\) 換成 \(\ge\)。monotone = increasing or decreasing。</p>
+<details><summary>課本的寫法</summary>若數列的每一項都小於或等於下一項，則稱數列遞增。若存在正數 M，使得數列每一項的絕對值都不超過 M，則稱數列有界。</details>
+<div class="links">被用於：<a class="chip thm" href="#b-t2">T2</a> <a class="chip lem" href="#b-l2">L2</a> <a class="chip lem" href="#b-l3">L3</a></div>
+</article>
+<article class="item thm" id="b-t2">
+<div class="head"><span class="tag">定理 Theorem T2</span><span class="name">單調收斂定理</span><span class="en">Monotone Convergence Theorem</span></div>
+<div class="stmt">
+<div class="row pre"><span class="kw">前提</span><span>\((x_n)\) seq. in \(\mathbb{R}\)</span></div>
+<div class="row"><span class="kw">if</span><span class="n c">1</span><span>\((x_n)\) is increasing</span></div>
+<div class="row"><span class="kw">&amp;</span><span class="n c">2</span><span>\((x_n)\) is bdd above</span></div>
+<div class="row"><span class="kw">then</span><span class="n r">a</span><span>\((x_n)\) conv.</span></div>
+<div class="row"><span class="kw">&amp;</span><span class="n r">b</span><span>\(\lim\limits_{n \to \infty} x_n = \sup\{x_n : n \in \mathbb{N}\}\)</span></div>
+</div>
+<p class="remark">對稱的版本：decreasing &amp; bdd below，極限是 \(\inf\{x_n\}\)。</p>
+<details><summary>課本的寫法</summary>遞增且有上界的實數數列必定收斂，而且極限就是數列各項所成集合的最小上界。</details>
+<div class="links">用到：<a class="chip axm" href="#b-a1">A1</a> <a class="chip lem" href="#b-l1">L1</a> <a class="chip def" href="#b-d3">D3</a> <a class="chip def" href="#b-d4">D4</a></div>
+<div class="links">被用於：<a class="chip thm" href="#b-t3">T3</a> <a class="chip thm" href="#b-t4">T4</a></div>
+</article>
+<article class="item thm" id="b-t3">
+<div class="head"><span class="tag">定理 Theorem T3</span><span class="name">區間套定理</span><span class="en">Nested Interval Theorem</span></div>
+<div class="stmt">
+<div class="row pre"><span class="kw">前提</span><span>\(I_n = [a_n, b_n],\ n \in \mathbb{N}\)</span></div>
+<div class="row"><span class="kw">if</span><span class="n c">1</span><span>\(I_{n+1} \subseteq I_n\ \ \forall n \in \mathbb{N}\)</span></div>
+<div class="row"><span class="kw">&amp;</span><span class="n c">2</span><span>\(\lim\limits_{n \to \infty} (b_n - a_n) = 0\)</span></div>
+<div class="row"><span class="kw">then</span><span></span><span>\(\exists\, \xi \in \mathbb{R}\) s.t.</span></div>
+<div class="row"><span class="kw"></span><span class="n r">a</span><span>\(\xi \in I_n\ \ \forall n \in \mathbb{N}\)</span></div>
+<div class="row"><span class="kw">&amp;</span><span class="n r">b</span><span>\(\xi\) is unique</span></div>
+</div>
+<p class="remark">編號之後看得出分工：只有條件 1 就能得到結果 a；結果 b 才需要條件 2。</p>
+<details><summary>課本的寫法</summary>設一列有界閉區間 Iₙ = [aₙ, bₙ] 一個包著一個（Iₙ₊₁ 包含於 Iₙ），則所有區間的交集不是空集合。若再加上區間長度 bₙ − aₙ 趨近於 0，則交集恰好只有一個點。</details>
+<div class="links">用到：<a class="chip thm" href="#b-t2">T2</a></div>
+</article>
+<article class="item lem" id="b-l2">
+<div class="head"><span class="tag">輔助定理 Lemma L2</span><span class="name">單調子數列</span><span class="en">Monotone subsequence</span></div>
+<div class="stmt">
+<div class="row pre"><span class="kw">前提</span><span>\((x_n)\) seq. in \(\mathbb{R}\)</span></div>
+<div class="row"><span class="kw">then</span><span></span><span>\(\exists\) subseq. \((x_{n_k})\) s.t.</span></div>
+<div class="row"><span class="kw"></span><span class="n r">a</span><span>\((x_{n_k})\) is monotone</span></div>
+</div>
+<p class="remark">這一條沒有條件，任何數列都適用。它本身用途不多，是為了證明 <a href="#b-t4">定理 T4</a> 而準備的。</p>
+<details><summary>課本的寫法</summary>每一個實數數列都有一個單調的子數列。</details>
+<div class="links">用到：<a class="chip def" href="#b-d4">D4</a></div>
+<div class="links">被用於：<a class="chip thm" href="#b-t4">T4</a></div>
+</article>
+<article class="item thm" id="b-t4">
+<div class="head"><span class="tag">定理 Theorem T4</span><span class="name">Bolzano–Weierstrass 定理</span><span class="en">Bolzano–Weierstrass Theorem</span></div>
+<div class="stmt">
+<div class="row pre"><span class="kw">前提</span><span>\((x_n)\) seq. in \(\mathbb{R}\)</span></div>
+<div class="row"><span class="kw">if</span><span class="n c">1</span><span>\((x_n)\) is bdd</span></div>
+<div class="row"><span class="kw">then</span><span></span><span>\(\exists\) subseq. \((x_{n_k})\) s.t.</span></div>
+<div class="row"><span class="kw"></span><span class="n r">a</span><span>\((x_{n_k})\) conv.</span></div>
+</div>
+<details><summary>課本的寫法</summary>每一個有界的實數數列都有一個收斂的子數列。</details>
+<div class="links">用到：<a class="chip lem" href="#b-l2">L2</a> <a class="chip thm" href="#b-t2">T2</a></div>
+<div class="links">被用於：<a class="chip thm" href="#b-t5">T5</a> <a class="chip thm" href="#b-t6">T6</a></div>
+</article>
+<article class="item def" id="b-d5">
+<div class="head"><span class="tag">定義 Definition D5</span><span class="name">Cauchy 數列</span><span class="en">Cauchy sequence</span></div>
+<div class="stmt">
+<div class="row pre"><span class="kw">前提</span><span>\((x_n)\) seq. in \(\mathbb{R}\)</span></div>
+<div class="row"><span class="kw"></span><span></span><span>\((x_n)\) is <b>Cauchy</b></span></div>
+<div class="row"><span class="kw">iff</span><span></span><span>\(\forall\, \varepsilon \gt 0,\ \exists\, N \in \mathbb{N}\) s.t.</span></div>
+<div class="row"><span class="kw"></span><span class="n c">1</span><span>\(|x_n - x_m| \lt \varepsilon\ \ \forall n, m \ge N\)</span></div>
+</div>
+<p class="remark">和 D3 對照：D3 要先知道極限 \(x\) 是多少，D5 只看數列自己的項。</p>
+<details><summary>課本的寫法</summary>若對任意正數 ε，都存在自然數 N，使得所有 n, m ≥ N 都滿足 |xₙ − xₘ| < ε，則稱 (xₙ) 是 Cauchy 數列。</details>
+<div class="links">被用於：<a class="chip lem" href="#b-l3">L3</a> <a class="chip thm" href="#b-t5">T5</a></div>
+</article>
+<article class="item lem" id="b-l3">
+<div class="head"><span class="tag">輔助定理 Lemma L3</span><span class="name">Cauchy 數列有界</span><span class="en">Cauchy implies bounded</span></div>
+<div class="stmt">
+<div class="row pre"><span class="kw">前提</span><span>\((x_n)\) seq. in \(\mathbb{R}\)</span></div>
+<div class="row"><span class="kw">if</span><span class="n c">1</span><span>\((x_n)\) is Cauchy</span></div>
+<div class="row"><span class="kw">then</span><span class="n r">a</span><span>\((x_n)\) is bdd</span></div>
+</div>
+<details><summary>課本的寫法</summary>每一個 Cauchy 數列都是有界數列。</details>
+<div class="links">用到：<a class="chip def" href="#b-d5">D5</a> <a class="chip def" href="#b-d4">D4</a></div>
+<div class="links">被用於：<a class="chip thm" href="#b-t5">T5</a></div>
+</article>
+<article class="item thm" id="b-t5">
+<div class="head"><span class="tag">定理 Theorem T5</span><span class="name">Cauchy 收斂準則</span><span class="en">Cauchy Convergence Criterion</span></div>
+<div class="stmt">
+<div class="row pre"><span class="kw">前提</span><span>\((x_n)\) seq. in \(\mathbb{R}\)</span></div>
+<div class="row"><span class="kw"></span><span></span><span>\((x_n)\) conv.</span></div>
+<div class="row"><span class="kw">iff</span><span class="n c">1</span><span>\((x_n)\) is Cauchy</span></div>
+</div>
+<p class="remark">iff 要拆成兩個方向來背：「conv. ⇒ Cauchy」只用到 D3、D5；「Cauchy ⇒ conv.」才需要 L3 和 T4，也就是需要完備性。</p>
+<details><summary>課本的寫法</summary>實數數列收斂的充要條件是：它是 Cauchy 數列。</details>
+<div class="links">用到：<a class="chip lem" href="#b-l3">L3</a> <a class="chip thm" href="#b-t4">T4</a> <a class="chip def" href="#b-d3">D3</a> <a class="chip def" href="#b-d5">D5</a></div>
+</article>
+<article class="item thm" id="b-t6">
+<div class="head"><span class="tag">定理 Theorem T6</span><span class="name">極值定理</span><span class="en">Extreme Value Theorem</span></div>
+<div class="stmt">
+<div class="row pre"><span class="kw">前提</span><span>\(f: [a,b] \to \mathbb{R}\)</span></div>
+<div class="row"><span class="kw">if</span><span class="n c">1</span><span>\(f\) conti. on \([a,b]\)</span></div>
+<div class="row"><span class="kw">then</span><span></span><span>\(\exists\, c, d \in [a,b]\) s.t.</span></div>
+<div class="row"><span class="kw"></span><span class="n r">a</span><span>\(f(c) \ge f(x)\ \ \forall x \in [a,b]\)</span></div>
+<div class="row"><span class="kw">&amp;</span><span class="n r">b</span><span>\(f(d) \le f(x)\ \ \forall x \in [a,b]\)</span></div>
+</div>
+<p class="remark">這就是微積分那一章沒有證明的 <a href="#a-t1">定理 T1</a>。連續的定義來自課本前面的章節，這裡不重抄。</p>
+<details><summary>課本的寫法</summary>若函數 f 在閉區間 [a, b] 上連續，則 f 在 [a, b] 上必有絕對極大值與絕對極小值。</details>
+<div class="links">用到：<a class="chip thm" href="#b-t4">T4</a> <a class="chip axm" href="#b-a1">A1</a> <a class="chip lem" href="#b-l1">L1</a></div>
+</article>
+  <h3>5.2 關聯心智圖</h3>
+  <div class="mapwrap"><svg class="map" viewBox="0 0 860 750" role="img" aria-label="實數的完備性一章的關聯心智圖">
+<defs><marker id="arr-b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="arrow" d="M0 0L10 5L0 10z"/></marker></defs>
+<path class="edge" d="M170.0 40L208.0 40" marker-end="url(#arr-b)"/>
+<path class="edge" d="M360.0 40L423.0 40" marker-end="url(#arr-b)"/>
+<path class="edge" d="M285 66.0C285 94.0 285 94.0 285 122.0" marker-end="url(#arr-b)"/>
+<path class="edge" d="M500 66.0C500 149.0 360 149.0 360 232.0" marker-end="url(#arr-b)"/>
+<path class="edge" d="M285 176.0C285 204.0 360 204.0 360 232.0" marker-end="url(#arr-b)"/>
+<path class="edge" d="M360 286.0C360 314.0 360 314.0 360 342.0" marker-end="url(#arr-b)"/>
+<path class="edge" d="M500 66.0C500 149.0 560 149.0 560 232.0" marker-end="url(#arr-b)"/>
+<path class="edge" d="M285 176.0C285 204.0 560 204.0 560 232.0" marker-end="url(#arr-b)"/>
+<path class="edge" d="M770 176.0C770 204.0 560 204.0 560 232.0" marker-end="url(#arr-b)"/>
+<path class="edge" d="M695.0 260L637.0 260" marker-end="url(#arr-b)"/>
+<path class="edge" d="M560 286.0C560 314.0 720 314.0 720 342.0" marker-end="url(#arr-b)"/>
+<path class="edge" d="M560 286.0C560 369.0 520 369.0 520 452.0" marker-end="url(#arr-b)"/>
+<path class="edge" d="M385.0 480L443.0 480" marker-end="url(#arr-b)"/>
+<path class="edge" d="M205.0 590L253.0 590" marker-end="url(#arr-b)"/>
+<path class="edge" d="M330 616.0C330 644.0 430 644.0 430 672.0" marker-end="url(#arr-b)"/>
+<path class="edge" d="M520 506.0C520 589.0 430 589.0 430 672.0" marker-end="url(#arr-b)"/>
+<path class="edge" d="M130 616.0C130 644.0 430 644.0 430 672.0" marker-end="url(#arr-b)"/>
+<path class="edge" d="M520 506.0C520 534.0 720 534.0 720 562.0" marker-end="url(#arr-b)"/>
+<a href="#b-d1" class="def"><title>定義 D1　上界與有上界</title><rect x="20.0" y="14.0" width="150" height="52" rx="10"/><text class="code" x="95" y="34" text-anchor="middle">定義 D1</text><text class="label" x="95" y="54" text-anchor="middle">上界與有上界</text></a>
+<a href="#b-d2" class="def"><title>定義 D2　最小上界</title><rect x="210.0" y="14.0" width="150" height="52" rx="10"/><text class="code" x="285" y="34" text-anchor="middle">定義 D2</text><text class="label" x="285" y="54" text-anchor="middle">最小上界 sup</text></a>
+<a href="#b-a1" class="axm"><title>公設 A1　完備性公設</title><rect x="425.0" y="14.0" width="150" height="52" rx="10"/><text class="code" x="500" y="34" text-anchor="middle">公設 A1</text><text class="label" x="500" y="54" text-anchor="middle">完備性公設</text></a>
+<a href="#b-l1" class="lem"><title>輔助定理 L1　sup 的 ε 判別</title><rect x="210.0" y="124.0" width="150" height="52" rx="10"/><text class="code" x="285" y="144" text-anchor="middle">輔助定理 L1</text><text class="label" x="285" y="164" text-anchor="middle">sup 的 ε 判別</text></a>
+<a href="#b-d3" class="def"><title>定義 D3　數列收斂</title><rect x="695.0" y="124.0" width="150" height="52" rx="10"/><text class="code" x="770" y="144" text-anchor="middle">定義 D3</text><text class="label" x="770" y="164" text-anchor="middle">數列收斂</text></a>
+<a href="#b-t1" class="thm"><title>定理 T1　Archimedes 性質</title><rect x="285.0" y="234.0" width="150" height="52" rx="10"/><text class="code" x="360" y="254" text-anchor="middle">定理 T1</text><text class="label" x="360" y="274" text-anchor="middle">Archimedes 性質</text></a>
+<a href="#b-t2" class="thm"><title>定理 T2　單調收斂定理</title><rect x="485.0" y="234.0" width="150" height="52" rx="10"/><text class="code" x="560" y="254" text-anchor="middle">定理 T2</text><text class="label" x="560" y="274" text-anchor="middle">單調收斂定理</text></a>
+<a href="#b-d4" class="def"><title>定義 D4　單調與有界數列</title><rect x="695.0" y="234.0" width="150" height="52" rx="10"/><text class="code" x="770" y="254" text-anchor="middle">定義 D4</text><text class="label" x="770" y="274" text-anchor="middle">單調與有界數列</text></a>
+<a href="#b-c1" class="cor"><title>推論 C1　1/n 可以任意小</title><rect x="285.0" y="344.0" width="150" height="52" rx="10"/><text class="code" x="360" y="364" text-anchor="middle">推論 C1</text><text class="label" x="360" y="384" text-anchor="middle">1/n 可以任意小</text></a>
+<a href="#b-t3" class="thm"><title>定理 T3　區間套定理</title><rect x="645.0" y="344.0" width="150" height="52" rx="10"/><text class="code" x="720" y="364" text-anchor="middle">定理 T3</text><text class="label" x="720" y="384" text-anchor="middle">區間套定理</text></a>
+<a href="#b-l2" class="lem"><title>輔助定理 L2　單調子數列</title><rect x="235.0" y="454.0" width="150" height="52" rx="10"/><text class="code" x="310" y="474" text-anchor="middle">輔助定理 L2</text><text class="label" x="310" y="494" text-anchor="middle">單調子數列</text></a>
+<a href="#b-t4" class="thm"><title>定理 T4　Bolzano–Weierstrass 定理</title><rect x="445.0" y="454.0" width="150" height="52" rx="10"/><text class="code" x="520" y="474" text-anchor="middle">定理 T4</text><text class="label" x="520" y="494" text-anchor="middle">Bolzano–Weierstrass</text></a>
+<a href="#b-d5" class="def"><title>定義 D5　Cauchy 數列</title><rect x="55.0" y="564.0" width="150" height="52" rx="10"/><text class="code" x="130" y="584" text-anchor="middle">定義 D5</text><text class="label" x="130" y="604" text-anchor="middle">Cauchy 數列</text></a>
+<a href="#b-l3" class="lem"><title>輔助定理 L3　Cauchy 數列有界</title><rect x="255.0" y="564.0" width="150" height="52" rx="10"/><text class="code" x="330" y="584" text-anchor="middle">輔助定理 L3</text><text class="label" x="330" y="604" text-anchor="middle">Cauchy 數列有界</text></a>
+<a href="#b-t6" class="thm"><title>定理 T6　極值定理</title><rect x="645.0" y="564.0" width="150" height="52" rx="10"/><text class="code" x="720" y="584" text-anchor="middle">定理 T6</text><text class="label" x="720" y="604" text-anchor="middle">極值定理</text></a>
+<a href="#b-t5" class="thm"><title>定理 T5　Cauchy 收斂準則</title><rect x="355.0" y="674.0" width="150" height="52" rx="10"/><text class="code" x="430" y="694" text-anchor="middle">定理 T5</text><text class="label" x="430" y="714" text-anchor="middle">Cauchy 收斂準則</text></a>
+</svg></div>
+  <div class="legend"><span class="def"><i></i>定義 Definition（D）</span><span class="axm"><i></i>公設 Axiom（A）</span><span class="thm"><i></i>定理 Theorem（T）</span><span class="lem"><i></i>輔助定理 Lemma（L）</span><span class="cor"><i></i>推論 Corollary（C）</span><span>箭頭 A → B：證明 B 時用到 A。點方塊可跳到該條。</span></div>
+  <p>為了讓圖好讀，圖上只畫主要的依賴關係。完整的依賴列在每一條筆記底下的「用到」。</p>
+  <h3>5.3 這張圖怎麼讀</h3>
+  <ol>
+    <li><b>D1 → D2 → A1</b>：先有上界，才能定義最小上界；有了最小上界這個名詞，才能敘述公設。</li>
+    <li><b>D2 → L1</b>：L1 只是把 D2 的條件 2 換一個說法：「比 \(u\) 小的數都不是上界」。</li>
+    <li><b>A1、L1 → T1</b>：反證法。假設 \(\mathbb{N}\) 有上界，A1 給出 \(u = \sup \mathbb{N}\)；L1 取 \(\varepsilon = 1\)，得到 \(m \in \mathbb{N}\) 滿足 \(u - 1 \lt m\)，於是 \(m + 1 \gt u\)，矛盾。</li>
+    <li><b>T1 → C1</b>：對 \(x = 1/\varepsilon\) 用 T1。</li>
+    <li><b>A1、L1、D3、D4 → T2</b>：A1 給出 \(u = \sup\{x_n\}\)。L1 給出某一項 \(x_N \gt u - \varepsilon\)；因為遞增（D4），之後每一項都落在 \(u - \varepsilon\) 和 \(u\) 之間，這正是 D3 的條件。</li>
+    <li><b>T2 → T3</b>：左端點 \((a_n)\) 遞增且有上界 \(b_1\)，用 T2 得到極限 \(\xi\)，再驗證 \(\xi\) 在每個區間裡。</li>
+    <li><b>L2、T2 → T4</b>：L2 抽出一個單調子數列；原數列有界，所以子數列也有界；T2 說它收斂。</li>
+    <li><b>D5 → L3</b>：取 \(\varepsilon = 1\)，第 \(N\) 項之後的每一項都和 \(x_N\) 相差不到 1。</li>
+    <li><b>L3、T4、D5 → T5</b>：Cauchy 數列有界（L3），所以有收斂子數列（T4）；再用 D5 說明整個數列都跟著子數列收斂到同一個極限。</li>
+    <li><b>T4 → T6</b>：先用 T4 證明 \(f\) 有界，A1 給出 \(M = \sup f\)；L1 取一列點 \(x_n\) 使 \(f(x_n) \to M\)，T4 抽出收斂子數列，極限點 \(c\) 就滿足 \(f(c) = M\)。</li>
+  </ol>
+  <div class="note">畫完圖可以看出：所有箭頭往上追，最後都回到紫色的 A1。這就是「公設」的意思，整章只有這一條是不證明的。三個黃色的輔助定理各自只服務一兩個定理：L1 是 A1 的好用版本，L2 為 T4 準備，L3 為 T5 準備。另外，圖最底下的 T6 就是微積分那一章沒有證明的 T1；兩章的圖在這裡接起來了。</div>
+
+  <h2 id="practice">6. 自己動手的步驟</h2>
+  <ol>
+    <li>選一章，照課本順序讀。遇到定義、公設、定理、輔助定理、推論就停下來。</li>
+    <li>把它抄成簡式：前提寫最上面，條件編 1、2、3，結果編 a、b、c，行首寫 if、&amp;、or、then、iff。</li>
+    <li>給它一個代號（D1、T1…），並在旁邊寫「用到：…」。課本的證明第一段通常就會告訴你用到哪幾條。</li>
+    <li>一章抄完，把代號畫成關聯圖：A 用來證明 B，就畫 A → B。</li>
+    <li>蓋住筆記，看著圖默寫每一條：先寫骨架（幾個條件、幾個結果），再填內容。寫不出來的那一條就是還沒懂的地方。</li>
+  </ol>
+  <p>抄寫看起來慢，但改寫成簡式時必須決定「哪些是條件、哪些是結果」，這個判斷本身就是在理解定理。</p>
+
+  <footer><a href="/share/">← 回知識分享</a></footer>
+</main>
+</body>
+</html>
