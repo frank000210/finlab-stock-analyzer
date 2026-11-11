@@ -36,6 +36,7 @@ from .api import (
     peers_router,
     public_data_router,
     risk_router,
+    stock_store_router,
     seasonal_router,
     settings_router,
     signal_rules_router,
@@ -169,6 +170,7 @@ app.include_router(notifications_router)
 app.include_router(settings_router)
 app.include_router(ai_agent_router)
 app.include_router(risk_router)
+app.include_router(stock_store_router)
 app.include_router(trade_router)
 app.include_router(signal_rules_router)
 app.include_router(news_checker_router)

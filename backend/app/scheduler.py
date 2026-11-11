@@ -98,6 +98,30 @@ async def _brief_loop(run_hour: int, run_minute: int) -> None:
 
 _brief_task: asyncio.Task | None = None
 
+
+async def _store_loop(run_hour: int, run_minute: int) -> None:
+    """每日資料庫：平日定時把白名單股票的資料增量寫進 MongoDB（見 data/stock_store.py）。"""
+    while True:
+        delay = _seconds_until_next(run_hour, run_minute)
+        logger.info("stock-store: next run in %.1f h", delay / 3600)
+        try:
+            await asyncio.sleep(delay)
+            from .data.stock_store import run_sync
+
+            result = await run_sync(trigger="schedule")
+            logger.info(
+                "stock-store: symbols=%s rows=%s errors=%s aborted=%s skipped=%s",
+                result.get("symbols"), result.get("rows"), result.get("errors"), result.get("aborted"), result.get("skipped"),
+            )
+        except asyncio.CancelledError:
+            break
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("stock-store loop error: %s", exc)
+            await asyncio.sleep(300)
+
+
+_store_task: asyncio.Task | None = None
+
 _TW_MARKET_OPEN = time(9, 0)
 _TW_MARKET_CLOSE = time(13, 35)
 
@@ -130,7 +154,7 @@ _alert_task: asyncio.Task | None = None
 
 def start_scheduler() -> None:
     """在 FastAPI lifespan 啟動時呼叫。"""
-    global _task, _brief_task, _alert_task
+    global _task, _brief_task, _alert_task, _store_task
     if os.getenv("AUTO_INGEST_ENABLED", "true").lower() in ("0", "false", "no", "off"):
         logger.info("auto-ingest scheduler disabled by AUTO_INGEST_ENABLED")
     elif _task is None:
@@ -154,6 +178,18 @@ def start_scheduler() -> None:
         _brief_task = asyncio.create_task(_brief_loop(b_hour, b_minute))
         logger.info("daily-brief scheduler started (daily %02d:%02d TW, weekdays)", b_hour, b_minute)
 
+    # 每日資料庫：增量存白名單股票（預設 15:00 台灣時間，平日；STOCK_STORE_ENABLED=false 關閉）
+    if os.getenv("STOCK_STORE_ENABLED", "true").lower() in ("0", "false", "no", "off"):
+        logger.info("stock-store scheduler disabled by STOCK_STORE_ENABLED")
+    elif _store_task is None:
+        try:
+            s_hour = int(os.getenv("STOCK_STORE_HOUR", "15"))
+            s_minute = int(os.getenv("STOCK_STORE_MINUTE", "0"))
+        except ValueError:
+            s_hour, s_minute = 15, 0
+        _store_task = asyncio.create_task(_store_loop(s_hour, s_minute))
+        logger.info("stock-store scheduler started (daily %02d:%02d TW, weekdays)", s_hour, s_minute)
+
     # C10：價格警報，盤中每 N 分鐘檢查一次（預設 20 分鐘；PRICE_ALERT_ENABLED=false 關閉）
     if os.getenv("PRICE_ALERT_ENABLED", "true").lower() in ("0", "false", "no", "off"):
         logger.info("price-alert scheduler disabled by PRICE_ALERT_ENABLED")
@@ -167,7 +203,10 @@ def start_scheduler() -> None:
 
 
 def stop_scheduler() -> None:
-    global _task, _brief_task, _alert_task
+    global _task, _brief_task, _alert_task, _store_task
+    if _store_task is not None:
+        _store_task.cancel()
+        _store_task = None
     if _task is not None:
         _task.cancel()
         _task = None
