@@ -90,3 +90,11 @@ html[data-theme="dark"], html[data-theme="nord"], html[data-theme="dracula"], ht
 .tp-lb small { font-size: .72rem; color: var(--muted); }
 .tp-ck { width: 1em; text-align: center; font-weight: 800; color: var(--teal); }
 @media (max-width: 480px) { .tp-name { display: none; } .tp-btn { padding: 7px 10px; } }
+
+/* 入口頁的狀態點顏色：深色主題要用亮一點的綠／紅，否則看不清 */
+html[data-theme="notebook"] { --ok: #1C6E3B; --bad: #C03936; }
+html[data-theme="solarized"] { --ok: #446A00; --bad: #C4302D; }
+html[data-theme="dark"] { --ok: #3CCF91; --bad: #F56F6C; }
+html[data-theme="nord"] { --ok: #B0CA9A; --bad: #F9A3A9; }
+html[data-theme="dracula"] { --ok: #50FA7B; --bad: #FF7D7D; }
+html[data-theme="gruvbox"] { --ok: #B8BB26; --bad: #FF7864; }
