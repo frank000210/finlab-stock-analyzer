@@ -24,6 +24,7 @@ function readTokens() {
     text: v('--chart-text', '#f1f5f9'),
     textSoft: v('--chart-text-soft', '#cbd5e1'),
     muted: v('--chart-muted', '#5b6b84'),
+    well: v('--bg-well', '#0f172a'), // 圖表畫布底色（跟著主題）
     grid: v('--chart-grid', 'rgba(148,163,184,0.06)'),
     border: v('--chart-border', 'rgba(148,163,184,0.14)'),
     upSoft: v('--chart-up-soft', 'rgba(239,68,68,0.12)'),

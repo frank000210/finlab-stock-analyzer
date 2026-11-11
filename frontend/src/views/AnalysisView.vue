@@ -1679,7 +1679,7 @@ function renderCharts() {
   const common = {
     width,
     layout: {
-      background: { color: '#0f172a' },
+      background: { color: theme.well },
       textColor: theme.muted,
     },
     grid: {
