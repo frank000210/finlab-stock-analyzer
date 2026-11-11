@@ -3,69 +3,101 @@
 @import url('https://cdn.jsdelivr.net/npm/lxgw-wenkai-tc-webfont/style.css');
 
 :root {
-  /* Color System - Dark Mode */
-  --bg-primary: #000000;    /* 頁面背景：黑 */
-  --bg-secondary: #131b30;  /* 導覽列 / 次級區塊 */
-  --bg-card: #131b30;       /* 區塊背景：同「關聯圖01」頁 */
-  --bg-elevated: #1f2d47;
-  /* 圖表「凹陷」底色:比卡片底色更深一階,讓圖表區域在卡片內視覺後退，
-     對齊設計稿的三層深度（頁面 < 卡片 < 圖表凹槽）。 */
-  --bg-well: #0d1424;
-  --bg-hover: rgba(37, 99, 235, 0.06);
-  --text-primary: #f1f5f9;
-  --text-secondary: #cbd5e1;
-  --text-muted: #8a99ad;
-  --accent-blue: #3b82f6;
-  --accent-purple: #8b5cf6;
-  --accent-cyan: #06b6d4;
-  --color-up: #ef4444;    /* 漲=紅（台股慣例：漲紅跌綠）*/
-  --color-down: #10b981;  /* 跌=綠 */
-  --color-warning: #f59e0b;
+  /* ===== 色彩主題（風格 7 筆記本 + 風格 8 手繪）=====
+     下面這組「基底色」就是預設主題「手帳米白」；其餘 5 組（夜間深色、Solarized、Nord、
+     Dracula、Gruvbox）在 themes.css，用 html[data-theme="…"] 只覆寫基底色。
+     後面所有舊名稱（--bg-*、--text-*、--chart-*…）都從基底色推導，所以換主題不用逐頁改。 */
+  --desk: #E7E1D5;        /* 桌面（頁面外圍） */
+  --paper: #FFFDF7;       /* 紙張（內容區底色） */
+  --side: #F1ECE0;        /* 左側選單底色 */
+  --card: #FFFFFF;        /* 區塊（卡片）底色 */
+  --elev: #F8F4E9;        /* 卡片內小卡、下拉選單 */
+  --well: #FAF6ED;        /* 圖表凹槽 */
+  --ink: #2B2B33;         /* 墨線與主要文字 */
+  --ink-2: #4A4A56;       /* 次要文字 */
+  --muted: #666674;       /* 說明文字 */
+  --rule: #DDE7F1;        /* 橫線 */
+  --margin: #EFA3A3;      /* 紅色邊線 */
+  --heading: #12706C;     /* 標題（藍綠） */
+  --blue: #2A62C4;
+  --purple: #7454C2;
+  --cyan: #12706C;
+  --up: #C03936;          /* 漲=紅（台股慣例：漲紅跌綠）*/
+  --down: #1C6E3B;        /* 跌=綠 */
+  --warn: #985105;
+  --on-accent: #FFFFFF;   /* 主色按鈕上的字 */
+  --mark: rgba(255, 112, 166, 0.38);  /* 螢光筆 */
+  --sticky: #FFE679;      /* 便利貼 */
+  --sticky-ink: #2B2B33;
+  --ring: #8D9099;        /* 線圈 */
+  --ring-hole: #4C4741;
+  --shadow-rgb: 43, 43, 51;
+
+  /* 以下是舊名稱（歷史樣式與各頁都在用），一律從基底色推導 */
+  --bg-primary: var(--paper);
+  --bg-secondary: var(--side);
+  --bg-card: var(--card);
+  --bg-elevated: var(--elev);
+  /* 圖表「凹陷」底色:比卡片底色更深一階,讓圖表區域在卡片內視覺後退 */
+  --bg-well: var(--well);
+  --bg-hover: color-mix(in srgb, var(--blue) 9%, transparent);
+  --text-primary: var(--ink);
+  --text-secondary: var(--ink-2);
+  --text-muted: var(--muted);
+  --accent-blue: var(--blue);
+  --accent-purple: var(--purple);
+  --accent-cyan: var(--cyan);
+  --color-up: var(--up);
+  --color-down: var(--down);
+  --color-warning: var(--warn);
   /* 相容別名:歷史樣式引用的舊名,統一指向語意 token(修正原本未定義而無聲失效) */
   --accent-red: var(--color-down);
   --accent-green: var(--color-up);
   --bg-tertiary: var(--bg-elevated);
-  --border-color: rgba(148, 163, 184, 0.12);
-  --border-subtle: rgba(148, 163, 184, 0.06);
+  --border-color: color-mix(in srgb, var(--ink) 20%, transparent);
+  --border-subtle: color-mix(in srgb, var(--ink) 9%, transparent);
 
   /* 可由「設定 → 外觀主題」即時覆寫的變數（存 localStorage，開頁時套回）。
-     區塊＝.card；區塊裏卡片＝.metric-card。邊界粗細/顏色皆可調。 */
-  --block-border-width: 1px;
-  --block-border-color: var(--border-color);
+     區塊＝.card；區塊裏卡片＝.metric-card。邊界粗細/顏色皆可調。
+     預設的墨線（手繪框）用 --ink-2，粗細 1.6px。 */
+  --block-border-width: 1.6px;
+  --block-border-color: var(--ink-2);
   --card-inner-bg: var(--bg-elevated);
-  --card-inner-border-width: 1px;
+  --card-inner-border-width: 1.4px;
   --card-inner-border-color: var(--border-color);
 
   /* 淡色調 token(badge/底色統一用這組,取代散落在各檔案的 rgba 疊色) */
-  --up-soft: rgba(239, 68, 68, 0.12);    /* 漲=紅 soft */
-  --down-soft: rgba(16, 185, 129, 0.12); /* 跌=綠 soft */
-  --warn-soft: rgba(245, 158, 11, 0.12);
+  --up-soft: color-mix(in srgb, var(--up) 14%, transparent);    /* 漲=紅 soft */
+  --down-soft: color-mix(in srgb, var(--down) 14%, transparent); /* 跌=綠 soft */
+  --warn-soft: color-mix(in srgb, var(--warn) 14%, transparent);
+  --blue-soft: color-mix(in srgb, var(--blue) 12%, transparent);
+  --purple-soft: color-mix(in srgb, var(--purple) 12%, transparent);
 
   /* 圖表專用色票:D3 / lightweight-charts 一律透過 useChartTheme() 讀這組值,
-     不要在圖表 JS 裡寫死 hex,換主題只需要改這裡。 */
-  --chart-up: #ef4444;        /* 漲=紅（台股慣例，套用到 K 線/直方/熱力圖等）*/
-  --chart-up-strong: #f87171;
-  --chart-down: #10b981;      /* 跌=綠 */
-  --chart-down-strong: #34d399;
-  --chart-warn: #f59e0b;
+     不要在圖表 JS 裡寫死 hex,換主題只需要改基底色。 */
+  --chart-up: var(--up);        /* 漲=紅（台股慣例，套用到 K 線/直方/熱力圖等）*/
+  --chart-up-strong: color-mix(in srgb, var(--up) 82%, var(--paper));
+  --chart-down: var(--down);      /* 跌=綠 */
+  --chart-down-strong: color-mix(in srgb, var(--down) 82%, var(--paper));
+  --chart-warn: var(--warn);
   /* 相關係數正負色（與漲跌無關，恆定「藍＝正相關 / 紅＝負相關」），
      供關聯圖、領先落後圖使用，不隨漲紅跌綠翻轉。 */
-  --chart-negative: #ef4444;
-  --chart-negative-soft: rgba(239, 68, 68, 0.12);
-  --chart-blue: #3b82f6;
-  --chart-purple: #8b5cf6;
-  --chart-cyan: #06b6d4;
-  --chart-neutral: #94a3b8;
-  --chart-text: #f1f5f9;
-  --chart-text-soft: #cbd5e1;
-  --chart-muted: #5b6b84;
-  --chart-grid: rgba(148, 163, 184, 0.06);
-  --chart-border: rgba(148, 163, 184, 0.14);
-  --chart-up-soft: rgba(239, 68, 68, 0.12);
-  --chart-down-soft: rgba(16, 185, 129, 0.12);
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
+  --chart-negative: var(--up);
+  --chart-negative-soft: color-mix(in srgb, var(--up) 14%, transparent);
+  --chart-blue: var(--blue);
+  --chart-purple: var(--purple);
+  --chart-cyan: var(--cyan);
+  --chart-neutral: var(--muted);
+  --chart-text: var(--ink);
+  --chart-text-soft: var(--ink-2);
+  --chart-muted: var(--muted);
+  --chart-grid: color-mix(in srgb, var(--ink) 11%, transparent);
+  --chart-border: color-mix(in srgb, var(--ink) 24%, transparent);
+  --chart-up-soft: color-mix(in srgb, var(--up) 14%, transparent);
+  --chart-down-soft: color-mix(in srgb, var(--down) 14%, transparent);
+  --shadow-sm: 0 1px 3px rgba(var(--shadow-rgb), 0.18);
+  --shadow-md: 0 4px 12px rgba(var(--shadow-rgb), 0.22);
+  --shadow-lg: 0 8px 32px rgba(var(--shadow-rgb), 0.28);
   --radius-sm: 6px;
   --radius: 10px;
   --radius-lg: 14px;
@@ -155,7 +187,7 @@ p { line-height: 1.65; color: var(--text-secondary); }
    scoped 樣式裡硬寫的卡片底色（漸層/半透明navy 等），讓全站區塊底色一致。 */
 .card {
   background: var(--bg-card) !important;
-  border: var(--block-border-width) solid var(--block-border-color) !important;
+  border: var(--block-border-width) solid transparent !important;
   border-radius: var(--radius-lg);
   padding: var(--space-4);
   transition: transform var(--transition-base), box-shadow var(--transition-base);
@@ -265,7 +297,7 @@ p { line-height: 1.65; color: var(--text-secondary); }
   text-align: center;
   padding: var(--space-3);
   background: var(--card-inner-bg) !important;
-  border: var(--card-inner-border-width) solid var(--card-inner-border-color) !important;
+  border: var(--card-inner-border-width) solid transparent !important;
   border-radius: var(--radius);
 }
 
@@ -320,13 +352,13 @@ p { line-height: 1.65; color: var(--text-secondary); }
 
 .btn-primary {
   background: var(--accent-blue);
-  color: white;
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+  color: var(--on-accent);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--accent-blue) 30%, transparent);
 }
 
 .btn-primary:hover {
-  background: #2563eb;
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+  background: color-mix(in srgb, var(--accent-blue) 86%, var(--ink));
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--accent-blue) 40%, transparent);
 }
 
 .btn-secondary {
@@ -382,7 +414,7 @@ table {
 }
 
 thead {
-  background: rgba(59, 130, 246, 0.06);
+  background: var(--blue-soft);
 }
 
 th {
@@ -448,9 +480,9 @@ tr:hover td {
   text-align: center;
   padding: var(--space-8);
   color: var(--color-down);
-  background: rgba(239, 68, 68, 0.06);
+  background: color-mix(in srgb, var(--color-up) 8%, transparent);
   border-radius: var(--radius);
-  border: 1px solid rgba(239, 68, 68, 0.2);
+  border: 1px solid color-mix(in srgb, var(--color-up) 28%, transparent);
 }
 
 /* ===== BADGES ===== */
@@ -468,19 +500,19 @@ tr:hover td {
 .badge-buy {
   background: var(--up-soft);
   color: var(--color-up);
-  border: 1px solid rgba(239, 68, 68, 0.3);
+  border: 1px solid color-mix(in srgb, var(--color-up) 40%, transparent);
 }
 
 .badge-sell {
   background: var(--down-soft);
   color: var(--color-down);
-  border: 1px solid rgba(16, 185, 129, 0.3);
+  border: 1px solid color-mix(in srgb, var(--color-down) 40%, transparent);
 }
 
 .badge-hold {
-  background: rgba(100, 116, 139, 0.12);
+  background: color-mix(in srgb, var(--text-muted) 14%, transparent);
   color: var(--text-muted);
-  border: 1px solid rgba(100, 116, 139, 0.3);
+  border: 1px solid color-mix(in srgb, var(--text-muted) 38%, transparent);
 }
 
 /* 估算/示意資料視覺標記:高對比實色斜紋（貼近設計稿的角標旗標），
@@ -499,8 +531,8 @@ tr:hover td {
     135deg,
     var(--color-warning),
     var(--color-warning) 3px,
-    #1a1408 3px,
-    #1a1408 6px
+    var(--ink) 3px,
+    var(--ink) 6px
   );
   border: none;
 }
@@ -596,7 +628,7 @@ tr:hover td {
   .card.is-interactive:hover,
   button .card:hover {
     transform: translateY(-2px);
-    border-color: rgba(59, 130, 246, 0.35);
+    border-color: color-mix(in srgb, var(--accent-blue) 40%, transparent);
   }
 }
 

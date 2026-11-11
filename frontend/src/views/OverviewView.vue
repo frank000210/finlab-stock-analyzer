@@ -414,7 +414,7 @@ watch(() => stockStore.symbol, loadAll)
 .v-偏多 { background: var(--up-soft); color: var(--accent-green); }
 .v-出貨 { background: var(--down-soft); color: var(--accent-red); }
 .v-偏空 { background: var(--down-soft); color: var(--accent-red); }
-.v-中性 { background: rgba(59, 130, 246, 0.1); color: var(--accent-blue); }
+.v-中性 { background: color-mix(in srgb, var(--blue) 10%, transparent); color: var(--accent-blue); }
 
 @media (max-width: 768px) {
   .summary-grid { grid-template-columns: 1fr 1fr; }

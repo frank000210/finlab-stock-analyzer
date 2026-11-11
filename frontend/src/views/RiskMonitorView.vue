@@ -1386,7 +1386,7 @@ function statusClass(status) {
   width: 100%;
   height: 100%;
   border-radius: 50%;
-  background: #0d1117;
+  background: var(--well);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1452,8 +1452,8 @@ function statusClass(status) {
 }
 
 .is-neutral {
-  background: rgba(100, 116, 139, 0.15);
-  color: #94a3b8;
+  background: color-mix(in srgb, var(--muted) 15%, transparent);
+  color: var(--muted);
 }
 
 .trade-counter {
@@ -1472,12 +1472,12 @@ function statusClass(status) {
   height: 10px;
   border-radius: 999px;
   overflow: hidden;
-  background: rgba(148, 163, 184, 0.16);
+  background: color-mix(in srgb, var(--muted) 16%, transparent);
 }
 
 .counter-fill {
   height: 100%;
-  background: linear-gradient(90deg, #38bdf8, #2563eb);
+  background: linear-gradient(90deg, var(--blue), var(--blue));
 }
 
 .chart-area {
@@ -1485,8 +1485,8 @@ function statusClass(status) {
   min-height: 320px;
   border-radius: 12px;
   overflow: hidden;
-  background: #0d1117;
-  border: 1px solid rgba(148, 163, 184, 0.12);
+  background: var(--well);
+  border: 1px solid color-mix(in srgb, var(--muted) 12%, transparent);
 }
 
 .chart-wrapper {
@@ -1523,12 +1523,12 @@ function statusClass(status) {
 }
 
 /* TT8: R 曲線最大回撤 */
-.r-curve-stats { display: flex; gap: 24px; flex-wrap: wrap; margin-top: 14px; padding: 12px 16px; background: var(--bg-well, rgba(15,23,42,0.4)); border: 1px solid var(--border-color); border-radius: 12px; }
+.r-curve-stats { display: flex; gap: 24px; flex-wrap: wrap; margin-top: 14px; padding: 12px 16px; background: var(--bg-well, color-mix(in srgb, var(--well) 40%, transparent)); border: 1px solid var(--border-color); border-radius: 12px; }
 .rc-stat { display: flex; flex-direction: column; gap: 4px; }
 .rc-label { font-size: 0.74rem; color: var(--text-muted); display: flex; align-items: center; gap: 4px; }
 .rc-stat strong { font-size: 1.25rem; }
-.vol-warn-msg { color: var(--warn, #f59e0b); font-size: 0.8rem; font-weight: 600; }
-.vol-regime-row { border-color: var(--warn, #f59e0b); }
+.vol-warn-msg { color: var(--warn, var(--warn)); font-size: 0.8rem; font-weight: 600; }
+.vol-regime-row { border-color: var(--warn, var(--warn)); }
 
 /* YY8/YY9 */
 .yy-phase-row { display: flex; gap: 1rem; margin-top: 0.75rem; padding: 0 1rem 0.75rem; }
@@ -1546,14 +1546,14 @@ function statusClass(status) {
 .zz-heatmap-table { border-collapse: collapse; font-size: 0.78rem; }
 .zz-heatmap-table th, .zz-heatmap-table td { padding: 4px 6px; text-align: center; border: 1px solid var(--color-surface); }
 .zz-heatmap-cell { min-width: 32px; }
-.zz-heat-hot { background: rgba(34,197,94,0.4); }
-.zz-heat-warm { background: rgba(34,197,94,0.15); }
-.zz-heat-cold { background: rgba(239,68,68,0.22); }
+.zz-heat-hot { background: color-mix(in srgb, var(--down) 40%, transparent); }
+.zz-heat-warm { background: color-mix(in srgb, var(--down) 15%, transparent); }
+.zz-heat-cold { background: color-mix(in srgb, var(--up) 22%, transparent); }
 .zz-heat-empty { background: transparent; }
 .zz-wizard-bars { display: flex; flex-direction: column; gap: 7px; padding: 0 1rem 1rem; }
 .zz-wizard-row { display: flex; align-items: center; gap: 8px; }
 .zz-wizard-bar-bg { flex: 1; height: 10px; background: var(--color-surface); border-radius: 5px; overflow: hidden; }
-.zz-wizard-bar-fill { height: 100%; background: var(--color-up, #22c55e); border-radius: 5px; }
+.zz-wizard-bar-fill { height: 100%; background: var(--color-up, var(--down)); border-radius: 5px; }
 
 /* XX7 drawdown episode table */
 .dd-episode-block { flex-direction: column; }

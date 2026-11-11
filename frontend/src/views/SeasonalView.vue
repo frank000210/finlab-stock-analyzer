@@ -247,15 +247,16 @@ onBeforeUnmount(() => {
   if (resizeHandler) window.removeEventListener('resize', resizeHandler)
 })
 
+// 色塊最深只到 46% 不透明：文字維持主題的墨色，任何色彩主題下對比都夠（太深的色塊會讓淺色字看不清）
 function heatColor(val) {
   if (val == null) return { background: 'var(--bg-tertiary)' }
   const clamped = Math.max(-10, Math.min(10, val))
   if (clamped >= 0) {
     const intensity = Math.min(1, clamped / 8)
-    return { background: d3.color(theme.up).copy({ opacity: 0.1 + intensity * 0.6 }).toString(), color: intensity > 0.4 ? theme.text : 'inherit' }
+    return { background: d3.color(theme.up).copy({ opacity: 0.08 + intensity * 0.24 }).toString() }
   } else {
     const intensity = Math.min(1, Math.abs(clamped) / 8)
-    return { background: d3.color(theme.down).copy({ opacity: 0.1 + intensity * 0.6 }).toString(), color: intensity > 0.4 ? theme.text : 'inherit' }
+    return { background: d3.color(theme.down).copy({ opacity: 0.08 + intensity * 0.24 }).toString() }
   }
 }
 
@@ -276,7 +277,7 @@ fetchData()
 .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .input-symbol { width: 90px; padding: 8px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-primary); font-weight: 700; text-align: center; }
 .controls select { padding: 8px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-primary); }
-.error-card { color: var(--color-down); background: var(--down-soft); border: 1px solid rgba(239, 68, 68, 0.3); }
+.error-card { color: var(--color-down); background: var(--down-soft); border: 1px solid color-mix(in srgb, var(--up) 30%, transparent); }
 
 .patterns-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: var(--space-4); }
 .pattern-card { padding: var(--space-4); background: var(--bg-tertiary); border-radius: var(--radius); }
@@ -284,10 +285,10 @@ fetchData()
 .pattern-name { font-weight: 700; font-size: 1rem; }
 .pattern-strength { font-size: 0.75rem; padding: 2px 10px; border-radius: 20px; font-weight: 600; }
 .strength-強 { background: var(--up-soft); color: var(--accent-green); }
-.strength-中 { background: var(--warn-soft); color: #eab308; }
-.strength-弱 { background: rgba(156, 163, 175, 0.15); color: var(--text-muted); }
+.strength-中 { background: var(--warn-soft); color: var(--warn); }
+.strength-弱 { background: color-mix(in srgb, var(--muted) 15%, transparent); color: var(--text-muted); }
 .pattern-desc { font-size: 0.85rem; color: var(--text-secondary); line-height: 1.6; margin: 8px 0; }
-.pattern-suggestion { font-size: 0.8rem; color: var(--accent-blue); background: rgba(59, 130, 246, 0.08); padding: 8px 12px; border-radius: var(--radius-sm); }
+.pattern-suggestion { font-size: 0.8rem; color: var(--accent-blue); background: color-mix(in srgb, var(--blue) 8%, transparent); padding: 8px 12px; border-radius: var(--radius-sm); }
 
 .chart-host { width: 100%; min-height: 320px; }
 .chart-host :deep(.axis text) { fill: var(--text-muted); font-size: 0.7rem; }
@@ -299,9 +300,9 @@ fetchData()
 .heatmap-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; text-align: center; }
 .heatmap-table th { padding: 8px 4px; font-weight: 600; color: var(--text-muted); border-bottom: 1px solid var(--border-color); }
 .heatmap-table td { padding: 6px 4px; }
-.heat-cell { border-radius: 4px; font-weight: 600; min-width: 44px; }
+.heat-cell { border-radius: 4px; font-weight: 600; min-width: 44px; color: var(--text-primary); }
 .year-cell { font-weight: 700; color: var(--text-secondary); }
-.year-total { font-weight: 700; border-radius: 4px; }
+.year-total { font-weight: 700; border-radius: 4px; color: var(--text-primary); }
 
 .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: var(--space-3); }
 .month-stat-card { text-align: center; padding: var(--space-3); background: var(--bg-tertiary); border-radius: var(--radius-sm); }

@@ -161,7 +161,7 @@ onMounted(async () => {
   transition: border-color 0.15s ease, transform 0.15s ease;
 }
 .unit-card:hover { border-color: var(--accent-blue); transform: translateY(-1px); }
-.unit-card.is-passed { border-color: rgba(16, 185, 129, 0.5); }
+.unit-card.is-passed { border-color: color-mix(in srgb, var(--down) 50%, transparent); }
 .unit-card.is-recommended { border-color: var(--color-warning); box-shadow: 0 0 0 1px var(--color-warning) inset; }
 .unit-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .code { font-size: 0.75rem; font-weight: 700; color: var(--accent-cyan); letter-spacing: 0.04em; }

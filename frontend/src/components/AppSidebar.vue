@@ -381,9 +381,9 @@ function goAdminLogin() {
   white-space: nowrap;
 }
 .nav-item:hover { background: var(--bg-hover); color: var(--text-primary); }
-.nav-item.router-link-active { background: rgba(59,130,246,0.14); color: var(--accent-blue); font-weight: 600; }
-.nav-item.cta { background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple)); color: #fff; font-weight: 700; }
-.nav-item.cta.router-link-active { background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple)); color: #fff; }
+.nav-item.router-link-active { background: color-mix(in srgb, var(--blue) 14%, transparent); color: var(--accent-blue); font-weight: 600; }
+.nav-item.cta { background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple)); color: var(--on-accent); font-weight: 700; }
+.nav-item.cta.router-link-active { background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple)); color: var(--on-accent); }
 .nav-icon { width: 16px; height: 16px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
 .app-sidebar.collapsed .nav-item { justify-content: center; }
 
@@ -395,19 +395,19 @@ function goAdminLogin() {
   align-items: center;
   justify-content: center;
 }
-.sidebar-avatar { width: 28px; height: 28px; border-radius: 50%; border: 2px solid rgba(99,102,241,0.5); }
+.sidebar-avatar { width: 28px; height: 28px; border-radius: 50%; border: 2px solid color-mix(in srgb, var(--purple) 50%, transparent); }
 .sidebar-user { font-size: 0.78rem; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; }
 .sidebar-signin-btn {
   width: 100%;
-  background: rgba(99,102,241,0.15);
-  color: #a5b4fc;
-  border: 1px solid rgba(99,102,241,0.3);
+  background: color-mix(in srgb, var(--purple) 15%, transparent);
+  color: var(--purple);
+  border: 1px solid color-mix(in srgb, var(--purple) 30%, transparent);
   border-radius: 10px;
   padding: 7px 10px;
   cursor: pointer;
   font-size: 0.82rem;
 }
-.sidebar-signin-btn:hover { background: rgba(99,102,241,0.3); }
+.sidebar-signin-btn:hover { background: color-mix(in srgb, var(--purple) 30%, transparent); }
 
 @media (max-width: 1024px) {
   .sidebar-mobile-toggle { display: flex; align-items: center; justify-content: center; }

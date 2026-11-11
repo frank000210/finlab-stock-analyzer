@@ -1,14 +1,27 @@
 <template>
   <div id="app-root">
+    <!-- 手繪線條用的 SVG 濾鏡（風格 8）：卡片/按鈕的 ::before 邊框引用它 -->
+    <svg class="sk-defs" width="0" height="0" aria-hidden="true" focusable="false">
+      <defs>
+        <filter id="sk-rough" x="-6%" y="-14%" width="112%" height="128%">
+          <feTurbulence type="fractalNoise" baseFrequency="0.03" numOctaves="2" seed="7" />
+          <feDisplacementMap in="SourceGraphic" scale="2.6" />
+        </filter>
+      </defs>
+    </svg>
     <AppSidebar />
     <div class="app-body">
+      <div class="app-topbar">
+        <ThemePicker />
+      </div>
       <div v-if="showOnboard" class="onboard-banner">
         <span>👋 第一次來？花 3 分鐘看「新手上路」，把整套交易紀律流程走一遍。</span>
         <router-link class="ob-go" to="/guide" @click="dismissOnboard">開始導覽 →</router-link>
         <button class="ob-x" @click="dismissOnboard" aria-label="關閉導覽提示">✕</button>
       </div>
       <main class="main-content">
-        <router-view />
+        <!-- 換色彩主題時重畫目前頁面，圖表才會用新的色票 -->
+        <router-view :key="themeTick" />
       </main>
     </div>
     <!-- Global page counter - tracks via route -->
@@ -42,6 +55,7 @@ import { useStockStore } from './stores/stock.js'
 import PageCounter from './components/PageCounter.vue'
 import QuickSwitcher from './components/QuickSwitcher.vue'
 import AppSidebar from './components/AppSidebar.vue'
+import ThemePicker from './components/ThemePicker.vue'
 
 const route = useRoute()
 const stockStore = useStockStore()
@@ -73,6 +87,12 @@ function applySwUpdate() {
 onMounted(() => {
   window.addEventListener('finlab:sw-update-available', () => { swUpdateAvailable.value = true })
 })
+
+// 色彩主題換了：key 加一，router-view 重建，圖表就會重讀新色票（見 useChartTheme）
+const themeTick = ref(0)
+onMounted(() => {
+  window.addEventListener('finlab:theme-change', () => { themeTick.value += 1 })
+})
 onMounted(() => {
   // Only surface the first-visit banner on the landing page.
   if (!localStorage.getItem('finlab_onboarded') && route.path === '/') showOnboard.value = true
@@ -100,9 +120,16 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+.sk-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
+/* 右上角主題選單：整條不佔滑鼠事件，只有便利貼本身可點；捲動時黏在視窗上緣 */
+.app-topbar {
+  position: sticky; top: 0; z-index: 120;
+  display: flex; justify-content: flex-end; align-items: center;
+  height: 44px; padding: 0 6px; pointer-events: none;
+}
 .onboard-banner {
   display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
-  background: linear-gradient(90deg, rgba(34,197,94,0.14), rgba(79,140,255,0.14));
+  background: linear-gradient(90deg, color-mix(in srgb, var(--down) 14%, transparent), color-mix(in srgb, var(--blue) 14%, transparent));
   border-bottom: 1px solid var(--border-color);
   padding: 10px 20px; font-size: 0.88rem;
 }
@@ -126,9 +153,9 @@ onMounted(async () => {
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  background: rgba(40, 12, 16, 0.96);
-  border: 1px solid rgba(239, 68, 68, 0.55);
-  color: #fca5a5;
+  background: color-mix(in srgb, var(--up) 12%, var(--card));
+  border: 1.5px solid var(--up);
+  color: var(--ink);
   border-radius: 12px;
   padding: 10px 14px;
   font-size: 0.84rem;
@@ -136,8 +163,8 @@ onMounted(async () => {
 }
 .error-toast .et-icon { flex: 0 0 auto; }
 .error-toast .et-text { flex: 1; min-width: 0; line-height: 1.5; word-break: break-word; }
-.error-toast .et-x { background: none; border: none; color: #fca5a5; cursor: pointer; flex: 0 0 auto; }
-.error-toast .et-x:hover { color: #fff; }
+.error-toast .et-x { background: none; border: none; color: var(--ink-2); cursor: pointer; flex: 0 0 auto; }
+.error-toast .et-x:hover { color: var(--ink); }
 
 /* S8：Service Worker 更新提示——用資訊藍而不是錯誤紅，這是例行更新不是問題 */
 .sw-update-toast {
@@ -150,18 +177,18 @@ onMounted(async () => {
   align-items: center;
   gap: 10px;
   max-width: min(480px, calc(100vw - 24px));
-  background: rgba(12, 24, 40, 0.96);
-  border: 1px solid var(--accent-blue, #3b82f6);
-  color: #bfdbfe;
+  background: var(--card);
+  border: 1.5px solid var(--accent-blue, var(--blue));
+  color: var(--ink);
   border-radius: 12px;
   padding: 10px 14px;
   font-size: 0.84rem;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
 }
 .sw-update-toast .et-text { flex: 1; min-width: 0; line-height: 1.5; }
-.sw-update-toast .sw-update-btn { flex: 0 0 auto; background: var(--accent-blue, #3b82f6); color: #fff; border: none; border-radius: 8px; padding: 6px 12px; font-weight: 600; font-size: 0.8rem; cursor: pointer; }
-.sw-update-toast .et-x { background: none; border: none; color: #bfdbfe; cursor: pointer; flex: 0 0 auto; }
-.sw-update-toast .et-x:hover { color: #fff; }
+.sw-update-toast .sw-update-btn { flex: 0 0 auto; background: var(--accent-blue, var(--blue)); color: var(--on-accent); border: none; border-radius: 8px; padding: 6px 12px; font-weight: 600; font-size: 0.8rem; cursor: pointer; }
+.sw-update-toast .et-x { background: none; border: none; color: var(--ink-2); cursor: pointer; flex: 0 0 auto; }
+.sw-update-toast .et-x:hover { color: var(--ink); }
 
 .global-counter-wrap {
   position: fixed;

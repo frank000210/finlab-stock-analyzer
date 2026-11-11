@@ -232,15 +232,15 @@ watch(() => route.params.symbol, (sym) => {
 .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .input-symbol { width: 90px; padding: 8px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-primary); font-weight: 700; text-align: center; }
 .controls select { padding: 8px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-primary); }
-.error-card { color: var(--color-down); background: var(--down-soft); border: 1px solid rgba(239, 68, 68, 0.3); }
+.error-card { color: var(--color-down); background: var(--down-soft); border: 1px solid color-mix(in srgb, var(--up) 30%, transparent); }
 
 .verdict-section { display: grid; grid-template-columns: 2fr 1fr; gap: var(--space-4); }
 .verdict-card { background: var(--bg-elevated); box-shadow: var(--shadow-md); }
-.verdict-拉抬 { background: linear-gradient(135deg, rgba(34, 197, 94, 0.14), var(--bg-elevated) 55%); }
-.verdict-偏多 { background: linear-gradient(135deg, rgba(34, 197, 94, 0.07), var(--bg-elevated) 55%); }
-.verdict-出貨 { background: linear-gradient(135deg, rgba(239, 68, 68, 0.14), var(--bg-elevated) 55%); }
-.verdict-偏空 { background: linear-gradient(135deg, rgba(239, 68, 68, 0.07), var(--bg-elevated) 55%); }
-.verdict-中性 { background: linear-gradient(135deg, rgba(59, 130, 246, 0.10), var(--bg-elevated) 55%); }
+.verdict-拉抬 { background: linear-gradient(135deg, color-mix(in srgb, var(--down) 14%, transparent), var(--bg-elevated) 55%); }
+.verdict-偏多 { background: linear-gradient(135deg, color-mix(in srgb, var(--down) 7%, transparent), var(--bg-elevated) 55%); }
+.verdict-出貨 { background: linear-gradient(135deg, color-mix(in srgb, var(--up) 14%, transparent), var(--bg-elevated) 55%); }
+.verdict-偏空 { background: linear-gradient(135deg, color-mix(in srgb, var(--up) 7%, transparent), var(--bg-elevated) 55%); }
+.verdict-中性 { background: linear-gradient(135deg, color-mix(in srgb, var(--blue) 10%, transparent), var(--bg-elevated) 55%); }
 .verdict-top { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
 .verdict-label { font-size: 0.8rem; color: var(--text-muted); }
 .verdict-value { font-size: 1.5rem; font-weight: 800; }

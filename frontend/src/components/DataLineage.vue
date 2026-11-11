@@ -59,8 +59,8 @@ const titleText = computed(() => {
   white-space: nowrap;
 }
 .lineage.warn {
-  color: #f59e0b;
-  border-color: rgba(245, 158, 11, 0.5);
-  background: rgba(245, 158, 11, 0.08);
+  color: var(--warn);
+  border-color: color-mix(in srgb, var(--warn) 50%, transparent);
+  background: color-mix(in srgb, var(--warn) 8%, transparent);
 }
 </style>

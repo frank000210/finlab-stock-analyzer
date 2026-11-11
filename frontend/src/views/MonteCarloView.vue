@@ -271,14 +271,14 @@ function run() {
 .rcard { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; }
 .rcard span { font-size: 0.76rem; color: var(--text-muted); }
 .rcard strong { font-size: 1.2rem; }
-.rcard.danger { border-color: #ef4444; } .rcard.danger strong { color: #ef4444; }
-.rcard.ok-card { border-color: #22c55e; }
-.warn, strong.warn { color: #f59e0b; }
+.rcard.danger { border-color: var(--up); } .rcard.danger strong { color: var(--up); }
+.rcard.ok-card { border-color: var(--down); }
+.warn, strong.warn { color: var(--warn); }
 
 .hist { margin-top: 16px; display: flex; flex-direction: column; gap: 6px; }
 .slabel { font-size: 0.76rem; color: var(--text-muted); }
 .hist-svg { width: 100%; height: 160px; background: var(--bg-well); border: 1px solid var(--border-color); border-radius: 12px; }
-.bar-up { fill: rgba(239, 68, 68, 0.75); } .bar-down { fill: rgba(34, 197, 94, 0.75); }
+.bar-up { fill: color-mix(in srgb, var(--up) 75%, transparent); } .bar-down { fill: color-mix(in srgb, var(--down) 75%, transparent); }
 .hist-zero { stroke: var(--text-muted); stroke-width: 1; vector-effect: non-scaling-stroke; stroke-dasharray: 3 3; }
 .hist-axis { display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--text-muted); }
 </style>

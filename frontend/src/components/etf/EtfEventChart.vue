@@ -468,8 +468,8 @@ onBeforeUnmount(() => {
 .evc-error { display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap; color: var(--color-warning); }
 
 .evc-ohlc { margin: 0; display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 13px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
-.evc-ohlc .date { color: var(--text-primary, #f1f5f9); font-weight: 600; }
-.evc-ohlc b { font-weight: 600; color: var(--text-primary, #f1f5f9); }
+.evc-ohlc .date { color: var(--text-primary, var(--ink)); font-weight: 600; }
+.evc-ohlc b { font-weight: 600; color: var(--text-primary, var(--ink)); }
 .evc-ohlc b.up { color: var(--color-up); }
 .evc-ohlc b.down { color: var(--color-down); }
 
@@ -482,10 +482,10 @@ onBeforeUnmount(() => {
 
 .evc-price, .evc-kd-chart { width: 100%; min-width: 0; }
 .evc-kd { margin: 4px 0 0; display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 13px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
-.evc-kd b { font-weight: 600; color: var(--text-primary, #f1f5f9); }
-.evc-kd .k { color: #5aa9e6; }
-.evc-kd .d { color: #8b6fe0; }
-.evc-kd .j { color: #e8923f; }
+.evc-kd b { font-weight: 600; color: var(--text-primary, var(--ink)); }
+.evc-kd .k { color: var(--blue); }
+.evc-kd .d { color: var(--purple); }
+.evc-kd .j { color: var(--warn); }
 
 .evc-marks { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; font-variant-numeric: tabular-nums; }
 .evc-marks li { display: inline-flex; align-items: baseline; gap: 6px; }
@@ -493,7 +493,7 @@ onBeforeUnmount(() => {
 .evc-marks .mk-name { color: var(--text-secondary); }
 .evc-marks .dt { color: var(--text-muted); font-size: 12px; }
 .evc-note { margin: 0; }
-.warn-dot { display: inline-block; padding: 0 4px; border-radius: 2px; background: var(--color-warning); color: #111827; font-size: 11px; line-height: 14px; }
+.warn-dot { display: inline-block; padding: 0 4px; border-radius: 2px; background: var(--color-warning); color: var(--on-accent); font-size: 11px; line-height: 14px; }
 
 @media (max-width: 600px) {
   .evc-ohlc { gap: 4px 10px; font-size: 12px; }

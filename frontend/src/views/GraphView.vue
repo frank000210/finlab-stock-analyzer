@@ -884,8 +884,8 @@ function offsetISO(days) {
 }
 
 .input {
-  border: 1px solid rgba(148, 163, 184, 0.2);
-  background: rgba(11, 17, 33, 0.55);
+  border: 1px solid color-mix(in srgb, var(--muted) 20%, transparent);
+  background: color-mix(in srgb, var(--well) 55%, transparent);
   border-radius: 10px;
   min-height: 40px;
   padding: 0 12px;
@@ -902,15 +902,15 @@ function offsetISO(days) {
   min-height: 38px;
   padding: 0 14px;
   border-radius: 10px;
-  border: 1px solid rgba(148, 163, 184, 0.3);
-  background: rgba(148, 163, 184, 0.1);
+  border: 1px solid color-mix(in srgb, var(--muted) 30%, transparent);
+  background: color-mix(in srgb, var(--muted) 10%, transparent);
   color: var(--text-primary);
   cursor: pointer;
 }
 
 .btn-primary {
-  border-color: rgba(59, 130, 246, 0.45);
-  background: rgba(59, 130, 246, 0.2);
+  border-color: color-mix(in srgb, var(--blue) 45%, transparent);
+  background: color-mix(in srgb, var(--blue) 20%, transparent);
 }
 
 .switch-row {
@@ -925,8 +925,8 @@ function offsetISO(days) {
   padding: 4px;
   gap: 4px;
   border-radius: 12px;
-  border: 1px solid rgba(148, 163, 184, 0.2);
-  background: rgba(11, 17, 33, 0.5);
+  border: 1px solid color-mix(in srgb, var(--muted) 20%, transparent);
+  background: color-mix(in srgb, var(--well) 50%, transparent);
 }
 
 .seg-btn {
@@ -942,7 +942,7 @@ function offsetISO(days) {
 }
 
 .seg-btn.active {
-  background: rgba(59, 130, 246, 0.24);
+  background: color-mix(in srgb, var(--blue) 24%, transparent);
   color: var(--text-primary);
 }
 
@@ -967,9 +967,9 @@ function offsetISO(days) {
 }
 
 .speed-select select {
-  background: rgba(11, 17, 33, 0.55);
+  background: color-mix(in srgb, var(--well) 55%, transparent);
   color: var(--text-primary);
-  border: 1px solid rgba(148, 163, 184, 0.25);
+  border: 1px solid color-mix(in srgb, var(--muted) 25%, transparent);
   border-radius: 8px;
   min-height: 34px;
   padding: 0 10px;
@@ -1003,7 +1003,7 @@ function offsetISO(days) {
   align-items: center;
   justify-content: center;
   gap: 12px;
-  background: rgba(10, 15, 26, 0.62);
+  background: color-mix(in srgb, var(--well) 62%, transparent);
   color: var(--text-muted);
   font-size: 0.9rem;
   z-index: 5;
@@ -1058,8 +1058,8 @@ function offsetISO(days) {
   inset: auto 14px 14px 14px;
   min-height: 42px;
   border-radius: 10px;
-  border: 1px solid rgba(148, 163, 184, 0.2);
-  background: rgba(15, 23, 42, 0.78);
+  border: 1px solid color-mix(in srgb, var(--muted) 20%, transparent);
+  background: color-mix(in srgb, var(--well) 78%, transparent);
   color: var(--text-muted);
   display: flex;
   align-items: center;
@@ -1070,9 +1070,9 @@ function offsetISO(days) {
 }
 
 .graph-side {
-  border: 1px solid rgba(148, 163, 184, 0.14);
+  border: 1px solid color-mix(in srgb, var(--muted) 14%, transparent);
   border-radius: 14px;
-  background: rgba(11, 17, 33, 0.52);
+  background: color-mix(in srgb, var(--well) 52%, transparent);
   padding: 16px;
 }
 
@@ -1083,8 +1083,8 @@ function offsetISO(days) {
 .detail-card {
   padding: 12px;
   border-radius: 10px;
-  border: 1px solid rgba(148, 163, 184, 0.14);
-  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid color-mix(in srgb, var(--muted) 14%, transparent);
+  background: color-mix(in srgb, var(--well) 60%, transparent);
 }
 
 .detail-card .symbol {
@@ -1102,7 +1102,7 @@ function offsetISO(days) {
   align-items: baseline;
   gap: 10px;
   padding: 5px 0;
-  border-top: 1px solid rgba(148, 163, 184, 0.1);
+  border-top: 1px solid color-mix(in srgb, var(--muted) 10%, transparent);
   font-size: 0.88rem;
 }
 
@@ -1132,7 +1132,7 @@ function offsetISO(days) {
 .comp-track {
   height: 8px;
   border-radius: 6px;
-  background: rgba(148, 163, 184, 0.16);
+  background: color-mix(in srgb, var(--muted) 16%, transparent);
   overflow: hidden;
 }
 
@@ -1140,7 +1140,7 @@ function offsetISO(days) {
   display: block;
   height: 100%;
   border-radius: 6px;
-  background: #4f8cff;
+  background: var(--blue);
 }
 
 .comp-fill.neg {
@@ -1153,7 +1153,7 @@ function offsetISO(days) {
 }
 
 .pos {
-  color: #4f8cff;
+  color: var(--blue);
 }
 
 .neg {
@@ -1175,9 +1175,9 @@ function offsetISO(days) {
 .alerts-list li {
   display: grid;
   gap: 4px;
-  border: 1px solid rgba(148, 163, 184, 0.14);
+  border: 1px solid color-mix(in srgb, var(--muted) 14%, transparent);
   border-radius: 10px;
-  background: rgba(15, 23, 42, 0.55);
+  background: color-mix(in srgb, var(--well) 55%, transparent);
   padding: 10px;
 }
 

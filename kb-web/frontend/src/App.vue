@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { isPublicMode } from './authMode'
+import ThemePicker from './components/ThemePicker.vue'
 const route = useRoute()
 const router = useRouter()
 
@@ -25,6 +26,16 @@ function logout() {
 </script>
 
 <template>
+  <!-- 手繪線條用的 SVG 濾鏡（風格 8）：卡片的 ::before 邊框引用它 -->
+  <svg class="sk-defs" width="0" height="0" aria-hidden="true" focusable="false">
+    <defs>
+      <filter id="sk-rough" x="-6%" y="-14%" width="112%" height="128%">
+        <feTurbulence type="fractalNoise" baseFrequency="0.03" numOctaves="2" seed="7" />
+        <feDisplacementMap in="SourceGraphic" scale="2.6" />
+      </filter>
+    </defs>
+  </svg>
+  <div v-if="route.path === '/login'" class="login-theme"><ThemePicker /></div>
   <header v-if="route.path !== '/login'" class="topnav">
     <div class="topnav-inner">
       <div class="brand">
@@ -41,7 +52,10 @@ function logout() {
           {{ item.label }}
         </router-link>
       </nav>
-      <button v-if="!publicMode" class="secondary logout-btn" @click="logout">登出</button>
+      <div class="nav-right">
+        <ThemePicker />
+        <button v-if="!publicMode" class="secondary logout-btn" @click="logout">登出</button>
+      </div>
     </div>
   </header>
   <main class="app-main">
@@ -108,11 +122,13 @@ nav a.active {
   background: var(--accent-dim);
 }
 
+.nav-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
 .logout-btn {
-  margin-left: auto;
   padding: 6px 14px;
   font-size: 13px;
 }
+.sk-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
+.login-theme { position: absolute; top: 12px; right: 14px; z-index: 20; }
 
 .app-main {
   flex: 1;

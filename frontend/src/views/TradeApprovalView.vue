@@ -245,7 +245,7 @@ function statusClass(status) {
 }
 
 .log-msg {
-  color: #22c55e;
+  color: var(--down);
   font-size: 0.88rem;
 }
 
@@ -268,7 +268,7 @@ function statusClass(status) {
 .tab-button.active {
   background: var(--accent-blue);
   border-color: var(--accent-blue);
-  color: white;
+  color: var(--on-accent);
 }
 
 .trade-grid {
@@ -302,8 +302,8 @@ function statusClass(status) {
 .reason-box {
   padding: 12px;
   border-radius: 12px;
-  background: rgba(15, 23, 42, 0.45);
-  border: 1px solid rgba(148, 163, 184, 0.16);
+  background: color-mix(in srgb, var(--well) 45%, transparent);
+  border: 1px solid color-mix(in srgb, var(--muted) 16%, transparent);
 }
 
 .reason-box p {
@@ -314,7 +314,7 @@ function statusClass(status) {
 .badge {
   padding: 5px 10px;
   border-radius: 999px;
-  color: #fff;
+  color: var(--on-accent);
   font-size: 0.78rem;
   font-weight: 700;
 }
@@ -341,7 +341,7 @@ function statusClass(status) {
 
 .approve-btn:hover:not(:disabled) {
   background: var(--color-up);
-  color: white;
+  color: var(--on-accent);
 }
 
 .reject-btn {
@@ -351,7 +351,7 @@ function statusClass(status) {
 
 .reject-btn:hover:not(:disabled) {
   background: var(--color-down);
-  color: white;
+  color: var(--on-accent);
 }
 
 @media (max-width: 640px) {

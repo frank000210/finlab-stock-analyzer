@@ -72,8 +72,8 @@ function onBackdrop(e) { if (e.target === dlg.value) closeZoom() }
   font-size: 0.74rem;
   font-weight: 600;
   color: #1e293b;
-  background: rgba(255, 255, 255, 0.92);
-  border: 1px solid rgba(15, 23, 42, 0.14);
+  background: color-mix(in srgb, var(--ink) 92%, transparent);
+  border: 1px solid color-mix(in srgb, var(--well) 14%, transparent);
   border-radius: 999px;
   padding: 3px 10px;
   pointer-events: none;
@@ -117,12 +117,12 @@ function onBackdrop(e) { if (e.target === dlg.value) closeZoom() }
   align-items: center;
   justify-content: center;
   color: #1e293b;
-  background: rgba(255, 255, 255, 0.95);
-  border: 1px solid rgba(15, 23, 42, 0.18);
+  background: color-mix(in srgb, var(--ink) 95%, transparent);
+  border: 1px solid color-mix(in srgb, var(--well) 18%, transparent);
   border-radius: 999px;
   cursor: pointer;
 }
-.gfig-close:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+.gfig-close:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
 .gfig-scroll { max-height: 94vh; overflow: auto; -webkit-overflow-scrolling: touch; }
 .gfig-scroll img { display: block; width: 100%; height: auto; }
 .gfig-hint { display: none; }
@@ -143,8 +143,8 @@ function onBackdrop(e) { if (e.target === dlg.value) closeZoom() }
     font-size: 0.78rem;
     font-weight: 600;
     color: #1e293b;
-    background: rgba(255, 255, 255, 0.94);
-    border: 1px solid rgba(15, 23, 42, 0.16);
+    background: color-mix(in srgb, var(--ink) 94%, transparent);
+    border: 1px solid color-mix(in srgb, var(--well) 16%, transparent);
     border-radius: 999px;
     pointer-events: none;
   }

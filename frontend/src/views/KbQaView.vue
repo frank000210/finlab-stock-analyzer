@@ -241,7 +241,7 @@ const renderedAnswer = computed(() => {
 .cite-title { font-weight: 500; }
 .cite-source { font-size: 0.78rem; }
 
-.domain-tag { font-size: 0.72rem; background: var(--accent-soft, rgba(79,140,255,0.12)); color: var(--accent-blue); border-radius: 999px; padding: 2px 9px; font-weight: 600; white-space: nowrap; flex: 0 0 auto; }
+.domain-tag { font-size: 0.72rem; background: var(--accent-soft, color-mix(in srgb, var(--blue) 12%, transparent)); color: var(--accent-blue); border-radius: 999px; padding: 2px 9px; font-weight: 600; white-space: nowrap; flex: 0 0 auto; }
 .domain-tag.xs { font-size: 0.66rem; padding: 1px 7px; }
 
 .history-card { }
@@ -257,6 +257,6 @@ const renderedAnswer = computed(() => {
   border: 1px solid transparent;
 }
 .history-item:hover { background: var(--surface-secondary, rgba(0,0,0,0.04)); }
-.history-item.active { border-color: var(--accent-blue); background: var(--accent-soft, rgba(79,140,255,0.06)); }
+.history-item.active { border-color: var(--accent-blue); background: var(--accent-soft, color-mix(in srgb, var(--blue) 6%, transparent)); }
 .hist-q { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-primary); }
 </style>

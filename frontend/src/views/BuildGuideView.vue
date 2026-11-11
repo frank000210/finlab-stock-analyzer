@@ -451,7 +451,7 @@ onBeforeUnmount(() => {
   color: var(--text-secondary); text-decoration: none; font-size: 0.86rem; line-height: 1.4;
 }
 .toc-list a:hover { background: var(--bg-hover); color: var(--text-primary); }
-.toc-list a.active { background: rgba(59, 130, 246, 0.14); color: var(--text-primary); font-weight: 600; }
+.toc-list a.active { background: color-mix(in srgb, var(--blue) 14%, transparent); color: var(--text-primary); font-weight: 600; }
 .toc-list a:focus-visible { outline: 2px solid var(--accent-blue); outline-offset: 1px; }
 .toc-no { flex: none; width: 1.2em; color: var(--text-muted); font-variant-numeric: tabular-nums; }
 .toc-title { flex: 1; min-width: 0; }
@@ -465,7 +465,7 @@ onBeforeUnmount(() => {
 .ch-no {
   flex: none; display: inline-flex; align-items: center; justify-content: center;
   width: 30px; height: 30px; border-radius: 50%;
-  background: rgba(59, 130, 246, 0.16); color: var(--accent-blue);
+  background: color-mix(in srgb, var(--blue) 16%, transparent); color: var(--accent-blue);
   font-size: 0.95rem; font-weight: 800;
 }
 .ch-lead { margin: 0; max-width: 68ch; font-size: 0.98rem; line-height: 1.8; color: var(--text-secondary); }
@@ -480,7 +480,7 @@ onBeforeUnmount(() => {
 .flow-no { position: absolute; top: 12px; right: 14px; font-size: 0.78rem; font-weight: 700; color: var(--text-muted); font-variant-numeric: tabular-nums; }
 .flow-icon {
   width: 38px; height: 38px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center;
-  background: rgba(59, 130, 246, 0.14); color: var(--accent-blue);
+  background: color-mix(in srgb, var(--blue) 14%, transparent); color: var(--accent-blue);
 }
 .flow-card h3 { margin: 6px 0 0; font-size: 1.02rem; }
 .flow-like { font-size: 0.78rem; font-weight: 600; color: var(--accent-cyan); }
@@ -507,9 +507,9 @@ onBeforeUnmount(() => {
 }
 .callout svg { flex: none; margin-top: 4px; }
 .callout b { color: var(--text-primary); }
-.callout.info { background: rgba(59, 130, 246, 0.1); }
+.callout.info { background: color-mix(in srgb, var(--blue) 10%, transparent); }
 .callout.info svg { color: var(--accent-blue); }
-.callout.warn { background: rgba(245, 158, 11, 0.12); }
+.callout.warn { background: color-mix(in srgb, var(--warn) 12%, transparent); }
 .callout.warn svg { color: var(--color-warning); }
 
 /* 路線比較表 */
@@ -552,9 +552,9 @@ tbody tr:last-child th, tbody tr:last-child td { border-bottom: none; }
 .tl-head b { color: var(--text-primary); font-size: 0.98rem; }
 .tl-body p { margin: 4px 0 0; font-size: 0.9rem; line-height: 1.7; color: var(--text-secondary); }
 .who { font-size: 0.72rem; font-weight: 700; padding: 1px 9px; border-radius: 999px; }
-.who.human { background: rgba(245, 158, 11, 0.16); color: var(--color-warning); }
-.who.ai { background: rgba(59, 130, 246, 0.16); color: var(--accent-blue); }
-.who.bot { background: rgba(16, 185, 129, 0.16); color: var(--color-down); }
+.who.human { background: color-mix(in srgb, var(--warn) 16%, transparent); color: var(--color-warning); }
+.who.ai { background: color-mix(in srgb, var(--blue) 16%, transparent); color: var(--accent-blue); }
+.who.bot { background: color-mix(in srgb, var(--down) 16%, transparent); color: var(--color-down); }
 
 .ask { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
 .ask-card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 14px; padding: 14px 16px; }
@@ -635,7 +635,7 @@ tbody tr:last-child th, tbody tr:last-child td { border-bottom: none; }
     --text-primary: #111827; --text-secondary: #1f2937; --text-muted: #4b5563;
     --border-color: #cbd5e1; --accent-blue: #1d4ed8; --accent-cyan: #0e7490;
     --color-warning: #b45309; --color-down: #047857;
-    color: #111827; max-width: none;
+    color: var(--on-accent); max-width: none;
   }
   .bg-toc, .hero-actions { display: none; }
   .bg-layout { display: block; }

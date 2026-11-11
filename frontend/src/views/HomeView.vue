@@ -461,9 +461,9 @@ onBeforeUnmount(() => {
 .hero-section {
   padding: clamp(40px, 7vw, 88px);
   background:
-    radial-gradient(circle at 18% 20%, rgba(59, 130, 246, 0.22), transparent 34%),
-    radial-gradient(circle at 85% 15%, rgba(139, 92, 246, 0.2), transparent 30%),
-    linear-gradient(135deg, var(--bg-primary) 0%, #111a34 46%, #1b1b3a 100%);
+    radial-gradient(circle at 18% 20%, color-mix(in srgb, var(--blue) 22%, transparent), transparent 34%),
+    radial-gradient(circle at 85% 15%, color-mix(in srgb, var(--purple) 20%, transparent), transparent 30%),
+    linear-gradient(135deg, var(--bg-primary) 0%, var(--card) 46%, var(--elev) 100%);
 }
 
 .hero-copy {
@@ -482,8 +482,8 @@ onBeforeUnmount(() => {
   border-radius: 999px;
   margin-bottom: 20px;
   color: var(--text-primary);
-  background: rgba(59, 130, 246, 0.14);
-  border: 1px solid rgba(59, 130, 246, 0.24);
+  background: color-mix(in srgb, var(--blue) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--blue) 24%, transparent);
 }
 
 .hero-section h1 {
@@ -521,8 +521,8 @@ onBeforeUnmount(() => {
   min-height: 72px;
   padding: 0 22px;
   border-radius: calc(var(--radius-xl) - 2px);
-  background: rgba(11, 17, 33, 0.78);
-  border: 1px solid rgba(148, 163, 184, 0.24);
+  background: color-mix(in srgb, var(--well) 78%, transparent);
+  border: 1px solid color-mix(in srgb, var(--muted) 24%, transparent);
   box-shadow: 0 20px 60px rgba(11, 17, 33, 0.35);
 }
 
@@ -598,13 +598,13 @@ onBeforeUnmount(() => {
 .hero-action-primary {
   color: var(--text-primary);
   background: var(--bg-elevated);
-  border: 1px solid rgba(59, 130, 246, 0.28);
+  border: 1px solid color-mix(in srgb, var(--blue) 28%, transparent);
 }
 
 .hero-action-secondary {
   color: var(--text-primary);
-  background: rgba(139, 92, 246, 0.12);
-  border: 1px solid rgba(139, 92, 246, 0.3);
+  background: color-mix(in srgb, var(--purple) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--purple) 30%, transparent);
 }
 
 .hero-pillars {
@@ -621,8 +621,8 @@ onBeforeUnmount(() => {
   padding: 10px 16px;
   border-radius: 999px;
   color: var(--text-secondary);
-  background: rgba(148, 163, 184, 0.08);
-  border: 1px solid rgba(148, 163, 184, 0.14);
+  background: color-mix(in srgb, var(--muted) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--muted) 14%, transparent);
 }
 
 .hero-orb {
@@ -638,7 +638,7 @@ onBeforeUnmount(() => {
   left: -40px;
   width: 220px;
   height: 220px;
-  background: rgba(59, 130, 246, 0.18);
+  background: color-mix(in srgb, var(--blue) 18%, transparent);
   animation: floatBlue 16s ease-in-out infinite;
 }
 
@@ -647,7 +647,7 @@ onBeforeUnmount(() => {
   bottom: -90px;
   width: 260px;
   height: 260px;
-  background: rgba(139, 92, 246, 0.16);
+  background: color-mix(in srgb, var(--purple) 16%, transparent);
   animation: floatPurple 18s ease-in-out infinite;
 }
 
@@ -693,8 +693,8 @@ onBeforeUnmount(() => {
   padding: 28px;
   border-radius: var(--radius-lg);
   background:
-    linear-gradient(180deg, rgba(31, 45, 71, 0.92), rgba(26, 37, 64, 0.96));
-  border: 1px solid rgba(148, 163, 184, 0.12);
+    linear-gradient(180deg, color-mix(in srgb, var(--elev) 92%, transparent), color-mix(in srgb, var(--card) 96%, transparent));
+  border: 1px solid color-mix(in srgb, var(--muted) 12%, transparent);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
 }
 
@@ -704,9 +704,9 @@ onBeforeUnmount(() => {
   grid-row: span 2;
   padding: 36px;
   background:
-    radial-gradient(120% 120% at 0% 0%, rgba(59, 130, 246, 0.22), transparent 55%),
-    linear-gradient(165deg, rgba(31, 45, 71, 0.96), rgba(20, 29, 47, 0.98));
-  border-color: rgba(59, 130, 246, 0.32);
+    radial-gradient(120% 120% at 0% 0%, color-mix(in srgb, var(--blue) 22%, transparent), transparent 55%),
+    linear-gradient(165deg, color-mix(in srgb, var(--elev) 96%, transparent), color-mix(in srgb, var(--card) 98%, transparent));
+  border-color: color-mix(in srgb, var(--blue) 32%, transparent);
 }
 
 .feature-card.is-featured .feature-icon {
@@ -748,7 +748,7 @@ onBeforeUnmount(() => {
   width: 9px;
   height: 9px;
   border-radius: 50%;
-  background: var(--accent-cyan, #3b82f6);
+  background: var(--accent-cyan, var(--blue));
   box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.16);
 }
 
@@ -760,14 +760,14 @@ onBeforeUnmount(() => {
   height: 52px;
   margin-bottom: 18px;
   border-radius: 16px;
-  background: rgba(59, 130, 246, 0.12);
+  background: color-mix(in srgb, var(--blue) 12%, transparent);
   font-size: 1.4rem;
 }
 
 /* 色塊圖示:每張特色卡用不同色調的光暈邊框做視覺分群，取代原本統一藍色 */
-.icon-tone-blue { background: rgba(59, 130, 246, 0.14); box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.3); }
-.icon-tone-cyan { background: rgba(6, 182, 212, 0.14); box-shadow: inset 0 0 0 1px rgba(6, 182, 212, 0.3); }
-.icon-tone-purple { background: rgba(139, 92, 246, 0.14); box-shadow: inset 0 0 0 1px rgba(139, 92, 246, 0.3); }
+.icon-tone-blue { background: color-mix(in srgb, var(--blue) 14%, transparent); box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.3); }
+.icon-tone-cyan { background: color-mix(in srgb, var(--cyan) 14%, transparent); box-shadow: inset 0 0 0 1px rgba(6, 182, 212, 0.3); }
+.icon-tone-purple { background: color-mix(in srgb, var(--purple) 14%, transparent); box-shadow: inset 0 0 0 1px rgba(139, 92, 246, 0.3); }
 .icon-tone-warn { background: var(--warn-soft); box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.3); }
 .icon-tone-up { background: var(--up-soft); box-shadow: inset 0 0 0 1px rgba(16, 185, 129, 0.3); }
 
@@ -782,7 +782,7 @@ onBeforeUnmount(() => {
 
 .quick-start-panel {
   background:
-    linear-gradient(180deg, rgba(26, 37, 64, 0.92), rgba(20, 29, 47, 0.98));
+    linear-gradient(180deg, color-mix(in srgb, var(--card) 92%, transparent), color-mix(in srgb, var(--card) 98%, transparent));
 }
 
 .text-link,
@@ -812,7 +812,7 @@ onBeforeUnmount(() => {
   min-height: 58px;
   padding: 0 18px;
   border-radius: 999px;
-  border: 1px solid rgba(148, 163, 184, 0.16);
+  border: 1px solid color-mix(in srgb, var(--muted) 16%, transparent);
   background: var(--bg-secondary);
   color: var(--text-primary);
   cursor: pointer;
@@ -829,8 +829,8 @@ onBeforeUnmount(() => {
 
 .recent-panel {
   background:
-    radial-gradient(circle at 100% 0%, rgba(6, 182, 212, 0.08), transparent 28%),
-    linear-gradient(180deg, rgba(26, 37, 64, 0.96), rgba(11, 17, 33, 0.98));
+    radial-gradient(circle at 100% 0%, color-mix(in srgb, var(--cyan) 8%, transparent), transparent 28%),
+    linear-gradient(180deg, color-mix(in srgb, var(--card) 96%, transparent), color-mix(in srgb, var(--well) 98%, transparent));
 }
 
 .recent-grid {
@@ -844,7 +844,7 @@ onBeforeUnmount(() => {
   gap: 14px;
 }
 .text-button.danger {
-  color: #ef4444;
+  color: var(--up);
 }
 
 .recent-card-wrap {
@@ -858,8 +858,8 @@ onBeforeUnmount(() => {
   padding: 24px;
   border-radius: var(--radius-lg);
   text-decoration: none;
-  background: rgba(20, 29, 47, 0.9);
-  border: 1px solid rgba(148, 163, 184, 0.14);
+  background: color-mix(in srgb, var(--card) 90%, transparent);
+  border: 1px solid color-mix(in srgb, var(--muted) 14%, transparent);
   box-shadow: var(--shadow-md);
 }
 
@@ -870,8 +870,8 @@ onBeforeUnmount(() => {
   width: 26px;
   height: 26px;
   border-radius: 50%;
-  border: 1px solid rgba(148, 163, 184, 0.25);
-  background: rgba(20, 29, 47, 0.95);
+  border: 1px solid color-mix(in srgb, var(--muted) 25%, transparent);
+  background: color-mix(in srgb, var(--card) 95%, transparent);
   color: var(--text-muted);
   cursor: pointer;
   font-size: 0.78rem;
@@ -879,8 +879,8 @@ onBeforeUnmount(() => {
   z-index: 1;
 }
 .recent-remove:hover {
-  color: #ef4444;
-  border-color: rgba(239, 68, 68, 0.4);
+  color: var(--up);
+  border-color: color-mix(in srgb, var(--up) 40%, transparent);
 }
 
 .recent-topline {
@@ -904,8 +904,8 @@ onBeforeUnmount(() => {
   align-self: flex-start;
   padding: 8px 12px;
   border-radius: 999px;
-  background: rgba(59, 130, 246, 0.12);
-  border: 1px solid rgba(59, 130, 246, 0.2);
+  background: color-mix(in srgb, var(--blue) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--blue) 20%, transparent);
   color: var(--text-secondary);
   font-size: 0.82rem;
   font-weight: 600;
@@ -936,8 +936,8 @@ onBeforeUnmount(() => {
 .recent-empty {
   padding: 32px;
   border-radius: var(--radius-lg);
-  background: rgba(20, 29, 47, 0.88);
-  border: 1px dashed rgba(148, 163, 184, 0.2);
+  background: color-mix(in srgb, var(--card) 88%, transparent);
+  border: 1px dashed color-mix(in srgb, var(--muted) 20%, transparent);
 }
 
 .trend-up {
@@ -964,7 +964,7 @@ onBeforeUnmount(() => {
 
   .feature-card:hover,
   .recent-card:hover {
-    border-color: rgba(139, 92, 246, 0.34);
+    border-color: color-mix(in srgb, var(--purple) 34%, transparent);
     box-shadow:
       0 18px 48px rgba(11, 17, 33, 0.32),
       0 0 0 1px rgba(139, 92, 246, 0.16),
@@ -974,7 +974,7 @@ onBeforeUnmount(() => {
   .symbol-chip:hover,
   .hero-action:hover,
   .text-button:hover {
-    border-color: rgba(59, 130, 246, 0.3);
+    border-color: color-mix(in srgb, var(--blue) 30%, transparent);
     box-shadow: 0 14px 30px rgba(11, 17, 33, 0.24);
   }
 
@@ -1140,7 +1140,7 @@ onBeforeUnmount(() => {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  color: var(--accent-cyan, #06b6d4);
+  color: var(--accent-cyan, var(--cyan));
   opacity: 0.8;
 }
 

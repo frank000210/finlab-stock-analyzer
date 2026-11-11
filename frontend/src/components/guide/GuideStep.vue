@@ -60,7 +60,7 @@ defineEmits(['toggle'])
   font-weight: 700;
   letter-spacing: 0.06em;
   color: var(--accent-blue);
-  background: rgba(59, 130, 246, 0.12);
+  background: color-mix(in srgb, var(--blue) 12%, transparent);
   border-radius: 999px;
   padding: 2px 10px;
   white-space: nowrap;
@@ -113,11 +113,11 @@ defineEmits(['toggle'])
 }
 .gstep-note svg { flex: none; margin-top: 3px; }
 .gstep-note b { color: var(--text-primary); }
-.gstep-note.see { background: rgba(16, 185, 129, 0.1); color: var(--text-secondary); }
+.gstep-note.see { background: color-mix(in srgb, var(--down) 10%, transparent); color: var(--text-secondary); }
 .gstep-note.see svg { color: var(--color-down); }
-.gstep-note.why { background: rgba(59, 130, 246, 0.1); color: var(--text-secondary); }
+.gstep-note.why { background: color-mix(in srgb, var(--blue) 10%, transparent); color: var(--text-secondary); }
 .gstep-note.why svg { color: var(--accent-blue); }
-.gstep-note.warn { background: rgba(245, 158, 11, 0.12); color: var(--text-secondary); }
+.gstep-note.warn { background: color-mix(in srgb, var(--warn) 12%, transparent); color: var(--text-secondary); }
 .gstep-note.warn svg { color: var(--color-warning); }
 
 @media print {

@@ -112,7 +112,7 @@ async function copyPrompt() {
 .msg { display: flex; }
 .msg.user { justify-content: flex-end; }
 .bubble { max-width: 92%; padding: 9px 12px; border-radius: 12px; font-size: 0.88rem; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
-.msg.user .bubble { background: var(--accent-blue); color: #fff; }
+.msg.user .bubble { background: var(--accent-blue); color: var(--on-accent); }
 .msg.assistant .bubble { background: var(--bg-elevated); color: var(--text-primary); }
 .bubble.md { white-space: normal; }
 .bubble.md :deep(pre) { background: var(--bg-well); padding: 8px; border-radius: 8px; overflow-x: auto; }

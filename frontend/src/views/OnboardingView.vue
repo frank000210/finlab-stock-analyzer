@@ -82,7 +82,7 @@ const steps = [
 .flow-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; justify-content: center; background: var(--bg-well); border: 1px solid var(--border-color); border-radius: 999px; padding: 10px 16px; }
 .flow-strip b { font-weight: 700; }
 .flow-strip em { color: var(--text-muted); margin: 0 4px; font-style: normal; }
-.flow-strip .loop { color: #22c55e; font-size: 0.86rem; margin-left: 6px; }
+.flow-strip .loop { color: var(--down); font-size: 0.86rem; margin-left: 6px; }
 
 .steps { display: flex; flex-direction: column; gap: 14px; }
 .step { display: flex; gap: 16px; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 18px; }

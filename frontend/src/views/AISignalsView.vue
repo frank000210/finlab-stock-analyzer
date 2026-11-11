@@ -298,7 +298,7 @@ function badgeClass(type) {
 .tab-button.active {
   background: var(--accent-blue);
   border-color: var(--accent-blue);
-  color: white;
+  color: var(--on-accent);
 }
 
 .signals-layout {
@@ -325,8 +325,8 @@ function badgeClass(type) {
 .signal-card {
   padding: 16px;
   border-radius: 12px;
-  border: 1px solid rgba(148, 163, 184, 0.16);
-  background: rgba(15, 23, 42, 0.45);
+  border: 1px solid color-mix(in srgb, var(--muted) 16%, transparent);
+  background: color-mix(in srgb, var(--well) 45%, transparent);
 }
 
 .stock-name {
@@ -356,11 +356,11 @@ function badgeClass(type) {
 }
 
 .conditions-list li.passed {
-  color: #86efac;
+  color: var(--down);
 }
 
 .conditions-list li.failed {
-  color: #fca5a5;
+  color: var(--up);
 }
 
 .progress-track {
@@ -368,7 +368,7 @@ function badgeClass(type) {
   height: 8px;
   border-radius: 999px;
   overflow: hidden;
-  background: rgba(148, 163, 184, 0.16);
+  background: color-mix(in srgb, var(--muted) 16%, transparent);
 }
 
 .progress-track.large {
@@ -395,7 +395,7 @@ function badgeClass(type) {
 }
 
 .progress-fill.alpha {
-  background: linear-gradient(90deg, #38bdf8, #2563eb);
+  background: linear-gradient(90deg, var(--blue), var(--blue));
 }
 
 .badge {

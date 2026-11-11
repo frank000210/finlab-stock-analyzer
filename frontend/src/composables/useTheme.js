@@ -1,9 +1,15 @@
-// 外觀主題自訂：讓使用者在「設定」頁調整頁面/區塊/卡片的底色與邊界，
+// 外觀主題微調：讓使用者在「設定」頁調整頁面/區塊/卡片的底色與邊界，
 // 即時套到 :root（inline style，權重高於 stylesheet），並存 localStorage。
 // 也支援把目前設定另存為「組合」，以及刪除自訂組合。
+//
+// 色彩主題（右上角選單，見 lib/colorThemes.js）才是整體配色；這裡只存「使用者特地改過的
+// 欄位」（overrides），沒改的欄位跟著目前的色彩主題走。換色彩主題時會清掉這些微調，
+// 否則舊的底色會蓋住新主題。
+// v2：舊版（v1）會把全部欄位連同預設值一起存，會蓋掉新主題，所以改用新的 key、不沿用。
 import { reactive } from 'vue'
+import { resolveCssHex } from '../lib/cssColor.js'
 
-const STORAGE_KEY = 'finlab_theme_v1'
+const STORAGE_KEY = 'finlab_theme_v2'
 const PRESETS_KEY = 'finlab_theme_presets_v1'
 
 // 可調整欄位（key＝對應的 CSS 變數）。type: color=色票、width=邊界粗細(px)。
@@ -68,12 +74,17 @@ export const BUILT_IN_PRESETS = [
   },
 ]
 
-function loadCurrent() {
+function loadOverrides() {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null')
-    return { ...DEFAULT_THEME, ...(saved && typeof saved === 'object' ? saved : {}) }
+    if (!saved || typeof saved !== 'object') return {}
+    const out = {}
+    for (const f of THEME_FIELDS) {
+      if (typeof saved[f.key] === 'string' && saved[f.key]) out[f.key] = saved[f.key]
+    }
+    return out
   } catch {
-    return { ...DEFAULT_THEME }
+    return {}
   }
 }
 
@@ -87,9 +98,17 @@ function loadPresets() {
 }
 
 const state = reactive({
-  current: loadCurrent(),
+  current: { ...DEFAULT_THEME }, // 設定頁顯示的「目前實際值」（主題值 + 微調）
+  overrides: loadOverrides(),
   presets: loadPresets(),
 })
+
+function persist() {
+  try {
+    if (Object.keys(state.overrides).length) localStorage.setItem(STORAGE_KEY, JSON.stringify(state.overrides))
+    else localStorage.removeItem(STORAGE_KEY)
+  } catch { /* 無痕模式：這次有效就好 */ }
+}
 
 function applyToDom(values) {
   const root = document.documentElement
@@ -98,26 +117,57 @@ function applyToDom(values) {
   })
 }
 
-// App 啟動時呼叫一次，把上次儲存的主題套回。
+function clearFromDom() {
+  const root = document.documentElement
+  THEME_FIELDS.forEach((f) => root.style.removeProperty(f.key))
+}
+
+// 讀出目前畫面上實際生效的值（含色彩主題），讓設定頁的色票/滑桿顯示正確
+function refreshCurrent() {
+  const cs = getComputedStyle(document.documentElement)
+  const next = {}
+  for (const f of THEME_FIELDS) {
+    const raw = cs.getPropertyValue(f.key).trim()
+    if (f.type === 'color') next[f.key] = (raw && resolveCssHex(raw)) || DEFAULT_THEME[f.key]
+    else next[f.key] = raw || DEFAULT_THEME[f.key]
+  }
+  state.current = next
+}
+
+// App 啟動時呼叫一次，把上次微調的欄位套回。
 export function applySavedTheme() {
-  applyToDom(state.current)
+  applyToDom(state.overrides)
+  refreshCurrent()
+  // 換色彩主題 → 清掉微調，讓新主題完整生效
+  window.addEventListener('finlab:theme-change', () => {
+    clearFromDom()
+    state.overrides = {}
+    persist()
+    refreshCurrent()
+  })
 }
 
 export function useTheme() {
   function setField(key, value) {
+    state.overrides[key] = value
     state.current[key] = value
     applyToDom({ [key]: value })
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state.current))
+    persist()
   }
 
   function applyPreset(values) {
-    state.current = { ...DEFAULT_THEME, ...values }
-    applyToDom(state.current)
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state.current))
+    state.overrides = { ...values }
+    applyToDom(state.overrides)
+    persist()
+    refreshCurrent()
   }
 
+  // 重設＝清掉所有微調，回到目前色彩主題的樣子
   function resetDefault() {
-    applyPreset(DEFAULT_THEME)
+    clearFromDom()
+    state.overrides = {}
+    persist()
+    refreshCurrent()
   }
 
   // 把目前設定另存為新組合

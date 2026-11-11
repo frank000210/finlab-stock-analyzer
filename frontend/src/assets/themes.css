@@ -1,0 +1,69 @@
+/* 色彩主題：只覆寫 main.css :root 的「基底色」，其餘 token 都由基底色推導。
+   預設主題「手帳米白」就是 main.css 的 :root，不在這裡。
+   切換方式：<html data-theme="dark|solarized|nord|dracula|gruvbox">（見 lib/colorThemes.js）。
+   台股慣例固定：漲＝紅（--up）、跌＝綠（--down），每個主題都保留這個方向。
+   文字對比：每組的 --ink / --ink-2 / --muted 對 --paper 與 --card 都 ≥ 4.5:1（e2e 有檢查）。 */
+
+/* 夜間深色：最接近原本的深色終端機外觀 */
+html[data-theme="dark"] {
+  --desk: #070a12; --paper: #0d1322; --side: #0a0f1c; --card: #151e33; --elev: #1d2842; --well: #0a0f1d;
+  --ink: #e8edf5; --ink-2: #c3cee0; --muted: #98a5ba;
+  --rule: #1a2336; --margin: #6e3a40; --heading: #4fd1c5;
+  --blue: #6aa5ff; --purple: #b39dfb; --cyan: #4fd1c5;
+  --up: #f56f6c; --down: #3ccf91; --warn: #f5b942;
+  --on-accent: #0b1121; --mark: rgba(255, 112, 166, 0.30);
+  --sticky: #e6c84f; --sticky-ink: #2b2b33; --ring: #6f7684; --ring-hole: #05070c;
+  --shadow-rgb: 0, 0, 0;
+  color-scheme: dark;
+}
+
+/* Solarized Light：低對比暖色，長時間閱讀較不刺眼 */
+html[data-theme="solarized"] {
+  --desk: #e4dcc3; --paper: #fdf6e3; --side: #f1ebd8; --card: #fffbee; --elev: #f6f0dc; --well: #f8f2e0;
+  --ink: #073642; --ink-2: #3f5a63; --muted: #4f656c;
+  --rule: #e6dfc8; --margin: #e8a29c; --heading: #146a64;
+  --blue: #1a629e; --purple: #5a5fb0; --cyan: #146a64;
+  --up: #c4302d; --down: #446a00; --warn: #7f5a00;
+  --on-accent: #fdf6e3; --mark: rgba(211, 54, 130, 0.26);
+  --sticky: #f2d96b; --sticky-ink: #073642; --ring: #93a1a1; --ring-hole: #586e75;
+  --shadow-rgb: 7, 54, 66;
+}
+
+/* Nord：冷靜的北歐藍灰 */
+html[data-theme="nord"] {
+  --desk: #232831; --paper: #2e3440; --side: #272c36; --card: #3b4252; --elev: #3f4759; --well: #2a303b;
+  --ink: #eceff4; --ink-2: #d8dee9; --muted: #b4c0d4;
+  --rule: #373e4c; --margin: #7d4a50; --heading: #9cc7c6;
+  --blue: #93c9d8; --purple: #d2b3cc; --cyan: #9cc7c6;
+  --up: #f9a3a9; --down: #b0ca9a; --warn: #ebcb8b;
+  --on-accent: #2e3440; --mark: rgba(180, 142, 173, 0.34);
+  --sticky: #ebcb8b; --sticky-ink: #2e3440; --ring: #7b869a; --ring-hole: #1b1f27;
+  --shadow-rgb: 0, 0, 0;
+  color-scheme: dark;
+}
+
+/* Dracula：高飽和紫粉配色 */
+html[data-theme="dracula"] {
+  --desk: #1b1c25; --paper: #282a36; --side: #21222c; --card: #313445; --elev: #373a4e; --well: #232530;
+  --ink: #f8f8f2; --ink-2: #dcdde6; --muted: #aab1d6;
+  --rule: #323546; --margin: #7a3b5a; --heading: #8be9fd;
+  --blue: #c8a6fb; --purple: #ff8acc; --cyan: #8be9fd;
+  --up: #ff7d7d; --down: #50fa7b; --warn: #ffb86c;
+  --on-accent: #282a36; --mark: rgba(255, 121, 198, 0.30);
+  --sticky: #f1fa8c; --sticky-ink: #282a36; --ring: #7480a8; --ring-hole: #14151c;
+  --shadow-rgb: 0, 0, 0;
+  color-scheme: dark;
+}
+
+/* Gruvbox：復古暖棕，對比柔和 */
+html[data-theme="gruvbox"] {
+  --desk: #1d2021; --paper: #282828; --side: #232323; --card: #32302f; --elev: #393634; --well: #212121;
+  --ink: #ebdbb2; --ink-2: #d5c4a1; --muted: #b3a48f;
+  --rule: #34322f; --margin: #7a3b30; --heading: #8ec07c;
+  --blue: #91b3a6; --purple: #de94a8; --cyan: #8ec07c;
+  --up: #ff7864; --down: #b8bb26; --warn: #fabd2f;
+  --on-accent: #282828; --mark: rgba(211, 134, 155, 0.30);
+  --sticky: #fabd2f; --sticky-ink: #282828; --ring: #7c6f64; --ring-hole: #141414;
+  --shadow-rgb: 0, 0, 0;
+  color-scheme: dark;
+}

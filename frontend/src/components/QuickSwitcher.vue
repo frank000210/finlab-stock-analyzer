@@ -187,7 +187,7 @@ defineExpose({ openPanel })
   cursor: pointer;
   font-size: 0.88rem;
 }
-.qs-item.active { background: rgba(99, 102, 241, 0.16); }
+.qs-item.active { background: color-mix(in srgb, var(--purple) 16%, transparent); }
 .qs-icon { width: 22px; text-align: center; }
 .qs-main { font-weight: 600; }
 .qs-sub { margin-left: auto; color: var(--text-muted); font-size: 0.74rem; }

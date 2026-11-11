@@ -269,7 +269,7 @@ watch(() => auth.isLoggedIn, () => loadMe())
 
 .tutor-fab {
   position: fixed; right: 20px; bottom: 20px; z-index: 350; padding: 12px 18px; border-radius: 999px; border: 0;
-  background: var(--accent-blue); color: #fff; font: inherit; font-weight: 600; cursor: pointer;
+  background: var(--accent-blue); color: var(--on-accent); font: inherit; font-weight: 600; cursor: pointer;
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
 }
 .tutor-login-hint {

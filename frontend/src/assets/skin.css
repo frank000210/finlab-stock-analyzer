@@ -1,0 +1,108 @@
+/* 全站外觀：風格 7「筆記本速查表」＋風格 8「手繪」。
+   只用 main.css / themes.css 的色彩 token，所以六個色彩主題都適用。
+   - 風格 7：桌面底色、橫線紙、左側紅邊線與線圈、標楷體標題＋波浪底線、便利貼（右上角主題選單）。
+   - 風格 8：卡片與按鈕的墨線用 SVG 濾鏡微微抖動（線畫在 ::before，文字不套濾鏡）、螢光筆標記。
+   裝飾一律 pointer-events:none，不擋操作；右上角選單可關掉手繪抖動（html[data-rough="off"]）。 */
+:root {
+  --font-kai: 'DFKai-SB', 'BiauKai', '標楷體', 'Kaiti TC', 'LXGW WenKai TC', 'Noto Serif TC', serif;
+  --font-hand: 'Ink Free', 'Segoe Print', 'Bradley Hand', 'LXGW WenKai TC', cursive;
+  --sketch-radius: 14px 18px 12px 16px / 16px 12px 18px 14px;
+  --sketch-radius-sm: 9px 12px 8px 11px / 11px 8px 12px 9px;
+}
+
+::selection { background: var(--mark); color: inherit; }
+body { background: var(--desk); color: var(--ink); }
+
+/* ===== 紙張（風格 7）：內容區是一張橫線紙，外面是桌面 ===== */
+@media (min-width: 900px) {
+  .app-body { padding: 10px 14px 18px 34px; }
+  .main-content {
+    position: relative;
+    margin-top: 0;
+    padding-left: 64px;
+    border-radius: 6px 16px 16px 6px;
+    background:
+      linear-gradient(90deg, transparent 48px, var(--margin) 48px 50px, transparent 50px),
+      repeating-linear-gradient(180deg, transparent 0 31px, var(--rule) 31px 32px),
+      var(--bg-primary);
+    box-shadow: 0 1px 2px rgba(var(--shadow-rgb), 0.14), 0 12px 30px rgba(var(--shadow-rgb), 0.18);
+  }
+  /* 左側線圈：金屬圈 + 孔洞，凸出紙張左緣 */
+  .main-content::before {
+    content: ''; position: absolute; left: -26px; top: 36px; bottom: 36px; width: 60px;
+    pointer-events: none;
+    background-repeat: repeat-y;
+    background-size: 60px 56px;
+    background-image:
+      radial-gradient(circle at 44px 28px, var(--ring-hole) 0 4px, transparent 5px),
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='56'%3E%3Crect x='3' y='19' width='54' height='18' rx='9' fill='none' stroke='%238D9099' stroke-width='4'/%3E%3C/svg%3E");
+  }
+}
+@media (max-width: 899px) {
+  .main-content {
+    background:
+      linear-gradient(90deg, transparent 14px, var(--margin) 14px 15px, transparent 15px),
+      repeating-linear-gradient(180deg, transparent 0 31px, var(--rule) 31px 32px),
+      var(--bg-primary);
+  }
+}
+
+/* ===== 標題：標楷體、藍綠色，h1 下方手寫波浪線 ===== */
+h1, h2 { font-family: var(--font-kai); color: var(--heading); }
+h3, h4 { font-family: var(--font-kai); }
+h1 { position: relative; padding-bottom: 10px; }
+h1::after {
+  content: ''; position: absolute; left: 0; bottom: 0; width: min(100%, 11em); height: 8px; pointer-events: none;
+  background: var(--heading);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='8' viewBox='0 0 40 8'%3E%3Cpath d='M0 4Q10 0 20 4T40 4' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E") repeat-x left bottom / 40px 8px;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='8' viewBox='0 0 40 8'%3E%3Cpath d='M0 4Q10 0 20 4T40 4' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E") repeat-x left bottom / 40px 8px;
+}
+.eyebrow, .section-kicker, mark {
+  color: var(--ink); background: linear-gradient(transparent 58%, var(--mark) 58%); padding: 0 3px;
+}
+
+/* ===== 卡片與按鈕：手繪墨線（風格 8）===== */
+.card, .metric-card, .section-block, .focus-banner, .btn { position: relative; }
+.card::before, .metric-card::before, .section-block::before, .focus-banner::before, .btn::before {
+  content: ''; position: absolute; inset: 1px; pointer-events: none;
+  border: var(--block-border-width) solid var(--block-border-color);
+  border-radius: var(--sketch-radius);
+  filter: url(#sk-rough);
+}
+.metric-card::before { border-width: var(--card-inner-border-width); border-color: var(--card-inner-border-color); border-radius: var(--sketch-radius-sm); }
+.btn::before { border-width: 1.5px; border-color: var(--ink-2); border-radius: var(--sketch-radius-sm); }
+.btn-primary::before { border-color: color-mix(in srgb, var(--accent-blue) 55%, var(--ink)); }
+/* 這幾種原本自己畫了淡邊框，改由手繪墨線取代，避免兩條線疊在一起 */
+.section-block, .focus-banner, .btn-secondary { border-color: transparent !important; }
+.focus-banner { border-left-color: transparent !important; }
+html[data-rough="off"] .card::before, html[data-rough="off"] .metric-card::before,
+html[data-rough="off"] .section-block::before, html[data-rough="off"] .focus-banner::before,
+html[data-rough="off"] .btn::before { filter: none; }
+
+.card { border-radius: var(--sketch-radius); }
+
+/* 英數大數字用手寫體（Ink Free；沒有這個字型的電腦退回楷體），仍維持等寬對齊 */
+.current-price, .signal-score, .metric-card .value {
+  font-family: var(--font-hand);
+  font-weight: 700;
+}
+
+/* 頁籤：目前選到的用螢光筆畫一下 */
+.tab.active { background: linear-gradient(transparent 58%, var(--mark) 58%); color: var(--text-primary); }
+
+/* 表格：表頭用淡色底 + 墨線 */
+thead { border-bottom: 1.5px solid var(--ink-2); }
+
+/* 左側選單：像資料夾側邊，右邊一條虛線 */
+#app-root .app-sidebar { border-right: 2px dashed var(--border-color); }
+#app-root .sidebar-header, #app-root .sidebar-footer { border-color: var(--border-color); }
+#app-root .nav-item.router-link-active {
+  background: linear-gradient(transparent 12%, var(--mark) 12%); color: var(--text-primary); font-weight: 700;
+}
+#app-root .nav-group-title { color: var(--heading); font-family: var(--font-kai); font-weight: 700; letter-spacing: 0.06em; text-transform: none; font-size: 0.78rem; }
+
+*:focus-visible { outline: 2.5px solid var(--accent-blue); outline-offset: 2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .card, .btn { transition: none; }
+}

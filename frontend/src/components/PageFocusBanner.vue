@@ -22,8 +22,8 @@ defineProps({
   gap: 0.5rem;
   padding: 0.55rem 0.9rem;
   margin-bottom: 0.9rem;
-  background: var(--accent-blue-soft, rgba(59, 130, 246, 0.08));
-  border-left: 3px solid var(--accent-blue, #3b82f6);
+  background: var(--accent-blue-soft, color-mix(in srgb, var(--blue) 8%, transparent));
+  border-left: 3px solid var(--accent-blue, var(--blue));
   border-radius: 6px;
   font-size: 0.85rem;
   line-height: 1.5;
@@ -31,7 +31,7 @@ defineProps({
 
 .focus-label {
   font-weight: 700;
-  color: var(--accent-blue, #3b82f6);
+  color: var(--accent-blue, var(--blue));
   white-space: nowrap;
 }
 

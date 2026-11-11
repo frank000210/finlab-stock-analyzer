@@ -73,9 +73,9 @@ const zoneSegments = computed(() => {
 .metric-scale { display: flex; flex-direction: column; gap: 4px; }
 .ms-track { display: flex; height: 8px; border-radius: 4px; overflow: hidden; }
 .ms-zone { }
-.ms-zone.ms-good { background: #10b981; }
-.ms-zone.ms-warn { background: var(--color-warning, #f59e0b); }
-.ms-zone.ms-bad { background: #ef4444; }
+.ms-zone.ms-good { background: var(--down); }
+.ms-zone.ms-warn { background: var(--color-warning, var(--warn)); }
+.ms-zone.ms-bad { background: var(--up); }
 
 .ms-marker-row { position: relative; height: 10px; }
 .ms-marker {

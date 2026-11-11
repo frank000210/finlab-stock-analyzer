@@ -360,7 +360,7 @@ function signalClass(signal) {
   padding: 10px 12px;
   border-radius: 10px;
   border: 1px solid var(--border-color);
-  background: #0d1117;
+  background: var(--well);
   color: var(--text-primary);
 }
 
@@ -374,8 +374,8 @@ function signalClass(signal) {
   margin-top: 16px;
   padding: 14px;
   border-radius: 12px;
-  border: 1px solid rgba(148, 163, 184, 0.16);
-  background: rgba(15, 23, 42, 0.45);
+  border: 1px solid color-mix(in srgb, var(--muted) 16%, transparent);
+  background: color-mix(in srgb, var(--well) 45%, transparent);
   white-space: pre-wrap;
   overflow-x: auto;
 }
@@ -387,9 +387,9 @@ function signalClass(signal) {
 }
 
 .btn-secondary {
-  background: rgba(148, 163, 184, 0.16);
+  background: color-mix(in srgb, var(--muted) 16%, transparent);
   color: var(--text-primary);
-  border: 1px solid rgba(148, 163, 184, 0.18);
+  border: 1px solid color-mix(in srgb, var(--muted) 18%, transparent);
 }
 
 .btn-ghost {
@@ -400,17 +400,17 @@ function signalClass(signal) {
 
 .btn-success {
   background: var(--color-up);
-  color: white;
+  color: var(--on-accent);
 }
 
 .btn-warning {
   background: var(--color-warning);
-  color: white;
+  color: var(--on-accent);
 }
 
 .btn-danger {
   background: var(--color-down);
-  color: white;
+  color: var(--on-accent);
 }
 
 .rules-list {

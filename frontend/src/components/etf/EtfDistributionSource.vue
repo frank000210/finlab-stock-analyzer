@@ -165,7 +165,7 @@ function clearPersonal(date) {
 .badge { font-size: 0.68rem; padding: 0 7px; border-radius: 999px; border: 1px solid var(--accent-blue); color: var(--accent-blue); }
 .badge.mine { border-color: var(--text-muted); color: var(--text-muted); }
 .stack { display: flex; height: 20px; border-radius: 6px; overflow: hidden; margin: 6px 0 4px; background: var(--bg-card); }
-.seg { display: inline-flex; align-items: center; justify-content: center; font-size: 0.68rem; color: #0b1220; font-weight: 700; min-width: 2px; }
+.seg { display: inline-flex; align-items: center; justify-content: center; font-size: 0.68rem; color: var(--on-accent); font-weight: 700; min-width: 2px; }
 .r-detail { display: flex; flex-wrap: wrap; gap: 2px 14px; margin: 2px 0; color: var(--text-muted); }
 .warn { color: var(--color-warning); margin: 4px 0; }
 .form { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: flex-end; margin-top: 6px; }

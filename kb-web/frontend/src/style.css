@@ -1,20 +1,4 @@
 :root {
-  --bg: #0d0d12;
-  --surface: #17171f;
-  --surface-2: #1e1e29;
-  --border: #2a2a38;
-  --text: #f2f2f7;
-  --text-dim: #9797a8;
-  --text-faint: #6b6b7c;
-  --accent: #7c5cff;
-  --accent-hover: #8f72ff;
-  --accent-dim: rgba(124, 92, 255, 0.15);
-  --success: #22c55e;
-  --success-dim: rgba(34, 197, 94, 0.12);
-  --error: #f2555a;
-  --error-dim: rgba(242, 85, 90, 0.12);
-  --warn: #f5a623;
-  --warn-dim: rgba(245, 166, 35, 0.12);
   --radius: 10px;
   --radius-sm: 6px;
   --font: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Microsoft JhengHei", Roboto, sans-serif;
@@ -115,7 +99,7 @@ button {
   border-radius: var(--radius-sm);
   padding: 9px 16px;
   background: var(--accent);
-  color: white;
+  color: var(--on-accent);
   transition: background 0.15s ease, transform 0.1s ease;
 }
 

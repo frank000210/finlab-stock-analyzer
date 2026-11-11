@@ -109,8 +109,8 @@ const ariaLabel = computed(() => `歷年${props.mode === 'yield' ? '現金殖利
 .bars-wrap { width: 100%; }
 .bars-scroll { overflow-x: auto; }
 .bars { display: block; margin: 0 auto; }
-.grid { stroke: var(--border-color, rgba(148, 163, 184, 0.18)); stroke-width: 1; stroke-dasharray: 3 3; }
-.tick { fill: var(--text-muted, #64748b); font-size: 10px; }
-.year { fill: var(--text-secondary, #94a3b8); font-size: 11px; font-weight: 600; }
-.np { fill: var(--text-muted, #64748b); font-size: 11px; }
+.grid { stroke: var(--border-color, color-mix(in srgb, var(--muted) 18%, transparent)); stroke-width: 1; stroke-dasharray: 3 3; }
+.tick { fill: var(--text-muted, var(--muted)); font-size: 10px; }
+.year { fill: var(--text-secondary, var(--muted)); font-size: 11px; font-weight: 600; }
+.np { fill: var(--text-muted, var(--muted)); font-size: 11px; }
 </style>

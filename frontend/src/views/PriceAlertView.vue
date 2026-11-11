@@ -288,5 +288,5 @@ onMounted(() => {
 .alert-table th { color: var(--text-muted); font-weight: 500; font-size: 0.76rem; }
 .sym { font-weight: 600; }
 .del { background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.9rem; }
-.del:hover { color: #ef4444; }
+.del:hover { color: var(--up); }
 </style>

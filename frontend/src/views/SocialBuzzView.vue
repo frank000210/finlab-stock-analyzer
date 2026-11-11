@@ -398,7 +398,7 @@ watch(() => route.params.symbol, (sym) => {
 .controls { display: flex; gap: 8px; align-items: center; }
 .input-symbol { width: 90px; padding: 8px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-primary); font-weight: 700; text-align: center; }
 .sort-select { padding: 8px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-primary); font-size: 0.82rem; }
-.error-card { color: var(--color-down); background: var(--down-soft); border: 1px solid rgba(239, 68, 68, 0.3); }
+.error-card { color: var(--color-down); background: var(--down-soft); border: 1px solid color-mix(in srgb, var(--up) 30%, transparent); }
 
 /* W4：AI 輿情摘要 */
 .ai-news-section { display: flex; flex-direction: column; gap: 10px; }
@@ -407,7 +407,7 @@ watch(() => route.params.symbol, (sym) => {
 .ai-body { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
 .ai-text {
   font-size: 0.86rem; line-height: 1.85; color: var(--text-secondary);
-  background: var(--bg-well, rgba(148, 163, 184, 0.06));
+  background: var(--bg-well, color-mix(in srgb, var(--muted) 6%, transparent));
   border: 1px solid var(--border-color); border-radius: 12px; padding: 14px 16px;
 }
 .ai-text :deep(strong) { color: var(--text-primary); }
@@ -421,10 +421,10 @@ watch(() => route.params.symbol, (sym) => {
 .buzz-info { flex: 1; }
 .buzz-level { display: inline-block; padding: 3px 12px; border-radius: 20px; font-weight: 700; font-size: 0.85rem; margin-bottom: 8px; }
 .level-極高 { background: var(--down-soft); color: var(--color-down); }
-.level-高 { background: var(--warn-soft); color: #f97316; }
-.level-中等 { background: var(--warn-soft); color: #eab308; }
-.level-低 { background: var(--up-soft); color: #22c55e; }
-.level-極低 { background: rgba(156, 163, 175, 0.15); color: var(--text-muted); }
+.level-高 { background: var(--warn-soft); color: var(--warn); }
+.level-中等 { background: var(--warn-soft); color: var(--warn); }
+.level-低 { background: var(--up-soft); color: var(--down); }
+.level-極低 { background: color-mix(in srgb, var(--muted) 15%, transparent); color: var(--text-muted); }
 .buzz-desc { font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5; }
 .buzz-scale { margin-top: 10px; max-width: 320px; }
 
@@ -457,8 +457,8 @@ a.post-item:hover .post-title, a.news-item:hover .news-title { color: var(--acce
 .fc-verdict { flex-shrink: 0; padding: 2px 8px; border-radius: 10px; font-size: 0.7rem; font-weight: 700; }
 .fc-false { background: var(--down-soft); color: var(--color-down); }
 .fc-clarify { background: var(--up-soft); color: var(--color-up); }
-.fc-neutral { background: rgba(100, 116, 139, 0.15); color: var(--text-muted); }
-.post-push { background: var(--accent-blue); color: #fff; padding: 2px 8px; border-radius: 10px; font-size: 0.7rem; font-weight: 700; min-width: 28px; text-align: center; }
+.fc-neutral { background: color-mix(in srgb, var(--muted) 15%, transparent); color: var(--text-muted); }
+.post-push { background: var(--accent-blue); color: var(--on-accent); padding: 2px 8px; border-radius: 10px; font-size: 0.7rem; font-weight: 700; min-width: 28px; text-align: center; }
 .post-title, .news-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .post-date { font-size: 0.7rem; color: var(--text-muted); }
 .news-date { font-size: 0.7rem; color: var(--text-muted); white-space: nowrap; }

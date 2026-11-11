@@ -99,7 +99,7 @@ h2 { font-size: 1.05rem; margin: 0 0 12px; }
 .muted { color: var(--text-muted); font-size: 0.85rem; }
 .error-text { color: var(--color-warning); }
 .project { padding: 12px 14px; border-radius: 10px; background: var(--bg-well); margin-bottom: 10px; border: 1px solid var(--border-color); }
-.project.approved { border-color: rgba(16, 185, 129, 0.5); }
+.project.approved { border-color: color-mix(in srgb, var(--down) 50%, transparent); }
 .p-head { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .pill { font-size: 0.75rem; padding: 2px 8px; border-radius: 999px; background: var(--bg-elevated); }
 .project a { color: var(--accent-cyan); overflow-wrap: anywhere; }

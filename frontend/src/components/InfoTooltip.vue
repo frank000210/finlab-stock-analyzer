@@ -60,7 +60,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 }
 .info-tip-btn:hover, .info-tip-btn[aria-expanded="true"] {
   background: var(--accent-blue);
-  color: #fff;
+  color: var(--on-accent);
 }
 .info-tip-pop {
   position: absolute;

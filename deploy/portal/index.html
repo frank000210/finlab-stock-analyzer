@@ -6,55 +6,116 @@
 <title>Frank 的服務入口</title>
 <meta name="description" content="finlab 選股分析、知識分享、知識庫、訂餐系統的入口頁">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%232563eb'/%3E%3Cpath d='M9 22V10h14M9 16h10' stroke='white' stroke-width='3' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="/theme/theme.css">
+<script src="/theme/theme.js"></script>
 <style>
+  /* 風格 7（筆記本）＋ 風格 8（手繪）：色票由 /theme/theme.css 依 data-theme 提供，這裡是沒有 JS 時的預設（手帳米白）。 */
   :root {
-    --bg: #f6f7f9; --card: #ffffff; --text: #111827; --muted: #6b7280;
-    --border: #e5e7eb; --accent: #2563eb; --ok: #16a34a; --down: #dc2626; --wait: #9ca3af;
-    --shadow: 0 1px 2px rgba(0,0,0,.04), 0 4px 16px rgba(0,0,0,.06);
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #0f1115; --card: #181b22; --text: #e5e7eb; --muted: #9ca3af;
-      --border: #2a2f3a; --accent: #60a5fa; --ok: #4ade80; --down: #f87171; --wait: #6b7280;
-      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 4px 16px rgba(0,0,0,.3);
-    }
+    --desk: #E7E1D5; --paper: #FFFDF7; --rule: #DDE7F1; --margin: #EFA3A3; --ink: #2B2B33; --muted: #666674;
+    --teal: #12706C; --red: #C03936; --hl: rgba(255, 112, 166, .38); --sticky: #FFE679; --sticky-ink: #2B2B33;
+    --box: #F5F9FF; --box-line: #8FB4E3; --ring: #8D9099; --ring-hole: #4C4741; --ok: #1C6E3B; --bad: #C03936;
+    --wave: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='8' viewBox='0 0 40 8'%3E%3Cpath d='M0 4Q10 0 20 4T40 4' fill='none' stroke='%2312706C' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E");
   }
   * { box-sizing: border-box; }
   body {
-    margin: 0; background: var(--bg); color: var(--text);
-    font: 16px/1.6 system-ui, -apple-system, "Segoe UI", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+    margin: 0; background: var(--desk); color: var(--ink);
+    font: 16px/1.7 "Noto Sans TC", "Microsoft JhengHei", "PingFang TC", system-ui, sans-serif;
   }
-  main { max-width: 880px; margin: 0 auto; padding: 48px 16px 32px; }
-  header h1 { margin: 0 0 4px; font-size: 1.75rem; letter-spacing: .01em; }
-  header p { margin: 0 0 32px; color: var(--muted); }
-  section + section { margin-top: 28px; }
-  h2 { font-size: .8rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0 0 10px; font-weight: 600; }
-  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; }
+  .kai, h1, h2 { font-family: "DFKai-SB", "BiauKai", "標楷體", "Kaiti TC", "Noto Serif TC", serif; }
+  .sk-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
+
+  /* 紙張：橫線＋紅邊線＋左側線圈 */
+  main {
+    position: relative; max-width: 940px; margin: 22px auto 28px; padding: 30px 40px 36px 96px;
+    border-radius: 6px 16px 16px 6px;
+    background:
+      linear-gradient(90deg, transparent 70px, var(--margin) 70px 72px, transparent 72px),
+      repeating-linear-gradient(180deg, transparent 0 43px, var(--rule) 43px 44px),
+      var(--paper);
+    box-shadow: 0 1px 2px rgba(0,0,0,.10), 0 12px 30px rgba(0,0,0,.12);
+  }
+  main::before {
+    content: ""; position: absolute; left: -34px; top: 44px; bottom: 44px; width: 66px; pointer-events: none;
+    background: repeat-y left top / 66px 60px;
+    background-image:
+      radial-gradient(circle at 57px 30px, var(--ring-hole) 0 4.5px, transparent 5.5px),
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='66' height='60'%3E%3Crect x='2' y='21' width='62' height='18' rx='9' fill='none' stroke='%238D9099' stroke-width='4'/%3E%3C/svg%3E");
+  }
+  @media (max-width: 1060px) { main { margin: 12px 10px 20px; } main::before { display: none; } }
+  @media (max-width: 640px) {
+    body { font-size: 15px; }
+    main {
+      margin: 8px 6px 16px; padding: 18px 14px 28px 28px; border-radius: 6px 12px 12px 6px;
+      background:
+        linear-gradient(90deg, transparent 14px, var(--margin) 14px 16px, transparent 16px),
+        repeating-linear-gradient(180deg, transparent 0 43px, var(--rule) 43px 44px),
+        var(--paper);
+    }
+  }
+
+  header { position: relative; padding-right: 240px; min-height: 118px; }
+  h1 {
+    display: inline-block; margin: 0; padding-bottom: 12px; font-size: 2.4rem; line-height: 1.2; font-weight: 700; letter-spacing: .04em;
+    color: var(--teal); background: var(--wave) repeat-x left bottom / 40px 8px;
+  }
+  header p { margin: 10px 0 0; color: var(--muted); font-size: .95rem; }
+  .sticky {
+    position: absolute; right: 0; top: -4px; width: 200px; padding: 14px 14px 12px; text-align: center;
+    background: var(--sticky); color: var(--sticky-ink); transform: rotate(3deg);
+    box-shadow: 0 2px 3px rgba(0,0,0,.12), 0 10px 18px rgba(0,0,0,.10);
+  }
+  .sticky::before { content: ""; position: absolute; left: 50%; top: -11px; width: 80px; height: 22px; margin-left: -40px; background: rgba(255,255,255,.55); transform: rotate(-4deg); }
+  .sticky .big { font-family: "Ink Free", "Segoe Print", "Bradley Hand", "DFKai-SB", "標楷體", cursive; font-size: 3rem; line-height: 1; color: #C03936; margin: 2px 0; font-weight: 700; }
+  .sticky small { display: block; font-size: .85rem; font-weight: 700; }
+  @media (max-width: 760px) {
+    header { padding-right: 0; min-height: 0; }
+    h1 { font-size: 1.9rem; }
+    .sticky { position: relative; right: auto; top: auto; margin: 22px auto 4px; transform: rotate(-2deg); }
+  }
+
+  section { margin-top: 30px; }
+  h2 {
+    display: inline-block; margin: 0 0 12px; font-size: 1.35rem; font-weight: 700; letter-spacing: .04em; color: var(--teal);
+    padding-bottom: 6px; background: var(--wave) repeat-x left bottom / 40px 8px;
+  }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 16px; }
+
+  /* 卡片：墨線畫在 ::before，用 SVG 濾鏡微微抖動（文字不套濾鏡） */
   a.card {
-    display: flex; gap: 14px; align-items: flex-start; padding: 16px 18px;
-    background: var(--card); border: 1px solid var(--border); border-radius: 14px;
-    color: inherit; text-decoration: none; box-shadow: var(--shadow);
-    transition: border-color .15s, transform .15s;
+    position: relative; display: flex; gap: 14px; align-items: flex-start; padding: 16px 18px;
+    background: var(--box); border-radius: 14px 18px 12px 16px / 16px 12px 18px 14px;
+    color: inherit; text-decoration: none; transition: transform .15s;
   }
-  a.card:hover { border-color: var(--accent); transform: translateY(-1px); }
-  a.card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  a.card::before {
+    content: ""; position: absolute; inset: 1px; pointer-events: none; filter: url(#sk-rough);
+    border: 2.2px solid var(--ink); border-radius: 14px 18px 12px 16px / 16px 12px 18px 14px;
+  }
+  a.card:hover { transform: translateY(-2px) rotate(-.4deg); }
+  a.card:focus-visible { outline: 3px solid var(--teal); outline-offset: 3px; }
   .icon { font-size: 1.6rem; line-height: 1; flex: none; margin-top: 2px; }
   .body { min-width: 0; flex: 1; display: block; }
   .desc, .host { display: block; }
-  .title { display: flex; align-items: center; gap: 8px; font-weight: 650; }
+  .title { display: flex; align-items: center; gap: 8px; font-weight: 700; }
   .desc { color: var(--muted); font-size: .9rem; margin-top: 2px; }
   .host { color: var(--muted); font-size: .75rem; margin-top: 6px; font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; overflow-wrap: anywhere; }
-  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--wait); flex: none; }
-  .dot.ok { background: var(--ok); } .dot.down { background: var(--down); }
-  footer { margin-top: 40px; color: var(--muted); font-size: .8rem; }
+  /* 狀態點：實心綠＝正常、實心紅＝連不上、虛線圓圈＝檢查中（title 另有文字說明，不只靠顏色） */
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: transparent; border: 2px dashed var(--muted); flex: none; }
+  .dot.ok { background: var(--ok); border: 2px solid var(--ok); } .dot.down { background: var(--bad); border: 2px solid var(--bad); }
+  footer { margin-top: 36px; color: var(--muted); font-size: .85rem; }
   @media (prefers-reduced-motion: reduce) { a.card { transition: none; } a.card:hover { transform: none; } }
 </style>
 </head>
 <body>
+<svg class="sk-defs" width="0" height="0" aria-hidden="true" focusable="false">
+  <defs>
+    <filter id="sk-rough" x="-6%" y="-14%" width="112%" height="128%"><feTurbulence type="fractalNoise" baseFrequency="0.03" numOctaves="2" seed="7"/><feDisplacementMap in="SourceGraphic" scale="2.6"/></filter>
+  </defs>
+</svg>
 <main>
   <header>
     <h1>服務入口</h1>
-    <p>自架主機上的所有服務，點卡片即可前往。綠點表示服務正常。</p>
+    <p>自架主機上的所有服務，點卡片即可前往。實心綠點表示服務正常、實心紅點表示目前連不上、虛線圓圈表示還在檢查。</p>
+    <div class="sticky" aria-live="polite"><p class="big" id="up-count">…</p><small id="up-label">服務檢查中</small></div>
   </header>
 
   <section>
@@ -142,11 +203,16 @@
     }
     return cache.get(url);
   }
-  document.querySelectorAll('a.card[data-check]').forEach(async (card) => {
+  const cards = document.querySelectorAll('a.card[data-check]');
+  let done = 0, up = 0;
+  cards.forEach(async (card) => {
     const dot = card.querySelector('.dot');
     const ok = await check(card.dataset.check);
     dot.classList.add(ok ? 'ok' : 'down');
     dot.title = ok ? '服務正常' : '目前無法連線';
+    done += 1; if (ok) up += 1;
+    document.getElementById('up-count').textContent = up + ' / ' + cards.length;
+    document.getElementById('up-label').textContent = done < cards.length ? '服務檢查中' : (up === cards.length ? '全部服務正常' : (cards.length - up) + ' 個服務連不上');
   });
 </script>
 </body>

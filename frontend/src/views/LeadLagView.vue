@@ -188,17 +188,17 @@ watch(() => route.params.symbol, (sym) => {
 .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .input-symbol { width: 90px; padding: 8px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-primary); font-weight: 700; text-align: center; }
 .controls select { padding: 8px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-primary); }
-.error-card { color: var(--color-down); background: var(--down-soft); border: 1px solid rgba(239, 68, 68, 0.3); }
+.error-card { color: var(--color-down); background: var(--down-soft); border: 1px solid color-mix(in srgb, var(--up) 30%, transparent); }
 
 .verdict-card { background: var(--bg-elevated); box-shadow: var(--shadow-md); }
 .verdict-header { display: flex; align-items: center; gap: 16px; margin-bottom: 12px; }
 .verdict-badge { padding: 4px 16px; border-radius: 20px; font-weight: 700; font-size: 1.1rem; }
 .dir-領先 { background: var(--up-soft); color: var(--accent-green); }
 .dir-落後 { background: var(--down-soft); color: var(--accent-red); }
-.dir-同步 { background: rgba(59, 130, 246, 0.15); color: var(--accent-blue); }
+.dir-同步 { background: color-mix(in srgb, var(--blue) 15%, transparent); color: var(--accent-blue); }
 .verdict-lag { font-size: 0.85rem; color: var(--text-secondary); }
 .verdict-detail { font-size: 0.95rem; color: var(--text-primary); margin-bottom: 8px; }
-.verdict-suggestion { font-size: 0.85rem; color: var(--accent-blue); background: rgba(59, 130, 246, 0.06); padding: 10px 14px; border-radius: var(--radius-sm); }
+.verdict-suggestion { font-size: 0.85rem; color: var(--accent-blue); background: color-mix(in srgb, var(--blue) 6%, transparent); padding: 10px 14px; border-radius: var(--radius-sm); }
 .verdict-meta { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 12px; font-size: 0.78rem; color: var(--text-muted); }
 
 .beta-card h3 { margin-bottom: 8px; }
@@ -212,8 +212,8 @@ watch(() => route.params.symbol, (sym) => {
 .corr-bars { display: flex; align-items: flex-end; height: 240px; gap: 2px; padding-bottom: 20px; border-bottom: 1px solid var(--border-color); position: relative; }
 .corr-bar-wrapper { display: flex; flex-direction: column; align-items: center; flex: 1; min-width: 6px; position: relative; }
 .corr-bar { width: 100%; border-radius: 2px; transition: height 0.3s; }
-.corr-bar.positive { background: rgba(34, 197, 94, 0.5); }
-.corr-bar.negative { background: rgba(239, 68, 68, 0.5); }
+.corr-bar.positive { background: color-mix(in srgb, var(--down) 50%, transparent); }
+.corr-bar.negative { background: color-mix(in srgb, var(--up) 50%, transparent); }
 .corr-bar.peak { background: var(--accent-blue) !important; box-shadow: 0 0 8px rgba(59, 130, 246, 0.5); }
 .corr-label { position: absolute; bottom: -18px; font-size: 0.6rem; color: var(--text-muted); }
 .corr-axis-labels { display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--text-muted); margin-top: 24px; }

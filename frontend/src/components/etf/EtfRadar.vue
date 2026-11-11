@@ -75,9 +75,9 @@ const ariaLabel = computed(() => (props.series.length
 <style scoped>
 .radar-wrap { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; }
 .radar { width: 100%; max-width: 380px; height: auto; overflow: visible; }
-.ring { fill: none; stroke: var(--border-color, rgba(148, 163, 184, 0.18)); stroke-width: 1; }
-.spoke { stroke: var(--border-color, rgba(148, 163, 184, 0.18)); stroke-width: 1; }
-.ring-label { fill: var(--text-muted, #64748b); font-size: 9px; }
-.axis-label { fill: var(--text-secondary, #94a3b8); font-size: 12px; font-weight: 600; }
+.ring { fill: none; stroke: var(--border-color, color-mix(in srgb, var(--muted) 18%, transparent)); stroke-width: 1; }
+.spoke { stroke: var(--border-color, color-mix(in srgb, var(--muted) 18%, transparent)); stroke-width: 1; }
+.ring-label { fill: var(--text-muted, var(--muted)); font-size: 9px; }
+.axis-label { fill: var(--text-secondary, var(--muted)); font-size: 12px; font-weight: 600; }
 .radar-note { font-size: 0.74rem; color: var(--text-muted); text-align: center; max-width: 340px; line-height: 1.5; }
 </style>

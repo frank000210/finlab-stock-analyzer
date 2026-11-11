@@ -1,0 +1,92 @@
+/* 入口頁與知識分享共用的色彩主題（和主站 finlab 同一組 6 個：手帳米白、夜間深色、Solarized、Nord、Dracula、Gruvbox）。
+   變數名稱沿用 share.css（--desk / --paper / --ink …）；入口頁也用同一組。
+   theme.js 一律在 <html> 上設 data-theme（沒存過時依系統深淺色決定），
+   所以這裡的選擇器 html[data-theme="…"] 的優先度高於 share.css 內的 prefers-color-scheme。
+   注意：這個站台開了 Caddy templates，但只處理 HTML，.css/.js 不會被解析；仍避免連續兩個左大括號。 */
+
+/* ===== 淺色：手帳米白（預設）、Solarized ===== */
+html[data-theme="notebook"] {
+  --desk: #E7E1D5; --paper: #FFFDF7; --rule: #DDE7F1; --margin: #EFA3A3; --ink: #2B2B33; --muted: #666674;
+  --teal: #12706C; --red: #C03936; --hl: rgba(255, 112, 166, .38); --sticky: #FFE679; --sticky-ink: #2B2B33;
+  --box: #F5F9FF; --box-line: #8FB4E3; --tip: #FFF9DA; --tip-line: #EBCB4F; --ring: #8D9099; --ring-hole: #4C4741;
+  --wave: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='8' viewBox='0 0 40 8'%3E%3Cpath d='M0 4Q10 0 20 4T40 4' fill='none' stroke='%2312706C' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E");
+  color-scheme: light;
+}
+html[data-theme="solarized"] {
+  --desk: #E4DCC3; --paper: #FDF6E3; --rule: #E6DFC8; --margin: #E8A29C; --ink: #073642; --muted: #4F656C;
+  --teal: #146A64; --red: #C4302D; --hl: rgba(211, 54, 130, .26); --sticky: #F2D96B; --sticky-ink: #073642;
+  --box: #F8F2E0; --box-line: #93A1A1; --tip: #F6EDC4; --tip-line: #B58900; --ring: #93A1A1; --ring-hole: #586E75;
+  --wave: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='8' viewBox='0 0 40 8'%3E%3Cpath d='M0 4Q10 0 20 4T40 4' fill='none' stroke='%23146A64' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E");
+  color-scheme: light;
+}
+/* 條目種類色（定義／公設／定理／輔助定理／推論）：淺色組 */
+html[data-theme="notebook"], html[data-theme="solarized"] {
+  --def: #3F7FD0; --def-bg: #EAF2FC; --axm: #7454C2; --axm-bg: #F2EDFC; --thm: #D2423F; --thm-bg: #FDECEB;
+  --lem: #C96A12; --lem-bg: #FFF1E2; --cor: #2F9459; --cor-bg: #E8F6EC;
+}
+
+/* ===== 深色：夜間深色、Nord、Dracula、Gruvbox ===== */
+html[data-theme="dark"] {
+  --desk: #070A12; --paper: #0D1322; --rule: #1A2336; --margin: #6E3A40; --ink: #E8EDF5; --muted: #98A5BA;
+  --teal: #4FD1C5; --red: #F56F6C; --hl: rgba(255, 112, 166, .30); --sticky: #E6C84F; --sticky-ink: #2B2B33;
+  --box: #151E33; --box-line: #3A5278; --tip: #2E2B1A; --tip-line: #8A7A2E; --ring: #6F7684; --ring-hole: #05070C;
+  --wave: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='8' viewBox='0 0 40 8'%3E%3Cpath d='M0 4Q10 0 20 4T40 4' fill='none' stroke='%234FD1C5' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+html[data-theme="nord"] {
+  --desk: #232831; --paper: #2E3440; --rule: #373E4C; --margin: #7D4A50; --ink: #ECEFF4; --muted: #B4C0D4;
+  --teal: #9CC7C6; --red: #F9A3A9; --hl: rgba(180, 142, 173, .34); --sticky: #EBCB8B; --sticky-ink: #2E3440;
+  --box: #3B4252; --box-line: #5E6B82; --tip: #3F3F36; --tip-line: #8C7F4E; --ring: #7B869A; --ring-hole: #1B1F27;
+  --wave: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='8' viewBox='0 0 40 8'%3E%3Cpath d='M0 4Q10 0 20 4T40 4' fill='none' stroke='%239CC7C6' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+html[data-theme="dracula"] {
+  --desk: #1B1C25; --paper: #282A36; --rule: #323546; --margin: #7A3B5A; --ink: #F8F8F2; --muted: #AAB1D6;
+  --teal: #8BE9FD; --red: #FF7D7D; --hl: rgba(255, 121, 198, .30); --sticky: #F1FA8C; --sticky-ink: #282A36;
+  --box: #313445; --box-line: #5A6090; --tip: #3A3A2C; --tip-line: #8E8A44; --ring: #7480A8; --ring-hole: #14151C;
+  --wave: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='8' viewBox='0 0 40 8'%3E%3Cpath d='M0 4Q10 0 20 4T40 4' fill='none' stroke='%238BE9FD' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+html[data-theme="gruvbox"] {
+  --desk: #1D2021; --paper: #282828; --rule: #34322F; --margin: #7A3B30; --ink: #EBDBB2; --muted: #B3A48F;
+  --teal: #8EC07C; --red: #FF7864; --hl: rgba(211, 134, 155, .30); --sticky: #FABD2F; --sticky-ink: #282828;
+  --box: #32302F; --box-line: #6B6256; --tip: #38341F; --tip-line: #8C7A2A; --ring: #7C6F64; --ring-hole: #141414;
+  --wave: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='8' viewBox='0 0 40 8'%3E%3Cpath d='M0 4Q10 0 20 4T40 4' fill='none' stroke='%238EC07C' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+html[data-theme="dark"], html[data-theme="nord"], html[data-theme="dracula"], html[data-theme="gruvbox"] {
+  --def: #7FB0EE; --def-bg: #1D2A3D; --axm: #B39DF0; --axm-bg: #2A2440; --thm: #F08784; --thm-bg: #3D2020;
+  --lem: #F0A45A; --lem-bg: #3A2A17; --cor: #6FCF97; --cor-bg: #1B3024;
+  color-scheme: dark;
+}
+
+/* ===== 右上角主題選單（theme.js 產生）===== */
+.theme-bar { display: flex; justify-content: flex-end; padding: 10px 14px 0; position: relative; z-index: 30; }
+.tp { position: relative; display: inline-block; }
+.tp-btn {
+  display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px 6px 10px;
+  background: var(--sticky); color: var(--sticky-ink); border: 0; border-radius: 3px;
+  font: inherit; font-size: .84rem; font-weight: 700; cursor: pointer; transform: rotate(1.6deg);
+  box-shadow: 0 2px 3px rgba(0, 0, 0, .18), 0 8px 14px rgba(0, 0, 0, .14); transition: transform .15s;
+}
+.tp-btn:hover { transform: rotate(0) translateY(-1px); }
+.tp-btn:focus-visible, .tp-item:focus-visible { outline: 2.5px solid var(--teal); outline-offset: 2px; }
+.tp-dots { display: inline-flex; }
+.tp-dots i { width: 12px; height: 12px; border-radius: 50%; border: 1.5px solid var(--sticky-ink); margin-left: -4px; display: block; }
+.tp-dots i:first-child { margin-left: 0; }
+.tp-menu {
+  position: absolute; right: 0; top: calc(100% + 8px); z-index: 60; width: 250px; padding: 10px;
+  background: var(--paper); color: var(--ink); border: 2px solid var(--ink); border-radius: 12px 16px 10px 14px / 14px 10px 16px 12px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, .3);
+}
+.tp-menu[hidden] { display: none; }
+.tp-title { margin: 0 4px 6px; font-weight: 700; color: var(--teal); font-size: .95rem; }
+.tp-item {
+  display: flex; align-items: center; gap: 10px; width: 100%; padding: 7px 8px; margin: 0 0 2px;
+  background: transparent; color: var(--ink); border: 1.5px solid transparent; border-radius: 9px; font: inherit; text-align: left; cursor: pointer;
+}
+.tp-item:hover { background: var(--box); }
+.tp-item[aria-selected="true"] { border-color: var(--ink); background: linear-gradient(transparent 15%, var(--hl) 15%); }
+.tp-sw { display: inline-flex; flex: none; border: 1.5px solid var(--ink); border-radius: 6px; overflow: hidden; }
+.tp-sw i { width: 16px; height: 22px; display: block; }
+.tp-lb { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
+.tp-lb strong { font-size: .88rem; }
+.tp-lb small { font-size: .72rem; color: var(--muted); }
+.tp-ck { width: 1em; text-align: center; font-weight: 800; color: var(--teal); }
+@media (max-width: 480px) { .tp-name { display: none; } .tp-btn { padding: 7px 10px; } }

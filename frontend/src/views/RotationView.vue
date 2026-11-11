@@ -1488,8 +1488,8 @@ function offsetISO(days) {
 }
 
 .input {
-  border: 1px solid rgba(148, 163, 184, 0.2);
-  background: rgba(11, 17, 33, 0.55);
+  border: 1px solid color-mix(in srgb, var(--muted) 20%, transparent);
+  background: color-mix(in srgb, var(--well) 55%, transparent);
   border-radius: 10px;
   min-height: 40px;
   padding: 0 12px;
@@ -1510,15 +1510,15 @@ function offsetISO(days) {
   min-height: 38px;
   padding: 0 14px;
   border-radius: 10px;
-  border: 1px solid rgba(148, 163, 184, 0.3);
-  background: rgba(148, 163, 184, 0.1);
+  border: 1px solid color-mix(in srgb, var(--muted) 30%, transparent);
+  background: color-mix(in srgb, var(--muted) 10%, transparent);
   color: var(--text-primary);
   cursor: pointer;
 }
 
 .btn-primary {
-  border-color: rgba(59, 130, 246, 0.45);
-  background: rgba(59, 130, 246, 0.2);
+  border-color: color-mix(in srgb, var(--blue) 45%, transparent);
+  background: color-mix(in srgb, var(--blue) 20%, transparent);
 }
 
 .slider-row {
@@ -1542,9 +1542,9 @@ function offsetISO(days) {
 }
 
 .speed-select select {
-  background: rgba(11, 17, 33, 0.55);
+  background: color-mix(in srgb, var(--well) 55%, transparent);
   color: var(--text-primary);
-  border: 1px solid rgba(148, 163, 184, 0.25);
+  border: 1px solid color-mix(in srgb, var(--muted) 25%, transparent);
   border-radius: 8px;
   min-height: 34px;
   padding: 0 10px;
@@ -1561,10 +1561,10 @@ function offsetISO(days) {
 }
 
 .rank-chip {
-  border: 1px solid rgba(148, 163, 184, 0.2);
+  border: 1px solid color-mix(in srgb, var(--muted) 20%, transparent);
   border-radius: 10px;
   padding: 8px 10px;
-  background: rgba(15, 23, 42, 0.55);
+  background: color-mix(in srgb, var(--well) 55%, transparent);
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -1573,16 +1573,16 @@ function offsetISO(days) {
 }
 
 .rank-chip.leading {
-  border-color: rgba(34, 197, 94, 0.5);
+  border-color: color-mix(in srgb, var(--down) 50%, transparent);
 }
 .rank-chip.weakening {
-  border-color: rgba(245, 158, 11, 0.5);
+  border-color: color-mix(in srgb, var(--warn) 50%, transparent);
 }
 .rank-chip.lagging {
-  border-color: rgba(239, 68, 68, 0.5);
+  border-color: color-mix(in srgb, var(--up) 50%, transparent);
 }
 .rank-chip.improving {
-  border-color: rgba(59, 130, 246, 0.5);
+  border-color: color-mix(in srgb, var(--blue) 50%, transparent);
 }
 
 /* 設計稿：RRG 與領先落後圖並排各半，明細卡移到下方整列 */
@@ -1607,7 +1607,7 @@ function offsetISO(days) {
   align-items: center;
   justify-content: center;
   gap: 12px;
-  background: rgba(10, 15, 26, 0.62);
+  background: color-mix(in srgb, var(--well) 62%, transparent);
   color: var(--text-muted);
   font-size: 0.9rem;
   border-radius: 18px;
@@ -1635,9 +1635,9 @@ function offsetISO(days) {
 }
 
 .chart-card {
-  border: 1px solid rgba(148, 163, 184, 0.14);
+  border: 1px solid color-mix(in srgb, var(--muted) 14%, transparent);
   border-radius: 14px;
-  background: rgba(11, 17, 33, 0.52);
+  background: color-mix(in srgb, var(--well) 52%, transparent);
   padding: 10px;
 }
 
@@ -1668,8 +1668,8 @@ function offsetISO(days) {
   min-height: 30px;
   padding: 0 10px;
   border-radius: 8px;
-  border: 1px solid rgba(148, 163, 184, 0.3);
-  background: rgba(148, 163, 184, 0.1);
+  border: 1px solid color-mix(in srgb, var(--muted) 30%, transparent);
+  background: color-mix(in srgb, var(--muted) 10%, transparent);
   color: var(--text-primary);
   cursor: pointer;
   font-size: 0.78rem;
@@ -1677,7 +1677,7 @@ function offsetISO(days) {
 }
 
 .icon-btn:hover {
-  background: rgba(148, 163, 184, 0.2);
+  background: color-mix(in srgb, var(--muted) 20%, transparent);
 }
 
 .fullscreen-backdrop {
@@ -1807,22 +1807,22 @@ function offsetISO(days) {
 }
 
 .dot.leading {
-  background: #22c55e;
+  background: var(--down);
 }
 .dot.weakening {
-  background: #f59e0b;
+  background: var(--warn);
 }
 .dot.lagging {
-  background: #ef4444;
+  background: var(--up);
 }
 .dot.improving {
-  background: #3b82f6;
+  background: var(--blue);
 }
 
 .sector-picker {
   margin-top: 12px;
   padding-top: 12px;
-  border-top: 1px solid rgba(148, 163, 184, 0.14);
+  border-top: 1px solid color-mix(in srgb, var(--muted) 14%, transparent);
 }
 
 .sector-picker-head {
@@ -1843,7 +1843,7 @@ function offsetISO(days) {
 .link-btn {
   background: none;
   border: none;
-  color: #60a5fa;
+  color: var(--blue);
   cursor: pointer;
   font-size: 0.78rem;
   padding: 0;
@@ -1860,8 +1860,8 @@ function offsetISO(days) {
 }
 
 .sector-chip {
-  border: 1px solid rgba(148, 163, 184, 0.25);
-  background: rgba(148, 163, 184, 0.08);
+  border: 1px solid color-mix(in srgb, var(--muted) 25%, transparent);
+  background: color-mix(in srgb, var(--muted) 8%, transparent);
   color: var(--text-muted);
   border-radius: 999px;
   padding: 4px 10px;
@@ -1871,15 +1871,15 @@ function offsetISO(days) {
 }
 
 .sector-chip.active {
-  border-color: rgba(59, 130, 246, 0.5);
-  background: rgba(59, 130, 246, 0.18);
+  border-color: color-mix(in srgb, var(--blue) 50%, transparent);
+  background: color-mix(in srgb, var(--blue) 18%, transparent);
   color: var(--text-primary);
 }
 
 .rotation-side {
-  border: 1px solid rgba(148, 163, 184, 0.14);
+  border: 1px solid color-mix(in srgb, var(--muted) 14%, transparent);
   border-radius: 14px;
-  background: rgba(11, 17, 33, 0.52);
+  background: color-mix(in srgb, var(--well) 52%, transparent);
   padding: 16px;
 }
 
@@ -1890,8 +1890,8 @@ function offsetISO(days) {
 .detail-card {
   padding: 12px;
   border-radius: 10px;
-  border: 1px solid rgba(148, 163, 184, 0.14);
-  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid color-mix(in srgb, var(--muted) 14%, transparent);
+  background: color-mix(in srgb, var(--well) 60%, transparent);
 }
 
 .detail-card .symbol {
@@ -1906,10 +1906,10 @@ function offsetISO(days) {
 .rs-narrative {
   margin: 8px 0 0;
   padding-top: 8px;
-  border-top: 1px solid rgba(148, 163, 184, 0.14);
+  border-top: 1px solid color-mix(in srgb, var(--muted) 14%, transparent);
   font-size: 0.78rem;
   line-height: 1.5;
-  color: var(--text-secondary, #cbd5e1);
+  color: var(--text-secondary, var(--ink-2));
 }
 
 .kv {
@@ -1918,7 +1918,7 @@ function offsetISO(days) {
   align-items: baseline;
   gap: 10px;
   padding: 5px 0;
-  border-top: 1px solid rgba(148, 163, 184, 0.1);
+  border-top: 1px solid color-mix(in srgb, var(--muted) 10%, transparent);
   font-size: 0.88rem;
 }
 
@@ -1927,11 +1927,11 @@ function offsetISO(days) {
 }
 
 .pos {
-  color: #60a5fa;
+  color: var(--blue);
 }
 
 .neg {
-  color: #f87171;
+  color: var(--up);
 }
 
 .error-text {

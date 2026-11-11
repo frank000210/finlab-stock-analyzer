@@ -1,0 +1,111 @@
+/* kb-web 的色彩主題：基底色與主站 finlab 同一組（手帳米白＋夜間深色、Solarized、Nord、Dracula、Gruvbox）。
+   下面 :root 先定義預設主題的基底色，再把 kb-web 原本用的變數（--bg、--surface、--text …）從基底色推導；
+   其他主題只覆寫基底色（html[data-theme="…"]），所以全站會一起換。 */
+:root {
+  --desk: #E7E1D5;        /* 桌面（頁面外圍） */
+  --paper: #FFFDF7;       /* 紙張（內容區底色） */
+  --side: #F1ECE0;        /* 左側選單底色 */
+  --card: #FFFFFF;        /* 區塊（卡片）底色 */
+  --elev: #F8F4E9;        /* 卡片內小卡、下拉選單 */
+  --well: #FAF6ED;        /* 圖表凹槽 */
+  --ink: #2B2B33;         /* 墨線與主要文字 */
+  --ink-2: #4A4A56;       /* 次要文字 */
+  --muted: #666674;       /* 說明文字 */
+  --rule: #DDE7F1;        /* 橫線 */
+  --margin: #EFA3A3;      /* 紅色邊線 */
+  --heading: #12706C;     /* 標題（藍綠） */
+  --blue: #2A62C4;
+  --purple: #7454C2;
+  --cyan: #12706C;
+  --up: #C03936;          /* 漲=紅（台股慣例：漲紅跌綠）*/
+  --down: #1C6E3B;        /* 跌=綠 */
+  --warn: #985105;
+  --on-accent: #FFFFFF;   /* 主色按鈕上的字 */
+  --mark: rgba(255, 112, 166, 0.38);  /* 螢光筆 */
+  --sticky: #FFE679;      /* 便利貼 */
+  --sticky-ink: #2B2B33;
+  --ring: #8D9099;        /* 線圈 */
+  --ring-hole: #4C4741;
+  --shadow-rgb: 43, 43, 51;
+
+  /* kb-web 原本的變數名稱，從基底色推導 */
+  --bg: var(--desk);
+  --surface: var(--card);
+  --surface-2: var(--elev);
+  --border: color-mix(in srgb, var(--ink) 24%, transparent);
+  --text: var(--ink);
+  --text-dim: var(--ink-2);
+  --text-faint: var(--muted);
+  --accent: var(--blue);
+  --accent-hover: color-mix(in srgb, var(--blue) 84%, var(--ink));
+  --accent-dim: color-mix(in srgb, var(--blue) 15%, transparent);
+  --success: var(--down);
+  --success-dim: color-mix(in srgb, var(--down) 13%, transparent);
+  --error: var(--up);
+  --error-dim: color-mix(in srgb, var(--up) 13%, transparent);
+  --warn-dim: color-mix(in srgb, var(--warn) 14%, transparent);
+}
+
+/* 夜間深色：最接近原本的深色終端機外觀 */
+html[data-theme="dark"] {
+  --desk: #070a12; --paper: #0d1322; --side: #0a0f1c; --card: #151e33; --elev: #1d2842; --well: #0a0f1d;
+  --ink: #e8edf5; --ink-2: #c3cee0; --muted: #98a5ba;
+  --rule: #1a2336; --margin: #6e3a40; --heading: #4fd1c5;
+  --blue: #6aa5ff; --purple: #b39dfb; --cyan: #4fd1c5;
+  --up: #f56f6c; --down: #3ccf91; --warn: #f5b942;
+  --on-accent: #0b1121; --mark: rgba(255, 112, 166, 0.30);
+  --sticky: #e6c84f; --sticky-ink: #2b2b33; --ring: #6f7684; --ring-hole: #05070c;
+  --shadow-rgb: 0, 0, 0;
+  color-scheme: dark;
+}
+
+/* Solarized Light：低對比暖色，長時間閱讀較不刺眼 */
+html[data-theme="solarized"] {
+  --desk: #e4dcc3; --paper: #fdf6e3; --side: #f1ebd8; --card: #fffbee; --elev: #f6f0dc; --well: #f8f2e0;
+  --ink: #073642; --ink-2: #3f5a63; --muted: #4f656c;
+  --rule: #e6dfc8; --margin: #e8a29c; --heading: #146a64;
+  --blue: #1a629e; --purple: #5a5fb0; --cyan: #146a64;
+  --up: #c4302d; --down: #446a00; --warn: #7f5a00;
+  --on-accent: #fdf6e3; --mark: rgba(211, 54, 130, 0.26);
+  --sticky: #f2d96b; --sticky-ink: #073642; --ring: #93a1a1; --ring-hole: #586e75;
+  --shadow-rgb: 7, 54, 66;
+}
+
+/* Nord：冷靜的北歐藍灰 */
+html[data-theme="nord"] {
+  --desk: #232831; --paper: #2e3440; --side: #272c36; --card: #3b4252; --elev: #3f4759; --well: #2a303b;
+  --ink: #eceff4; --ink-2: #d8dee9; --muted: #b4c0d4;
+  --rule: #373e4c; --margin: #7d4a50; --heading: #9cc7c6;
+  --blue: #93c9d8; --purple: #d2b3cc; --cyan: #9cc7c6;
+  --up: #f9a3a9; --down: #b0ca9a; --warn: #ebcb8b;
+  --on-accent: #2e3440; --mark: rgba(180, 142, 173, 0.34);
+  --sticky: #ebcb8b; --sticky-ink: #2e3440; --ring: #7b869a; --ring-hole: #1b1f27;
+  --shadow-rgb: 0, 0, 0;
+  color-scheme: dark;
+}
+
+/* Dracula：高飽和紫粉配色 */
+html[data-theme="dracula"] {
+  --desk: #1b1c25; --paper: #282a36; --side: #21222c; --card: #313445; --elev: #373a4e; --well: #232530;
+  --ink: #f8f8f2; --ink-2: #dcdde6; --muted: #aab1d6;
+  --rule: #323546; --margin: #7a3b5a; --heading: #8be9fd;
+  --blue: #c8a6fb; --purple: #ff8acc; --cyan: #8be9fd;
+  --up: #ff7d7d; --down: #50fa7b; --warn: #ffb86c;
+  --on-accent: #282a36; --mark: rgba(255, 121, 198, 0.30);
+  --sticky: #f1fa8c; --sticky-ink: #282a36; --ring: #7480a8; --ring-hole: #14151c;
+  --shadow-rgb: 0, 0, 0;
+  color-scheme: dark;
+}
+
+/* Gruvbox：復古暖棕，對比柔和 */
+html[data-theme="gruvbox"] {
+  --desk: #1d2021; --paper: #282828; --side: #232323; --card: #32302f; --elev: #393634; --well: #212121;
+  --ink: #ebdbb2; --ink-2: #d5c4a1; --muted: #b3a48f;
+  --rule: #34322f; --margin: #7a3b30; --heading: #8ec07c;
+  --blue: #91b3a6; --purple: #de94a8; --cyan: #8ec07c;
+  --up: #ff7864; --down: #b8bb26; --warn: #fabd2f;
+  --on-accent: #282828; --mark: rgba(211, 134, 155, 0.30);
+  --sticky: #fabd2f; --sticky-ink: #282828; --ring: #7c6f64; --ring-hole: #141414;
+  --shadow-rgb: 0, 0, 0;
+  color-scheme: dark;
+}

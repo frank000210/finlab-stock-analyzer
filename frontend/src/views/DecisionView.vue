@@ -1718,8 +1718,8 @@ function toDateParam(value) {
 .feedback-card,
 .signal-card {
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0)),
-    rgba(26, 37, 64, 0.88);
+    linear-gradient(180deg, color-mix(in srgb, var(--ink) 2%, transparent), color-mix(in srgb, var(--ink) 0%, transparent)),
+    color-mix(in srgb, var(--card) 88%, transparent);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
   backdrop-filter: blur(18px);
@@ -1751,7 +1751,7 @@ function toDateParam(value) {
 
 .page-subtitle {
   max-width: 760px;
-  color: rgba(203, 213, 225, 0.82);
+  color: color-mix(in srgb, var(--ink-2) 82%, transparent);
 }
 
 .header-meta {
@@ -1766,8 +1766,8 @@ function toDateParam(value) {
   min-width: 220px;
   padding: 14px 16px;
   border-radius: 12px;
-  border: 1px solid rgba(148, 163, 184, 0.14);
-  background: rgba(11, 17, 33, 0.52);
+  border: 1px solid color-mix(in srgb, var(--muted) 14%, transparent);
+  background: color-mix(in srgb, var(--well) 52%, transparent);
 }
 
 .datetime-panel strong {
@@ -1837,7 +1837,7 @@ function toDateParam(value) {
   height: 3px;
   width: 100%;
   border-radius: 999px;
-  background: linear-gradient(90deg, rgba(59, 130, 246, 0.95), rgba(6, 182, 212, 0.8), rgba(16, 185, 129, 0.75));
+  background: linear-gradient(90deg, color-mix(in srgb, var(--blue) 95%, transparent), color-mix(in srgb, var(--cyan) 80%, transparent), color-mix(in srgb, var(--down) 75%, transparent));
   box-shadow: 0 0 24px rgba(59, 130, 246, 0.22);
 }
 
@@ -1847,8 +1847,8 @@ function toDateParam(value) {
 .plan-icon { font-size: 1.1rem; }
 .plan-title { margin: 0; font-size: 1rem; font-weight: 600; }
 .plan-status { font-size: 0.78rem; padding: 2px 8px; border-radius: 20px; font-weight: 600; }
-.plan-set { background: rgba(34,197,94,0.15); color: var(--up, #22c55e); }
-.plan-unset { background: rgba(239,68,68,0.12); color: var(--down, #ef4444); }
+.plan-set { background: color-mix(in srgb, var(--down) 15%, transparent); color: var(--up, var(--down)); }
+.plan-unset { background: color-mix(in srgb, var(--up) 12%, transparent); color: var(--down, var(--up)); }
 .plan-toggle { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.85rem; }
 .plan-body { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
 .plan-hint { font-size: 0.8rem; margin: 0; }
@@ -1898,8 +1898,8 @@ function toDateParam(value) {
 .count-badge {
   padding: 18px 20px;
   border-radius: 12px;
-  border: 1px solid rgba(148, 163, 184, 0.12);
-  background: rgba(11, 17, 33, 0.5);
+  border: 1px solid color-mix(in srgb, var(--muted) 12%, transparent);
+  background: color-mix(in srgb, var(--well) 50%, transparent);
 }
 
 .count-badge span,
@@ -1928,10 +1928,10 @@ function toDateParam(value) {
   letter-spacing: -0.05em;
 }
 
-.count-badge.buy strong { color: #34d399; }
-.count-badge.sell strong { color: #fb7185; }
+.count-badge.buy strong { color: var(--down); }
+.count-badge.sell strong { color: var(--up); }
 .count-badge.hold strong { color: var(--text-secondary); }
-.count-badge.neutral strong { color: #93c5fd; }
+.count-badge.neutral strong { color: var(--blue); }
 
 .sentiment-meter-card {
   display: flex;
@@ -1939,8 +1939,8 @@ function toDateParam(value) {
   justify-content: center;
   padding: 20px;
   border-radius: 12px;
-  border: 1px solid rgba(148, 163, 184, 0.12);
-  background: rgba(11, 17, 33, 0.5);
+  border: 1px solid color-mix(in srgb, var(--muted) 12%, transparent);
+  background: color-mix(in srgb, var(--well) 50%, transparent);
 }
 
 .sentiment-summary {
@@ -1965,14 +1965,14 @@ function toDateParam(value) {
   height: 14px;
   border-radius: 999px;
   overflow: hidden;
-  background: rgba(15, 23, 42, 0.92);
-  border: 1px solid rgba(148, 163, 184, 0.12);
+  background: color-mix(in srgb, var(--well) 92%, transparent);
+  border: 1px solid color-mix(in srgb, var(--muted) 12%, transparent);
 }
 
 .meter-gradient {
   position: absolute;
   inset: 0;
-  background: linear-gradient(90deg, rgba(239, 68, 68, 0.95), rgba(148, 163, 184, 0.85), rgba(16, 185, 129, 0.95));
+  background: linear-gradient(90deg, color-mix(in srgb, var(--up) 95%, transparent), color-mix(in srgb, var(--muted) 85%, transparent), color-mix(in srgb, var(--down) 95%, transparent));
 }
 
 .meter-marker {
@@ -1981,8 +1981,8 @@ function toDateParam(value) {
   width: 20px;
   height: 20px;
   border-radius: 999px;
-  border: 3px solid rgba(255, 255, 255, 0.9);
-  background: rgba(11, 17, 33, 0.95);
+  border: 3px solid color-mix(in srgb, var(--ink) 90%, transparent);
+  background: color-mix(in srgb, var(--well) 95%, transparent);
   transform: translate(-50%, -50%);
   box-shadow: 0 4px 18px rgba(15, 23, 42, 0.45);
 }
@@ -1998,8 +1998,8 @@ function toDateParam(value) {
 .watchlist-total {
   padding: 8px 12px;
   border-radius: 999px;
-  background: rgba(59, 130, 246, 0.12);
-  color: #bfdbfe;
+  background: color-mix(in srgb, var(--blue) 12%, transparent);
+  color: var(--blue);
   font-size: 0.82rem;
   font-weight: 700;
 }
@@ -2020,8 +2020,8 @@ function toDateParam(value) {
   height: 46px;
   padding: 0 16px;
   border-radius: 12px;
-  border: 1px solid rgba(148, 163, 184, 0.14);
-  background: rgba(11, 17, 33, 0.66);
+  border: 1px solid color-mix(in srgb, var(--muted) 14%, transparent);
+  background: color-mix(in srgb, var(--well) 66%, transparent);
   color: var(--text-primary);
   outline: none;
   transition: border-color var(--transition-base), box-shadow var(--transition-base), transform var(--transition-base);
@@ -2032,7 +2032,7 @@ function toDateParam(value) {
 }
 
 .watchlist-input:focus {
-  border-color: rgba(59, 130, 246, 0.72);
+  border-color: color-mix(in srgb, var(--blue) 72%, transparent);
   box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.14);
 }
 
@@ -2045,8 +2045,8 @@ function toDateParam(value) {
   list-style: none;
   padding: 8px;
   border-radius: 12px;
-  border: 1px solid rgba(148, 163, 184, 0.14);
-  background: rgba(15, 23, 42, 0.98);
+  border: 1px solid color-mix(in srgb, var(--muted) 14%, transparent);
+  background: color-mix(in srgb, var(--well) 98%, transparent);
   box-shadow: 0 18px 40px rgba(2, 6, 23, 0.4);
 }
 
@@ -2062,7 +2062,7 @@ function toDateParam(value) {
 
 .watchlist-dropdown li:hover,
 .watchlist-dropdown li:focus-visible {
-  background: rgba(59, 130, 246, 0.12);
+  background: color-mix(in srgb, var(--blue) 12%, transparent);
   transform: translateX(2px);
 }
 
@@ -2082,9 +2082,9 @@ function toDateParam(value) {
   align-items: center;
   gap: 8px;
   padding: 10px 14px;
-  border: 1px solid rgba(148, 163, 184, 0.14);
+  border: 1px solid color-mix(in srgb, var(--muted) 14%, transparent);
   border-radius: 999px;
-  background: rgba(59, 130, 246, 0.08);
+  background: color-mix(in srgb, var(--blue) 8%, transparent);
   color: var(--text-primary);
   cursor: pointer;
   transition: transform var(--transition-base), border-color var(--transition-base), box-shadow var(--transition-base), background var(--transition-base);
@@ -2092,13 +2092,13 @@ function toDateParam(value) {
 
 .watch-chip:hover {
   transform: translateY(-2px);
-  border-color: rgba(59, 130, 246, 0.4);
+  border-color: color-mix(in srgb, var(--blue) 40%, transparent);
   box-shadow: 0 10px 25px rgba(59, 130, 246, 0.15);
-  background: rgba(59, 130, 246, 0.14);
+  background: color-mix(in srgb, var(--blue) 14%, transparent);
 }
 
 .chip-close {
-  color: #93c5fd;
+  color: var(--blue);
   font-weight: 800;
 }
 
@@ -2116,7 +2116,7 @@ function toDateParam(value) {
 
 .filter-pill,
 .action-button {
-  border: 1px solid rgba(148, 163, 184, 0.14);
+  border: 1px solid color-mix(in srgb, var(--muted) 14%, transparent);
   transition: transform var(--transition-base), box-shadow var(--transition-base), border-color var(--transition-base), background var(--transition-base), color var(--transition-base);
 }
 
@@ -2126,7 +2126,7 @@ function toDateParam(value) {
   gap: 10px;
   padding: 12px 16px;
   border-radius: 999px;
-  background: rgba(11, 17, 33, 0.55);
+  background: color-mix(in srgb, var(--well) 55%, transparent);
   color: var(--text-secondary);
   cursor: pointer;
 }
@@ -2135,7 +2135,7 @@ function toDateParam(value) {
   min-width: 28px;
   padding: 4px 8px;
   border-radius: 999px;
-  background: rgba(148, 163, 184, 0.12);
+  background: color-mix(in srgb, var(--muted) 12%, transparent);
   color: var(--text-primary);
   font-size: 0.82rem;
 }
@@ -2148,9 +2148,9 @@ function toDateParam(value) {
 }
 
 .filter-pill.active {
-  border-color: rgba(59, 130, 246, 0.52);
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(37, 99, 235, 0.06));
-  color: #eff6ff;
+  border-color: color-mix(in srgb, var(--blue) 52%, transparent);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--blue) 20%, transparent), color-mix(in srgb, var(--blue) 6%, transparent));
+  color: var(--text-primary);
   box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.14), 0 0 22px rgba(59, 130, 246, 0.18);
 }
 
@@ -2168,20 +2168,20 @@ function toDateParam(value) {
 }
 
 .action-button.primary {
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.95), rgba(6, 182, 212, 0.88));
-  color: #fff;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--blue) 95%, transparent), color-mix(in srgb, var(--cyan) 88%, transparent));
+  color: var(--on-accent);
 }
 
 .action-button.ghost {
-  background: rgba(11, 17, 33, 0.58);
+  background: color-mix(in srgb, var(--well) 58%, transparent);
   color: var(--text-primary);
 }
 
 .button-spinner,
 .loading-spinner {
   border-radius: 999px;
-  border: 2px solid rgba(255, 255, 255, 0.16);
-  border-top-color: rgba(255, 255, 255, 0.96);
+  border: 2px solid color-mix(in srgb, var(--ink) 16%, transparent);
+  border-top-color: color-mix(in srgb, var(--ink) 96%, transparent);
   animation: spin 0.8s linear infinite;
 }
 
@@ -2209,12 +2209,12 @@ function toDateParam(value) {
   width: 34px;
   height: 34px;
   border-width: 3px;
-  border-color: rgba(59, 130, 246, 0.14);
-  border-top-color: rgba(59, 130, 246, 0.95);
+  border-color: color-mix(in srgb, var(--blue) 14%, transparent);
+  border-top-color: color-mix(in srgb, var(--blue) 95%, transparent);
 }
 
 .error-state {
-  border-color: rgba(239, 68, 68, 0.28);
+  border-color: color-mix(in srgb, var(--up) 28%, transparent);
 }
 
 .signals-grid {
@@ -2230,7 +2230,7 @@ function toDateParam(value) {
 }
 
 .signal-card:hover {
-  border-color: rgba(148, 163, 184, 0.22);
+  border-color: color-mix(in srgb, var(--muted) 22%, transparent);
 }
 
 .signal-card-glow {
@@ -2242,15 +2242,15 @@ function toDateParam(value) {
 }
 
 .signal-card-glow.buy {
-  background: linear-gradient(90deg, rgba(16, 185, 129, 0.15), rgba(16, 185, 129, 0.9));
+  background: linear-gradient(90deg, color-mix(in srgb, var(--down) 15%, transparent), color-mix(in srgb, var(--down) 90%, transparent));
 }
 
 .signal-card-glow.sell {
-  background: linear-gradient(90deg, rgba(239, 68, 68, 0.15), rgba(239, 68, 68, 0.9));
+  background: linear-gradient(90deg, color-mix(in srgb, var(--up) 15%, transparent), color-mix(in srgb, var(--up) 90%, transparent));
 }
 
 .signal-card-glow.hold {
-  background: linear-gradient(90deg, rgba(148, 163, 184, 0.15), rgba(148, 163, 184, 0.9));
+  background: linear-gradient(90deg, color-mix(in srgb, var(--muted) 15%, transparent), color-mix(in srgb, var(--muted) 90%, transparent));
 }
 
 .signal-title-group {
@@ -2269,7 +2269,7 @@ function toDateParam(value) {
 }
 
 .analysis-link {
-  color: #93c5fd;
+  color: var(--blue);
   font-size: 0.88rem;
   font-weight: 700;
   text-decoration: none;
@@ -2277,7 +2277,7 @@ function toDateParam(value) {
 }
 
 .analysis-link:hover {
-  color: #dbeafe;
+  color: var(--on-accent);
   transform: translateX(2px);
 }
 
@@ -2291,7 +2291,7 @@ function toDateParam(value) {
   min-width: 96px;
   padding: 12px 14px;
   border-radius: 14px;
-  color: white;
+  color: var(--on-accent);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16);
 }
 
@@ -2299,7 +2299,7 @@ function toDateParam(value) {
   font-size: 0.75rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.88);
+  color: color-mix(in srgb, var(--ink) 88%, transparent);
 }
 
 .signal-badge strong {
@@ -2309,15 +2309,15 @@ function toDateParam(value) {
 }
 
 .signal-badge.buy {
-  background: linear-gradient(135deg, #0ea76f, var(--color-up), #34d399);
+  background: linear-gradient(135deg, var(--down), var(--color-up), var(--down));
 }
 
 .signal-badge.sell {
-  background: linear-gradient(135deg, #dc2626, var(--color-down), #fb7185);
+  background: linear-gradient(135deg, var(--up), var(--color-down), var(--up));
 }
 
 .signal-badge.hold {
-  background: linear-gradient(135deg, #475569, #64748b, #94a3b8);
+  background: linear-gradient(135deg, var(--muted), var(--muted), var(--muted));
 }
 
 .price-block {
@@ -2340,8 +2340,8 @@ function toDateParam(value) {
   gap: 12px;
   padding: 12px 14px;
   border-radius: 12px;
-  background: rgba(11, 17, 33, 0.52);
-  border: 1px solid rgba(148, 163, 184, 0.12);
+  background: color-mix(in srgb, var(--well) 52%, transparent);
+  border: 1px solid color-mix(in srgb, var(--muted) 12%, transparent);
 }
 
 .price-change strong,
@@ -2378,26 +2378,26 @@ function toDateParam(value) {
   margin-top: var(--space-4);
   padding: 10px 14px;
   border-radius: 12px;
-  border: 1px solid rgba(148, 163, 184, 0.14);
-  background: rgba(11, 17, 33, 0.46);
+  border: 1px solid color-mix(in srgb, var(--muted) 14%, transparent);
+  background: color-mix(in srgb, var(--well) 46%, transparent);
 }
 .mc-item { display: flex; flex-direction: column; gap: 2px; }
 .mc-key { font-size: 0.68rem; color: var(--text-muted, #8a99ad); letter-spacing: 0.02em; }
 .mc-num { font-size: 0.98rem; font-weight: 700; font-variant-numeric: tabular-nums; }
-.mc-num.up, .mc-num.is-up { color: var(--accent-green, #22c55e); }
-.mc-num.down, .mc-num.is-down { color: var(--accent-red, #ef4444); }
+.mc-num.up, .mc-num.is-up { color: var(--accent-green, var(--down)); }
+.mc-num.down, .mc-num.is-down { color: var(--accent-red, var(--up)); }
 .mc-verdict {
   margin-left: auto;
   font-size: 0.74rem;
   font-weight: 700;
   padding: 4px 11px;
   border-radius: 999px;
-  background: rgba(59, 130, 246, 0.12);
-  color: var(--accent-blue, #3b82f6);
-  border: 1px solid rgba(59, 130, 246, 0.28);
+  background: color-mix(in srgb, var(--blue) 12%, transparent);
+  color: var(--accent-blue, var(--blue));
+  border: 1px solid color-mix(in srgb, var(--blue) 28%, transparent);
 }
-.mc-verdict.up { background: var(--up-soft); color: var(--accent-green, #22c55e); border-color: rgba(34,197,94,0.3); }
-.mc-verdict.down { background: var(--down-soft); color: var(--accent-red, #ef4444); border-color: rgba(239,68,68,0.3); }
+.mc-verdict.up { background: var(--up-soft); color: var(--accent-green, var(--down)); border-color: color-mix(in srgb, var(--down) 30%, transparent); }
+.mc-verdict.down { background: var(--down-soft); color: var(--accent-red, var(--up)); border-color: color-mix(in srgb, var(--up) 30%, transparent); }
 
 .chiphealth-strip {
   display: flex;
@@ -2406,54 +2406,54 @@ function toDateParam(value) {
   margin-top: 8px;
   padding: 8px 14px;
   border-radius: 12px;
-  border: 1px solid rgba(148, 163, 184, 0.14);
-  background: rgba(11, 17, 33, 0.46);
+  border: 1px solid color-mix(in srgb, var(--muted) 14%, transparent);
+  background: color-mix(in srgb, var(--well) 46%, transparent);
 }
 .ch-label { font-size: 0.72rem; color: var(--text-muted, #8a99ad); letter-spacing: 0.02em; }
 .ch-score {
   font-size: 1.02rem;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
-  color: var(--accent-blue, #3b82f6);
+  color: var(--accent-blue, var(--blue));
 }
 .ch-track {
   flex: 1;
   height: 6px;
   border-radius: 999px;
-  background: rgba(148, 163, 184, 0.16);
+  background: color-mix(in srgb, var(--muted) 16%, transparent);
   overflow: hidden;
 }
 .ch-track > i {
   display: block;
   height: 100%;
   border-radius: 999px;
-  background: var(--accent-blue, #3b82f6);
+  background: var(--accent-blue, var(--blue));
 }
 .ch-tag {
   font-size: 0.72rem;
   font-weight: 700;
   padding: 3px 10px;
   border-radius: 999px;
-  background: rgba(59, 130, 246, 0.12);
-  color: var(--accent-blue, #3b82f6);
-  border: 1px solid rgba(59, 130, 246, 0.28);
+  background: color-mix(in srgb, var(--blue) 12%, transparent);
+  color: var(--accent-blue, var(--blue));
+  border: 1px solid color-mix(in srgb, var(--blue) 28%, transparent);
 }
 .chiphealth-strip.tone-up .ch-score,
-.chiphealth-strip.tone-up .ch-tag { color: var(--accent-green, #22c55e); }
-.chiphealth-strip.tone-up .ch-track > i { background: var(--accent-green, #22c55e); }
-.chiphealth-strip.tone-up .ch-tag { background: var(--up-soft); border-color: rgba(34,197,94,0.3); }
+.chiphealth-strip.tone-up .ch-tag { color: var(--accent-green, var(--down)); }
+.chiphealth-strip.tone-up .ch-track > i { background: var(--accent-green, var(--down)); }
+.chiphealth-strip.tone-up .ch-tag { background: var(--up-soft); border-color: color-mix(in srgb, var(--down) 30%, transparent); }
 .chiphealth-strip.tone-down .ch-score,
-.chiphealth-strip.tone-down .ch-tag { color: var(--accent-red, #ef4444); }
-.chiphealth-strip.tone-down .ch-track > i { background: var(--accent-red, #ef4444); }
-.chiphealth-strip.tone-down .ch-tag { background: var(--down-soft); border-color: rgba(239,68,68,0.3); }
+.chiphealth-strip.tone-down .ch-tag { color: var(--accent-red, var(--up)); }
+.chiphealth-strip.tone-down .ch-track > i { background: var(--accent-red, var(--up)); }
+.chiphealth-strip.tone-down .ch-tag { background: var(--down-soft); border-color: color-mix(in srgb, var(--up) 30%, transparent); }
 
 .sparkline-panel,
 .conditions-panel {
   margin-top: var(--space-5);
   padding: 16px;
   border-radius: 12px;
-  border: 1px solid rgba(148, 163, 184, 0.1);
-  background: rgba(11, 17, 33, 0.46);
+  border: 1px solid color-mix(in srgb, var(--muted) 10%, transparent);
+  background: color-mix(in srgb, var(--well) 46%, transparent);
 }
 
 .sparkline-head,
@@ -2503,7 +2503,7 @@ function toDateParam(value) {
   height: 10px;
   margin-top: 6px;
   border-radius: 999px;
-  background: rgba(148, 163, 184, 0.42);
+  background: color-mix(in srgb, var(--muted) 42%, transparent);
   box-shadow: 0 0 0 6px rgba(148, 163, 184, 0.08);
 }
 
@@ -2515,7 +2515,7 @@ function toDateParam(value) {
 .signal-footer {
   margin-top: var(--space-5);
   padding-top: 16px;
-  border-top: 1px solid rgba(148, 163, 184, 0.12);
+  border-top: 1px solid color-mix(in srgb, var(--muted) 12%, transparent);
   align-items: center;
   font-size: 0.84rem;
 }
@@ -2677,10 +2677,10 @@ function toDateParam(value) {
 .xx-tagconc-bars { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
 .xx-tagconc-row { display: flex; align-items: center; gap: 8px; }
 .xx-tag-label { min-width: 80px; font-size: 0.82rem; }
-.xx-tag-bar-bg { flex: 1; height: 10px; background: var(--color-border, rgba(255,255,255,0.08)); border-radius: 4px; overflow: hidden; }
+.xx-tag-bar-bg { flex: 1; height: 10px; background: var(--color-border, color-mix(in srgb, var(--ink) 8%, transparent)); border-radius: 4px; overflow: hidden; }
 .xx-tag-bar-fill { height: 100%; border-radius: 4px; transition: width 0.3s; }
-.ok-fill { background: var(--color-accent, #60a5fa); }
-.warn-fill { background: #f59e0b; }
+.ok-fill { background: var(--color-accent, var(--blue)); }
+.warn-fill { background: var(--warn); }
 
 /* YY6 stop dist */
 .sc-row { display: flex; gap: 0.75rem; flex-wrap: wrap; margin: 0.5rem 0; }
@@ -2693,9 +2693,9 @@ function toDateParam(value) {
 .yy-rrach-col { display: flex; flex-direction: column; align-items: center; flex: 1; height: 100%; gap: 2px; }
 .yy-rrach-bar-bg { flex: 1; width: 100%; background: var(--color-surface); border-radius: 3px; display: flex; align-items: flex-end; }
 .yy-rrach-bar-fill { width: 100%; border-radius: 3px; }
-.yy-bar-good { background: var(--color-up, #22c55e); opacity: 0.85; }
-.yy-bar-mid { background: var(--warn, #f59e0b); opacity: 0.85; }
-.yy-bar-bad { background: var(--color-down, #ef4444); opacity: 0.85; }
+.yy-bar-good { background: var(--color-up, var(--down)); opacity: 0.85; }
+.yy-bar-mid { background: var(--warn, var(--warn)); opacity: 0.85; }
+.yy-bar-bad { background: var(--color-down, var(--up)); opacity: 0.85; }
 /* ZZ3 ZZ9 */
 .zz-breakeven-card, .zz-setup-tier { margin-bottom: 1rem; }
 /* AAA2 AAA3 AAA6 */

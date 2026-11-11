@@ -150,8 +150,8 @@ onMounted(loadFeedback)
 .field { display: flex; flex-direction: column; gap: 4px; font-size: 0.8rem; color: var(--text-secondary); }
 .inp { padding: 8px 10px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-primary); width: 100%; }
 .form-actions { display: flex; align-items: center; gap: 10px; }
-.error-text { color: #ef4444; font-size: 0.84rem; }
-.success-text { color: #10b981; font-size: 0.84rem; }
+.error-text { color: var(--up); font-size: 0.84rem; }
+.success-text { color: var(--down); font-size: 0.84rem; }
 .muted { color: var(--text-muted); }
 .small { font-size: 0.78rem; }
 
@@ -163,12 +163,12 @@ onMounted(loadFeedback)
 .feedback-item { border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 10px 12px; background: var(--bg-secondary); }
 .item-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
 .item-content { margin: 0; white-space: pre-wrap; word-break: break-word; }
-.item-response { margin-top: 8px; padding: 8px 10px; border-radius: 8px; background: var(--bg-well, rgba(16,185,129,0.08)); border: 1px solid rgba(16,185,129,0.3); font-size: 0.88rem; }
+.item-response { margin-top: 8px; padding: 8px 10px; border-radius: 8px; background: var(--bg-well, color-mix(in srgb, var(--down) 8%, transparent)); border: 1px solid color-mix(in srgb, var(--down) 30%, transparent); font-size: 0.88rem; }
 .time { margin-left: auto; }
 
-.badge { padding: 2px 8px; border-radius: 999px; font-size: 0.76rem; background: var(--bg-well, rgba(148,163,184,0.15)); }
+.badge { padding: 2px 8px; border-radius: 999px; font-size: 0.76rem; background: var(--bg-well, color-mix(in srgb, var(--muted) 15%, transparent)); }
 .status-pill { padding: 2px 8px; border-radius: 999px; font-size: 0.76rem; }
-.status-open { background: rgba(234,179,8,0.15); color: #eab308; }
-.status-in_progress { background: rgba(59,130,246,0.15); color: #3b82f6; }
-.status-resolved { background: rgba(16,185,129,0.15); color: #10b981; }
+.status-open { background: color-mix(in srgb, var(--warn) 15%, transparent); color: var(--warn); }
+.status-in_progress { background: color-mix(in srgb, var(--blue) 15%, transparent); color: var(--blue); }
+.status-resolved { background: color-mix(in srgb, var(--down) 15%, transparent); color: var(--down); }
 </style>

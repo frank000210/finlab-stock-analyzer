@@ -148,18 +148,18 @@ onMounted(checkAiConfigured)
 .field { display: flex; flex-direction: column; gap: 4px; font-size: 0.8rem; color: var(--text-secondary); }
 .inp { padding: 8px 10px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-primary); resize: vertical; }
 .form-actions { display: flex; align-items: center; gap: 12px; }
-.error-text { color: #ef4444; font-size: 0.84rem; }
+.error-text { color: var(--up); font-size: 0.84rem; }
 .muted { color: var(--text-muted); }
 .small { font-size: 0.78rem; }
 
 .result-card { display: flex; flex-direction: column; gap: 10px; }
 .criteria-echo { font-size: 0.86rem; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .tag-list { display: contents; }
-.kw-tag { font-style: normal; font-size: 0.74rem; padding: 2px 8px; border-radius: 999px; background: rgba(59,130,246,0.12); color: var(--accent-blue); }
+.kw-tag { font-style: normal; font-size: 0.74rem; padding: 2px 8px; border-radius: 999px; background: color-mix(in srgb, var(--blue) 12%, transparent); color: var(--accent-blue); }
 .disclaimer { font-size: 0.72rem; color: var(--text-muted); margin: 0; }
 .empty-state { color: var(--text-secondary); padding: 12px 0; }
 .clickable { cursor: pointer; }
-.clickable:hover { background: var(--bg-well, rgba(148,163,184,0.06)); }
-.up { color: var(--color-up, #10b981); }
-.down { color: var(--color-down, #ef4444); }
+.clickable:hover { background: var(--bg-well, color-mix(in srgb, var(--muted) 6%, transparent)); }
+.up { color: var(--color-up, var(--down)); }
+.down { color: var(--color-down, var(--up)); }
 </style>

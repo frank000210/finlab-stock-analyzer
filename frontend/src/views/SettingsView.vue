@@ -68,7 +68,7 @@
 
     <div class="card theme-card" style="margin-top: 16px;">
       <h3>🎨 外觀主題</h3>
-      <p class="theme-hint">調整頁面、區塊與卡片的底色與邊界，變更會即時套用並自動記住（存在本機瀏覽器）。</p>
+      <p class="theme-hint">整體配色請用頁面右上角的「色彩主題」選單。這裡可以再微調頁面、區塊與卡片的底色與邊界，變更會即時套用並自動記住（存在本機瀏覽器）；之後換色彩主題時，微調會被清掉。</p>
 
       <!-- 常見組合：套用 / 刪除自訂組合 -->
       <div class="preset-section">
@@ -271,7 +271,7 @@ async function save() {
 .preset-add { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
 .preset-add .form-input { flex: 1; min-width: 180px; }
 .btn { padding: 8px 14px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-elevated); color: var(--text-primary); cursor: pointer; font-size: 0.85rem; }
-.btn-primary { background: var(--accent-blue); border-color: var(--accent-blue); color: #fff; }
+.btn-primary { background: var(--accent-blue); border-color: var(--accent-blue); color: var(--on-accent); }
 .btn-ghost { background: transparent; }
 
 .theme-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 20px; }

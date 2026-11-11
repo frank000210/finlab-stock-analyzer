@@ -1014,7 +1014,7 @@ function renderEquityCurve() {
   border: 1px solid var(--border-color);
 }
 .compare-strategy-item.disabled { opacity: 0.45; cursor: not-allowed; }
-.error-text { color: #ef4444; font-size: 0.84rem; margin-top: var(--space-2); }
+.error-text { color: var(--up); font-size: 0.84rem; margin-top: var(--space-2); }
 .custom-ai-box {
   display: flex; flex-direction: column; gap: 8px;
   margin-bottom: var(--space-3);
@@ -1023,8 +1023,8 @@ function renderEquityCurve() {
 }
 .custom-textarea { resize: vertical; min-height: 42px; font-family: inherit; }
 .custom-textarea.mono { font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 0.82rem; }
-.best-cell { background: rgba(34, 197, 94, 0.14); color: #22c55e; font-weight: 700; }
-.best-hint { display: inline-block; padding: 1px 6px; border-radius: 6px; background: rgba(34, 197, 94, 0.14); color: #22c55e; font-weight: 700; }
+.best-cell { background: color-mix(in srgb, var(--down) 14%, transparent); color: var(--down); font-weight: 700; }
+.best-hint { display: inline-block; padding: 1px 6px; border-radius: 6px; background: color-mix(in srgb, var(--down) 14%, transparent); color: var(--down); font-weight: 700; }
 .sweep-toggle {
   display: flex; align-items: center; gap: 8px;
   font-size: 0.8rem; color: var(--text-secondary);
@@ -1035,7 +1035,7 @@ function renderEquityCurve() {
 .sweep-input { min-width: 0; flex: 1; }
 .sweep-sep { font-size: 0.72rem; color: var(--text-muted); white-space: nowrap; }
 .sweep-meta { margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px solid var(--border-color); }
-.best-row { background: rgba(34, 197, 94, 0.1); }
+.best-row { background: color-mix(in srgb, var(--down) 10%, transparent); }
 .best-row td:first-child { font-weight: 700; }
 .empty-state { text-align: center; padding: var(--space-12); }
 .empty-state p { color: var(--text-secondary); margin-top: var(--space-2); }
@@ -1092,18 +1092,18 @@ function renderEquityCurve() {
 .cost-strip {
   margin-bottom: 16px;
   padding: 8px 14px;
-  border: 1px solid rgba(245, 158, 11, 0.4);
+  border: 1px solid color-mix(in srgb, var(--warn) 40%, transparent);
   border-radius: 10px;
-  background: rgba(245, 158, 11, 0.08);
+  background: color-mix(in srgb, var(--warn) 8%, transparent);
   color: var(--text-muted);
   font-size: 0.82rem;
   line-height: 1.6;
 }
-.cost-strip strong { color: #f59e0b; }
+.cost-strip strong { color: var(--warn); }
 
 .overfit-card { margin-bottom: 16px; }
 .overfit-card h4 { margin: 0 0 10px; }
-.of-warn { color: #f59e0b; font-size: 0.82rem; margin: 0 0 10px; }
+.of-warn { color: var(--warn); font-size: 0.82rem; margin: 0 0 10px; }
 .of-note { color: var(--text-muted); font-size: 0.84rem; }
 
 .mfe-card { margin-bottom: 16px; }
@@ -1113,7 +1113,7 @@ function renderEquityCurve() {
 .mfe-stat { border: 1px solid var(--border-color); border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; }
 .mfe-stat span { font-size: 0.74rem; color: var(--text-muted); }
 .mfe-stat strong { font-size: 1.1rem; }
-.mfe-insight { margin: 12px 0 0; font-size: 0.82rem; color: #f59e0b; background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.3); border-radius: 8px; padding: 8px 12px; }
+.mfe-insight { margin: 12px 0 0; font-size: 0.82rem; color: var(--warn); background: color-mix(in srgb, var(--warn) 8%, transparent); border: 1px solid color-mix(in srgb, var(--warn) 30%, transparent); border-radius: 8px; padding: 8px 12px; }
 .of-verdict {
   font-weight: 700;
   font-size: 0.9rem;
@@ -1121,9 +1121,9 @@ function renderEquityCurve() {
   border-radius: 8px;
   margin-bottom: 8px;
 }
-.of-verdict.of-low { background: rgba(34,197,94,0.14); color: #22c55e; }
-.of-verdict.of-medium { background: rgba(245,158,11,0.14); color: #f59e0b; }
-.of-verdict.of-high { background: rgba(239,68,68,0.14); color: #ef4444; }
+.of-verdict.of-low { background: color-mix(in srgb, var(--down) 14%, transparent); color: var(--down); }
+.of-verdict.of-medium { background: color-mix(in srgb, var(--warn) 14%, transparent); color: var(--warn); }
+.of-verdict.of-high { background: color-mix(in srgb, var(--up) 14%, transparent); color: var(--up); }
 .of-split { font-size: 0.78rem; color: var(--text-muted); margin-bottom: 12px; }
 .of-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .of-col { border: 1px solid var(--border-color); border-radius: 10px; padding: 10px 12px; }

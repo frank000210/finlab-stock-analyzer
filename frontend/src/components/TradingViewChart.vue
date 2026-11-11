@@ -72,8 +72,8 @@ onBeforeUnmount(() => { host.value?.querySelectorAll('.tv-widget').forEach(n => 
   height: 560px;
   border-radius: 12px;
   overflow: hidden;
-  background: #0d1117;
-  border: 1px solid rgba(148, 163, 184, 0.12);
+  background: var(--well);
+  border: 1px solid color-mix(in srgb, var(--muted) 12%, transparent);
 }
 .tv-host :deep(.tradingview-widget-container),
 .tv-host :deep(iframe) { width: 100%; height: 100%; }

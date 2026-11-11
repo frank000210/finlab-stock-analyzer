@@ -93,7 +93,7 @@ onMounted(loadBrief)
 .head-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
 .head-row h2 { margin: 0 0 4px; }
 .actions { display: flex; gap: 8px; }
-.ai-badge { margin-left: 8px; font-size: 0.72rem; padding: 2px 8px; border-radius: 999px; background: rgba(99,102,241,0.15); color: #a5b4fc; cursor: help; }
+.ai-badge { margin-left: 8px; font-size: 0.72rem; padding: 2px 8px; border-radius: 999px; background: color-mix(in srgb, var(--purple) 15%, transparent); color: var(--purple); cursor: help; }
 .brief-text {
   white-space: pre-wrap;
   word-break: break-word;

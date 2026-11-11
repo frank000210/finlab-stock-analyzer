@@ -7,7 +7,17 @@
   <link rel="icon" href="/favicon.ico" />
   <link rel="manifest" href="/manifest.webmanifest" />
   <link rel="apple-touch-icon" href="/icons/icon-192.png" />
-  <meta name="theme-color" content="#131b30" />
+  <meta name="theme-color" content="#EFE9DC" />
+  <script>
+    // 色彩主題在畫面出現前就先套用（邏輯同 src/lib/colorThemes.js）
+    (function () {
+      try {
+        var id = localStorage.getItem('finlab.colorTheme.v1');
+        if (id && /^(dark|solarized|nord|dracula|gruvbox)$/.test(id)) document.documentElement.setAttribute('data-theme', id);
+        document.documentElement.setAttribute('data-rough', localStorage.getItem('finlab.roughLines.v1') === 'off' ? 'off' : 'on');
+      } catch (e) {}
+    })();
+  </script>
 </head>
 <body>
   <div id="app"></div>

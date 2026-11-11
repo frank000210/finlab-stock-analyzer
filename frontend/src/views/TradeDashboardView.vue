@@ -522,8 +522,8 @@ function statusClass(status) {
   margin-top: 16px;
   border-radius: 12px;
   overflow: hidden;
-  background: #0d1117;
-  border: 1px solid rgba(148, 163, 184, 0.12);
+  background: var(--well);
+  border: 1px solid color-mix(in srgb, var(--muted) 12%, transparent);
 }
 
 .chart-wrapper {
@@ -567,8 +567,8 @@ function statusClass(status) {
 .signal-item {
   padding: 14px;
   border-radius: 12px;
-  border: 1px solid rgba(148, 163, 184, 0.16);
-  background: rgba(15, 23, 42, 0.45);
+  border: 1px solid color-mix(in srgb, var(--muted) 16%, transparent);
+  background: color-mix(in srgb, var(--well) 45%, transparent);
 }
 
 .signal-reason {
@@ -623,7 +623,7 @@ function statusClass(status) {
   height: 8px;
   border-radius: 999px;
   overflow: hidden;
-  background: rgba(148, 163, 184, 0.16);
+  background: color-mix(in srgb, var(--muted) 16%, transparent);
   margin-left: 12px;
 }
 
@@ -650,7 +650,7 @@ function statusClass(status) {
 }
 
 .error {
-  color: #fca5a5;
+  color: var(--up);
 }
 
 .sankey-host {

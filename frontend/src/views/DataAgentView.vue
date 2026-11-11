@@ -296,7 +296,7 @@ function formatTime(value) {
   padding: 10px 12px;
   border-radius: 10px;
   border: 1px solid var(--border-color);
-  background: #0d1117;
+  background: var(--well);
   color: var(--text-primary);
 }
 
@@ -345,7 +345,7 @@ function formatTime(value) {
   margin-top: 8px;
   border-radius: 999px;
   overflow: hidden;
-  background: rgba(148, 163, 184, 0.16);
+  background: color-mix(in srgb, var(--muted) 16%, transparent);
 }
 
 .progress-fill {
@@ -371,15 +371,15 @@ function formatTime(value) {
 
 .tab-button.active {
   background: var(--accent-blue);
-  color: white;
+  color: var(--on-accent);
   border-color: var(--accent-blue);
 }
 
 .crawl-item {
   padding: 14px;
   border-radius: 12px;
-  border: 1px solid rgba(148, 163, 184, 0.16);
-  background: rgba(15, 23, 42, 0.45);
+  border: 1px solid color-mix(in srgb, var(--muted) 16%, transparent);
+  background: color-mix(in srgb, var(--well) 45%, transparent);
 }
 
 .bullish {

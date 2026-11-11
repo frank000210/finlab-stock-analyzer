@@ -104,7 +104,7 @@ function barHeight(row, amount) {
 
 <style scoped>
 .div-health { display: flex; flex-direction: column; gap: 14px; }
-.hc { border: 1px solid var(--border-color); border-radius: 12px; padding: 14px 16px; background: var(--bg-well, rgba(148, 163, 184, 0.05)); }
+.hc { border: 1px solid var(--border-color); border-radius: 12px; padding: 14px 16px; background: var(--bg-well, color-mix(in srgb, var(--muted) 5%, transparent)); }
 .hc-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
 .hc-title { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
@@ -113,9 +113,9 @@ function barHeight(row, amount) {
 
 /* 紅／綠在這個站是漲跌色；總評用「圖示＋文字＋顏色」三重表達，不單靠顏色 */
 .verdict { font-weight: 700; font-size: 0.86rem; padding: 3px 12px; border-radius: 999px; border: 1px solid transparent; }
-.v-steady { color: var(--color-down); border-color: currentColor; background: rgba(16, 185, 129, 0.1); }
-.v-watch { color: var(--color-warning); border-color: currentColor; background: rgba(245, 158, 11, 0.1); }
-.v-weak { color: var(--color-up); border-color: currentColor; background: rgba(239, 68, 68, 0.1); }
+.v-steady { color: var(--color-down); border-color: currentColor; background: color-mix(in srgb, var(--down) 10%, transparent); }
+.v-watch { color: var(--color-warning); border-color: currentColor; background: color-mix(in srgb, var(--warn) 10%, transparent); }
+.v-weak { color: var(--color-up); border-color: currentColor; background: color-mix(in srgb, var(--up) 10%, transparent); }
 .v-unknown { color: var(--text-muted); border-color: var(--border-color); }
 .hc-reason { margin: 0; }
 

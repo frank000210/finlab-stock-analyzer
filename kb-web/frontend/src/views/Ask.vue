@@ -256,7 +256,7 @@ async function sendRating(rating) {
   font-size: 11px;
   font-weight: 700;
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   border-radius: 4px;
   padding: 2px 6px;
   flex-shrink: 0;

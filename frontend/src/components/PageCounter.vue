@@ -62,8 +62,8 @@ watch(
   align-items: center;
   gap: 4px;
   padding: 4px 10px;
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.1);
+  background: color-mix(in srgb, var(--ink) 6%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ink) 10%, transparent);
   border-radius: 20px;
   font-size: 12px;
   color: var(--text-secondary, #8899aa);
@@ -72,5 +72,5 @@ watch(
 }
 .page-counter.visible { opacity: 1; }
 .counter-icon { font-size: 11px; }
-.counter-value { font-weight: 600; color: var(--text-primary, #e2e8f0); }
+.counter-value { font-weight: 600; color: var(--text-primary, var(--ink)); }
 </style>

@@ -107,8 +107,8 @@ function askTutor(q, r) {
 .muted { color: var(--text-muted); font-size: 0.82rem; }
 .questions { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 16px; }
 .question { padding: 12px 14px; border-radius: 10px; background: var(--bg-well); border: 1px solid var(--border-color); }
-.question.is-right { border-color: rgba(16, 185, 129, 0.45); }
-.question.is-wrong { border-color: rgba(245, 158, 11, 0.55); }
+.question.is-right { border-color: color-mix(in srgb, var(--down) 45%, transparent); }
+.question.is-wrong { border-color: color-mix(in srgb, var(--warn) 55%, transparent); }
 .q-text { margin: 0 0 8px; font-weight: 600; color: var(--text-primary); }
 .options { display: flex; flex-direction: column; gap: 6px; }
 .option {
