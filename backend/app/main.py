@@ -33,6 +33,7 @@ from .api import (
     market_router,
     news_checker_router,
     notifications_router,
+    open_data_router,
     peers_router,
     public_data_router,
     risk_router,
@@ -171,6 +172,7 @@ app.include_router(settings_router)
 app.include_router(ai_agent_router)
 app.include_router(risk_router)
 app.include_router(stock_store_router)
+app.include_router(open_data_router)
 app.include_router(trade_router)
 app.include_router(signal_rules_router)
 app.include_router(news_checker_router)

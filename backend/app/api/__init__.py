@@ -5,6 +5,7 @@ from .notifications import router as notifications_router
 from .settings import router as settings_router
 from .ai_agent import router as ai_agent_router
 from .risk import router as risk_router
+from .open_data import router as open_data_router
 from .stock_store import router as stock_store_router
 from .trade import router as trade_router
 from .signal_rules import router as signal_rules_router
@@ -39,6 +40,7 @@ __all__ = [
     "settings_router",
     "ai_agent_router",
     "risk_router",
+    "open_data_router",
     "stock_store_router",
     "trade_router",
     "signal_rules_router",
