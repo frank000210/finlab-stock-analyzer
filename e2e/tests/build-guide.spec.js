@@ -35,24 +35,38 @@ test('不用登入即可看：標題、30 秒摘要、八個章節與各區塊�
   expect(pageErrors).toEqual([])
 })
 
-test('側邊欄「建站教學」在目錄最下方，點了會進到本頁', async ({ page }) => {
+// 入口已移到「入口網頁 → 教學」區（deploy/portal/index.html，另一個 Caddy 站台、不在這個 SPA 裡）：
+// 主站側邊欄與 Ctrl+K 不再放「建站教學」；頁面本身（/build-guide）仍在、仍不需登入。
+test('主站側邊欄與 Ctrl+K 不再有「建站教學」（入口移到入口網頁的教學區）', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 })
   await page.goto('/')
-  const items = page.locator('.app-sidebar .nav-item')
-  await expect(items.last()).toContainText('建站教學')
-  await items.last().scrollIntoViewIfNeeded()
-  await items.last().click()
-  await expect(page).toHaveURL(/\/build-guide$/)
-  await expect(page.getByTestId('guide-hero')).toBeVisible()
-})
+  await expect(page.locator('.app-sidebar .nav-item').first()).toBeVisible()
+  await expect(page.locator('.app-sidebar .nav-item', { hasText: '建站教學' })).toHaveCount(0)
 
-test('Ctrl+K 快速切換搜得到「建站教學」並可直接前往', async ({ page }) => {
-  await page.goto('/overview')
   await page.keyboard.press('Control+k')
   await page.locator('.qs-input').fill('建站')
-  await expect(page.locator('.qs-item', { hasText: '建站教學' })).toBeVisible()
-  await page.keyboard.press('Enter')
-  await expect(page).toHaveURL(/\/build-guide$/)
+  await expect(page.locator('.qs-item', { hasText: '建站教學' })).toHaveCount(0)
+})
+
+test('入口網頁的「教學」區有「建站教學」卡片，連到本頁', async () => {
+  const fs = require('fs')
+  const path = require('path')
+  const html = fs.readFileSync(path.join(__dirname, '..', '..', 'deploy', 'portal', 'index.html'), 'utf8')
+
+  // 切出「教學」那一區（<section> … </section>），卡片要在這一區裡，而不是別區
+  const sections = html.split('<section>').slice(1).map(s => s.split('</section>')[0])
+  const teaching = sections.find(s => /<h2>教學<\/h2>/.test(s))
+  expect(teaching, '入口頁找不到「教學」區').toBeTruthy()
+
+  // 樣板語法 {{env "BASE_HOST"}} 自己帶雙引號，不能用「[^"]*」去抓 href，改成先按卡片切開再比對字串
+  const cards = teaching.split('<a class="card"').slice(1)
+  const card = cards.find(c => c.includes('/build-guide"'))
+  expect(card, '「教學」區裡沒有指向 /build-guide 的卡片').toBeTruthy()
+  expect(card).toContain('建站教學')
+  // 網址依 BASE_HOST 產生（換網域不必改 HTML），且連的是主站（finlab.）上的 /build-guide
+  expect(card).toContain(' href="https://finlab.{{env "BASE_HOST"}}/build-guide"')
+  // 學習中心那張原本的卡片還在
+  expect(teaching).toContain('/learn"')
 })
 
 // 等捲動停下來（點目錄是平滑捲動，toBeInViewport 一碰到就算過，動畫其實還在跑）

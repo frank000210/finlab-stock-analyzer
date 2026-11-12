@@ -161,6 +161,15 @@ footer{ margin-top:36px; font-size:0.78rem; color:var(--ink-faint); text-align:c
 
 <script>
 const DATA = [
+{date:'2026-11-12 08:20', range:'獨立功能', title:'建站教學的入口從主站側邊欄移到「入口網頁 → 教學」區',
+ summary:'使用者要求把 /build-guide 移到入口網頁的「教學」。入口網頁（43-133-44-216.sslip.io）的「教學」區原本只有「學習中心」一張卡片，連到主站內的 /learn；所以照同樣的做法，在這一區新增「建站教學」卡片連到主站的 /build-guide，並把主站側邊欄與 Ctrl+K 裡的入口拿掉。',
+ items:[
+  {code:'—', tag:'good', text:'入口頁（deploy/portal/index.html）「教學」區新增「建站教學」卡片：連到 finlab.（BASE_HOST）/build-guide，狀態燈沿用學習中心那張的檢查網址（主站 /api/health），網址用 Caddy 樣板依 BASE_HOST 產生，換網域時不必改 HTML。入口頁以 ship.sh config 上線，不必重建主站映像。'},
+  {code:'—', tag:'good', text:'主站側邊欄「其他」群組最後一項「建站教學」與 Ctrl+K 的「建站教學」都移除（連帶移除沒用到的 Hammer 圖示匯入）。頁面本身仍在 /build-guide、仍不需登入，所以原本的書籤與分享出去的連結照常有效。'},
+  {code:'—', tag:'warn', text:'與字面的差異（已自行決定）：「移到入口網頁」我解讀成「入口（連結）移位置」，而不是把整頁改寫成入口站台上的靜態網頁——後者要重寫 15 分鐘長的互動頁（進度勾選、章節目錄、放大圖片），而且入口站台與主站的主題、字型機制不同。若原意是把頁面本身搬到入口站台（例如放進 /share/），請告知，再另外評估。'},
+  {code:'—', tag:'neutral', text:'驗證：建站教學頁的 e2e 仍是 13 項——原本「側邊欄在最下方、Ctrl+K 搜得到」兩項改成「主站側邊欄與 Ctrl+K 都沒有建站教學」，並新增「入口頁的教學區有建站教學卡片、指向 /build-guide」（直接讀 deploy/portal/index.html，限定在教學那一區；故意把網址改壞時確實會失敗）。入口頁用 Caddy 樣板語法，卡片網址本身帶雙引號，測試改成按卡片切開再比對字串，不用正規式抓 href。入口頁本機預覽：教學區兩張卡片、狀態燈全綠、無橫向溢出。'},
+ ]},
+
 {date:'2026-11-11 19:40', range:'獨立功能', title:'每日資料庫：白名單股票每天 15:00 自動增量存進 MongoDB',
  summary:'使用者看了一篇「Claude Code + FinMind 追蹤台股」的文章後，要求兩件事：（1）把股票相關資訊用增量方式記錄到 MongoDB；（2）每日下午 3 點自動抓取，抓取的股票可指定白名單。先讀碼：專案已有 asyncio 排程框架（15:00 re-ingest 關聯圖／類股輪動）、FinMind 客戶端與 Mongo，但現有做法每次整段重抓、只存價格與法人、白名單只能靠環境變數 AUTO_INGEST_SYMBOLS。所以新增獨立模組並接上同一個排程框架，原有的 re-ingest 完全沒動。',
  items:[

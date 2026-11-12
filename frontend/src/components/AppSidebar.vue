@@ -90,7 +90,7 @@ import {
   Gauge, ScanSearch, Search, Shield, Flame, AlertTriangle,
   Calculator, BookOpen, Dices, Bell, Rocket, Newspaper, Puzzle,
   Settings, Wrench, Brain, Lightbulb, Diamond, Menu,
-  ChevronLeft, ChevronRight, Key, GraduationCap, Layers, Hammer,
+  ChevronLeft, ChevronRight, Key, GraduationCap, Layers,
 } from 'lucide-vue-next'
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
@@ -217,7 +217,6 @@ const navGroups = [
       { key: 'admin', icon: Wrench, label: '後台', to: () => '/admin' },
       { key: 'kb-qa', icon: Brain, label: '知識庫問答', to: () => '/kb-qa' },
       { key: 'feedback', icon: Lightbulb, label: '意見回饋', to: () => '/feedback' },
-      { key: 'build-guide', icon: Hammer, label: '建站教學', to: () => '/build-guide' },
     ],
   },
 ]
