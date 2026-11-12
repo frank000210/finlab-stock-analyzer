@@ -706,3 +706,18 @@ def test_status_and_catch_up_after_a_run():
     status = run(od.get_status(db))
     assert set(status["stored_counts"]) == set(od.DATASETS) and status["stored_counts"]["tdcc"] == 2
     assert len(status["recent_runs"]) == 1 and status["sources"]["margin"]["twse_margin"]["ok"] is True
+
+
+# ───────────── 排程 ─────────────
+def test_scheduler_open_data_runs_on_weekends_unlike_weekday_jobs(monkeypatch):
+    from app import scheduler
+    from datetime import timezone
+
+    class FakeDT(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return datetime(2026, 11, 13, 22, 0, tzinfo=tz or timezone.utc)   # 週五 22:00（台灣）
+
+    monkeypatch.setattr(scheduler, "datetime", FakeDT)
+    assert scheduler._seconds_until_next_daily(21, 30) == pytest.approx(23.5 * 3600)           # 隔天（週六）21:30，照跑
+    assert scheduler._seconds_until_next(21, 30) == pytest.approx((2 * 24 + 23.5) * 3600)      # 平日排程跳到週一
