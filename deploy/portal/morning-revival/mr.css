@@ -135,6 +135,7 @@ ul.verses .ref:hover { text-decoration: underline; }
 .groups { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 14px 0 6px; }
 .groups.one { grid-template-columns: 1fr; }
 .zone { border: 2px dashed var(--muted); border-radius: 16px; padding: 18px 14px 10px; position: relative; }
+.content > .zone { margin: 18px 0 10px; }
 .zone > .zl { position: absolute; left: 14px; top: -13px; background: var(--paper); padding: 0 8px; font-weight: 700; font-size: 15px; line-height: 1.5; }
 .zone > .zl i { font-style: normal; display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--ink); margin-right: 6px; font-size: 13px; }
 .zone .mid { margin: 4px 0; font-weight: 600; }
