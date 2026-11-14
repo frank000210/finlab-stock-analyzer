@@ -1,0 +1,121 @@
+/* 晨興聖言（/morning-revival/）樣式。顏色全部取自 /theme/theme.css 的變數，所以 6 個色彩主題都適用。
+   版面：寬螢幕左欄選單（固定在畫面上）、右欄內容；窄螢幕選單收合到頂端。 */
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--desk); color: var(--ink);
+  font: 16.5px/1.8 "Noto Sans TC", "Microsoft JhengHei", "PingFang TC", system-ui, sans-serif;
+}
+a { color: var(--teal); }
+.muted { color: var(--muted); }
+.kai, h1, h2.week-title, .verse-text { font-family: "DFKai-SB", "BiauKai", "標楷體", "Kaiti TC", "Noto Serif TC", serif; }
+
+.layout { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 20px; max-width: 1320px; margin: 0 auto; padding: 16px; }
+
+/* ===== 左欄 ===== */
+.side {
+  position: sticky; top: 16px; align-self: start; max-height: calc(100vh - 32px); overflow: auto;
+  background: var(--paper); border: 1px solid var(--rule); border-radius: 12px; padding: 16px;
+}
+.crumbs { font-size: 13px; color: var(--muted); }
+.crumbs a { color: var(--muted); }
+.side h1 { margin: 2px 0 10px; font-size: 26px; color: var(--teal); }
+.menu-toggle { display: none; }
+.menu h2 { font-size: 13px; color: var(--muted); margin: 14px 0 4px; line-height: 1.5; font-weight: 600; }
+.menu h2:first-child { margin-top: 0; }
+.menu ul { list-style: none; margin: 0; padding: 0; }
+.menu a {
+  display: block; padding: 6px 10px; border-radius: 8px; text-decoration: none; color: var(--ink);
+  border-left: 3px solid transparent; line-height: 1.5;
+}
+.menu a .no { display: block; font-size: 12.5px; color: var(--muted); }
+.menu a:hover { background: var(--box); }
+.menu a[aria-current="page"] { background: var(--box); border-left-color: var(--teal); font-weight: 600; }
+.menu a:focus-visible { outline: 2px solid var(--teal); outline-offset: 1px; }
+.sources { margin-top: 18px; padding-top: 12px; border-top: 1px dashed var(--rule); font-size: 13.5px; }
+.sources h2 { font-size: 13px; color: var(--muted); margin: 0 0 6px; font-weight: 600; }
+.sources ul { list-style: none; margin: 0; padding: 0; }
+.sources li { margin: 0 0 8px; line-height: 1.45; }
+.sources li span { display: block; color: var(--muted); font-size: 12.5px; }
+
+/* ===== 右欄 ===== */
+.content {
+  background: var(--paper); border: 1px solid var(--rule); border-radius: 12px; padding: 24px 32px 40px; min-width: 0;
+}
+.content:focus { outline: none; }
+.week-head { border-bottom: 2px solid var(--teal); padding-bottom: 10px; margin-bottom: 14px; }
+.week-head .training { font-size: 13.5px; color: var(--muted); letter-spacing: 1px; }
+h2.week-title { margin: 2px 0 4px; font-size: 26px; line-height: 1.45; color: var(--teal); }
+.week-head .reading { color: var(--muted); font-size: 14.5px; }
+.jump { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 0; }
+.jump a { font-size: 14px; text-decoration: none; padding: 2px 12px; border: 1px solid var(--box-line); border-radius: 999px; background: var(--box); }
+
+h3.part {
+  margin: 28px 0 10px; font-size: 20px; padding: 6px 12px; border-radius: 8px;
+  background: var(--teal); color: var(--paper);
+}
+h4.point { margin: 22px 0 8px; font-size: 17.5px; line-height: 1.55; color: var(--teal); }
+h5.sub { margin: 16px 0 6px; font-size: 15.5px; line-height: 1.55; }
+.lede { margin: 6px 0 10px; }
+p { margin: 6px 0; }
+
+/* 中點卡片：經節在上，屬靈要點與負擔並排 */
+.item { border: 1px solid var(--rule); border-radius: 10px; padding: 12px 16px; margin: 12px 0; background: var(--paper); }
+.item > .item-title { font-weight: 700; color: var(--teal); margin: 0 0 6px; line-height: 1.55; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px; }
+.pair > div { border-radius: 8px; padding: 8px 12px; }
+.pair .label { display: block; font-size: 13px; font-weight: 700; letter-spacing: 1px; margin-bottom: 2px; }
+.truth { background: var(--box); border: 1px solid var(--box-line); }
+.truth .label { color: var(--teal); }
+.burden { background: var(--tip); border: 1px solid var(--tip-line); }
+.burden .label { color: var(--red); }
+.burden b.t { display: block; }
+ol.pts { list-style: none; margin: 0; padding: 0; }
+ol.pts > li { padding-left: 1.4em; text-indent: -1.4em; margin: 3px 0; }
+ul.subs { list-style: none; padding-left: .5em; margin: 3px 0; text-indent: 0; }
+ul.subs > li { padding-left: 1.1em; text-indent: -1.1em; margin: 2px 0; }
+ul.subs > li::before { content: "‧ "; color: var(--teal); font-weight: 700; }
+
+/* 經節：data-ref 由 mr.js 填入恢復本全文 */
+ul.verses { list-style: none; margin: 4px 0; padding: 8px 12px; background: var(--box); border: 1px solid var(--box-line); border-radius: 8px; }
+ul.verses > li { margin: 4px 0; padding-left: 1.1em; text-indent: -1.1em; }
+ul.verses > li::before { content: "◆ "; color: var(--teal); font-size: 11px; }
+ul.verses .ref { font-weight: 700; color: var(--teal); margin-right: 6px; text-decoration: none; }
+ul.verses .ref:hover { text-decoration: underline; }
+.verse-text { font-size: 16.5px; }
+.verse-text sup { font-family: "Noto Sans TC", sans-serif; font-size: 10.5px; color: var(--muted); margin: 0 1px; }
+.verse-text.loading, .verse-text.failed { color: var(--muted); font-family: inherit; font-size: 14px; }
+
+.note {
+  font-size: 14px; background: var(--tip); border: 1px dashed var(--tip-line); border-radius: 8px;
+  padding: 8px 12px; margin: 10px 0; color: var(--ink);
+}
+.note b { color: var(--red); }
+.practice { background: var(--box); border-left: 4px solid var(--teal); border-radius: 0 8px 8px 0; padding: 8px 14px; margin: 10px 0; }
+.practice .label { display: block; font-weight: 700; color: var(--teal); font-size: 14px; }
+.pray { font-family: "DFKai-SB", "BiauKai", "標楷體", serif; font-weight: 700; color: var(--teal); }
+.summary { border: 2px solid var(--teal); border-radius: 10px; padding: 10px 16px; margin: 20px 0; }
+.summary h4 { margin: 0 0 6px; color: var(--teal); }
+.stages { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 8px 0; }
+.stages div { background: var(--box); border: 1px solid var(--box-line); border-radius: 8px; padding: 6px 10px; font-size: 14px; line-height: 1.5; }
+.stages b { display: block; color: var(--teal); }
+.foot { margin-top: 30px; padding-top: 10px; border-top: 1px dashed var(--rule); font-size: 13px; color: var(--muted); }
+
+/* ===== 窄螢幕 ===== */
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; padding: 8px; gap: 10px; }
+  .side { position: static; max-height: none; padding: 12px 14px; }
+  .side-head { display: grid; grid-template-columns: 1fr auto; align-items: end; }
+  .side-head .crumbs { grid-column: 1 / -1; }
+  .side h1 { margin: 0; font-size: 22px; }
+  .menu-toggle {
+    display: inline-block; font: inherit; font-size: 14px; padding: 4px 14px; border-radius: 999px;
+    border: 1px solid var(--box-line); background: var(--box); color: var(--ink); cursor: pointer;
+  }
+  .menu, .sources { display: none; }
+  .side.open .menu, .side.open .sources { display: block; margin-top: 10px; }
+  .content { padding: 16px 16px 30px; }
+  .pair, .stages { grid-template-columns: 1fr; }
+  h2.week-title { font-size: 22px; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }

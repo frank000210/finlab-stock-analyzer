@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>晨興聖言</title>
+<meta name="description" content="晨興聖言每週鳥瞰與生活應用整理，經文即時取自網上聖經恢復本">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2312706C'/%3E%3Cpath d='M16 7v18M10 13h12' stroke='white' stroke-width='2.6' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="/theme/theme.css">
+<link rel="stylesheet" href="/morning-revival/mr.css">
+<script src="/theme/theme.js"></script>
+</head>
+<body>
+<!--
+  晨興聖言：左欄選單、右欄內容。
+  - 選單來自 weeks.json；每週內容是 weeks/ 底下的一個 HTML 片段，點選時才載入。
+  - 經文不存在這裡：片段裡只寫 data-ref（書卷:章:節），由 mr.js 即時向網上聖經恢復本取全文。
+  - 每週新增一課的做法見同資料夾 README.md。
+  注意：這個站台開了 Caddy templates，HTML（含 weeks/ 片段）裡不能出現連續兩個左大括號。
+-->
+<div class="layout">
+  <aside class="side" id="side">
+    <div class="side-head">
+      <nav class="crumbs"><a href="/">服務入口</a> › 晨興聖言</nav>
+      <h1>晨興聖言</h1>
+      <button class="menu-toggle" id="menuToggle" aria-expanded="false" aria-controls="menu">選單</button>
+    </div>
+    <nav class="menu" id="menu" aria-label="各週標題"><p class="muted">載入選單中…</p></nav>
+    <div class="sources">
+      <h2>參考來源</h2>
+      <ul>
+        <li><a href="https://churchintamsui.wixsite.com/index/morning-revival" target="_blank" rel="noopener">淡水召會・晨興聖言</a><span>每週更新當週內容</span></li>
+        <li><a href="https://www.youtube.com/@%E5%8A%89%E8%91%B5%E5%85%83" target="_blank" rel="noopener">劉葵元（YouTube）</a><span>每週上傳當週進度</span></li>
+        <li><a href="https://www.youtube.com/@%E5%8F%B0%E5%8C%97%E5%B8%82%E5%8F%AC%E6%9C%83%E5%9B%9B%E5%8D%81%E4%B8%80%E6%9C%83%E6%89%80" target="_blank" rel="noopener">台北市召會四十一會所（YouTube）</a><span>每週上傳當週進度</span></li>
+        <li><a href="https://www.recoveryversion.com.tw/" target="_blank" rel="noopener">網上聖經恢復本</a><span>本頁經文的來源</span></li>
+      </ul>
+    </div>
+  </aside>
+
+  <main class="content" id="content" tabindex="-1">
+    <p class="muted">載入中…</p>
+  </main>
+</div>
+<script src="/morning-revival/mr.js"></script>
+</body>
+</html>
