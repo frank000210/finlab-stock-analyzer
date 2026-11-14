@@ -31,6 +31,7 @@ from .feedback import router as feedback_router
 from .kb import router as kb_router
 from .course import router as course_router
 from .etf_compare import router as etf_compare_router
+from .events import router as events_router
 
 __all__ = [
     "stock_router",
@@ -66,4 +67,5 @@ __all__ = [
     "kb_router",
     "course_router",
     "etf_compare_router",
+    "events_router",
 ]

@@ -58,6 +58,7 @@ const PAGES = [
   { icon: '🤖', title: 'AI 交易信號', sub: '/ai-signals', to: '/ai-signals', alias: 'ai signals AI訊號' },
   { icon: '✅', title: '交易核准中心', sub: '/trade-approval', to: '/trade-approval', alias: 'trade approval 核准 紙上交易' },
   { icon: '📋', title: '盤後日報', sub: '/daily-brief', to: '/daily-brief', alias: 'daily brief 日報' },
+  { icon: '🗓️', title: '事件研究台', sub: '/events', to: '/events', alias: 'events 事件 日曆 行事曆 簡報 FOMC 財報 法說 論點 逐字稿 youtube' },
   { icon: '📊', title: '總覽', sub: '/overview', to: '/overview', alias: 'overview 總覽' },
   { icon: '🕸️', title: '關聯圖', sub: '/graph', to: '/graph', alias: 'graph 關聯' },
   { icon: '🔄', title: '類股輪動', sub: '/rotation', to: '/rotation', alias: 'rotation 輪動 rrg' },

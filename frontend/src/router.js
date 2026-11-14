@@ -112,6 +112,16 @@ const routes = [
     component: () => import('./views/JournalView.vue'),
   },
   {
+    path: '/events',
+    name: 'events',
+    component: () => import('./views/EventDeskView.vue'),
+  },
+  {
+    path: '/events/briefs/:id',
+    name: 'event-brief',
+    component: () => import('./views/EventBriefView.vue'),
+  },
+  {
     path: '/monte-carlo',
     name: 'monte-carlo',
     component: () => import('./views/MonteCarloView.vue'),

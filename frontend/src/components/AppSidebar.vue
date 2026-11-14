@@ -90,7 +90,7 @@ import {
   Gauge, ScanSearch, Search, Shield, Flame, AlertTriangle,
   Calculator, BookOpen, Dices, Bell, Rocket, Newspaper, Puzzle,
   Settings, Wrench, Brain, Lightbulb, Diamond, Menu,
-  ChevronLeft, ChevronRight, Key, GraduationCap, Layers,
+  ChevronLeft, ChevronRight, Key, GraduationCap, Layers, CalendarClock,
 } from 'lucide-vue-next'
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
@@ -166,6 +166,7 @@ const navGroups = [
       { key: 'ai-signals', icon: Bot, label: 'AI 交易信號', to: () => '/ai-signals' },
       { key: 'trade-approval', icon: CheckSquare, label: '交易核准中心', to: () => '/trade-approval' },
       { key: 'daily-brief', icon: ClipboardList, label: '盤後日報', to: () => '/daily-brief' },
+      { key: 'events', icon: CalendarClock, label: '事件研究台', to: () => '/events' },
     ],
   },
   {

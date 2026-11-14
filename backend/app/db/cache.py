@@ -47,6 +47,8 @@ CACHE_TTL = {
     "etf_compare": 360,
     # 個股三面向評分卡：整包 6 小時（日頻資料）；key 含日期與版本，跨日自然失效。
     "stock_scorecard": 360,
+    # 事件研究台的價格反應：日線資料，整包 6 小時；key 含日期，跨日自然失效。
+    "event_reaction": 360,
 }
 
 

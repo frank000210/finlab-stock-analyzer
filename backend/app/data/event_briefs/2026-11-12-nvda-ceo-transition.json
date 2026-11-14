@@ -1,0 +1,370 @@
+{
+  "id": "2026-11-12-nvda-ceo-transition",
+  "title": "輝達執行長黃仁勳辭任",
+  "kind": "shock",
+  "status": "developing",
+  "event_date": "2026-11-12",
+  "tw_base_date": "2026-11-12",
+  "episode_start": "2026-10-30",
+  "as_of": "2026-11-14",
+  "summary": "輝達 11/12（美國時間）公告黃仁勳即刻辭去總裁、執行長與董事，沒有說明原因；財務長 Colette Kress 代理，財報照原訂 11/17 公布。這不是憑空出現的消息：10 月底起就有媒體報導，11/8 董事會啟動獨立調查，11/11 盤後已傳出人事異動，輝達事前已比 10/6 高點低約 27%。目前最大的未知數有三個：接班人選、調查會不會從個人延伸到公司的出口合規、新董事會會不會收緊對新興雲端業者的融資與擔保。另外要分清楚：11/3～11/6 台股的大跌是全球 AI 股一起賣，不能全算在這件事頭上。",
+  "facts": [
+    {
+      "text": "輝達公告：黃仁勳辭去總裁、執行長與董事，立即生效；公告沒有說明原因。財務長 Colette Kress 代理執行長並續任財務長，Harvey C. Jones 出任公司第一位董事長，董事會開始遴選正式執行長，內部與外部人選都會考慮，沒有給時程。",
+      "tier": 1,
+      "source_name": "NVIDIA 新聞稿",
+      "source_url": "https://nvidianews.nvidia.com/news/nvidia-announces-ceo-transition",
+      "date": "2026-11-12",
+      "confirmed": true
+    },
+    {
+      "text": "同一份公告：公司表示預期營運、對客戶的承諾與產品藍圖都會照常進行；第 3 季財報照原訂 11/17 美西時間 13:20 左右公布、14:00 召開法說會。公告沒有提到任何調查或法律程序，也沒有更新財測。",
+      "tier": 1,
+      "source_name": "NVIDIA 新聞稿",
+      "source_url": "https://nvidianews.nvidia.com/news/nvidia-announces-ceo-transition",
+      "date": "2026-11-12",
+      "confirmed": true
+    },
+    {
+      "text": "輝達 8 月公布的第 3 季財測：營收約 1,080 億美元（上下 2%）、毛利率約 74.0%（上下 0.5 個百分點），而且沒有計入任何中國資料中心運算營收。第 2 季營收 962 億美元。",
+      "tier": 1,
+      "source_name": "NVIDIA 第 2 季財報新聞稿",
+      "source_url": "https://investor.nvidia.com/news/press-release-details/2026/NVIDIA-Announces-Financial-Results-for-Second-Quarter-Fiscal-2027/",
+      "date": null,
+      "confirmed": true
+    },
+    {
+      "text": "加權指數：11/2 收 44,920.14；11/6 盤中最低 37,837.05、收 39,701.64（跌 1,873.08 點）；11/11 收 44,257.15；11/12 收 43,091.87（跌 1,165.28 點）；11/13 收 43,675.12（漲 583.25 點）。公告在台灣時間 11/12 晚上，所以 11/13 是台股第一個反應日。",
+      "tier": 1,
+      "source_name": "臺灣證券交易所　加權指數歷史資料",
+      "source_url": "https://www.twse.com.tw/zh/indices/taiex/mi-5min-hist.html",
+      "date": "2026-11-13",
+      "confirmed": true
+    },
+    {
+      "text": "台積電（2330）：10/30 收 2,370；11/6 盤中最低 2,020、收 2,135（跌 105 元，成交約 1.1 億股）；11/11 收 2,395；11/12 收 2,340（跌 55 元）；11/13 收 2,350（漲 10 元）。",
+      "tier": 1,
+      "source_name": "臺灣證券交易所　個股日成交資訊",
+      "source_url": "https://www.twse.com.tw/zh/trading/historical/stock-day.html",
+      "date": "2026-11-13",
+      "confirmed": true
+    },
+    {
+      "text": "輝達 11/8（日）表示董事會已啟動獨立調查，黃仁勳表示配合；11/9 股價收跌 4.27% 至 178.67 美元。CNBC 另報導董事會聘請 Wachtell Lipton 律師事務所負責調查。",
+      "tier": 2,
+      "source_name": "ABC News",
+      "source_url": "https://abcnews.com/Business/nvidia-stock-falls-after-company-opens-probe-ceo/story?id=137970524",
+      "date": "2026-11-09",
+      "confirmed": true
+    },
+    {
+      "text": "美股 11/11 盤後傳出輝達董事會可能討論執行長人事，輝達盤後一度跌約 10%；台股 11/12 開低，台積電開低 10 元。（隔天公告證實了人事異動。）",
+      "tier": 2,
+      "source_name": "經濟日報",
+      "source_url": "https://udn.com/news/story/7251/9873340",
+      "date": "2026-11-12",
+      "confirmed": true
+    },
+    {
+      "text": "輝達 11/11 收 173.73 美元，10/6 的收盤高點是 239.24 美元（事前已低約 27%）。11/12 開盤跌逾 13%、創 52 週新低，收盤跌幅收斂到 4.3%。",
+      "tier": 2,
+      "source_name": "CNBC",
+      "source_url": "https://www.cnbc.com/2026/11/12/nvidia-jensen-huang-ceo-live-updates.html",
+      "date": "2026-11-12",
+      "confirmed": true
+    },
+    {
+      "text": "11/12 盤中其他個股：AMD 漲約 3%、博通漲逾 5%；靠輝達支持的新興雲端業者 CoreWeave 一度跌近 12%、Nebius 跌 17%、IREN 跌 8%；Super Micro 跌 12%。",
+      "tier": 2,
+      "source_name": "CNBC",
+      "source_url": "https://www.cnbc.com/2026/11/12/nvidia-jensen-huang-ceo-live-updates.html",
+      "date": "2026-11-12",
+      "confirmed": true
+    },
+    {
+      "text": "11/13 輝達再跌 2.01%，一週跌 12.75%，連續第 6 週下跌（2012 年以來最長），市值自 2025 年 7 月以來第一次收在 4 兆美元以下。",
+      "tier": 2,
+      "source_name": "CNBC",
+      "source_url": "https://www.cnbc.com/2026/11/13/nvidia-nvda-stock-jensen-huang-transition.html",
+      "date": "2026-11-13",
+      "confirmed": true
+    },
+    {
+      "text": "11/13 美股費城半導體指數跌 3.43%，前一天上漲的 AMD 轉為大跌（不同報導的跌幅是 8.75% 或 10.84%，數字不一致）。這一段發生在台股 11/13 收盤之後，台股要到 11/16（一）才會反應。",
+      "tier": 2,
+      "source_name": "Yahoo 股市",
+      "source_url": "https://tw.stock.yahoo.com/news/%E9%BB%83%E4%BB%81%E5%8B%B3%E8%AB%8B%E8%BE%AD-%E8%BC%9D%E9%81%94%E8%82%A1%E5%83%B9%E4%B8%80%E5%BA%A6%E9%87%8D%E6%8C%AB%E9%80%BE10%EF%BC%81%E5%B0%88%E5%AE%B6%EF%BC%9A%E8%B7%8C%E5%B9%85%E6%94%B6%E6%96%82%E6%98%AF%E6%AD%A3%E9%9D%A2%E8%A8%8A%E8%99%9F-%E4%B8%8B%E4%B8%80%E6%AD%A5%E7%9C%8B3%E9%97%9C%E9%8D%B5-022132293.html",
+      "date": "2026-11-13",
+      "confirmed": true
+    },
+    {
+      "text": "輝達截至 7 月的季報顯示，對新興雲端業者有 360 億美元的表外雲端協議與擔保。11/13 CoreWeave 的五年期信用違約交換利差仍在 1,000 基點以上（文章形容這個水準通常代表財務吃緊）。",
+      "tier": 2,
+      "source_name": "CNBC",
+      "source_url": "https://www.cnbc.com/2026/11/13/nvidia-jensen-huang-resignation-ai-financing.html",
+      "date": "2026-11-13",
+      "confirmed": true
+    },
+    {
+      "text": "美國眾議院外交委員會主席表示黃仁勳同意在感恩節（11/26）前作證，是否公開還沒定；參議院銀行委員會要求黃仁勳 12/3、商務部長 12/10 作證，並表示必要時會發傳票。報導沒有提到任何已經提出的出口管制修法；明年 1 月新國會改由民主黨主導監督。",
+      "tier": 2,
+      "source_name": "CNBC",
+      "source_url": "https://www.cnbc.com/2026/11/13/nvidia-jensen-huang-washington-congress.html",
+      "date": "2026-11-13",
+      "confirmed": true
+    },
+    {
+      "text": "多家媒體報導，辭任與個人行為、以及一項涉及外國情報活動的調查有關。公司公告沒有提到原因；報導指黃仁勳否認損及國家安全或洩漏公司機密。",
+      "tier": 2,
+      "source_name": "CNBC",
+      "source_url": "https://www.cnbc.com/2026/11/12/nvidia-jensen-huang-ceo-live-updates.html",
+      "date": "2026-11-12",
+      "confirmed": false
+    },
+    {
+      "text": "媒體報導：美國商務部對新加坡雲端業者 Megaspeed（輝達客戶）是否把受管制晶片轉往中國的調查，已經移交司法部。這項調查的對象是 Megaspeed；輝達公司本身的出口合規有沒有問題，國會議員正在追問，目前沒有官方說法。",
+      "tier": 2,
+      "source_name": "CNBC",
+      "source_url": "https://www.cnbc.com/2026/11/13/nvidia-jensen-huang-washington-congress.html",
+      "date": "2026-11-13",
+      "confirmed": false
+    }
+  ],
+  "expectation": {
+    "before": "市場事前已經反映了一大段：10 月底起有媒體報導、11/8 董事會啟動獨立調查、11/11 盤後傳出人事異動。輝達 11/11 收 173.73 美元，比 10/6 高點低約 27%；台股 11/12 已先跌 1,165 點。同時第 3 季財測 1,080 億美元本來就沒有算中國資料中心營收。",
+    "actual": "11/12 美股盤前公告即刻辭任、沒有說明原因；財務長代理、設立董事長、開始遴選；財報照原訂 11/17 公布，沒有更新財測。",
+    "gap": "市場原本不確定的是「會不會下台」，公告把這一項變成已知；但換來三個新的未知：接班人選、調查範圍、融資與擔保承諾會不會收緊。輝達當天開盤跌 13%、收盤只跌 4.3%，台股隔天收漲 583 點——跌幅收斂代表「下台」這件事事前已反映一部分，不代表利空結束：11/13 輝達再跌 2%、費半跌 3.43%，台股還沒反應。"
+  },
+  "impact": [
+    {
+      "order": 1,
+      "group": "台積電（晶圓代工＋先進封裝）",
+      "symbols": [{"symbol": "2330", "name": "台積電"}],
+      "direction": "unclear",
+      "mechanism": "輝達是最大客戶之一，但公司表示既有產品藍圖與客戶承諾照常；而且 AMD、博通、聯發科等競爭方案同樣在台積電投片，需求在晶片設計商之間移動，多半還是回到台積電。真正的風險不是「換人做」，而是整體 AI 資本支出因融資收縮而放慢。",
+      "lag": "投片到營收約 1～2 季；看每月 10 日前的月營收",
+      "confidence": "medium"
+    },
+    {
+      "order": 2,
+      "group": "AI 伺服器組裝",
+      "symbols": [
+        {"symbol": "2317", "name": "鴻海"},
+        {"symbol": "2382", "name": "廣達"},
+        {"symbol": "3231", "name": "緯創"},
+        {"symbol": "6669", "name": "緯穎"},
+        {"symbol": "2356", "name": "英業達"}
+      ],
+      "direction": "mixed",
+      "mechanism": "出貨量跟著輝達機櫃的交付節奏走。大型雲端業者的既有訂單不受人事影響；有風險的是靠輝達融資或擔保才買得起的新興雲端業者——如果新董事會提高新增融資的門檻，這一塊的建置可能延後。另一面，雲端業者若加速導入自研晶片，組裝廠同樣接得到單。",
+      "lag": "1～2 季；看月營收與法說對下一季出貨的說法",
+      "confidence": "low"
+    },
+    {
+      "order": 2,
+      "group": "散熱與電源",
+      "symbols": [
+        {"symbol": "3017", "name": "奇鋐"},
+        {"symbol": "3324", "name": "雙鴻"},
+        {"symbol": "2308", "name": "台達電"},
+        {"symbol": "2301", "name": "光寶科"}
+      ],
+      "direction": "mixed",
+      "mechanism": "每一櫃的散熱與電源含量跟著機櫃規格走，不論用誰的晶片都要；影響來自機櫃總出貨量與下一代平台的時程，而不是人事本身。若下一代產品節奏放慢，規格升級帶來的單價成長會延後。",
+      "lag": "1～2 季",
+      "confidence": "low"
+    },
+    {
+      "order": 2,
+      "group": "載板、銅箔基板與電路板",
+      "symbols": [
+        {"symbol": "3037", "name": "欣興"},
+        {"symbol": "2383", "name": "台光電"},
+        {"symbol": "2368", "name": "金像電"}
+      ],
+      "direction": "mixed",
+      "mechanism": "同樣跟著 AI 伺服器與加速器的出貨量；客戶比輝達單一公司分散（也供應自研晶片與網通設備），所以對人事變動的敏感度比組裝廠低。",
+      "lag": "1～2 季",
+      "confidence": "low"
+    },
+    {
+      "order": 2,
+      "group": "封裝測試",
+      "symbols": [
+        {"symbol": "3711", "name": "日月光投控"},
+        {"symbol": "2449", "name": "京元電子"}
+      ],
+      "direction": "mixed",
+      "mechanism": "測試與封裝量跟著 AI 晶片總產出走；輝達占比高的廠商對交付節奏比較敏感。",
+      "lag": "約 1 季",
+      "confidence": "low"
+    },
+    {
+      "order": 2,
+      "group": "客製化晶片（ASIC）設計",
+      "symbols": [
+        {"symbol": "3661", "name": "世芯-KY"},
+        {"symbol": "3443", "name": "創意"},
+        {"symbol": "2454", "name": "聯發科"}
+      ],
+      "direction": "unclear",
+      "mechanism": "「雲端業者加速找第二供應商」的說法會讓這一族群被點名受惠，但國內法人評估競爭影響主要在 2028 年以後，短期轉單有限。市場自己兩天內就改口一次：11/12 AMD、博通上漲，11/13 又大跌。這一項目前是題材，不是訂單。",
+      "lag": "設計案到量產 1.5～2 年以上",
+      "confidence": "low"
+    },
+    {
+      "order": 3,
+      "group": "AI 資本支出的融資鏈",
+      "symbols": [],
+      "direction": "hurt",
+      "mechanism": "輝達透過投資、算力購買承諾與擔保，幫新興雲端業者提前買得起 GPU（季報揭露的表外協議 360 億美元）。黃仁勳本人是這些安排的主要推手；分析師預期既有承諾會履行，但新的大型安排較難談成。如果這一環收縮，受影響的是整條鏈的新增訂單，而不只輝達。",
+      "lag": "6～12 個月；看 10-Q 揭露與新興雲端業者的資本支出",
+      "confidence": "medium"
+    },
+    {
+      "order": 3,
+      "group": "評價與大盤",
+      "symbols": [],
+      "direction": "hurt",
+      "mechanism": "分析師以「領導折價」為由調降輝達的本益比與目標價，這種評價調整會外溢到整個 AI 族群；台積電占加權指數權重很高，所以大盤的波動會被放大。這是評價面的影響，跟獲利有沒有變是兩回事。",
+      "lag": "立即，持續到接班與調查明朗",
+      "confidence": "medium"
+    },
+    {
+      "order": 3,
+      "group": "出口管制與國會監督",
+      "symbols": [],
+      "direction": "unclear",
+      "mechanism": "國會兩院都要求作證，1 月起新國會監督力道預期加大。到目前為止沒有任何已提出的修法，財測也本來就沒算中國資料中心營收；風險在於對「經第三地轉運」的審查變嚴，影響的是出貨到東南亞等地資料中心的伺服器。",
+      "lag": "政策時程不確定",
+      "confidence": "low"
+    }
+  ],
+  "scenarios": [
+    {
+      "key": "base",
+      "title": "領導折價，營運照常",
+      "description": "財報與下一季財測大致符合預期，代理執行長穩住節奏，接班人選在幾個月內明朗；國會聽證沒有導出新的出口限制。供應鏈的訂單能見度不變，股價在較低的評價上震盪整理。",
+      "triggers": [
+        "11/17 財報：第 3 季營收落在財測區間（1,058～1,102 億美元），下一季財測沒有明顯低於市場共識",
+        "法說會重申下一代平台時程與客戶承諾不變",
+        "台積電與組裝廠 11 月營收（12/10 前公告）沒有異常下滑"
+      ],
+      "invalidation": [
+        "財測明顯低於共識，或公司暫停提供財測",
+        "出現新的出口管制措施或許可被撤銷",
+        "有大客戶公開延後或取消訂單"
+      ],
+      "watch": ["11/17 財報與法說", "12/10 前的月營收", "遴選進度"]
+    },
+    {
+      "key": "bull",
+      "title": "利空出盡",
+      "description": "調查結論限於個人行為、公司出口合規沒有問題；接班人選獲得市場認同；財報與財測優於預期。評價折價逐步收回。",
+      "triggers": [
+        "董事會獨立調查公布結論，且沒有發現公司層級的違規",
+        "正式執行長人選確定，主要客戶與供應商公開表態支持",
+        "財報後的 10-Q 沒有新增重大法律或有負債"
+      ],
+      "invalidation": [
+        "司法部或商務部的調查對象擴大到公司本身",
+        "聽證會出現新的、涉及公司的指控",
+        "核心技術主管相繼離職"
+      ],
+      "watch": ["調查結論公布時間", "10-Q 的法律與擔保揭露", "高階主管異動公告"]
+    },
+    {
+      "key": "bear",
+      "title": "從個人事件變成公司與產業事件",
+      "description": "調查延伸到公司的出口合規，帶來罰則或出口許可收緊；新董事會收緊融資與擔保，新興雲端業者的建置延後；下一代產品節奏放慢。受影響的不只輝達，而是整條 AI 伺服器供應鏈的新增訂單。",
+      "triggers": [
+        "公司以 8-K 或 10-Q 揭露收到傳票或正式調查通知",
+        "新的出口限制上路，或對第三地出貨的許可審查明顯變嚴",
+        "新興雲端業者違約、或大幅下修資本支出",
+        "財報下修財測，或組裝廠法說下修下一季出貨"
+      ],
+      "invalidation": [
+        "財報與 10-Q 沒有新增法律事項，融資承諾維持",
+        "大型雲端業者的資本支出指引持續上修",
+        "聽證結束後沒有後續立法或行政動作"
+      ],
+      "watch": ["新興雲端業者的債券與信用利差", "商務部工業安全局的公告", "組裝廠月營收年增率"]
+    }
+  ],
+  "key_dates": [
+    {
+      "date": "2026-11-17",
+      "label": "輝達第 3 季財報與法說（代理執行長第一次面對市場）",
+      "source_url": "https://investor.nvidia.com/news/press-release-details/2026/NVIDIA-Sets-Conference-Call-for-Third-Quarter-Financial-Results/",
+      "tentative": false,
+      "us_time": true
+    },
+    {
+      "date": "2026-11-25",
+      "label": "黃仁勳赴美國眾議院作證（議員表示在感恩節 11/26 前，確切日期與是否公開未定）",
+      "source_url": "https://www.cnbc.com/2026/11/13/nvidia-jensen-huang-washington-congress.html",
+      "tentative": true,
+      "us_time": true
+    },
+    {
+      "date": "2026-12-03",
+      "label": "美國參議院銀行委員會要求黃仁勳作證（委員會提出的日期，尚未確認出席）",
+      "source_url": "https://www.cnbc.com/2026/11/12/nvidia-jensen-huang-ceo-live-updates.html",
+      "tentative": true,
+      "us_time": true
+    },
+    {
+      "date": "2026-12-10",
+      "label": "美國參議院銀行委員會：商務部長作證（商務部表示已同意出席）",
+      "source_url": "https://www.cnbc.com/2026/11/12/nvidia-jensen-huang-ceo-live-updates.html",
+      "tentative": true,
+      "us_time": true
+    }
+  ],
+  "open_questions": [
+    "董事會獨立調查的範圍多大、結論什麼時候公布？",
+    "正式執行長是內升還是外聘、時程多長？",
+    "司法部對 Megaspeed 的調查，會不會把輝達公司本身列為對象？",
+    "新董事會會不會收緊對新興雲端業者的融資與擔保？財報後的 10-Q 會揭露多少細節？",
+    "國會聽證是否公開、會不會導出新的出口管制立法？",
+    "台股 11/16（一）還沒反應美股 11/13 的下跌（費半跌 3.43%）。",
+    "11/3～11/6 的全球 AI 股賣壓（當時的原因不只這件事）是否已經結束？"
+  ],
+  "viewpoints": [
+    {
+      "source": "國內大型法人（經濟日報 11/13 引述）",
+      "stance": "neutral",
+      "claim": "「黃仁勳溢價」會逐步消退，但既有訂單與產品交付相對穩定；競爭影響主要在 2028 年以後才擴大，短期轉單有限。",
+      "assumptions": "前提是既有產品（Blackwell、Vera Rubin）照既定規劃交付，以及軟體生態系的優勢短期內不變。",
+      "source_url": "https://udn.com/news/story/7251/9875917"
+    },
+    {
+      "source": "Kevin Kelly（Yahoo 財經高峰會訪談）",
+      "stance": "neutral",
+      "claim": "跌幅收斂是正面訊號；接下來看三件事：營運計畫能否延續、軟體生態系優勢能否維持、領導團隊能否穩住公司。",
+      "assumptions": "前提是投資人在消息公布前幾天已經逐步預期到人事異動。他同時提醒投資人會要求公司說明循環融資與共同投資安排。",
+      "source_url": "https://tw.stock.yahoo.com/news/%E9%BB%83%E4%BB%81%E5%8B%B3%E8%AB%8B%E8%BE%AD-%E8%BC%9D%E9%81%94%E8%82%A1%E5%83%B9%E4%B8%80%E5%BA%A6%E9%87%8D%E6%8C%AB%E9%80%BE10%EF%BC%81%E5%B0%88%E5%AE%B6%EF%BC%9A%E8%B7%8C%E5%B9%85%E6%94%B6%E6%96%82%E6%98%AF%E6%AD%A3%E9%9D%A2%E8%A8%8A%E8%99%9F-%E4%B8%8B%E4%B8%80%E6%AD%A5%E7%9C%8B3%E9%97%9C%E9%8D%B5-022132293.html"
+    },
+    {
+      "source": "KeyBanc 分析師（CNBC 引述）",
+      "stance": "bearish",
+      "claim": "黃仁勳離開讓風險實質升高，應該給比較低的本益比。",
+      "assumptions": "前提是創辦人對產品節奏與生態系協調的角色難以替代。這是評價面的看法，不是對近期營收的預測。",
+      "source_url": "https://www.cnbc.com/2026/11/12/nvidia-jensen-huang-ceo-live-updates.html"
+    },
+    {
+      "source": "Janus Henderson 基金經理人（CNBC 引述）",
+      "stance": "bullish",
+      "claim": "這可能是一次「出清事件」——壞消息一次落地之後，不確定性反而下降。",
+      "assumptions": "前提是後續不再有新的指控，而且調查不會延伸到公司層級。Bernstein 的分析師持相反看法：後面可能還有新的指控，現在很難大舉進場。",
+      "source_url": "https://www.cnbc.com/2026/11/12/nvidia-jensen-huang-ceo-live-updates.html"
+    },
+    {
+      "source": "高盛與 CreditSights 分析師（CNBC 引述）",
+      "stance": "neutral",
+      "claim": "既有的融資承諾預期會履行，但新的多方大型投資安排較難再談成同樣規模；循環融資會降溫。",
+      "assumptions": "前提是黃仁勳本人是這些交易的核心推手，換人之後董事會對新增曝險會更保守。",
+      "source_url": "https://www.cnbc.com/2026/11/13/nvidia-jensen-huang-resignation-ai-financing.html"
+    }
+  ]
+}

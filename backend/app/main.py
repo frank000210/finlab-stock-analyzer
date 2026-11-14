@@ -15,6 +15,7 @@ from .api import (
     kb_router,
     course_router,
     etf_compare_router,
+    events_router,
     ai_summary_router,
     ai_agent_router,
     journal_router,
@@ -197,6 +198,7 @@ app.include_router(feedback_router)
 app.include_router(kb_router)
 app.include_router(course_router)
 app.include_router(etf_compare_router)
+app.include_router(events_router)
 
 
 BUILD_INFO_PATH = Path(__file__).parent / "build_info.json"
