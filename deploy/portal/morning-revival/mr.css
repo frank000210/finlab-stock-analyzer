@@ -101,6 +101,65 @@ ul.verses .ref:hover { text-decoration: underline; }
 .stages b { display: block; color: var(--teal); }
 .foot { margin-top: 30px; padding-top: 10px; border-top: 1px dashed var(--rule); font-size: 13px; color: var(--muted); }
 
+/* ===== 風格⑦ 筆記本：紙張、便利貼、一句話、色卡 =====
+   顏色有固定意義：藍卡＝經文與要點（內容）、紫卡＝負擔與建議、橘卡＝問題或待補；不要為了好看換色。 */
+.content.paper {
+  background:
+    linear-gradient(90deg, transparent 54px, var(--margin) 54px 56px, transparent 56px),
+    repeating-linear-gradient(180deg, transparent 0 35px, var(--rule) 35px 36px),
+    var(--paper);
+  padding-left: 78px; position: relative;
+}
+.week-head.has-sticky { padding-right: 230px; position: relative; min-height: 120px; }
+.sticky {
+  position: absolute; right: 0; top: -6px; width: 200px; padding: 14px 16px 12px;
+  background: var(--sticky); color: var(--sticky-ink); box-shadow: 0 6px 14px rgba(0,0,0,.16); line-height: 1.45;
+}
+.sticky::before { content: ""; position: absolute; left: 50%; top: -10px; width: 74px; height: 20px; margin-left: -37px; background: rgba(255,255,255,.55); transform: rotate(-4deg); }
+.sticky .big { display: block; font: 700 40px/1.1 "Ink Free", "Segoe Print", "DFKai-SB", cursive; color: var(--red); margin: 2px 0; }
+.sticky small { font-size: 13.5px; }
+.sum {
+  border: 2px dashed var(--axm); border-radius: 14px; padding: 10px 16px; margin: 14px 0;
+  background: var(--axm-bg); font-size: 18px; line-height: 1.7;
+}
+.sum .tag { display: inline-block; font-size: 13px; font-weight: 700; color: var(--paper); background: var(--axm); border-radius: 6px; padding: 1px 10px; margin-right: 8px; vertical-align: 2px; }
+.key { color: var(--red); font-weight: 700; }
+.hl { background: linear-gradient(transparent 58%, var(--hl) 58%); padding: 0 2px; }
+.cards { display: grid; grid-template-columns: 3fr 2fr; gap: 12px; margin: 10px 0; }
+.card { --c: var(--def); --bg: var(--def-bg); border: 2px solid var(--c); background: var(--bg); border-radius: 14px; padding: 18px 14px 10px; position: relative; }
+.card.purple { --c: var(--axm); --bg: var(--axm-bg); }
+.card.orange { --c: var(--lem); --bg: var(--lem-bg); }
+.card > h5 { position: absolute; top: -12px; left: 12px; margin: 0; font-size: 13.5px; color: var(--paper); background: var(--c); padding: 1px 10px; border-radius: 6px; }
+.card ol.pts > li b:first-child { color: var(--c); }
+/* 中點分組：⑧ 的虛線框＝分組 */
+.groups { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 14px 0 6px; }
+.groups.one { grid-template-columns: 1fr; }
+.zone { border: 2px dashed var(--muted); border-radius: 16px; padding: 18px 14px 10px; position: relative; }
+.zone > .zl { position: absolute; left: 14px; top: -13px; background: var(--paper); padding: 0 8px; font-weight: 700; font-size: 15px; line-height: 1.5; }
+.zone > .zl i { font-style: normal; display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--ink); margin-right: 6px; font-size: 13px; }
+.zone .mid { margin: 4px 0; font-weight: 600; }
+.zone ul.subs { font-size: 15.5px; }
+.zone .why { font-size: 14.5px; color: var(--muted); border-top: 1px dotted var(--rule); margin-top: 8px; padding-top: 6px; }
+/* ===== 風格⑧ 手繪流程圖 ===== */
+figure.sketch { margin: 14px 0 20px; }
+figure.sketch figcaption { font: 700 16px "Ink Free", "DFKai-SB", cursive; margin-bottom: 4px; }
+figure.sketch svg { width: 100%; height: auto; display: block; font-family: "Ink Free", "Microsoft JhengHei", sans-serif; }
+figure.sketch .v { display: none; }
+.sk-zone { fill: none; stroke: var(--muted); stroke-width: 2.2; stroke-dasharray: 8 6; }
+.sk-box { fill: var(--paper); stroke: var(--ink); stroke-width: 2.2; }
+.sk-t { fill: var(--ink); font-size: 19px; font-weight: 700; }
+.sk-s { fill: var(--muted); font-size: 14.5px; font-family: "Noto Sans TC", "Microsoft JhengHei", sans-serif; }
+.sk-zl { fill: var(--ink); font-size: 16px; font-weight: 700; }
+.sk-al { fill: var(--ink); font-size: 14px; font-weight: 700; font-family: "Noto Sans TC", "Microsoft JhengHei", sans-serif; }
+.sk-lab { fill: var(--paper); }
+.w { fill: none; stroke-width: 3; stroke-linecap: round; }
+.w.blue { stroke: var(--def); } .w.green { stroke: var(--cor); } .w.orange { stroke: var(--lem); }
+.mk.blue { stroke: var(--def); } .mk.green { stroke: var(--cor); } .mk.orange { stroke: var(--lem); }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 20px; font-size: 14px; border: 1.5px solid var(--rule); border-radius: 10px; padding: 6px 12px; margin-top: 6px; }
+.legend b { width: 100%; font-size: 13.5px; }
+.legend span { display: inline-flex; align-items: center; gap: 8px; }
+figure.sketch .legend svg { width: 40px; height: 12px; overflow: visible; display: inline-block; }
+
 /* ===== 窄螢幕 ===== */
 @media (max-width: 900px) {
   .layout { grid-template-columns: 1fr; padding: 8px; gap: 10px; }
@@ -115,7 +174,12 @@ ul.verses .ref:hover { text-decoration: underline; }
   .menu, .sources { display: none; }
   .side.open .menu, .side.open .sources { display: block; margin-top: 10px; }
   .content { padding: 16px 16px 30px; }
-  .pair, .stages { grid-template-columns: 1fr; }
+  .pair, .stages, .cards, .groups { grid-template-columns: 1fr; }
+  .content.paper { background: var(--paper); padding-left: 16px; }
+  .week-head.has-sticky { padding-right: 0; min-height: 0; }
+  .sticky { position: static; width: auto; margin: 10px 0 0; transform: none !important; }
+  figure.sketch .h { display: none; }
+  figure.sketch .v { display: block; }
   h2.week-title { font-size: 22px; }
 }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
