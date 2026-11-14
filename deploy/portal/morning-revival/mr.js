@@ -12,6 +12,20 @@
   var weeks = [];          // 攤平後的各週（依 weeks.json 順序）
   var chapterCache = {};   // "書:章" -> Promise<Map 節 -> 經文>
 
+  // 寬螢幕：整個左欄可收合成一條窄邊，選擇存在 localStorage
+  var layout = document.querySelector('.layout');
+  var collapseBtn = document.getElementById('sideCollapse');
+  var expandBtn = document.getElementById('sideExpand');
+  var KEY = 'mr.sideCollapsed';
+  function setCollapsed(on, save) {
+    layout.classList.toggle('collapsed', on);
+    collapseBtn.setAttribute('aria-expanded', on ? 'false' : 'true');
+    if (save) { try { localStorage.setItem(KEY, on ? '1' : '0'); } catch (e) { /* 無痕模式 */ } }
+  }
+  try { setCollapsed(localStorage.getItem(KEY) === '1', false); } catch (e) { setCollapsed(false, false); }
+  collapseBtn.addEventListener('click', function () { setCollapsed(true, true); expandBtn.focus(); });
+  expandBtn.addEventListener('click', function () { setCollapsed(false, true); collapseBtn.focus(); });
+
   toggle.addEventListener('click', function () {
     var open = side.classList.toggle('open');
     toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
@@ -27,7 +41,10 @@
   function buildMenu(data) {
     menuEl.textContent = '';
     data.trainings.forEach(function (t) {
-      menuEl.appendChild(el('h2', null, t.title));
+      // 每個訓練一組，可個別收合；目前這一週所在的組會自動展開
+      var group = el('details', 'group');
+      group.open = true;
+      group.appendChild(el('summary', null, t.title));
       var ul = el('ul');
       t.weeks.forEach(function (w) {
         weeks.push({ id: w.id, no: w.no, title: w.title, training: t.title });
@@ -40,13 +57,14 @@
         li.appendChild(a);
         ul.appendChild(li);
       });
-      menuEl.appendChild(ul);
+      group.appendChild(ul);
+      menuEl.appendChild(group);
     });
   }
 
   function markCurrent(id) {
     menuEl.querySelectorAll('a').forEach(function (a) {
-      if (a.dataset.id === id) a.setAttribute('aria-current', 'page');
+      if (a.dataset.id === id) { a.setAttribute('aria-current', 'page'); a.closest('details').open = true; }
       else a.removeAttribute('aria-current');
     });
   }

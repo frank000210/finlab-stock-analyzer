@@ -19,10 +19,12 @@
   注意：這個站台開了 Caddy templates，HTML（含 weeks/ 片段）裡不能出現連續兩個左大括號。
 -->
 <div class="layout">
+  <button class="side-expand" id="sideExpand" aria-controls="side" title="展開選單">»<span>選單</span></button>
   <aside class="side" id="side">
     <div class="side-head">
       <nav class="crumbs"><a href="/">服務入口</a> › 晨興聖言</nav>
       <h1>晨興聖言</h1>
+      <button class="side-collapse" id="sideCollapse" aria-controls="side" aria-expanded="true" title="收合選單">«<span class="sr">收合選單</span></button>
       <button class="menu-toggle" id="menuToggle" aria-expanded="false" aria-controls="menu">選單</button>
     </div>
     <nav class="menu" id="menu" aria-label="各週標題"><p class="muted">載入選單中…</p></nav>

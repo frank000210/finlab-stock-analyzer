@@ -21,8 +21,33 @@ a { color: var(--teal); }
 .crumbs a { color: var(--muted); }
 .side h1 { margin: 2px 0 10px; font-size: 26px; color: var(--teal); }
 .menu-toggle { display: none; }
-.menu h2 { font-size: 13px; color: var(--muted); margin: 14px 0 4px; line-height: 1.5; font-weight: 600; }
-.menu h2:first-child { margin-top: 0; }
+.menu details.group { margin: 0 0 8px; }
+.menu summary {
+  font-size: 13px; color: var(--muted); line-height: 1.5; font-weight: 600; cursor: pointer;
+  padding: 4px 6px; border-radius: 6px; list-style: none; display: flex; gap: 6px;
+}
+.menu summary::-webkit-details-marker { display: none; }
+.menu summary::before { content: "▸"; color: var(--teal); transition: transform .15s; flex: none; }
+.menu details[open] > summary::before { transform: rotate(90deg); }
+.menu summary:hover { background: var(--box); }
+.menu summary:focus-visible { outline: 2px solid var(--teal); }
+/* 收合整個左欄（寬螢幕） */
+.side-head { position: relative; }
+.side-collapse {
+  position: absolute; right: 0; top: 18px; font: inherit; font-size: 18px; line-height: 1; padding: 4px 9px;
+  border: 1px solid var(--box-line); background: var(--box); color: var(--ink); border-radius: 8px; cursor: pointer;
+}
+.side-expand {
+  display: none; position: sticky; top: 16px; align-self: start; font: inherit; font-size: 18px; cursor: pointer;
+  border: 1px solid var(--rule); background: var(--paper); color: var(--ink); border-radius: 12px;
+  padding: 10px 0; writing-mode: vertical-rl; letter-spacing: 4px; width: 40px;
+}
+.side-expand span { font-size: 14px; margin-top: 6px; }
+.side-collapse:focus-visible, .side-expand:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.layout.collapsed { grid-template-columns: 40px minmax(0, 1fr); }
+.layout.collapsed .side { display: none; }
+.layout.collapsed .side-expand { display: block; }
 .menu ul { list-style: none; margin: 0; padding: 0; }
 .menu a {
   display: block; padding: 6px 10px; border-radius: 8px; text-decoration: none; color: var(--ink);
@@ -163,7 +188,9 @@ figure.sketch .legend svg { width: 40px; height: 12px; overflow: visible; displa
 
 /* ===== 窄螢幕 ===== */
 @media (max-width: 900px) {
-  .layout { grid-template-columns: 1fr; padding: 8px; gap: 10px; }
+  .layout, .layout.collapsed { grid-template-columns: 1fr; padding: 8px; gap: 10px; }
+  .layout.collapsed .side { display: block; }
+  .side-collapse, .layout.collapsed .side-expand { display: none; }
   .side { position: static; max-height: none; padding: 12px 14px; }
   .side-head { display: grid; grid-template-columns: 1fr auto; align-items: end; }
   .side-head .crumbs { grid-column: 1 / -1; }
