@@ -186,6 +186,30 @@ figure.sketch .v { display: none; }
 .legend span { display: inline-flex; align-items: center; gap: 8px; }
 figure.sketch .legend svg { width: 40px; height: 12px; overflow: visible; display: inline-block; }
 
+/* ===== 四層樹狀圖（左→右）：實線框＝大點，虛線框＝分組 ===== */
+.tree-fig { margin: 10px 0 20px; }
+.tree { overflow-x: auto; padding: 6px 2px 10px; }
+.tree ul { list-style: none; margin: 0; padding: 0 0 0 26px; position: relative; display: flex; flex-direction: column; justify-content: center; }
+.tree ul.t-root { padding-left: 0; gap: 14px; }
+.tree li { position: relative; display: flex; align-items: center; padding: 4px 0 4px 18px; }
+.tree ul.t-root > li { padding-left: 0; }
+.tree ul:not(.t-root)::before { content: ""; position: absolute; left: 0; top: 50%; width: 26px; border-top: 2px solid var(--muted); }
+.tree ul:not(.t-root) > li::before { content: ""; position: absolute; left: 0; top: 50%; width: 18px; border-top: 2px solid var(--muted); }
+.tree ul:not(.t-root) > li::after { content: ""; position: absolute; left: 0; top: 0; bottom: 0; border-left: 2px solid var(--muted); }
+.tree ul:not(.t-root) > li:first-child::after { top: 50%; }
+.tree ul:not(.t-root) > li:last-child::after { bottom: 50%; }
+.tree ul:not(.t-root) > li:only-child::after { display: none; }
+.tree .n { flex: none; display: block; line-height: 1.45; border-radius: 10px; background: var(--paper); position: relative; z-index: 1; }
+.tree .n.l1 { width: 112px; padding: 10px 10px; border: 2.5px dashed var(--teal); color: var(--teal); font: 700 16px "Ink Free", "DFKai-SB", "Microsoft JhengHei", cursive; background: var(--box); }
+.tree .n.l2 { width: 170px; padding: 7px 10px; border: 2px solid var(--ink); font-weight: 700; font-size: 14.5px; }
+.tree .n.l3 { width: 150px; padding: 5px 9px; border: 2px dashed var(--muted); font-size: 14px; color: var(--ink); }
+.tree .n.l4 { width: 260px; padding: 2px 4px; font-size: 14px; background: transparent; }
+.tree-fig .legend .sw { display: inline-block; width: 26px; height: 14px; border-radius: 4px; }
+.tree-fig .legend .sw.l1 { border: 2.5px dashed var(--teal); background: var(--box); }
+.tree-fig .legend .sw.l2 { border: 2px solid var(--ink); }
+.tree-fig .legend .sw.l3 { border: 2px dashed var(--muted); }
+.tree-fig .legend .sw.l4 { border-bottom: 2px solid var(--muted); border-radius: 0; height: 8px; }
+
 /* ===== 窄螢幕 ===== */
 @media (max-width: 900px) {
   .layout, .layout.collapsed { grid-template-columns: 1fr; padding: 8px; gap: 10px; }
@@ -208,6 +232,17 @@ figure.sketch .legend svg { width: 40px; height: 12px; overflow: visible; displa
   .sticky { position: static; width: auto; margin: 10px 0 0; transform: none !important; }
   figure.sketch .h { display: none; }
   figure.sketch .v { display: block; }
+  /* 樹狀圖改成上→下縮排 */
+  .tree ul, .tree ul.t-root { display: block; padding-left: 14px; gap: 0; }
+  .tree ul.t-root { padding-left: 0; }
+  .tree li, .tree ul.t-root > li { display: block; padding: 4px 0 4px 14px; }
+  .tree ul.t-root > li { padding-left: 0; margin-bottom: 12px; }
+  .tree ul:not(.t-root)::before { display: none; }
+  .tree ul:not(.t-root) > li::before { width: 12px; top: 18px; }
+  .tree ul:not(.t-root) > li:first-child::after { top: 0; }
+  .tree ul:not(.t-root) > li:last-child::after { bottom: auto; height: 18px; }
+  .tree ul:not(.t-root) > li:only-child::after { display: block; }
+  .tree .n.l1, .tree .n.l2, .tree .n.l3, .tree .n.l4 { width: auto; display: inline-block; }
   h2.week-title { font-size: 22px; }
 }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
