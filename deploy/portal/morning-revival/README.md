@@ -14,7 +14,10 @@
 1. 複製最近一週的片段，改成新檔名，例如 `weeks/2026-09-w03.html`，再換掉內容。
 2. 在 `weeks.json` 對應的訓練底下加一筆 `{ "id": …, "no": "第三週", "title": … }`，並把 `latest` 改成新的 id。
    新的訓練就在 `trainings` 最前面加一組。
-3. commit 後跑 `deploy/scripts/ship.sh config`。
+3. `python scripts/check-morning-revival.py` 通過後 commit，跑 `deploy/scripts/ship.sh config`。
+   推送只改這個資料夾時，pre-push 會改跑這支靜態檢查，不跑整套 E2E。
+
+整套每週流程（NotebookLM → 核對 → 做網頁）寫在使用者層級的 skill `morning-revival-weekly`。
 
 ## 經文
 

@@ -10,6 +10,30 @@ REPO_ROOT="$(git rev-parse --show-toplevel)"
 E2E_DIR="$REPO_ROOT/e2e"
 BASE_URL="${BASE_URL:-http://localhost:8000}"
 
+# 只改晨興聖言頁（靜態網頁，和主站、FinMind 無關）時，不跑整套 E2E，
+# 改跑 scripts/check-morning-revival.py 的靜態檢查。只要有一個檔案在這個
+# 資料夾以外，就照常跑整套。
+MR_DIR="deploy/portal/morning-revival/"
+ONLY_MR=1
+SAW_REF=0
+while read -r _local_ref local_sha _remote_ref remote_sha; do
+  SAW_REF=1
+  case "$local_sha" in 0000000000000000000000000000000000000000) continue ;; esac
+  case "$remote_sha" in 0000000000000000000000000000000000000000) ONLY_MR=0; continue ;; esac
+  files="$(git diff --name-only "$remote_sha" "$local_sha" 2>/dev/null)" || { ONLY_MR=0; continue; }
+  [ -n "$files" ] || continue
+  if printf '%s\n' "$files" | grep -qv "^$MR_DIR"; then ONLY_MR=0; fi
+done
+if [ "$SAW_REF" = 1 ] && [ "$ONLY_MR" = 1 ]; then
+  echo "[pre-push] Only $MR_DIR changed — running static check instead of E2E ..."
+  if python "$REPO_ROOT/scripts/check-morning-revival.py"; then
+    echo "[pre-push] Static check passed — proceeding with push."
+    exit 0
+  fi
+  echo "[pre-push] Static check FAILED — push aborted."
+  exit 1
+fi
+
 echo "[pre-push] Checking app is reachable at $BASE_URL ..."
 if ! curl -sf -o /dev/null "$BASE_URL/api/health"; then
   echo "[pre-push] ABORT: app not reachable at $BASE_URL."
