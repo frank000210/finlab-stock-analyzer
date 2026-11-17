@@ -40,7 +40,9 @@ After every successful `git push`, a PostToolUse hook (`.claude/hooks/post_push_
 - **知識庫**（kb-web，domain=`handoff`）：兩邊要分享的資料——交接單副本、`docs/handoff/` 下的文件、新增或大改的規格／說明文件。開發筆記照舊用 domain=`dev_note`。
 - **Google Drive**：原始素材（NotebookLM 稿、逐字稿），只讀。
 
-寫進知識庫時檔名一律帶日期（`handoff-YYYY-MM-DD-pc.md`、`handoff-YYYY-MM-DD-cloud.md`），同 domain 同檔名會互相覆蓋。PC 用 `kb_write`；雲端沒有這個 MCP，改用 `KB_API_TOKEN=x sh scripts/import-dev-note.sh <檔案> handoff`（真正的 token 由雲端環境的代理帶入，環境變數只是讓腳本不擋）。知識庫連不上就略過，並在回報裡明講「知識庫沒寫成」，不要卡住。
+寫進知識庫時檔名一律帶日期（`handoff-YYYY-MM-DD-pc.md`、`handoff-YYYY-MM-DD-cloud.md`），同 domain 同檔名會互相覆蓋。
+
+**只有 PC 能讀寫知識庫**（`kb_write`／`kb_ask`）。雲端連不到 `kb.43-133-44-216.sslip.io`：雲端環境的工具不接受這種由 IP 組成的主機名，2026-11-17 試過加入允許清單與存憑證都被拒絕。所以雲端要分享的東西一律放進 `docs/handoff/`，由 PC 在「開工」時代為寫進知識庫；雲端要查過去的資料就讀 `docs/handoff/` 與 `docs/`。主機換成正式網域後，雲端可改用 `scripts/import-dev-note.sh <檔案> handoff` 直接寫，屆時再改這一段。
 
 ### 「收工」（PC，晚上結束時）
 
@@ -55,12 +57,13 @@ After every successful `git push`, a PostToolUse hook (`.claude/hooks/post_push_
 1. `git fetch origin`，從最新的 `origin/master`（交接單若指到 `wip/` 分支就從那裡）開 `cloud/<日期>` 分支。
 2. 讀交接單最上面一筆，照「還剩什麼」往下做；標明只能在 PC 做的項目不碰。
 3. 每完成一段就 commit 並 push 到 `cloud/<日期>`。**不推 master、不部署。**
-4. 結束前在交接單最上面加一筆：白天做完什麼、怎麼驗證的、哪些等著上線（各要跑哪個 `ship.sh`）、留給晚上的事；push，並寫進知識庫。
+4. 結束前在交接單最上面加一筆：白天做完什麼、怎麼驗證的、哪些等著上線（各要跑哪個 `ship.sh`）、留給晚上的事、要請 PC 寫進知識庫的檔案清單；push。推送後的開發筆記 hook 在雲端做不了，把筆記內容寫在交接單裡，由 PC 歸檔。
 5. 雲端跑不了整套 Playwright（沒有 FinMind 金鑰與正式資料），只跑後端 pytest、前端建置、靜態檢查；交接單要寫清楚哪些沒驗到。
 
 ### 「開工」（PC，晚上開始時）
 
 1. `git fetch origin`，找出還沒合併進 master 的 `cloud/*` 分支。
 2. 讀該分支上的交接單最上面一筆，向使用者報告：白天做了什麼、哪些沒驗到、哪些等著上線。
-3. 先不合併。使用者說「合併」才合進 master；說「上線」才合併＋跑整套 E2E＋`deploy/scripts/ship.sh <服務>`。
-4. 合併後刪掉已合併的 `cloud/*` 分支。
+3. 把雲端這一筆交接單（標題 `handoff-YYYY-MM-DD-cloud`）和它列出的檔案用 `kb_write` 寫進知識庫（domain=`handoff`），並回報寫入結果。
+4. 先不合併。使用者說「合併」才合進 master；說「上線」才合併＋跑整套 E2E＋`deploy/scripts/ship.sh <服務>`。
+5. 合併後刪掉已合併的 `cloud/*` 分支。
