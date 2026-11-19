@@ -116,6 +116,8 @@ ul.verses .ref:hover { text-decoration: underline; }
   padding: 8px 12px; margin: 10px 0; color: var(--ink);
 }
 .note b { color: var(--red); }
+ol.pts .note { text-indent: 0; margin: 6px 0 4px; }  /* 屬靈要點條目底下的註解，不要沿用條目的懸掛縮排 */
+.note ol.pts > li b:first-child { color: var(--ink); }
 .practice { background: var(--box); border-left: 4px solid var(--teal); border-radius: 0 8px 8px 0; padding: 8px 14px; margin: 10px 0; }
 .practice .label { display: block; font-weight: 700; color: var(--teal); font-size: 14px; }
 .pray { font-family: "DFKai-SB", "BiauKai", "標楷體", serif; font-weight: 700; color: var(--teal); }
