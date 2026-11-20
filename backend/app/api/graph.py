@@ -10,6 +10,7 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from ..analysis.watch_graph import (
+    _filter_snapshot,
     build_watchlist_graph,
     get_watchlist_alerts,
     get_watchlist_snapshot,
@@ -111,6 +112,11 @@ async def build_graph(payload: BuildGraphRequest):
         _raise_graph_error(exc)
 
 
+def _canonical_symbols_key(symbols: list[str]) -> str:
+    """正規化快取鍵（去重＋排序），避免 '2330,2317' 與 '2317,2330' 各自快取。"""
+    return ",".join(sorted(set(symbols)))
+
+
 @router.get("/snapshot")
 async def graph_snapshot(
     symbols: str = Query(..., description="逗號分隔股票代碼，例如 2330,2317,2454"),
@@ -120,18 +126,20 @@ async def graph_snapshot(
 ):
     try:
         parsed_symbols = _parse_symbols(symbols)
-        cache_key = f"graph:snapshot:{','.join(parsed_symbols)}:{date_value}:{edge_threshold}:{lookback_days}"
-        cached = mem_get(cache_key)
-        if cached is not None:
-            return {"success": True, "data": cached}
-        snapshot = await get_watchlist_snapshot(
-            symbols=parsed_symbols,
-            target_date=date_value,
-            edge_threshold=edge_threshold,
-            lookback_days=lookback_days,
-        )
-        mem_set(cache_key, snapshot)
-        return {"success": True, "data": snapshot}
+        canon_syms = _canonical_symbols_key(parsed_symbols)
+        # 快取鍵拆離 edge_threshold：快取完整未過濾快照，讀出後在記憶體依門檻過濾
+        cache_key = f"graph:snapshot:{canon_syms}:{date_value}:{lookback_days}"
+        raw_snapshot = mem_get(cache_key)
+        if raw_snapshot is None:
+            raw_snapshot = await get_watchlist_snapshot(
+                symbols=parsed_symbols,
+                target_date=date_value,
+                edge_threshold=0.0,
+                lookback_days=lookback_days,
+            )
+            if not raw_snapshot.get("degraded"):
+                mem_set(cache_key, raw_snapshot)
+        return {"success": True, "data": _filter_snapshot(raw_snapshot, edge_threshold=edge_threshold)}
     except Exception as exc:
         _raise_graph_error(exc)
 
@@ -156,19 +164,28 @@ async def graph_timeline(
         # 使用情境（預設就是 30 天），純粹是防呆上限。
         if (end_date - start_date).days > 180:
             raise HTTPException(status_code=400, detail="時間軸區間不可超過 180 天。")
-        cache_key = f"graph:timeline:{','.join(parsed_symbols)}:{start_date}:{end_date}:{edge_threshold}:{lookback_days}"
-        cached = mem_get(cache_key)
-        if cached is not None:
-            return {"success": True, "data": cached}
-        timeline = await get_watchlist_timeline(
-            symbols=parsed_symbols,
-            start_date=start_date,
-            end_date=end_date,
-            edge_threshold=edge_threshold,
-            lookback_days=lookback_days,
-        )
-        mem_set(cache_key, timeline)
-        return {"success": True, "data": timeline}
+        canon_syms = _canonical_symbols_key(parsed_symbols)
+        # 快取鍵拆離 edge_threshold：使用者拉動門檻滑桿時 0 次 DB、0 次 FinMind
+        cache_key = f"graph:timeline:{canon_syms}:{start_date}:{end_date}:{lookback_days}"
+        raw_timeline = mem_get(cache_key)
+        if raw_timeline is None:
+            raw_timeline = await get_watchlist_timeline(
+                symbols=parsed_symbols,
+                start_date=start_date,
+                end_date=end_date,
+                edge_threshold=0.0,
+                lookback_days=lookback_days,
+            )
+            items = raw_timeline.get("items", [])
+            if items and any(not it.get("degraded") for it in items):
+                mem_set(cache_key, raw_timeline)
+        clamped = max(0.0, min(1.0, float(edge_threshold)))
+        filtered_timeline = {
+            **raw_timeline,
+            "edge_threshold": clamped,
+            "items": [_filter_snapshot(it, edge_threshold=clamped) for it in raw_timeline.get("items", [])],
+        }
+        return {"success": True, "data": filtered_timeline}
     except Exception as exc:
         _raise_graph_error(exc)
 
@@ -180,7 +197,8 @@ async def graph_alerts(
 ):
     try:
         parsed_symbols = _parse_symbols(symbols)
-        cache_key = f"graph:alerts:{','.join(parsed_symbols)}:{edge_threshold}"
+        canon_syms = _canonical_symbols_key(parsed_symbols)
+        cache_key = f"graph:alerts:{canon_syms}:{edge_threshold}"
         cached = mem_get(cache_key)
         if cached is not None:
             return {"success": True, "data": cached}

@@ -95,25 +95,183 @@ def _match_row(row: dict, criteria: dict) -> bool:
     return True
 
 
+def _extract_positive_pe(raw) -> float | None:
+    try:
+        val = float(raw)
+        return round(val, 1) if val > 0 else None
+    except (TypeError, ValueError):
+        return None
+
+
+async def _prescreen_candidates(
+    candidate_syms: list[str],
+    criteria: dict,
+    *,
+    today=None,
+) -> list[str]:
+    """第一階段零額度初篩：直接讀本地 od_valuation / md_valuation 與 od_revenue / md_revenue，
+    剔除確定不符 PE 或營收年增門檻的候選股；庫內查無資料或不夠新的標的保留進第二階段，
+    不犧牲召回率。Mongo 不可用或逾時時安全回傳完整候選池。
+    """
+    from datetime import date, timedelta
+
+    from ..data import db_reader as dr
+    from ..data import open_data as od
+    from ..data import stock_store as st
+
+    if not candidate_syms:
+        return []
+    has_pe = criteria.get("pe_max") is not None or criteria.get("pe_min") is not None
+    has_yoy = criteria.get("revenue_yoy_min") is not None
+    if not has_pe and not has_yoy:
+        return list(candidate_syms)
+
+    ref_today = today or date.today()
+    survivors = list(candidate_syms)
+
+    async def _run() -> list[str]:
+        nonlocal survivors
+        od_db = await od._db()
+        st_db = await st._db()
+
+        # 1. 本地 PE 初篩（優先 od_valuation，缺漏補查 md_valuation）
+        if has_pe and survivors:
+            since_val = (ref_today - timedelta(days=14)).isoformat()
+            od_val_docs = await od_db["od_valuation"].find(
+                {"symbol": {"$in": survivors}, "date": {"$gte": since_val}},
+                {"_id": 0, "symbol": 1, "date": 1, "pe": 1},
+            ).to_list(length=None)
+            latest_val: dict[str, tuple[str, float | None]] = {}
+            for doc in od_val_docs:
+                sym = str(doc.get("symbol", "")).upper()
+                d_str = str(doc.get("date", ""))[:10]
+                if not sym or not d_str:
+                    continue
+                if sym not in latest_val or d_str >= latest_val[sym][0]:
+                    latest_val[sym] = (d_str, _extract_positive_pe(doc.get("pe")))
+
+            missing_val = [s for s in survivors if s not in latest_val]
+            if missing_val:
+                md_val_docs = await st_db["md_valuation"].find(
+                    {"symbol": {"$in": missing_val}, "date": {"$gte": since_val}},
+                    {"_id": 0, "symbol": 1, "date": 1, "PER": 1},
+                ).to_list(length=None)
+                for doc in md_val_docs:
+                    sym = str(doc.get("symbol", "")).upper()
+                    d_str = str(doc.get("date", ""))[:10]
+                    if not sym or not d_str:
+                        continue
+                    if sym not in latest_val or d_str >= latest_val[sym][0]:
+                        latest_val[sym] = (d_str, _extract_positive_pe(doc.get("PER")))
+
+            pe_max = criteria.get("pe_max")
+            pe_min = criteria.get("pe_min")
+            next_survivors = []
+            for sym in survivors:
+                if sym not in latest_val:
+                    next_survivors.append(sym)  # 本地無紀錄，保留進第二階段補查
+                    continue
+                pe = latest_val[sym][1]
+                if pe_max is not None and (pe is None or pe > pe_max):
+                    continue
+                if pe_min is not None and (pe is None or pe < pe_min):
+                    continue
+                next_survivors.append(sym)
+            survivors = next_survivors
+
+        # 2. 本地營收 YoY 初篩（優先 od_revenue 官方 yoy，不足補查 md_revenue）
+        if has_yoy and survivors:
+            yoy_min = criteria["revenue_yoy_min"]
+            expected_rev_iso = dr.expected_latest_revenue_date(ref_today).isoformat()
+            ym_since_y, ym_since_m = dr._shift_month(ref_today.year, ref_today.month, -8)
+            ym_since = f"{ym_since_y:04d}-{ym_since_m:02d}"
+
+            od_rev_docs = await od_db["od_revenue"].find(
+                {"symbol": {"$in": survivors}, "ym": {"$gte": ym_since}},
+                {"_id": 0, "symbol": 1, "ym": 1, "yoy": 1},
+            ).to_list(length=None)
+            od_by_sym: dict[str, list[tuple[str, float]]] = {}
+            for doc in od_rev_docs:
+                sym = str(doc.get("symbol", "")).upper()
+                ym = str(doc.get("ym", ""))[:7]
+                yoy_val = _to_num(doc.get("yoy"))
+                if sym and ym and yoy_val is not None:
+                    od_by_sym.setdefault(sym, []).append((ym, yoy_val))
+
+            known_yoy_avg: dict[str, float] = {}
+            for sym, pairs in od_by_sym.items():
+                pairs.sort(key=lambda x: x[0])
+                latest_fm = dr.ym_to_finmind_date(pairs[-1][0])
+                if len(pairs) >= 3 and latest_fm and latest_fm >= expected_rev_iso:
+                    recent3 = [v for _, v in pairs[-3:]]
+                    known_yoy_avg[sym] = round(sum(recent3) / 3.0, 1)
+
+            missing_rev = [s for s in survivors if s not in known_yoy_avg]
+            if missing_rev:
+                rev_since = (ref_today - timedelta(days=460)).isoformat()
+                md_rev_docs = await st_db["md_revenue"].find(
+                    {"symbol": {"$in": missing_rev}, "date": {"$gte": rev_since}},
+                    {"_id": 0, "symbol": 1, "date": 1, "revenue": 1, "revenue_year": 1, "revenue_month": 1},
+                ).to_list(length=None)
+                md_by_sym: dict[str, list[dict]] = {}
+                for doc in md_rev_docs:
+                    sym = str(doc.get("symbol", "")).upper()
+                    if sym:
+                        md_by_sym.setdefault(sym, []).append(doc)
+                for sym, docs in md_by_sym.items():
+                    docs.sort(key=lambda d: str(d.get("date", "")))
+                    latest_d = str(docs[-1].get("date", ""))[:10]
+                    if not latest_d or latest_d < expected_rev_iso:
+                        continue
+                    rev_map: dict[tuple[int, int], float] = {}
+                    for d in docs:
+                        y, m, r = int(d.get("revenue_year") or 0), int(d.get("revenue_month") or 0), _to_num(d.get("revenue"))
+                        if y and m and r is not None:
+                            rev_map[(y, m)] = r
+                    yoys: list[float] = []
+                    for d in docs:
+                        y, m, r = int(d.get("revenue_year") or 0), int(d.get("revenue_month") or 0), _to_num(d.get("revenue"))
+                        prev = rev_map.get((y - 1, m))
+                        if y and m and r is not None and prev and prev > 0:
+                            yoys.append((r - prev) / prev * 100.0)
+                    if len(yoys) >= 3:
+                        recent3 = yoys[-3:]
+                        known_yoy_avg[sym] = round(sum(recent3) / 3.0, 1)
+
+            survivors = [
+                sym for sym in survivors
+                if sym not in known_yoy_avg or known_yoy_avg[sym] >= yoy_min
+            ]
+
+        return survivors
+
+    try:
+        return await asyncio.wait_for(_run(), timeout=dr.DB_READ_TIMEOUT_SEC)
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("nl_screener prescreen skipped, falling back to stage 2: %s", exc)
+        return list(candidate_syms)
+
+
 async def run_screener(query: str, expand: bool = False) -> dict:
     """自然語言選股本體。快取 6 小時（跟 peer_compare 同節奏），key 為查詢文字。
+
+    兩階段省額度設計：
+    1. 第一階段優先用本地 Mongo（od_valuation / md_valuation / od_revenue / md_revenue）
+       做零額度初篩，先淘汰確定不符門檻的候選股。
+    2. 第二階段僅對通過或庫內缺資料的標的補抓指標，且關閉選股沒用到的市值查詢。
 
     X10：expand=True 時把候選池上限翻倍——第一輪候選池太窄找不到符合條件
     的股票時，前端可以直接要求擴大範圍重查，不用逼使用者換句話重問。
     """
     from datetime import date
 
-    from .peer_compare import _fetch_market_quotes, _one_metrics, _stock_info_maps
-    from ..db.cache import get_cache, set_cache
+    from .peer_compare import _fetch_market_quotes, _one_metrics, _safe_get_cache, _safe_set_cache, _stock_info_maps
 
     normalized = query.strip()
     cache_key = f"nl_screener:v1:{normalized}:{'expand' if expand else 'std'}:{date.today().isoformat()}"
-    try:
-        cached = await get_cache(cache_key)
-        if cached:
-            return {**cached, "cached": True}
-    except Exception:
-        pass
+    cached = await _safe_get_cache(cache_key)
+    if cached:
+        return {**cached, "cached": True}
 
     max_candidates = MAX_CANDIDATES * 2 if expand else MAX_CANDIDATES
     criteria = await parse_query(normalized)
@@ -151,8 +309,21 @@ async def run_screener(query: str, expand: bool = False) -> dict:
         )[:remaining]
         candidate_syms = llm_candidates + fill
 
+    # 第一階段：零額度本地 DB 預篩
+    stage2_syms = await _prescreen_candidates(candidate_syms, criteria)
+
+    # 第二階段：僅對通過或本地缺資料的標的補抓指標；AI 選股不顯示市值，關閉市值查詢省額度
     rows = await asyncio.gather(
-        *[_one_metrics(s, name_map.get(s, s), "screener") for s in candidate_syms]
+        *[
+            _one_metrics(
+                s,
+                name_map.get(s, s),
+                "screener",
+                include_market_cap=False,
+                include_financials=True,
+            )
+            for s in stage2_syms
+        ]
     )
     matched = [r for r in rows if _match_row(r, criteria)]
     matched.sort(key=lambda r: (r.get("pe") is None, r.get("pe") or 0))
@@ -168,8 +339,5 @@ async def run_screener(query: str, expand: bool = False) -> dict:
         "as_of": date.today().isoformat(),
         "cached": False,
     }
-    try:
-        await set_cache(cache_key, result, "peer")
-    except Exception:
-        pass
+    await _safe_set_cache(cache_key, result, "peer")
     return result

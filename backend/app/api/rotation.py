@@ -14,8 +14,8 @@ from ..analysis.sector_rotation import (
     get_rotation_snapshot,
     get_rotation_timeline,
     ingest_sector_index,
+    ingest_watchlist_prices,
 )
-from ..analysis.watch_graph import ingest_watchlist_raw
 from ..db.memcache import mem_clear, mem_get, mem_set
 
 logger = logging.getLogger(__name__)
@@ -85,7 +85,7 @@ async def build_rotation(payload: BuildRotationRequest):
         end = payload.end or date.today()
         start = end - timedelta(days=payload.lookback_days)
         if payload.universe == "watchlist":
-            result = await ingest_watchlist_raw(payload.symbols, start, end)
+            result = await ingest_watchlist_prices(payload.symbols, start, end)
         else:
             result = await ingest_sector_index(start, end)
         mem_clear("rotation:")  # 原始資料重抓後，記憶體裡的輪動計算結果全部失效
@@ -109,7 +109,8 @@ async def rotation_snapshot(
 ):
     try:
         parsed = _parse_symbols(symbols)
-        cache_key = f"rotation:snapshot:{universe}:{freq}:{date_value}:{','.join(parsed)}:{lookback_days}:{trail_length}:{edge_threshold}"
+        canon = ",".join(sorted(set(parsed)))
+        cache_key = f"rotation:snapshot:{universe}:{freq}:{date_value}:{canon}:{lookback_days}:{trail_length}:{edge_threshold}"
         cached = mem_get(cache_key)
         if cached is not None:
             return {"success": True, "data": cached}
@@ -141,7 +142,8 @@ async def rotation_timeline(
         end_date = end or date.today()
         start_date = start or (end_date - timedelta(days=60))
         parsed = _parse_symbols(symbols)
-        cache_key = f"rotation:timeline:{universe}:{freq}:{start_date}:{end_date}:{','.join(parsed)}:{lookback_days}"
+        canon = ",".join(sorted(set(parsed)))
+        cache_key = f"rotation:timeline:{universe}:{freq}:{start_date}:{end_date}:{canon}:{lookback_days}"
         cached = mem_get(cache_key)
         if cached is not None:
             return {"success": True, "data": cached}
@@ -169,7 +171,8 @@ async def rotation_heatmap(
     """每日漲跌熱力圖（Treemap）：類股/觀察池今天對昨天的漲跌幅快照。"""
     try:
         parsed = _parse_symbols(symbols)
-        cache_key = f"rotation:heatmap:{universe}:{date_value}:{','.join(parsed)}:{lookback_days}"
+        canon = ",".join(sorted(set(parsed)))
+        cache_key = f"rotation:heatmap:{universe}:{date_value}:{canon}:{lookback_days}"
         cached = mem_get(cache_key)
         if cached is not None:
             return {"success": True, "data": cached}

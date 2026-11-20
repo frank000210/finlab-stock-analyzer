@@ -2,15 +2,28 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import date, datetime, timedelta
 from typing import Any
 
 import numpy as np
 from pymongo import UpdateOne
 
+from ..crawler import FinMindClient, StockPriceCrawler
 from ..crawler.sector_index import BENCHMARK_ID, SectorIndexCrawler
+from ..data.stock_store import is_quota_error
 from ..db.mongodb import get_mongodb
-from .watch_graph import _best_lag_corr, _parse_date, _safe_float
+from .watch_graph import (
+    _best_lag_corr,
+    _find_missing_symbols,
+    _normalize_symbols,
+    _parse_date,
+    _safe_float,
+    _to_iso,
+    ensure_graph_indexes,
+)
+
+logger = logging.getLogger(__name__)
 
 QUADRANT_LEADING = "leading"      # 領先：RS-Ratio>100, RS-Momentum>100
 QUADRANT_WEAKENING = "weakening"  # 轉弱：RS-Ratio>100, RS-Momentum<100
@@ -143,10 +156,121 @@ async def _load_twse_series(start: date, end: date) -> tuple[dict[str, dict[str,
     return series, names
 
 
+async def ingest_watchlist_prices(
+    symbols: list[str],
+    start_date: str | date,
+    end_date: str | date,
+) -> dict[str, Any]:
+    """類股輪動觀察池專用輕量 ingest：只補「收盤價＋產業別」，完全不抓三大法人與融資融券（省 66% 額度）。
+
+    同時優先比對本地 md_price ∪ raw_prices，已涵蓋區間的標的不重複呼叫 FinMind；
+    若遇 FinMind 額度錯誤立即熔斷停手。
+    """
+    symbols = _normalize_symbols(symbols)
+    if not symbols:
+        return {"symbols": 0, "prices": 0, "industry": 0, "aborted": None}
+
+    start = _parse_date(start_date)
+    end = _parse_date(end_date)
+    mongo = await get_mongodb()
+    await ensure_graph_indexes(mongo)
+
+    finmind = FinMindClient()
+    stock_crawler = StockPriceCrawler()
+
+    try:
+        info_df = await finmind.get_stock_info()
+    except Exception as exc:
+        if is_quota_error(exc):
+            logger.warning("ingest_watchlist_prices: FinMind quota exhausted on get_stock_info (%s)", exc)
+            return {"symbols": len(symbols), "prices": 0, "industry": 0, "aborted": "quota"}
+        logger.exception("ingest_watchlist_prices: get_stock_info failed")
+        info_df = None
+
+    info_map: dict[str, dict[str, Any]] = {}
+    if info_df is not None and not info_df.empty:
+        for _, row in info_df.iterrows():
+            sid = str(row.get("stock_id", "")).strip().upper()
+            if sid:
+                info_map[sid] = {
+                    "name_zh": str(row.get("stock_name", "") or "").strip(),
+                    "industry": str(row.get("industry_category", row.get("Industry_category", "")) or "").strip(),
+                }
+
+    missing_prices = await _find_missing_symbols(
+        symbols, start, end, require_institutional=False, mongo=mongo
+    )
+    inserted_prices = 0
+    inserted_industry = 0
+    aborted: str | None = None
+    now = datetime.utcnow()
+
+    for symbol in symbols:
+        profile = info_map.get(symbol, {})
+        if profile:
+            await mongo.raw_industry.update_one(
+                {"symbol": symbol},
+                {
+                    "$set": {
+                        "symbol": symbol,
+                        "name_zh": profile.get("name_zh") or symbol,
+                        "industry": profile.get("industry") or "未知產業",
+                        "updated_at": now,
+                    }
+                },
+                upsert=True,
+            )
+            inserted_industry += 1
+
+    for symbol in missing_prices:
+        try:
+            df = await stock_crawler.get_price(symbol, start.isoformat(), end.isoformat(), "1d")
+            if df is not None and not df.empty:
+                ops = []
+                for _, row in df.iterrows():
+                    iso_date = _to_iso(row.get("date"))
+                    if not iso_date:
+                        continue
+                    doc = {
+                        "symbol": symbol,
+                        "date": iso_date,
+                        "open": _safe_float(row.get("open")),
+                        "high": _safe_float(row.get("high")),
+                        "low": _safe_float(row.get("low")),
+                        "close": _safe_float(row.get("close")),
+                        "volume": _safe_float(row.get("volume")),
+                        "updated_at": now,
+                    }
+                    ops.append(UpdateOne({"symbol": symbol, "date": iso_date}, {"$set": doc}, upsert=True))
+                if ops:
+                    await mongo.raw_prices.bulk_write(ops, ordered=False)
+                    inserted_prices += len(ops)
+            if stock_crawler.last_finmind_error is not None and is_quota_error(stock_crawler.last_finmind_error):
+                aborted = "quota"
+                logger.warning("ingest_watchlist_prices: FinMind quota hit on %s, stopping early", symbol)
+                break
+        except Exception as exc:
+            if is_quota_error(exc):
+                aborted = "quota"
+                logger.warning("ingest_watchlist_prices: FinMind quota exhausted on %s, stopping early", symbol)
+                break
+            logger.exception("ingest_watchlist_prices: price fetch failed for %s", symbol)
+
+    return {
+        "symbols": len(symbols),
+        "prices": inserted_prices,
+        "industry": inserted_industry,
+        "aborted": aborted,
+    }
+
+
 async def _load_watchlist_series(
     symbols: list[str], start: date, end: date
 ) -> tuple[dict[str, dict[str, float]], dict[str, str]]:
-    """Aggregate watchlist stocks into equal-weight industry indices (base=100)."""
+    """Aggregate watchlist stocks into equal-weight industry indices (base=100).
+
+    優先合併讀取每日資料庫 md_price 與 raw_prices，讓白名單標的零額度直接出圖。
+    """
     mongo = await get_mongodb()
     normalized = [str(s or "").strip().upper() for s in symbols if str(s or "").strip()]
     if not normalized:
@@ -162,12 +286,28 @@ async def _load_watchlist_series(
         {"_id": 0, "symbol": 1, "date": 1, "close": 1},
     ).to_list(length=None)
 
+    md_price_docs: list[dict[str, Any]] = []
+    try:
+        md_price_docs = await mongo["md_price"].find(
+            {"symbol": {"$in": normalized}, "date": {"$gte": start.isoformat(), "$lte": end.isoformat()}},
+            {"_id": 0, "symbol": 1, "date": 1, "close": 1},
+        ).to_list(length=None)
+    except Exception:
+        pass
+
     closes: dict[str, dict[str, float]] = {}
     for doc in price_docs:
         sym = str(doc.get("symbol", "")).upper()
+        iso_d = _to_iso(doc.get("date"))
         value = _safe_float(doc.get("close"))
-        if value > 0:
-            closes.setdefault(sym, {})[doc["date"]] = value
+        if sym and iso_d and value > 0:
+            closes.setdefault(sym, {})[iso_d] = value
+    for doc in md_price_docs:
+        sym = str(doc.get("symbol", "")).upper()
+        iso_d = _to_iso(doc.get("date"))
+        value = _safe_float(doc.get("close"))
+        if sym and iso_d and value > 0:
+            closes.setdefault(sym, {})[iso_d] = value
 
     # Normalize each stock to 100 at its first observation, then average per industry.
     normalized_series: dict[str, dict[str, float]] = {}

@@ -11,6 +11,12 @@ class InstitutionalCrawler:
     def __init__(self, finmind_token: Optional[str] = None):
         self.finmind = FinMindClient(token=finmind_token)
 
+    async def get_institutional_data(
+        self, symbol: str, start: str, end: str
+    ) -> list[dict]:
+        """僅取得三大法人買賣超日資料（不抓融資融券，供關聯圖等不需要融資的模組省額度）。"""
+        return await self._get_institutional(symbol, start, end)
+
     async def get_chip_data(
         self, symbol: str, start: str, end: str
     ) -> dict:

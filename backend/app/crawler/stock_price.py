@@ -22,6 +22,7 @@ class StockPriceCrawler:
     def __init__(self, finmind_token: Optional[str] = None):
         self.finmind = FinMindClient(token=finmind_token)
         self.last_source: Optional[str] = None
+        self.last_finmind_error: Optional[Exception] = None
 
     async def get_price(
         self, symbol: str, start: str, end: str, period: str = "1d"
@@ -36,6 +37,7 @@ class StockPriceCrawler:
         from ..data.us_symbols import is_tw_symbol, normalize_symbol
 
         self.last_source = None
+        self.last_finmind_error = None
         symbol = normalize_symbol(symbol)
 
         if is_tw_symbol(symbol):
@@ -49,6 +51,7 @@ class StockPriceCrawler:
                     self.last_source = "finmind"
                     return df
             except Exception as e:
+                self.last_finmind_error = e
                 logger.warning("FinMind price fetch failed for %s (%s~%s): %s", symbol, start, end, e)
 
         # yfinance：台股備援（.TW/.TWO）或美股直查。II3：_fetch_yfinance 是

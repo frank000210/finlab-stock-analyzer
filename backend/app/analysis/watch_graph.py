@@ -11,6 +11,8 @@ import numpy as np
 from pymongo import UpdateOne
 
 from ..crawler import FinMindClient, InstitutionalCrawler, StockPriceCrawler
+from ..data.db_reader import is_daily_covered
+from ..data.stock_store import is_quota_error
 from ..db.mongodb import get_mongodb
 from .correlation import best_lag_corr, safe_corr
 
@@ -158,7 +160,7 @@ async def ingest_watchlist_raw(
 ) -> dict[str, Any]:
     symbols = _normalize_symbols(symbols)
     if not symbols:
-        return {"symbols": 0, "prices": 0, "institutional": 0, "industry": 0}
+        return {"symbols": 0, "prices": 0, "institutional": 0, "industry": 0, "aborted": None}
 
     start = _parse_date(start_date)
     end = _parse_date(end_date)
@@ -171,7 +173,10 @@ async def ingest_watchlist_raw(
 
     try:
         info_df = await finmind.get_stock_info()
-    except Exception:
+    except Exception as exc:
+        if is_quota_error(exc):
+            logger.warning("ingest_watchlist_raw: FinMind quota exhausted on get_stock_info, aborting ingest (%s)", exc)
+            return {"symbols": len(symbols), "prices": 0, "institutional": 0, "industry": 0, "aborted": "quota"}
         # FinMind token/plan 問題時降級：不阻斷整體圖計算，產業先驗邊可先略過。
         logger.exception("ingest_watchlist_raw: get_stock_info failed, skipping industry priors")
         info_df = None
@@ -189,9 +194,11 @@ async def ingest_watchlist_raw(
     inserted_prices = 0
     inserted_inst = 0
     inserted_industry = 0
+    aborted: str | None = None
     now = datetime.utcnow()
 
     for symbol in symbols:
+        price_quota_hit = False
         try:
             df = await stock_crawler.get_price(symbol, start.isoformat(), end.isoformat(), "1d")
             if not df.empty:
@@ -217,16 +224,28 @@ async def ingest_watchlist_raw(
                 if ops:
                     await mongo.raw_prices.bulk_write(ops, ordered=False)
                     inserted_prices += len(ops)
-        except Exception:
+            if stock_crawler.last_finmind_error is not None and is_quota_error(stock_crawler.last_finmind_error):
+                price_quota_hit = True
+        except Exception as exc:
+            if is_quota_error(exc):
+                aborted = "quota"
+                logger.warning("ingest_watchlist_raw: FinMind quota exhausted on price(%s), stopping early", symbol)
+                break
             # FF5：原本整段吞掉、零 log——回傳的 prices/institutional 計數
             # 全是 0 時完全看不出是哪一檔、為什麼失敗（額度用完/該檔代號
             # 錯誤/FinMind 暫時掛掉都長一樣）。
             logger.exception("ingest_watchlist_raw: price fetch failed for %s", symbol)
 
+        if price_quota_hit:
+            aborted = "quota"
+            logger.warning("ingest_watchlist_raw: FinMind quota hit during price(%s), aborting remaining fetches", symbol)
+            break
+
         try:
-            chip_data = await inst_crawler.get_chip_data(symbol, start.isoformat(), end.isoformat())
+            # 關聯圖只使用三大法人買賣超，不呼叫 get_chip_data() 以免白白多抓融資融券（省 33% FinMind 額度）
+            inst_items = await inst_crawler.get_institutional_data(symbol, start.isoformat(), end.isoformat())
             ops = []
-            for item in chip_data.get("items", []):
+            for item in inst_items:
                 iso_date = _to_iso(item.get("date"))
                 if not iso_date:
                     continue
@@ -242,8 +261,12 @@ async def ingest_watchlist_raw(
             if ops:
                 await mongo.raw_institutional.bulk_write(ops, ordered=False)
                 inserted_inst += len(ops)
-        except Exception:
-            logger.exception("ingest_watchlist_raw: chip data fetch failed for %s", symbol)
+        except Exception as exc:
+            if is_quota_error(exc):
+                aborted = "quota"
+                logger.warning("ingest_watchlist_raw: FinMind quota exhausted on institutional(%s), stopping early", symbol)
+                break
+            logger.exception("ingest_watchlist_raw: institutional fetch failed for %s", symbol)
 
         profile = info_map.get(symbol, {})
         if profile:
@@ -266,7 +289,94 @@ async def ingest_watchlist_raw(
         "prices": inserted_prices,
         "institutional": inserted_inst,
         "industry": inserted_industry,
+        "aborted": aborted,
     }
+
+
+def _aggregate_md_institutional(md_docs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """將 md_institutional 長表（symbol, date, name, buy, sell）聚合成與 raw_institutional 相容的日淨買超。"""
+    grouped: dict[tuple[str, str], dict[str, Any]] = {}
+    for doc in md_docs:
+        sym = str(doc.get("symbol", "")).upper()
+        iso_date = _to_iso(doc.get("date"))
+        if not sym or not iso_date:
+            continue
+        entry = grouped.setdefault(
+            (sym, iso_date),
+            {
+                "symbol": sym,
+                "date": iso_date,
+                "foreign_net_buy": 0.0,
+                "investment_trust_net_buy": 0.0,
+                "dealer_net_buy": 0.0,
+            },
+        )
+        name = str(doc.get("name", ""))
+        net = _safe_float(doc.get("buy")) - _safe_float(doc.get("sell"))
+        if "外資" in name or "Foreign" in name:
+            entry["foreign_net_buy"] += net
+        elif "投信" in name or "Investment" in name:
+            entry["investment_trust_net_buy"] += net
+        elif "自營" in name or "Dealer" in name:
+            entry["dealer_net_buy"] += net
+    return list(grouped.values())
+
+
+async def _find_missing_symbols(
+    symbols: list[str],
+    start_date: date,
+    end_date: date,
+    *,
+    require_institutional: bool = True,
+    mongo=None,
+) -> list[str]:
+    """檢查哪些標的在本地 Mongo（md_* ∪ raw_*）尚未涵蓋 [start_date, end_date]，只回傳缺漏者。"""
+    symbols = _normalize_symbols(symbols)
+    if not symbols:
+        return []
+    mongo = mongo if mongo is not None else await get_mongodb()
+    start_iso = start_date.isoformat()
+    end_iso = end_date.isoformat()
+
+    price_dates: dict[str, set[str]] = {s: set() for s in symbols}
+    for coll_name in ("raw_prices", "md_price"):
+        try:
+            docs = await mongo[coll_name].find(
+                {"symbol": {"$in": symbols}, "date": {"$gte": start_iso, "$lte": end_iso}},
+                {"_id": 0, "symbol": 1, "date": 1},
+            ).to_list(length=None)
+            for doc in docs:
+                sym = str(doc.get("symbol", "")).upper()
+                d_iso = _to_iso(doc.get("date"))
+                if sym in price_dates and d_iso:
+                    price_dates[sym].add(d_iso)
+        except Exception:
+            pass
+
+    inst_dates: dict[str, set[str]] = {s: set() for s in symbols}
+    if require_institutional:
+        for coll_name in ("raw_institutional", "md_institutional"):
+            try:
+                docs = await mongo[coll_name].find(
+                    {"symbol": {"$in": symbols}, "date": {"$gte": start_iso, "$lte": end_iso}},
+                    {"_id": 0, "symbol": 1, "date": 1},
+                ).to_list(length=None)
+                for doc in docs:
+                    sym = str(doc.get("symbol", "")).upper()
+                    d_iso = _to_iso(doc.get("date"))
+                    if sym in inst_dates and d_iso:
+                        inst_dates[sym].add(d_iso)
+            except Exception:
+                pass
+
+    missing: list[str] = []
+    for sym in symbols:
+        if not is_daily_covered(sorted(price_dates[sym]), start_iso, end_iso):
+            missing.append(sym)
+            continue
+        if require_institutional and not is_daily_covered(sorted(inst_dates[sym]), start_iso, end_iso):
+            missing.append(sym)
+    return missing
 
 
 async def _load_raw_maps(
@@ -278,32 +388,71 @@ async def _load_raw_maps(
     start_iso = start_date.isoformat()
     end_iso = end_date.isoformat()
 
-    price_cursor = mongo.raw_prices.find(
+    price_docs = await mongo.raw_prices.find(
         {"symbol": {"$in": symbols}, "date": {"$gte": start_iso, "$lte": end_iso}},
         {"_id": 0},
-    )
-    inst_cursor = mongo.raw_institutional.find(
+    ).to_list(length=None)
+    inst_docs = await mongo.raw_institutional.find(
         {"symbol": {"$in": symbols}, "date": {"$gte": start_iso, "$lte": end_iso}},
         {"_id": 0},
-    )
-    industry_cursor = mongo.raw_industry.find({"symbol": {"$in": symbols}}, {"_id": 0})
+    ).to_list(length=None)
+    industry_docs = await mongo.raw_industry.find({"symbol": {"$in": symbols}}, {"_id": 0}).to_list(length=None)
 
-    price_docs = await price_cursor.to_list(length=None)
-    inst_docs = await inst_cursor.to_list(length=None)
-    industry_docs = await industry_cursor.to_list(length=None)
+    # 同步併入每日資料庫 md_price / md_institutional（同日以 md_* 優先，零 FinMind 額度）
+    md_price_docs: list[dict[str, Any]] = []
+    md_inst_docs: list[dict[str, Any]] = []
+    try:
+        md_price_docs = await mongo["md_price"].find(
+            {"symbol": {"$in": symbols}, "date": {"$gte": start_iso, "$lte": end_iso}},
+            {"_id": 0},
+        ).to_list(length=None)
+    except Exception:
+        pass
+    try:
+        md_inst_raw = await mongo["md_institutional"].find(
+            {"symbol": {"$in": symbols}, "date": {"$gte": start_iso, "$lte": end_iso}},
+            {"_id": 0},
+        ).to_list(length=None)
+        md_inst_docs = _aggregate_md_institutional(md_inst_raw)
+    except Exception:
+        pass
 
-    prices_by_symbol: dict[str, list[dict[str, Any]]] = {symbol: [] for symbol in symbols}
-    inst_by_symbol: dict[str, list[dict[str, Any]]] = {symbol: [] for symbol in symbols}
-    industry_map: dict[str, dict[str, Any]] = {symbol: {"symbol": symbol, "industry": "未知產業", "name_zh": symbol} for symbol in symbols}
-
+    price_merged: dict[str, dict[str, dict[str, Any]]] = {symbol: {} for symbol in symbols}
     for doc in price_docs:
         symbol = str(doc.get("symbol", "")).upper()
-        if symbol in prices_by_symbol:
-            prices_by_symbol[symbol].append(doc)
+        iso_date = _to_iso(doc.get("date"))
+        if symbol in price_merged and iso_date:
+            price_merged[symbol][iso_date] = doc
+    for doc in md_price_docs:
+        symbol = str(doc.get("symbol", "")).upper()
+        iso_date = _to_iso(doc.get("date"))
+        if symbol in price_merged and iso_date:
+            price_merged[symbol][iso_date] = doc
+
+    inst_merged: dict[str, dict[str, dict[str, Any]]] = {symbol: {} for symbol in symbols}
     for doc in inst_docs:
         symbol = str(doc.get("symbol", "")).upper()
-        if symbol in inst_by_symbol:
-            inst_by_symbol[symbol].append(doc)
+        iso_date = _to_iso(doc.get("date"))
+        if symbol in inst_merged and iso_date:
+            inst_merged[symbol][iso_date] = doc
+    for doc in md_inst_docs:
+        symbol = str(doc.get("symbol", "")).upper()
+        iso_date = _to_iso(doc.get("date"))
+        if symbol in inst_merged and iso_date:
+            inst_merged[symbol][iso_date] = doc
+
+    prices_by_symbol: dict[str, list[dict[str, Any]]] = {
+        symbol: [by_date[d] for d in sorted(by_date)]
+        for symbol, by_date in price_merged.items()
+    }
+    inst_by_symbol: dict[str, list[dict[str, Any]]] = {
+        symbol: [by_date[d] for d in sorted(by_date)]
+        for symbol, by_date in inst_merged.items()
+    }
+    industry_map: dict[str, dict[str, Any]] = {
+        symbol: {"symbol": symbol, "industry": "未知產業", "name_zh": symbol}
+        for symbol in symbols
+    }
     for doc in industry_docs:
         symbol = str(doc.get("symbol", "")).upper()
         if symbol in industry_map:
@@ -312,11 +461,6 @@ async def _load_raw_maps(
                 "industry": str(doc.get("industry", "") or "未知產業"),
                 "name_zh": str(doc.get("name_zh", "") or symbol),
             }
-
-    for docs in prices_by_symbol.values():
-        docs.sort(key=lambda item: item.get("date", ""))
-    for docs in inst_by_symbol.values():
-        docs.sort(key=lambda item: item.get("date", ""))
 
     return prices_by_symbol, inst_by_symbol, industry_map
 
@@ -480,7 +624,8 @@ def _build_snapshot_payload(
         closes = close_map.get(symbol, {})
         returns = ret_map.get(symbol, {})
         flows = flow_map.get(symbol, {})
-        latest_close = closes.get(target_date)
+        valid_close_dates = [d for d in closes if d <= target_date and closes[d] > 0]
+        latest_close = closes[max(valid_close_dates)] if valid_close_dates else None
         window_rets = [returns[d] for d in sorted([d for d in returns if d <= target_date])[-20:]]
         window_flows = [flows[d] for d in sorted([d for d in flows if d <= target_date])[-20:]]
         momentum_20 = round(sum(window_rets), 4) if window_rets else 0.0
@@ -559,7 +704,7 @@ def _filter_snapshot(snapshot: dict[str, Any], edge_threshold: float) -> dict[st
             "edge_threshold": threshold,
         }
     )
-    return {
+    out = {
         "date": snapshot.get("date"),
         "watchlist_hash": snapshot.get("watchlist_hash"),
         "symbols": snapshot.get("symbols", []),
@@ -567,6 +712,9 @@ def _filter_snapshot(snapshot: dict[str, Any], edge_threshold: float) -> dict[st
         "layers": filtered_layers,
         "metrics": metrics,
     }
+    if snapshot.get("degraded"):
+        out["degraded"] = True
+    return out
 
 
 async def _upsert_snapshot(
@@ -610,6 +758,7 @@ async def build_watchlist_graph(
         raise ValueError("觀察池至少需 2 檔股票")
 
     target = _parse_date(target_date, fallback=date.today())
+    target_iso = target.isoformat()
     ingest_start = target - timedelta(days=max(lookback_days * 3, 180))
     if force_ingest:
         await ingest_watchlist_raw(symbols, ingest_start, target)
@@ -618,7 +767,7 @@ async def build_watchlist_graph(
     close_map, ret_map, flow_map = _series_maps(prices_by_symbol, inst_by_symbol)
     payload = _build_snapshot_payload(
         symbols=symbols,
-        target_date=target.isoformat(),
+        target_date=target_iso,
         close_map=close_map,
         ret_map=ret_map,
         flow_map=flow_map,
@@ -631,14 +780,31 @@ async def build_watchlist_graph(
     snapshot = {
         "watchlist_hash": _watchlist_hash(symbols),
         "symbols": symbols,
-        "date": target.isoformat(),
+        "date": target_iso,
         "alpha": alpha,
         "beta": beta,
         "gamma": gamma,
         **payload,
         "created_at": datetime.utcnow(),
     }
-    await _upsert_snapshot(snapshot, payload["nodes"], payload["layers"])
+    # 防假圖污染：若所有節點皆無 latest_close 或全無可用價格，禁止寫入 graph_snapshots，
+    # 避免 FinMind 額度耗盡時產生的 0 邊空殼圖被永久持久化。
+    has_usable_prices = any(
+        any(d <= target_iso and v > 0 for d, v in close_map.get(sym, {}).items())
+        for sym in symbols
+    )
+    has_any_latest_close = any(
+        node.get("latest_close") is not None for node in payload.get("nodes", [])
+    )
+    if has_usable_prices and has_any_latest_close:
+        await _upsert_snapshot(snapshot, payload["nodes"], payload["layers"])
+    else:
+        logger.warning(
+            "build_watchlist_graph: skipping graph_snapshots write for %s on %s (no usable prices)",
+            ",".join(symbols),
+            target_iso,
+        )
+        snapshot["degraded"] = True
     return snapshot
 
 
@@ -660,8 +826,13 @@ async def get_watchlist_snapshot(
         {"_id": 0},
     )
     if not snapshot:
+        if force_ingest:
+            ingest_start = target - timedelta(days=max(lookback_days * 3, 180))
+            missing = await _find_missing_symbols(symbols, ingest_start, target, require_institutional=True, mongo=mongo)
+            if missing:
+                await ingest_watchlist_raw(missing, ingest_start, target)
         snapshot = await build_watchlist_graph(
-            symbols, target, lookback_days=lookback_days, force_ingest=force_ingest
+            symbols, target, lookback_days=lookback_days, force_ingest=False
         )
     return _filter_snapshot(snapshot, edge_threshold=edge_threshold)
 
@@ -681,10 +852,12 @@ async def get_watchlist_timeline(
     if end < start:
         start, end = end, start
 
-    # Ingest the whole window's raw data from FinMind ONCE up front. Use the
-    # same margin build_watchlist_graph would use per day so every day in the
-    # range has enough history without re-fetching.
-    await ingest_watchlist_raw(symbols, start - timedelta(days=max(lookback_days * 3, 180)), end)
+    # DB-first：先檢查 Mongo（md_* ∪ raw_*）哪些標的尚未涵蓋區間，只補抓缺漏標的，
+    # 不再於每次 memcache 過期或參數變動時無條件重抓全部標的。
+    ingest_start = start - timedelta(days=max(lookback_days * 3, 180))
+    missing = await _find_missing_symbols(symbols, ingest_start, end, require_institutional=True)
+    if missing:
+        await ingest_watchlist_raw(missing, ingest_start, end)
     snapshots: list[dict[str, Any]] = []
     cursor_day = start
     while cursor_day <= end:

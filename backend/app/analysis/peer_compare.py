@@ -222,8 +222,50 @@ async def set_peer_group(symbol: str, peers: list[dict]) -> None:
     )
 
 
-async def _one_metrics(sym: str, name: str, source: str) -> dict:
-    """單一股票的比較指標。任何一項抓不到就留 None，不讓整列失敗。"""
+_CACHE_TIMEOUT_SEC = 1.5
+
+
+async def _safe_get_cache(key: str):
+    from ..db.cache import get_cache
+
+    try:
+        return await asyncio.wait_for(get_cache(key), timeout=_CACHE_TIMEOUT_SEC)
+    except Exception:
+        return None
+
+
+async def _safe_set_cache(key: str, data, category: str) -> None:
+    from ..db.cache import set_cache
+
+    try:
+        await asyncio.wait_for(set_cache(key, data, category), timeout=_CACHE_TIMEOUT_SEC)
+    except Exception:
+        pass
+
+
+async def _safe_get_setting(key: str):
+    from ..db.cache import get_setting
+
+    try:
+        return await asyncio.wait_for(get_setting(key), timeout=_CACHE_TIMEOUT_SEC)
+    except Exception:
+        return None
+
+
+async def _one_metrics(
+    sym: str,
+    name: str,
+    source: str,
+    *,
+    include_market_cap: bool = True,
+    include_financials: bool = True,
+    use_cache: bool = True,
+) -> dict:
+    """單一股票的比較指標。任何一項抓不到就留 None，不讓整列失敗。
+
+    支援單檔 6 小時 Mongo 快取（跨同業群組與 AI 選股共用）與按需選擇是否抓取
+    市值／財報，避免選股等場景浪費無用的 FinMind 呼叫。
+    """
     from ..analysis.market_cap import classify_cap_tier, get_shares_outstanding
     from ..crawler.finmind_client import FinMindClient
     from ..crawler.fundamental import FundamentalCrawler
@@ -231,6 +273,19 @@ async def _one_metrics(sym: str, name: str, source: str) -> dict:
 
     end = date.today()
     row: dict = {"symbol": sym, "name": name, "source": source}
+    metric_cache_key = f"peer_metrics:v1:{sym}:{end.isoformat()}"
+    cached_entry = await _safe_get_cache(metric_cache_key) if use_cache else None
+
+    need_base = True
+    need_fin = include_financials
+    need_cap = include_market_cap
+    if isinstance(cached_entry, dict) and isinstance(cached_entry.get("metrics"), dict):
+        row.update(cached_entry["metrics"])
+        need_base = False
+        need_fin = include_financials and not cached_entry.get("has_financials", False)
+        need_cap = include_market_cap and not cached_entry.get("has_market_cap", False)
+        if not need_fin and not need_cap:
+            return row
 
     async def _price():
         try:
@@ -313,24 +368,70 @@ async def _one_metrics(sym: str, name: str, source: str) -> dict:
         except Exception:
             pass
 
-    await _price()  # 先抓價格，市值計算要用
-    await asyncio.gather(_valuation(), _revenue(), _financials(), _mktcap())
+    if need_base:
+        tasks = [_valuation(), _revenue()]
+        if need_fin:
+            tasks.append(_financials())
+        if need_cap:
+            await _price()  # 先抓價格，市值計算要用
+            tasks.append(_mktcap())
+        else:
+            tasks.insert(0, _price())
+        await asyncio.gather(*tasks)
+    else:
+        upgrade_tasks = []
+        if need_fin:
+            upgrade_tasks.append(_financials())
+        if need_cap:
+            upgrade_tasks.append(_mktcap())
+        if upgrade_tasks:
+            await asyncio.gather(*upgrade_tasks)
+
+    if use_cache:
+        metrics_only = {k: v for k, v in row.items() if k not in ("symbol", "name", "source")}
+        has_any_metric = any(
+            metrics_only.get(k) is not None
+            for k in ("price", "pe", "pbr", "revenue_yoy_avg", "eps", "gross_margin")
+        )
+        if has_any_metric:
+            prev_fin = bool(cached_entry.get("has_financials")) if isinstance(cached_entry, dict) else False
+            prev_cap = bool(cached_entry.get("has_market_cap")) if isinstance(cached_entry, dict) else False
+            await _safe_set_cache(
+                metric_cache_key,
+                {
+                    "metrics": metrics_only,
+                    "has_financials": prev_fin or need_fin,
+                    "has_market_cap": prev_cap or need_cap,
+                },
+                "peer",
+            )
     return row
 
 
 async def build_comparison(symbol: str) -> dict:
-    """比較表本體：目標股＋同業的估值/成長/獲利/動能指標，Mongo 快取 6 小時。"""
-    from ..db.cache import get_cache, set_cache
+    """比較表本體：目標股＋同業的估值/成長/獲利/動能指標，Mongo 快取 6 小時。
+
+    先查自訂群組或產業預設整包快取，命中時直接回傳、完全不呼叫 FinMind。
+    """
+    custom = await _safe_get_setting(f"peer_group:{symbol}")
+    default_cache_key = f"peer_comparison:v1:{symbol}:industry_default"
+    if custom and custom.get("peers"):
+        custom_syms = [p["symbol"] for p in custom["peers"][:MAX_PEERS]]
+        early_key = f"peer_comparison:v1:{symbol}:{','.join(sorted(custom_syms))}"
+        cached = await _safe_get_cache(early_key)
+        if cached:
+            return cached
+    else:
+        cached = await _safe_get_cache(default_cache_key)
+        if cached:
+            return cached
 
     group = await get_peer_group(symbol)
     peer_syms = [p["symbol"] for p in group["peers"]]
     cache_key = f"peer_comparison:v1:{symbol}:{','.join(sorted(peer_syms))}"
-    try:
-        cached = await get_cache(cache_key)
-        if cached:
-            return cached
-    except Exception:
-        pass
+    cached = await _safe_get_cache(cache_key)
+    if cached:
+        return cached
 
     _, name_map = await _stock_info_maps()
     rows = await asyncio.gather(
@@ -345,8 +446,7 @@ async def build_comparison(symbol: str) -> dict:
         "peers": list(rows[1:]),
         "as_of": date.today().isoformat(),
     }
-    try:
-        await set_cache(cache_key, result, "peer")
-    except Exception:
-        pass
+    await _safe_set_cache(cache_key, result, "peer")
+    if group["group_source"] == "industry":
+        await _safe_set_cache(default_cache_key, result, "peer")
     return result

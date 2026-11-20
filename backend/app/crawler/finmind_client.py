@@ -1,6 +1,8 @@
 """FinMind API Client - Primary data source for Taiwan stock market."""
 
+import asyncio
 import hashlib
+import logging
 import time
 
 import httpx
@@ -8,10 +10,20 @@ import pandas as pd
 from typing import Optional
 from ..config.settings import get_settings
 
+logger = logging.getLogger(__name__)
 
 # Module-level cache: { cache_key: (timestamp, dataframe) }
 _cache: dict[str, tuple[float, pd.DataFrame]] = {}
 _CACHE_TTL = 300  # 5 minutes
+
+# TaiwanStockInfo 專用長效快取（全市場名單日頻變動極小，避免跨頁反覆消耗額度）
+_stock_info_mem: tuple[float, pd.DataFrame] | None = None
+_STOCK_INFO_MEM_TTL = 3600  # 程序內 60 分鐘
+_STOCK_INFO_CACHE_KEY = "finmind:stock_info:v1"
+_STOCK_INFO_STALE_KEY = "finmind:stock_info:stale:v1"
+_STOCK_INFO_MONGO_TIMEOUT = 1.5
+_STOCK_INFO_MONGO_COOLDOWN_SEC = 30.0
+_stock_info_mongo_cooldown_until: float = 0.0
 
 # P2：共用一個 httpx.AsyncClient（含連線池），不要每次 _fetch() 都開一個新的。
 # 觀察清單掃描一次可能對 30 檔股票各發 1-2 個 FinMind 請求、併發觸發，若每次
@@ -38,8 +50,11 @@ async def close_finmind_client() -> None:
 
 
 def _clear_cache() -> int:
-    count = len(_cache)
+    global _stock_info_mem, _stock_info_mongo_cooldown_until
+    count = len(_cache) + (1 if _stock_info_mem is not None else 0)
     _cache.clear()
+    _stock_info_mem = None
+    _stock_info_mongo_cooldown_until = 0.0
     return count
 
 
@@ -331,6 +346,85 @@ class FinMindClient:
             {"data_id": symbol, "start_date": start, "end_date": end},
         )
 
+    async def _read_stock_info_mongo(self, key: str) -> pd.DataFrame | None:
+        global _stock_info_mongo_cooldown_until
+        if time.monotonic() < _stock_info_mongo_cooldown_until:
+            return None
+        try:
+            from ..db.cache import get_cache
+
+            records = await asyncio.wait_for(get_cache(key), timeout=_STOCK_INFO_MONGO_TIMEOUT)
+            if isinstance(records, list) and records:
+                return pd.DataFrame(records)
+        except Exception as exc:  # noqa: BLE001
+            _stock_info_mongo_cooldown_until = time.monotonic() + _STOCK_INFO_MONGO_COOLDOWN_SEC
+            logger.debug("get_stock_info mongo read skipped (%s): %s", key, exc)
+        return None
+
+    async def _write_stock_info_mongo(self, df: pd.DataFrame) -> None:
+        global _stock_info_mongo_cooldown_until
+        if df is None or df.empty or time.monotonic() < _stock_info_mongo_cooldown_until:
+            return
+        try:
+            from ..db.cache import set_cache
+
+            records = df.to_dict("records")
+            await asyncio.wait_for(
+                set_cache(_STOCK_INFO_CACHE_KEY, records, "stock_info"),
+                timeout=_STOCK_INFO_MONGO_TIMEOUT,
+            )
+            await asyncio.wait_for(
+                set_cache(_STOCK_INFO_STALE_KEY, records, "stock_info_stale"),
+                timeout=_STOCK_INFO_MONGO_TIMEOUT,
+            )
+        except Exception as exc:  # noqa: BLE001
+            _stock_info_mongo_cooldown_until = time.monotonic() + _STOCK_INFO_MONGO_COOLDOWN_SEC
+            logger.debug("get_stock_info mongo write skipped: %s", exc)
+
     async def get_stock_info(self) -> pd.DataFrame:
-        """Fetch all Taiwan stock info for search."""
-        return await self._fetch("TaiwanStockInfo", {})
+        """Fetch all Taiwan stock info for search.
+
+        快取階層：程序內 60 分鐘 → MongoDB 24 小時 → FinMind API；
+        若 FinMind 失敗（例如額度耗盡），自動回退至過期舊表（程序內或 Mongo 7 天副本）。
+        """
+        global _stock_info_mem
+        self.last_read_source = None
+        now = time.time()
+
+        # 1. 程序內新鮮快取（60 分鐘）
+        if _stock_info_mem is not None:
+            ts, mem_df = _stock_info_mem
+            if now - ts <= _STOCK_INFO_MEM_TTL and not mem_df.empty:
+                self.last_read_source = "memory_stock_info"
+                return mem_df.copy()
+
+        # 2. MongoDB 24 小時快取
+        if self.use_local_db:
+            mongo_df = await self._read_stock_info_mongo(_STOCK_INFO_CACHE_KEY)
+            if mongo_df is not None and not mongo_df.empty:
+                _stock_info_mem = (now, mongo_df)
+                self.last_read_source = "mongo_stock_info"
+                return mongo_df.copy()
+
+        # 3. 回落 FinMind API；失敗時安全回退過期舊表
+        try:
+            df = await self._fetch("TaiwanStockInfo", {})
+            self.last_read_source = "finmind"
+            if df is not None and not df.empty:
+                _stock_info_mem = (now, df.copy())
+                if self.use_local_db:
+                    await self._write_stock_info_mongo(df)
+            return df
+        except Exception as exc:
+            if _stock_info_mem is not None and not _stock_info_mem[1].empty:
+                logger.warning("get_stock_info failed (%s); falling back to stale in-memory table", exc)
+                self.last_read_source = "stale_stock_info"
+                return _stock_info_mem[1].copy()
+            if self.use_local_db:
+                stale_df = await self._read_stock_info_mongo(_STOCK_INFO_STALE_KEY)
+                if stale_df is not None and not stale_df.empty:
+                    logger.warning("get_stock_info failed (%s); falling back to stale Mongo table", exc)
+                    _stock_info_mem = (now - _STOCK_INFO_MEM_TTL - 1, stale_df)
+                    self.last_read_source = "stale_stock_info"
+                    return stale_df.copy()
+            raise

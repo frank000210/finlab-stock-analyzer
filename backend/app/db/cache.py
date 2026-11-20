@@ -49,6 +49,10 @@ CACHE_TTL = {
     "stock_scorecard": 360,
     # 事件研究台的價格反應：日線資料，整包 6 小時；key 含日期，跨日自然失效。
     "event_reaction": 360,
+    # 全市場台股基本名單（TaiwanStockInfo）：上市櫃清單日頻微調，24 小時快取即可，
+    # 另留一份 7 天備援副本，在 FinMind 額度耗盡時可安全回退舊表不中斷服務。
+    "stock_info": 1440,
+    "stock_info_stale": 10080,
 }
 
 
