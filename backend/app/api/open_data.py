@@ -46,12 +46,12 @@ async def status():
 @router.post("/run", dependencies=[Depends(require_admin)])
 async def run(req: RunReq):
     """背景跑一輪，立刻回應；結果看 /status。被來源擋過會冷卻 6 小時，期間不會真的去抓。"""
-    if od.is_running():
-        return _ok({"started": False, "reason": "already_running"})
     if req.datasets is not None:
         bad = [d for d in req.datasets if d not in od.DATASETS]
         if bad:
             raise HTTPException(status_code=400, detail=f"未知的資料集：{','.join(bad)}")
+    if od.is_running():
+        return _ok({"started": False, "reason": "already_running"})
     task = asyncio.create_task(od.run_sync(datasets=req.datasets, trigger="manual", force=req.force))
     _bg.add(task)
     task.add_done_callback(_bg.discard)
