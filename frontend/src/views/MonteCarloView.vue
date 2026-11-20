@@ -59,10 +59,10 @@
               <span>損益平衡最低勝率 / 安全邊際 <InfoTooltip label="損益平衡最低勝率" text="在當前盈虧比 R 下，期望值剛好為零時的臨界勝率 = 1/(1+R)。安全邊際 = 你的勝率 − 損益平衡勝率：越大代表優勢越穩固。< 5% 代表優勢薄弱，一旦勝率稍微滑落就轉為負期望。" /></span>
               <strong>{{ breakEvenWinRate.toFixed(1) }}% / <span :class="safetyMargin >= 10 ? 'up' : safetyMargin >= 0 ? 'warn' : 'down'">{{ safetyMargin >= 0 ? '+' : '' }}{{ safetyMargin.toFixed(1) }}%</span></strong>
             </div>
-            <!-- VV5: 觸及破產所需最少連虧筆數 -->
+            <!-- VV5: 觸及破產所需最少連虧筆數（與破產機率卡一致：安全=綠、警戒=黃、危險=紅） -->
             <div class="rcard" v-if="consecutiveLossesToRuin !== null">
               <span>最少連虧幾筆觸及破產 <InfoTooltip label="連虧至破產筆數" text="在固定單筆風險比例下，理論上最少連虧幾筆就會達到破產門檻。Taleb 人體工程學：若這個數字很小（< 10），系統對連虧序列的脆弱性很高，需要降低單筆風險或提高破產門檻。" /></span>
-              <strong :class="consecutiveLossesToRuin < 10 ? 'down' : consecutiveLossesToRuin < 20 ? 'warn' : 'up'">{{ consecutiveLossesToRuin }} 筆</strong>
+              <strong :class="consecutiveLossesToRuin < 10 ? 'risk-danger' : consecutiveLossesToRuin < 20 ? 'warn' : 'risk-safe'">{{ consecutiveLossesToRuin }} 筆</strong>
             </div>
           </div>
 
@@ -268,11 +268,13 @@ function run() {
 .btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
 
 .rgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
-.rcard { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; }
+.rcard { background: var(--bg-elevated); border: 1px solid var(--border-color); border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; }
 .rcard span { font-size: 0.76rem; color: var(--text-muted); }
 .rcard strong { font-size: 1.2rem; }
 .rcard.danger { border-color: var(--up); } .rcard.danger strong { color: var(--up); }
 .rcard.ok-card { border-color: var(--down); }
+.risk-danger { color: var(--up); }
+.risk-safe { color: var(--down); }
 .warn, strong.warn { color: var(--warn); }
 
 .hist { margin-top: 16px; display: flex; flex-direction: column; gap: 6px; }

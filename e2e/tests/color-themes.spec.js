@@ -221,3 +221,121 @@ test('圖表頁在淺色與深色主題下都能畫出來，不會丟「Cannot p
   }
   expect(errors.filter((e) => /Cannot parse color/.test(e))).toEqual([])
 })
+
+test('風控 & 紀律其餘 6 頁在 6 組主題下皆可正常載入與即時切換，沒有 JS 錯誤', async ({ page }) => {
+  const errors = []
+  page.on('pageerror', (e) => errors.push(String(e)))
+  const riskPaths = [
+    '/risk-sizing',
+    '/portfolio-heat',
+    '/risk-monitor',
+    '/trade-dashboard',
+    '/journal',
+    '/monte-carlo',
+  ]
+  for (const path of riskPaths) {
+    await page.goto(path)
+    await expect(page.locator('.main-content')).toBeVisible()
+    for (const t of THEMES) {
+      await openMenu(page)
+      await page.locator(`[data-theme-id="${t.id}"]`).click()
+      expect(await page.evaluate(() => document.documentElement.getAttribute('data-theme'))).toBe(t.id === 'notebook' ? null : t.id)
+      await expect(page.locator('.main-content')).toBeVisible()
+    }
+  }
+  expect(errors).toEqual([])
+})
+
+test('風控監控與交易儀表板圖表在淺色／深色主題下正常繪製，不拋「Cannot parse color」且即時重繪', async ({ page }) => {
+  const errors = []
+  page.on('pageerror', (e) => errors.push(String(e)))
+
+  // 1. /risk-monitor：塞入 10 個不同平倉日的日誌紀錄，讓權益曲線（LW-Charts）與日變動分布（D3 SVG）都繪製
+  const sampleJournal = Array.from({ length: 10 }, (_, i) => {
+    const day = String(i + 1).padStart(2, '0')
+    const win = i % 3 !== 1
+    return {
+      id: `ct-${i}`,
+      symbol: '2330',
+      name: '台積電',
+      side: 'long',
+      entry: 1000,
+      stop: 980,
+      target: 1060,
+      exit: win ? 1040 : 980,
+      lots: 1,
+      tag: i % 2 === 0 ? '突破' : '拉回',
+      status: 'closed',
+      openDate: `2026-01-${day}`,
+      exitDate: `2026-01-${day}`,
+    }
+  })
+
+  await page.goto('/risk-monitor')
+  await page.evaluate((j) => {
+    localStorage.setItem('finlab_trade_journal', JSON.stringify(j))
+    localStorage.setItem('portfolio_heat_account', '1000000')
+    localStorage.setItem('finlab.colorTheme.v1', 'notebook')
+  }, sampleJournal)
+  await page.reload()
+
+  await expect(page.locator('.chart-area canvas').first()).toBeVisible({ timeout: 20_000 })
+  await expect(page.locator('.chart-host svg').first()).toBeVisible({ timeout: 20_000 })
+
+  // 確認正常狀態膠囊（.status-pill.is-active）為安全綠（G > R），不再與台股上漲紅顛倒
+  const activeColor = await page.locator('.status-pill.is-active').evaluate((el) => getComputedStyle(el).color)
+  const activeRgb = activeColor.match(/\d+/g)?.map(Number) || [0, 0, 0]
+  expect(activeRgb[1], `is-active 應偏安全綠，實際 ${activeColor}`).toBeGreaterThan(activeRgb[0])
+
+  // 即時切換主題觸發 finlab:theme-change 重繪
+  for (const id of ['dracula', 'solarized', 'nord']) {
+    await openMenu(page)
+    await page.locator(`[data-theme-id="${id}"]`).click()
+    await expect(page.locator('.chart-area canvas').first()).toBeVisible()
+    await expect(page.locator('.chart-host svg').first()).toBeVisible()
+  }
+
+  // 2. /trade-dashboard：mock 訊號與股價，驗證 LW-Charts 與 D3 Sankey 在淺/深主題下繪製與切換無錯誤
+  await page.route('**/api/v1/agent/signals', (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({
+      data: {
+        items: [
+          { id: 's1', symbol: '2330', type: 'BUY', confidence: 82, reasoning: '趨勢多頭' },
+          { id: 's2', symbol: '2317', type: 'SELL', confidence: 68, reasoning: '轉弱減碼' },
+          { id: 's3', symbol: '2454', type: 'HOLD', confidence: 55, reasoning: '區間震盪' },
+        ],
+      },
+    }),
+  }))
+  await page.route('**/api/v1/stocks/*/price', (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({
+      data: {
+        items: [
+          { date: '2026-01-02', close: 1000 },
+          { date: '2026-01-03', close: 1015 },
+          { date: '2026-01-06', close: 1030 },
+          { date: '2026-01-07', close: 1020 },
+          { date: '2026-01-08', close: 1045 },
+        ],
+      },
+    }),
+  }))
+
+  await page.goto('/trade-dashboard')
+  await expect(page.locator('.chart-area canvas').first()).toBeVisible({ timeout: 20_000 })
+  await expect(page.locator('.sankey-host svg').first()).toBeVisible({ timeout: 20_000 })
+
+  for (const id of ['notebook', 'dracula', 'gruvbox']) {
+    await openMenu(page)
+    await page.locator(`[data-theme-id="${id}"]`).click()
+    await expect(page.locator('.chart-area canvas').first()).toBeVisible()
+    await expect(page.locator('.sankey-host svg').first()).toBeVisible()
+  }
+
+  expect(errors.filter((e) => /Cannot parse color/.test(e))).toEqual([])
+  expect(errors).toEqual([])
+})
