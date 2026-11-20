@@ -800,6 +800,62 @@ async def get_status(db=None) -> dict[str, Any]:
     }
 
 
+async def query_dataset(
+    dataset: str,
+    symbol: str,
+    start: Optional[str] = None,
+    end: Optional[str] = None,
+    db=None,
+) -> list[dict[str, Any]]:
+    """唯讀查詢本地 od_* 集合，依日期欄位（月營收用 ym，其餘用 date）由舊到新回傳文件列表（不含 _id）。"""
+    spec = DATASETS.get(dataset)
+    if spec is None:
+        return []
+    sym = clean_symbol(symbol)
+    if not sym:
+        return []
+    db = db if db is not None else await _db()
+    field = spec["date_field"]
+    q: dict[str, Any] = {"symbol": sym}
+    if start or end:
+        flt: dict[str, str] = {}
+        if start:
+            flt["$gte"] = str(start)
+        if end:
+            flt["$lte"] = str(end)
+        q[field] = flt
+    return await db[spec["coll"]].find(q, {"_id": 0}).sort(field, 1).to_list(length=None)
+
+
+async def has_record_outside(
+    dataset: str,
+    symbol: str,
+    *,
+    before: Optional[str] = None,
+    after: Optional[str] = None,
+    db=None,
+) -> tuple[bool, bool]:
+    """檢查 od_* 是否存在早於 before 或晚於 after 的紀錄，用於判斷庫內歷史邊界。"""
+    spec = DATASETS.get(dataset)
+    if spec is None:
+        return (False, False)
+    sym = clean_symbol(symbol)
+    if not sym:
+        return (False, False)
+    db = db if db is not None else await _db()
+    coll = db[spec["coll"]]
+    field = spec["date_field"]
+    has_earlier = False
+    has_later = False
+    if before:
+        doc = await coll.find_one({"symbol": sym, field: {"$lt": str(before)}})
+        has_earlier = doc is not None
+    if after:
+        doc = await coll.find_one({"symbol": sym, field: {"$gt": str(after)}})
+        has_later = doc is not None
+    return (has_earlier, has_later)
+
+
 async def needs_catch_up(db=None, max_age_hours: float = 30.0, now: Optional[datetime] = None) -> bool:
     """有任何資料集從沒成功過、或超過 max_age_hours 沒成功——app 剛啟動時用來補跑（被擋冷卻中不算）。"""
     db = db if db is not None else await _db()

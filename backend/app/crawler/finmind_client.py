@@ -83,8 +83,11 @@ class FinMindClient:
 
     BASE_URL = "https://api.finmindtrade.com/api/v4/data"
 
-    def __init__(self, token: Optional[str] = None):
+    def __init__(self, token: Optional[str] = None, use_local_db: bool = True):
         self.token = token or get_settings().finmind_token
+        self.use_local_db = use_local_db
+        # 追蹤最近一次查詢實際命中的資料源（例如 'md_price' / 'od_margin' / 'md+od_margin' / 'finmind'）
+        self.last_read_source: Optional[str] = None
 
     async def _fetch(self, dataset: str, params: dict) -> pd.DataFrame:
         """Generic async fetch from FinMind API with caching."""
@@ -124,11 +127,21 @@ class FinMindClient:
     async def get_stock_price(
         self, symbol: str, start: str, end: str
     ) -> pd.DataFrame:
-        """Fetch daily OHLCV data."""
+        """Fetch daily OHLCV data（優先讀本地 md_price，涵蓋不足再回落 FinMind）."""
+        self.last_read_source = None
+        if self.use_local_db:
+            from ..data.db_reader import read_stock_price_with_source
+
+            local_df, src = await read_stock_price_with_source(symbol, start, end)
+            if local_df is not None and not local_df.empty:
+                self.last_read_source = src
+                return local_df
+
         df = await self._fetch(
             "TaiwanStockPrice",
             {"data_id": symbol, "start_date": start, "end_date": end},
         )
+        self.last_read_source = "finmind"
         if df.empty:
             return df
         df = df.rename(columns={
@@ -145,7 +158,17 @@ class FinMindClient:
     async def get_institutional_investors(
         self, symbol: str, start: str, end: str
     ) -> pd.DataFrame:
-        """Fetch institutional investor buy/sell data."""
+        """Fetch institutional investor buy/sell data（優先讀本地 md_institutional）."""
+        self.last_read_source = None
+        if self.use_local_db:
+            from ..data.db_reader import read_institutional_with_source
+
+            local_df, src = await read_institutional_with_source(symbol, start, end)
+            if local_df is not None and not local_df.empty:
+                self.last_read_source = src
+                return local_df
+
+        self.last_read_source = "finmind"
         return await self._fetch(
             "TaiwanStockInstitutionalInvestorsBuySell",
             {"data_id": symbol, "start_date": start, "end_date": end},
@@ -154,7 +177,17 @@ class FinMindClient:
     async def get_monthly_revenue(
         self, symbol: str, start: str, end: str
     ) -> pd.DataFrame:
-        """Fetch monthly revenue data."""
+        """Fetch monthly revenue data（優先讀本地 md_revenue → od_revenue）."""
+        self.last_read_source = None
+        if self.use_local_db:
+            from ..data.db_reader import read_monthly_revenue_with_source
+
+            local_df, src = await read_monthly_revenue_with_source(symbol, start, end)
+            if local_df is not None and not local_df.empty:
+                self.last_read_source = src
+                return local_df
+
+        self.last_read_source = "finmind"
         return await self._fetch(
             "TaiwanStockMonthRevenue",
             {"data_id": symbol, "start_date": start, "end_date": end},
@@ -240,7 +273,17 @@ class FinMindClient:
     async def get_margin_trading(
         self, symbol: str, start: str, end: str
     ) -> pd.DataFrame:
-        """Fetch margin trading data (融資融券)."""
+        """Fetch margin trading data (融資融券；優先讀本地 md_margin → od_margin)."""
+        self.last_read_source = None
+        if self.use_local_db:
+            from ..data.db_reader import read_margin_trading_with_source
+
+            local_df, src = await read_margin_trading_with_source(symbol, start, end)
+            if local_df is not None and not local_df.empty:
+                self.last_read_source = src
+                return local_df
+
+        self.last_read_source = "finmind"
         return await self._fetch(
             "TaiwanStockMarginPurchaseShortSale",
             {"data_id": symbol, "start_date": start, "end_date": end},
@@ -269,9 +312,20 @@ class FinMindClient:
     async def get_valuation(
         self, symbol: str, start: str, end: str
     ) -> pd.DataFrame:
-        """估值資料（U1 同業比較用）：交易所計算的本益比 PER、股價淨值比
+        """估值資料（U1 同業比較與評分卡用）：交易所計算的本益比 PER、股價淨值比
         PBR、殖利率 dividend_yield，日頻。虧損股 PER 會缺值或為 0。
+        優先讀本地 md_valuation → od_valuation，涵蓋不足再回落 FinMind。
         """
+        self.last_read_source = None
+        if self.use_local_db:
+            from ..data.db_reader import read_valuation_with_source
+
+            local_df, src = await read_valuation_with_source(symbol, start, end)
+            if local_df is not None and not local_df.empty:
+                self.last_read_source = src
+                return local_df
+
+        self.last_read_source = "finmind"
         return await self._fetch(
             "TaiwanStockPER",
             {"data_id": symbol, "start_date": start, "end_date": end},

@@ -180,8 +180,66 @@ Fetcher = Callable[[str, str, str], Awaitable[Any]]  # (symbol, start, end) -> D
 def default_fetchers() -> dict[str, Fetcher]:
     from ..crawler.finmind_client import FinMindClient
 
-    client = FinMindClient()
+    # 每日同步排程必須直接向 FinMind 拉取最新資料，不可走本地優先讀庫（避免自我迴圈）
+    client = FinMindClient(use_local_db=False)
     return {ds: getattr(client, spec["method"]) for ds, spec in DATASETS.items()}
+
+
+async def query_dataset(
+    dataset: str,
+    symbol: str,
+    start: Optional[str] = None,
+    end: Optional[str] = None,
+    db=None,
+) -> list[dict[str, Any]]:
+    """唯讀查詢本地 md_* 集合，依日期由舊到新回傳文件列表（不含 _id）。
+
+    無效資料集或無效代號直接回空清單；資料庫異常交由呼叫端處理。
+    """
+    spec = DATASETS.get(dataset)
+    if spec is None:
+        return []
+    sym = str(symbol or "").strip().upper()
+    if not _SYMBOL_RE.match(sym):
+        return []
+    db = db if db is not None else await _db()
+    q: dict[str, Any] = {"symbol": sym}
+    if start or end:
+        date_flt: dict[str, str] = {}
+        if start:
+            date_flt["$gte"] = str(start)[:10]
+        if end:
+            date_flt["$lte"] = str(end)[:10]
+        q["date"] = date_flt
+    return await db[spec["coll"]].find(q, {"_id": 0}).sort("date", 1).to_list(length=None)
+
+
+async def has_record_outside(
+    dataset: str,
+    symbol: str,
+    *,
+    before: Optional[str] = None,
+    after: Optional[str] = None,
+    db=None,
+) -> tuple[bool, bool]:
+    """檢查 md_* 是否存在早於 before 或晚於 after 的紀錄，用於判斷庫內歷史邊界。"""
+    spec = DATASETS.get(dataset)
+    if spec is None:
+        return (False, False)
+    sym = str(symbol or "").strip().upper()
+    if not _SYMBOL_RE.match(sym):
+        return (False, False)
+    db = db if db is not None else await _db()
+    coll = db[spec["coll"]]
+    has_earlier = False
+    has_later = False
+    if before:
+        doc = await coll.find_one({"symbol": sym, "date": {"$lt": str(before)[:10]}})
+        has_earlier = doc is not None
+    if after:
+        doc = await coll.find_one({"symbol": sym, "date": {"$gt": str(after)[:10]}})
+        has_later = doc is not None
+    return (has_earlier, has_later)
 
 
 async def sync_one(
