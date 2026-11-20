@@ -1188,27 +1188,38 @@ const statusDescription = computed(() => {
   if (circuitStatus.value === 'PAUSED') return '回撤或當日交易次數已超過風控上限，建議停止新倉並先複盤交易日誌。'
   return '尚未取得狀態說明。'
 })
+const themeVersion = ref(0)
 const gaugeColor = computed(() => {
-  if (mddPercent.value >= mddPausePct.value) return theme.down
+  themeVersion.value // eslint-disable-line no-unused-expressions
+  // 風控紅綠燈語意（對應副標與 MetricScale）：低於警戒=安全綠、警戒=黃、達熔斷=危險紅
+  if (mddPercent.value >= mddPausePct.value) return theme.up
   if (mddPercent.value >= mddWarnPct.value) return theme.warn
-  return theme.up
+  return theme.down
 })
 const gaugeStyle = computed(() => {
+  themeVersion.value // eslint-disable-line no-unused-expressions
   // 滿刻度取熔斷門檻的 1.2 倍，讓達門檻時圓環明顯接近全滿。
   const fullScale = Math.max(1, mddPausePct.value * 1.2)
   const percent = Math.min(100, Math.round((mddPercent.value / fullScale) * 100))
   return { background: `conic-gradient(${gaugeColor.value} ${percent}%, ${theme.border} ${percent}% 100%)` }
 })
 
+function onThemeChange() {
+  themeVersion.value++
+  renderChart()
+}
+
 onMounted(async () => {
   window.addEventListener('resize', renderChart)
   window.addEventListener('resize', renderHistogram)
+  window.addEventListener('finlab:theme-change', onThemeChange)
   await loadRiskData()
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('resize', renderChart)
   window.removeEventListener('resize', renderHistogram)
+  window.removeEventListener('finlab:theme-change', onThemeChange)
   if (chart) chart.remove()
 })
 
@@ -1288,7 +1299,7 @@ function renderHistogram() {
   g.append('path')
     .datum(density)
     .attr('fill', 'none')
-    .attr('stroke', 'var(--accent-red)')
+    .attr('stroke', 'var(--up)')
     .attr('stroke-width', 2)
     .attr('d', kdeLine)
 
@@ -1309,7 +1320,7 @@ function renderChart() {
   chart = createChart(chartEl.value, {
     width: chartEl.value.clientWidth || 720,
     height: 320,
-    layout: { background: { color: '#0d1117' }, textColor: theme.muted },
+    layout: { background: { color: theme.well }, textColor: theme.muted },
     grid: { vertLines: { color: theme.grid }, horzLines: { color: theme.grid } },
     rightPriceScale: { borderColor: theme.border },
     timeScale: { borderColor: theme.border },
@@ -1436,9 +1447,10 @@ function statusClass(status) {
   font-size: 0.82rem;
 }
 
+/* 風控狀態膠囊：正常=安全綠、警戒=黃、熔斷=危險紅 */
 .is-active {
-  background: var(--up-soft);
-  color: var(--color-up);
+  background: var(--down-soft);
+  color: var(--color-down);
 }
 
 .is-warning {
@@ -1447,8 +1459,8 @@ function statusClass(status) {
 }
 
 .is-paused {
-  background: var(--down-soft);
-  color: var(--color-down);
+  background: var(--up-soft);
+  color: var(--color-up);
 }
 
 .is-neutral {
@@ -1532,7 +1544,7 @@ function statusClass(status) {
 
 /* YY8/YY9 */
 .yy-phase-row { display: flex; gap: 1rem; margin-top: 0.75rem; padding: 0 1rem 0.75rem; }
-.yy-phase-col { display: flex; flex-direction: column; flex: 1; align-items: center; gap: 4px; padding: 0.5rem; background: var(--color-surface); border-radius: 6px; text-align: center; }
+.yy-phase-col { display: flex; flex-direction: column; flex: 1; align-items: center; gap: 4px; padding: 0.5rem; background: var(--bg-elevated); border-radius: 6px; text-align: center; }
 
 /* AAA9 AAA10 */
 .aaa-monthly-vol, .aaa-compliance { margin-bottom: 0; }
@@ -1542,18 +1554,18 @@ function statusClass(status) {
 .ddd-dalio-sharpe, .ddd-taleb-tail, .ddd-cohen-daily, .ddd-swensen-decay { margin-bottom: 0; }
 /* CCC4 CCC5 CCC8 */
 .ccc-rollwinrate, .ccc-streakfreq, .ccc-sqn { margin-bottom: 0; }
-/* ZZ7 ZZ8 ZZ10 */
+/* ZZ7 ZZ8 ZZ10：策略×月份績效熱圖（台股漲紅跌綠，混色上限 ≤ 28% 配 --text-primary 確保 6 主題對比度 ≥ 4.5:1） */
 .zz-heatmap-table { border-collapse: collapse; font-size: 0.78rem; }
-.zz-heatmap-table th, .zz-heatmap-table td { padding: 4px 6px; text-align: center; border: 1px solid var(--color-surface); }
-.zz-heatmap-cell { min-width: 32px; }
-.zz-heat-hot { background: color-mix(in srgb, var(--down) 40%, transparent); }
-.zz-heat-warm { background: color-mix(in srgb, var(--down) 15%, transparent); }
-.zz-heat-cold { background: color-mix(in srgb, var(--up) 22%, transparent); }
+.zz-heatmap-table th, .zz-heatmap-table td { padding: 4px 6px; text-align: center; border: 1px solid var(--border-color); }
+.zz-heatmap-cell { min-width: 32px; color: var(--text-primary); }
+.zz-heat-hot { background: color-mix(in srgb, var(--up) 28%, transparent); }
+.zz-heat-warm { background: color-mix(in srgb, var(--up) 14%, transparent); }
+.zz-heat-cold { background: color-mix(in srgb, var(--down) 22%, transparent); }
 .zz-heat-empty { background: transparent; }
 .zz-wizard-bars { display: flex; flex-direction: column; gap: 7px; padding: 0 1rem 1rem; }
 .zz-wizard-row { display: flex; align-items: center; gap: 8px; }
-.zz-wizard-bar-bg { flex: 1; height: 10px; background: var(--color-surface); border-radius: 5px; overflow: hidden; }
-.zz-wizard-bar-fill { height: 100%; background: var(--color-up, var(--down)); border-radius: 5px; }
+.zz-wizard-bar-bg { flex: 1; height: 10px; background: var(--bg-well); border-radius: 5px; overflow: hidden; }
+.zz-wizard-bar-fill { height: 100%; background: var(--accent-blue); border-radius: 5px; }
 
 /* XX7 drawdown episode table */
 .dd-episode-block { flex-direction: column; }

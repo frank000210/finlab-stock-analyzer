@@ -470,10 +470,14 @@ const maxPosCorrPair = computed(() => {
   return `${top.a} × ${top.b}`
 })
 
+// 使用主題 CSS token 混色，並將濃度上限鎖在 30%（搭配 .corr-matrix td 的 --text-primary），
+// 確保 6 組色彩主題下格內文字對比度皆 ≥ 4.5:1。
 function corrColor(v) {
   if (v == null || isNaN(v)) return 'transparent'
-  const a = Math.min(Math.abs(v), 1) * 0.75
-  return v >= 0 ? `rgba(239, 68, 68, ${a})` : `rgba(79, 140, 255, ${a})`
+  const pct = Math.round(Math.min(Math.abs(v), 1) * 30)
+  return v >= 0
+    ? `color-mix(in srgb, var(--up) ${pct}%, transparent)`
+    : `color-mix(in srgb, var(--blue) ${pct}%, transparent)`
 }
 
 async function analyzeCorrelation() {
@@ -511,7 +515,7 @@ onBeforeUnmount(() => window.removeEventListener('storage', onJournalStorage))
 
 .summary-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-top: 16px; }
 .leverage-warn { background: color-mix(in srgb, var(--up) 9%, transparent); border: 1px solid color-mix(in srgb, var(--up) 40%, transparent); color: var(--up); border-radius: 10px; padding: 9px 14px; font-size: 0.86rem; margin-top: 10px; }
-.scard { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; }
+.scard { background: var(--bg-elevated); border: 1px solid var(--border-color); border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; }
 .slabel { font-size: 0.76rem; color: var(--text-muted); }
 .sval { font-size: 1.6rem; }
 .shint { font-size: 0.74rem; color: var(--text-muted); }
@@ -556,6 +560,7 @@ strong.warn { color: var(--warn); }
 .corr-narrative { font-size: 0.78rem; color: var(--text-secondary); margin: 8px 0 0; line-height: 1.5; }
 .corr-matrix table { border-collapse: collapse; font-size: 0.82rem; }
 .corr-matrix th, .corr-matrix td { padding: 8px 12px; text-align: center; border: 1px solid var(--border-color); min-width: 56px; }
+.corr-matrix td { color: var(--text-primary); }
 .corr-matrix thead th, .corr-matrix tbody th { color: var(--text-muted); font-weight: 500; background: var(--bg-well); }
 
 .scenario-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }

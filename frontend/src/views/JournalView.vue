@@ -527,8 +527,8 @@
         <div class="scard" v-if="monthlyPFPoints.length >= 2">
           <span class="slabel">月獲利因子趨勢（CTA 標準：PF &lt; 1 = 負期望值月份）</span>
           <svg class="sparkline-svg" :width="pfW" :height="pfH" :viewBox="`0 0 ${pfW} ${pfH}`" preserveAspectRatio="none">
-            <line :x1="0" :y1="pfH/2" :x2="pfW" :y2="pfH/2" stroke="var(--color-border)" stroke-width="1" stroke-dasharray="3,3"/>
-            <polyline :points="pfPolyline" fill="none" stroke="var(--color-accent)" stroke-width="2" stroke-linejoin="round"/>
+            <line :x1="0" :y1="pfH/2" :x2="pfW" :y2="pfH/2" stroke="var(--border-color)" stroke-width="1" stroke-dasharray="3,3"/>
+            <polyline :points="pfPolyline" fill="none" stroke="var(--accent-blue)" stroke-width="2" stroke-linejoin="round"/>
           </svg>
           <p class="scard-hint muted">近 6 個月獲利因子趨勢（1.0 = 損益平衡，越高越佳）</p>
         </div>
@@ -781,7 +781,7 @@
               </span>
               <span class="muted" style="font-size:0.72rem"> avg</span>
             </div>
-            <div style="font-size:1.5rem;color:var(--color-muted)">vs</div>
+            <div style="font-size:1.5rem;color:var(--text-muted)">vs</div>
             <div>
               <span class="muted" style="font-size:0.75rem">其他 {{ concentrationEfficiency.restCount }} 個標的均值</span>
               <br>
@@ -1043,7 +1043,7 @@
             <div v-for="c in catalystWinRate.catalysts" :key="c.label" class="ccc-catalyst-row">
               <span style="font-size:0.75rem;min-width:70px;word-break:break-all">{{ c.label }}</span>
               <div class="ccc-catalyst-bar-bg">
-                <div class="ccc-catalyst-bar-fill" :style="`width:${c.winRate}%;background:${c.winRate >= 60 ? 'var(--good)' : c.winRate >= 40 ? 'var(--warn-soft)' : 'var(--critical)'}`"></div>
+                <div class="ccc-catalyst-bar-fill" :style="`width:${c.winRate}%;background:${c.winRate >= 60 ? 'var(--up)' : c.winRate >= 40 ? 'var(--warn)' : 'var(--down)'}`"></div>
               </div>
               <span :class="c.winRate >= 60 ? 'up' : c.winRate < 40 ? 'down' : ''" style="font-size:0.75rem;min-width:42px;text-align:right">{{ c.winRate.toFixed(0) }}%</span>
               <span class="muted" style="font-size:0.65rem">{{ c.total }}筆</span>
@@ -3157,7 +3157,7 @@ onMounted(() => {
 .w110 { width: 110px; } .w90 { width: 90px; } .w160 { width: 160px; }
 
 .stat-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-top: 16px; }
-.scard { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 14px; padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; }
+.scard { background: var(--bg-elevated); border: 1px solid var(--border-color); border-radius: 14px; padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; }
 .slabel { font-size: 0.74rem; color: var(--text-muted); }
 .sval { font-size: 1.35rem; }
 .sc-row { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 4px; }
@@ -3202,24 +3202,24 @@ onMounted(() => {
 .health-total { font-size: 0.7rem; color: var(--text-muted); margin-left: 2px; }
 .health-breakdown { display: flex; gap: 4px; margin-top: 4px; }
 .health-dot { font-size: 0.9rem; cursor: help; }
-.dot-ok { color: var(--up, var(--down)); }
-.dot-no { color: var(--down, var(--up)); }
+.dot-ok { color: var(--up); }
+.dot-no { color: var(--down); }
 
 /* UU4 Skewness */
 .skew-row { display: flex; align-items: flex-start; gap: 14px; flex-wrap: wrap; }
 .skew-val strong { font-size: 1.4rem; }
 .skew-text { font-size: 0.8rem; margin: 0; flex: 1; min-width: 160px; }
 
-/* UU7 Day-of-week grid */
+/* UU7 Day-of-week grid（台股漲紅跌綠：正R紅框紅底紅字，負R綠框綠底綠字） */
 .dow-grid { display: flex; gap: 8px; flex-wrap: wrap; }
 .dow-cell { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 12px; border-radius: 10px; border: 1px solid var(--border-color); background: var(--bg-well); min-width: 60px; }
 .dow-label { font-size: 0.72rem; color: var(--text-muted); }
 .dow-r { font-size: 1rem; font-weight: 700; }
 .dow-count { font-size: 0.68rem; }
-.dow-up { border-color: color-mix(in srgb, var(--down) 50%, transparent); background: color-mix(in srgb, var(--down) 8%, transparent); }
-.dow-up .dow-r { color: var(--up, var(--down)); }
-.dow-down { border-color: color-mix(in srgb, var(--up) 50%, transparent); background: color-mix(in srgb, var(--up) 8%, transparent); }
-.dow-down .dow-r { color: var(--down, var(--up)); }
+.dow-up { border-color: color-mix(in srgb, var(--up) 50%, transparent); background: color-mix(in srgb, var(--up) 5%, var(--bg-well)); }
+.dow-up .dow-r { color: var(--up); }
+.dow-down { border-color: color-mix(in srgb, var(--down) 50%, transparent); background: color-mix(in srgb, var(--down) 5%, var(--bg-well)); }
+.dow-down .dow-r { color: var(--down); }
 .dow-empty .dow-r { color: var(--text-muted); }
 
 /* VV3 catalyst label */
@@ -3246,7 +3246,7 @@ onMounted(() => {
 
 /* TT3 計畫 vs 實際 */
 .pva-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-.pva-card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px; padding: 10px 14px; display: flex; flex-direction: column; gap: 4px; min-width: 100px; }
+.pva-card { background: var(--bg-elevated); border: 1px solid var(--border-color); border-radius: 12px; padding: 10px 14px; display: flex; flex-direction: column; gap: 4px; min-width: 100px; }
 .pva-ok { border-color: color-mix(in srgb, var(--down) 50%, transparent); }
 .pva-warn { border-color: color-mix(in srgb, var(--warn) 50%, transparent); }
 .pva-arrow { font-size: 1.2rem; color: var(--text-muted); }
@@ -3260,7 +3260,7 @@ onMounted(() => {
 /* XX recovery + grade tables */
 .xx-recovery-table td, .xx-recovery-table th { font-size: 0.82rem; }
 .xx-grade-row { display: flex; gap: 0.75rem; margin: 0.5rem 0; }
-.xx-grade-cell { display: flex; flex-direction: column; align-items: center; min-width: 64px; padding: 0.5rem; border-radius: 6px; background: var(--color-surface); }
+.xx-grade-cell { display: flex; flex-direction: column; align-items: center; min-width: 64px; padding: 0.5rem; border-radius: 6px; background: var(--bg-elevated); border: 1px solid var(--border-color); }
 .xx-grade-cell small { font-size: 1.1rem; font-weight: 700; }
 .grade-a small { color: var(--down); }
 .grade-b small { color: var(--blue); }
@@ -3275,11 +3275,11 @@ onMounted(() => {
 .yy-catalyst-table td, .yy-catalyst-table th { font-size: 0.82rem; }
 .yy-month-bars { display: flex; gap: 3px; align-items: flex-end; height: 52px; margin: 0.5rem 0; }
 .yy-month-bar-col { display: flex; flex-direction: column; align-items: center; flex: 1; height: 100%; }
-.yy-month-bar-bg { flex: 1; width: 100%; background: var(--color-surface); border-radius: 2px; display: flex; align-items: flex-end; }
+.yy-month-bar-bg { flex: 1; width: 100%; background: var(--bg-well); border-radius: 2px; display: flex; align-items: flex-end; }
 .yy-month-bar-fill { width: 100%; border-radius: 2px; }
-.yy-bar-good { background: var(--color-up, var(--down)); opacity: 0.85; }
-.yy-bar-warn { background: var(--warn, var(--warn)); opacity: 0.85; }
-.yy-bar-bad { background: var(--color-down, var(--up)); opacity: 0.85; }
+.yy-bar-good { background: var(--color-up); opacity: 0.85; }
+.yy-bar-warn { background: var(--warn); opacity: 0.85; }
+.yy-bar-bad { background: var(--color-down); opacity: 0.85; }
 .yy-month-label { font-size: 0.65rem; color: var(--text-muted); margin-top: 2px; }
 .month-label { fill: var(--text-muted); font-size: 9px; }
 
@@ -3315,10 +3315,10 @@ onMounted(() => {
 /* ZZ1-ZZ6 */
 .zz-dur-bars { display: flex; gap: 4px; align-items: flex-end; height: 60px; margin: 0.75rem 0; }
 .zz-dur-col { display: flex; flex-direction: column; align-items: center; flex: 1; height: 100%; gap: 2px; }
-.zz-dur-bar-bg { flex: 1; width: 100%; background: var(--color-surface); border-radius: 3px; display: flex; align-items: flex-end; }
+.zz-dur-bar-bg { flex: 1; width: 100%; background: var(--bg-well); border-radius: 3px; display: flex; align-items: flex-end; }
 .zz-dur-bar-fill { width: 100%; border-radius: 3px; }
-.zz-bar-up { background: var(--color-up, var(--down)); opacity: 0.85; }
-.zz-bar-down { background: var(--color-down, var(--up)); opacity: 0.85; }
+.zz-bar-up { background: var(--color-up); opacity: 0.85; }
+.zz-bar-down { background: var(--color-down); opacity: 0.85; }
 .zz-symbol-row { display: flex; gap: 1.25rem; margin-top: 0.5rem; flex-wrap: wrap; }
 .zz-symbol-group { display: flex; flex-direction: column; gap: 4px; min-width: 110px; }
 .zz-symbol-item { display: flex; gap: 6px; align-items: center; }
@@ -3326,7 +3326,7 @@ onMounted(() => {
 /* AAA1-AAA8 */
 .aaa-weekday-bars { display: flex; gap: 4px; align-items: flex-end; height: 64px; margin: 0.75rem 0; }
 .aaa-wd-col { display: flex; flex-direction: column; align-items: center; flex: 1; height: 100%; gap: 2px; }
-.aaa-wd-bar-bg { flex: 1; width: 100%; background: var(--color-surface); border-radius: 3px; display: flex; align-items: flex-end; }
+.aaa-wd-bar-bg { flex: 1; width: 100%; background: var(--bg-well); border-radius: 3px; display: flex; align-items: flex-end; }
 .aaa-wd-bar-fill { width: 100%; border-radius: 3px; min-height: 4px; }
 /* DDD1 DDD2 DDD5 DDD6 DDD9 */
 .ddd-lynch-hold, .ddd-dreman-streak, .ddd-munger-align, .ddd-schloss-stop, .ddd-ackman-lots { margin-bottom: 0; }
@@ -3334,6 +3334,6 @@ onMounted(() => {
 .ccc-rrplan, .ccc-selectivity, .ccc-catalyst, .ccc-vcp, .ccc-rbins, .ccc-duration-trend { margin-bottom: 0; }
 .ccc-catalyst-grid { display: flex; flex-direction: column; gap: 6px; }
 .ccc-catalyst-row { display: flex; align-items: center; gap: 8px; }
-.ccc-catalyst-bar-bg { flex: 1; height: 10px; background: var(--color-surface); border-radius: 4px; overflow: hidden; }
+.ccc-catalyst-bar-bg { flex: 1; height: 10px; background: var(--bg-well); border-radius: 4px; overflow: hidden; }
 .ccc-catalyst-bar-fill { height: 100%; border-radius: 4px; transition: width 0.3s; }
 </style>

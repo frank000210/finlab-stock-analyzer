@@ -491,7 +491,7 @@ onBeforeUnmount(() => window.removeEventListener('storage', onJournalStorage))
 }
 
 .market-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-top: 16px; }
-.mcard { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; }
+.mcard { background: var(--bg-elevated); border: 1px solid var(--border-color); border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; }
 .mlabel { font-size: 0.78rem; color: var(--text-muted); }
 .mval { font-size: 1.5rem; }
 .mhint { font-size: 0.74rem; color: var(--text-muted); }
@@ -515,12 +515,13 @@ onBeforeUnmount(() => window.removeEventListener('storage', onJournalStorage))
 .field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; font-size: 0.82rem; color: var(--text-muted); }
 
 .rgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
-.rcard { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; }
+.rcard { background: var(--bg-elevated); border: 1px solid var(--border-color); border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; }
 .rcard span { font-size: 0.76rem; color: var(--text-muted); }
 .rcard strong { font-size: 1.15rem; }
 .rcard.hl { border-color: var(--accent-blue); }
 .rr-verdict { font-size: 0.7rem !important; }
-.rr-ok { color: var(--down); }
+/* R:R 四層分級：優秀=紅(.up)、合格=藍(.rr-ok)、偏低=黃(.warn)、不建議=綠(.down)，避免合格與不建議撞色 */
+.rr-ok { color: var(--accent-blue); }
 .rcard.hl strong { font-size: 1.5rem; color: var(--accent-blue); }
 .rcard .warn, strong.warn { color: var(--warn); }
 .warn.up { color: var(--warn); }
@@ -528,7 +529,7 @@ onBeforeUnmount(() => window.removeEventListener('storage', onJournalStorage))
 .bt-import { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .apply-cell { align-items: center; justify-content: center; }
 
-.setup-panel { margin-top: 16px; border: 1px solid var(--border-color); border-radius: 14px; padding: 16px; background: var(--card-bg); }
+.setup-panel { margin-top: 16px; border: 1px solid var(--border-color); border-radius: 14px; padding: 16px; background: var(--bg-elevated); }
 .setup-head { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
 .setup-score { display: flex; align-items: baseline; gap: 2px; }
 .setup-score strong { font-size: 2.2rem; line-height: 1; }

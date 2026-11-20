@@ -169,14 +169,21 @@ const summaryText = computed(() => {
   return `買入 ${buyCount} / 賣出 ${sellCount}`
 })
 const mddClass = computed(() => {
-  if (mddValue.value > 0.03) return 'down'
+  // 風控紅綠燈語意：超標=危險紅、接近=警戒黃、正常=安全綠
+  if (mddValue.value > 0.03) return 'status-danger'
   if (mddValue.value >= 0.02) return 'warning-text'
-  return 'up'
+  return 'status-safe'
 })
+
+function onThemeChange() {
+  renderChart()
+  renderSankey()
+}
 
 onMounted(async () => {
   window.addEventListener('resize', renderChart)
   window.addEventListener('resize', renderSankey)
+  window.addEventListener('finlab:theme-change', onThemeChange)
   await loadDashboard()
 })
 
@@ -185,6 +192,7 @@ watch(() => stockStore.symbol, loadDashboard)
 onBeforeUnmount(() => {
   window.removeEventListener('resize', renderChart)
   window.removeEventListener('resize', renderSankey)
+  window.removeEventListener('finlab:theme-change', onThemeChange)
   destroyChart()
 })
 
@@ -265,7 +273,7 @@ function renderChart() {
   chart = createChart(chartEl.value, {
     width: chartEl.value.clientWidth || 720,
     height: 320,
-    layout: { background: { color: '#0d1117' }, textColor: theme.muted },
+    layout: { background: { color: theme.well }, textColor: theme.muted },
     grid: { vertLines: { color: theme.grid }, horzLines: { color: theme.grid } },
     rightPriceScale: { borderColor: theme.border },
     timeScale: { borderColor: theme.border },
@@ -283,10 +291,13 @@ function destroyChart() {
   }
 }
 
-const SIGNAL_TYPE_META = {
-  BUY: { name: '買入', color: theme.up },
-  SELL: { name: '賣出', color: theme.down },
-  HOLD: { name: '觀望', color: theme.neutral },
+// 動態讀取最新主題色票，避免模組載入時將初始主題字串凍結
+function getSignalTypeMeta() {
+  return {
+    BUY: { name: '買入', color: theme.up },
+    SELL: { name: '賣出', color: theme.down },
+    HOLD: { name: '觀望', color: theme.neutral },
+  }
 }
 
 function renderSankey() {
@@ -295,20 +306,21 @@ function renderSankey() {
   host.innerHTML = ''
   if (!signals.value.length) return
 
+  const signalTypeMeta = getSignalTypeMeta()
   // No real position-sizing data exists, so nodes/links are weighted purely
   // by AI signal confidence (relative units), not actual capital -- this is
   // an illustrative flow, not a real portfolio money-flow diagram.
   const byType = new Map()
   signals.value.forEach((s) => {
-    const type = SIGNAL_TYPE_META[s.type] ? s.type : 'HOLD'
+    const type = signalTypeMeta[s.type] ? s.type : 'HOLD'
     if (!byType.has(type)) byType.set(type, [])
     byType.get(type).push({ ...s, weight: Math.max(1, s.confidence) })
   })
 
   const level1 = Array.from(byType.entries()).map(([type, items]) => ({
     id: type,
-    name: SIGNAL_TYPE_META[type].name,
-    color: SIGNAL_TYPE_META[type].color,
+    name: signalTypeMeta[type].name,
+    color: signalTypeMeta[type].color,
     value: d3.sum(items, (d) => d.weight),
     children: items
       .slice()
@@ -469,9 +481,10 @@ function badgeClass(type) {
 }
 
 function statusClass(status) {
-  if (status === 'ACTIVE') return 'up'
+  // 風控紅綠燈語意：正常=安全綠、警戒=黃、熔斷=危險紅
+  if (status === 'ACTIVE') return 'status-safe'
   if (status === 'WARNING') return 'warning-text'
-  if (status === 'PAUSED') return 'down'
+  if (status === 'PAUSED') return 'status-danger'
   return ''
 }
 </script>
@@ -645,12 +658,17 @@ function statusClass(status) {
   gap: 8px;
 }
 
+.status-safe {
+  color: var(--color-down);
+}
+
 .warning-text {
   color: var(--color-warning);
 }
 
+.status-danger,
 .error {
-  color: var(--up);
+  color: var(--color-up);
 }
 
 .sankey-host {
