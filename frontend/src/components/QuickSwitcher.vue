@@ -36,9 +36,15 @@
 <script setup>
 import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
+import { useStockStore } from '../stores/stock.js'
+
+const props = defineProps({
+  openTrigger: { type: Number, default: 0 },
+})
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 const router = useRouter()
+const stockStore = useStockStore()
 
 const open = ref(false)
 const query = ref('')
@@ -47,8 +53,7 @@ const inputEl = ref(null)
 const stockHits = ref([])
 let debounceTimer = null
 
-// Y9：頁面捷徑（含常用別名，全部可被查詢命中）——原本只涵蓋 12 個路由，
-// 對照 router.js 後把其餘不需股票代號的靜態路由全部補齊。
+// Y9 + T-026：頁面捷徑（含常用別名，補齊 /learn、/kb-qa、/feedback 等全部靜態路由）
 const PAGES = [
   { icon: '⭐', title: '首頁', sub: '/', to: '/', alias: 'home 首頁 最近瀏覽' },
   { icon: '🎯', title: '決策面板', sub: '/decision', to: '/decision', alias: 'decision 決策' },
@@ -75,10 +80,13 @@ const PAGES = [
   { icon: '🎲', title: '風險模擬', sub: '/monte-carlo', to: '/monte-carlo', alias: 'monte carlo 蒙地卡羅 破產 模擬' },
   { icon: '🔔', title: '價格警報', sub: '/price-alerts', to: '/price-alerts', alias: 'price alerts 警報 提醒' },
   { icon: '🚀', title: '新手上路', sub: '/guide', to: '/guide', alias: 'guide 導覽 教學' },
+  { icon: '🎓', title: '學習中心', sub: '/learn', to: '/learn', alias: 'learn 學習中心 課程 教學 claude' },
   { icon: '📰', title: '資料爬蟲與新聞檢查', sub: '/data-agent', to: '/data-agent', alias: 'data agent 爬蟲 新聞檢查' },
   { icon: '🧩', title: '信號規則編輯器', sub: '/signal-rules', to: '/signal-rules', alias: 'signal rules 規則編輯器' },
   { icon: '⚙️', title: '設定', sub: '/settings', to: '/settings', alias: 'settings 設定' },
   { icon: '🔧', title: '後台', sub: '/admin', to: '/admin', alias: 'admin 後台 管理' },
+  { icon: '🧠', title: '知識庫問答', sub: '/kb-qa', to: '/kb-qa', alias: 'kb qa 知識庫 問答 ai rag' },
+  { icon: '💡', title: '意見回饋', sub: '/feedback', to: '/feedback', alias: 'feedback 意見 回饋 建議 問題回報' },
 ]
 
 const pageHits = computed(() => {
@@ -93,6 +101,8 @@ const results = computed(() => {
     key: 's:' + s.symbol, icon: '📈',
     title: `${s.symbol} ${s.name_zh || ''}`.trim(),
     sub: s.industry || '個股分析', to: `/stocks/${s.symbol}`,
+    symbol: s.symbol,
+    name: s.name_zh || '',
   }))
   return [...pages, ...stocks].slice(0, 12)
 })
@@ -120,6 +130,7 @@ function move(step) {
 function go(i) {
   const item = results.value[i]
   if (!item) return
+  if (item.symbol) stockStore.setStock(item.symbol, item.name || '')
   close()
   router.push(item.to)
 }
@@ -141,10 +152,24 @@ function onKeydown(e) {
   }
 }
 
-onMounted(() => window.addEventListener('keydown', onKeydown))
-onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
+function onGlobalOpen() {
+  openPanel()
+}
 
-defineExpose({ openPanel })
+watch(() => props.openTrigger, (v) => {
+  if (v > 0) openPanel()
+})
+
+onMounted(() => {
+  window.addEventListener('keydown', onKeydown)
+  window.addEventListener('finlab:open-quick-switcher', onGlobalOpen)
+})
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onKeydown)
+  window.removeEventListener('finlab:open-quick-switcher', onGlobalOpen)
+})
+
+defineExpose({ openPanel, close })
 </script>
 
 <style scoped>

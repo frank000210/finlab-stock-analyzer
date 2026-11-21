@@ -92,7 +92,7 @@
       <div v-if="rCurveMdd" class="r-curve-stats">
         <div class="rc-stat">
           <span class="rc-label">R 曲線最大回撤 <InfoTooltip label="R 曲線最大回撤" text="累計 R 序列從峰值到最低點的最大回落（單位：R，不受帳戶大小影響）。代表你的系統在最差連虧序列時，從高點累計虧了幾倍風險單位。< 2R 屬健康水準。" /></span>
-          <strong :class="rCurveMdd.mddR > 5 ? 'down' : rCurveMdd.mddR > 2 ? 'warn' : 'up'">{{ rCurveMdd.mddR.toFixed(1) }}R</strong>
+          <strong :class="rCurveMdd.mddR > 5 ? 'status-danger' : rCurveMdd.mddR > 2 ? 'status-warn' : 'status-ok'">{{ rCurveMdd.mddR.toFixed(1) }}R</strong>
         </div>
         <div class="rc-stat">
           <span class="rc-label">累計 R 峰值</span>
@@ -111,7 +111,7 @@
         </div>
         <div class="rc-stat">
           <span class="rc-label">目前距高水位</span>
-          <strong :class="hwmDistance.atHwm ? 'up' : hwmDistance.drawdown > 2 ? 'down' : 'warn'">
+          <strong :class="hwmDistance.atHwm ? 'status-ok' : hwmDistance.drawdown > 2 ? 'status-danger' : 'status-warn'">
             {{ hwmDistance.atHwm ? '在高水位' : '-' + hwmDistance.drawdown.toFixed(1) + 'R' }}
           </strong>
         </div>
@@ -120,7 +120,7 @@
       <div v-if="volatilityRegime" class="r-curve-stats vol-regime-row">
         <div class="rc-stat">
           <span class="rc-label">近20日波動率 vs 歷史均值 <InfoTooltip label="系統波動率比值" text="近20個交易日的日損益標準差，相對於全部歷史均值的倍數。≥ 1.5× 代表系統近期處於高波動狀態——Van Tharp 建議此時縮減倉位至標準的 50%，降低高波動期被連續大虧洗出的機率。" /></span>
-          <strong :class="volatilityRegime.elevated ? 'warn' : 'up'">{{ volatilityRegime.ratio.toFixed(1) }}×</strong>
+          <strong :class="volatilityRegime.elevated ? 'status-warn' : 'status-ok'">{{ volatilityRegime.ratio.toFixed(1) }}×</strong>
         </div>
         <div class="rc-stat" v-if="volatilityRegime.elevated">
           <span class="rc-label vol-warn-msg">⚠ 高波動期 — 建議縮減倉位至標準的 50%</span>
@@ -138,7 +138,7 @@
         </div>
         <div class="rc-stat">
           <span class="rc-label">正報酬月比率</span>
-          <strong :class="monthlyReturnStats.posMonthPct >= 60 ? 'up' : monthlyReturnStats.posMonthPct >= 40 ? 'warn' : 'down'">
+          <strong :class="monthlyReturnStats.posMonthPct >= 60 ? 'status-ok' : monthlyReturnStats.posMonthPct >= 40 ? 'status-warn' : 'status-danger'">
             {{ monthlyReturnStats.posMonthPct.toFixed(0) }}%（{{ monthlyReturnStats.posMonths }}/{{ monthlyReturnStats.totalMonths }} 月）
           </strong>
         </div>
@@ -154,14 +154,14 @@
         </div>
         <div class="rc-stat">
           <span class="rc-label">平均恢復筆數</span>
-          <strong :class="drawdownEpisodes.avgRecovery > 10 ? 'warn' : 'up'">{{ drawdownEpisodes.avgRecovery.toFixed(1) }} 筆</strong>
+          <strong :class="drawdownEpisodes.avgRecovery > 10 ? 'status-warn' : 'status-ok'">{{ drawdownEpisodes.avgRecovery.toFixed(1) }} 筆</strong>
         </div>
         <div class="dd-episode-table-wrap">
           <table class="j-table xx-dd-table">
             <thead><tr><th>回撤深度</th><th>恢復筆數</th></tr></thead>
             <tbody>
               <tr v-for="(ep, i) in drawdownEpisodes.episodes" :key="i">
-                <td :class="ep.depth > 3 ? 'down' : 'warn'">-{{ ep.depth.toFixed(1) }}R</td>
+                <td :class="ep.depth > 3 ? 'status-danger' : 'status-warn'">-{{ ep.depth.toFixed(1) }}R</td>
                 <td>{{ ep.recoveryTrades }} 筆</td>
               </tr>
             </tbody>
@@ -170,14 +170,78 @@
       </div>
     </section>
 
+    <!-- T-026: 風控異常告警摘要條＋分頁切換（首屏保留核心風控，大師診斷依主題分頁） -->
+    <section v-if="riskAlerts.length" class="risk-alert-strip card" data-testid="risk-alert-strip">
+      <span class="ras-label">⚠ 異常告警</span>
+      <div class="ras-pills">
+        <button
+          v-for="al in riskAlerts"
+          :key="al.id"
+          type="button"
+          class="ras-pill"
+          :class="al.tone"
+          @click="setRiskTab(al.tab)"
+        >
+          {{ al.label }}
+        </button>
+      </div>
+    </section>
+
+    <nav class="risk-tabs" role="tablist" aria-label="風控指標分頁" data-testid="risk-view-tabs">
+      <button
+        type="button"
+        role="tab"
+        class="risk-tab"
+        :class="{ active: activeRiskTab === 'core' }"
+        :aria-selected="activeRiskTab === 'core' ? 'true' : 'false'"
+        data-testid="risk-tab-core"
+        @click="setRiskTab('core')"
+      >
+        🛡️ 核心風控
+      </button>
+      <button
+        type="button"
+        role="tab"
+        class="risk-tab"
+        :class="{ active: activeRiskTab === 'performance' }"
+        :aria-selected="activeRiskTab === 'performance' ? 'true' : 'false'"
+        data-testid="risk-tab-performance"
+        @click="setRiskTab('performance')"
+      >
+        📈 績效與波動
+      </button>
+      <button
+        type="button"
+        role="tab"
+        class="risk-tab"
+        :class="{ active: activeRiskTab === 'diagnostics' }"
+        :aria-selected="activeRiskTab === 'diagnostics' ? 'true' : 'false'"
+        data-testid="risk-tab-diagnostics"
+        @click="setRiskTab('diagnostics')"
+      >
+        🔬 紀律與系統診斷
+      </button>
+      <button
+        type="button"
+        role="tab"
+        class="risk-tab"
+        :class="{ active: activeRiskTab === 'all' }"
+        :aria-selected="activeRiskTab === 'all' ? 'true' : 'false'"
+        data-testid="risk-tab-all"
+        @click="setRiskTab('all')"
+      >
+        全部展開
+      </button>
+    </nav>
+
     <!-- YY8: 期望值三階段分析（Bruce Kovner） -->
-    <section class="card chart-card" v-if="expectancyPhases">
+    <section class="card chart-card" v-if="(activeRiskTab === 'all' || activeRiskTab === 'performance') && expectancyPhases">
       <div class="section-header">
         <div>
           <h2>期望值成長軌跡</h2>
           <p class="chart-sub">Kovner：持續追蹤早期→中期→近期期望值，確認系統是否在改善中。</p>
         </div>
-        <span class="rc-label" :class="expectancyPhases.improving ? 'up' : 'down'">
+        <span class="rc-label" :class="expectancyPhases.improving ? 'status-ok' : 'status-danger'">
           {{ expectancyPhases.improving ? '↑ 進步中' : '↓ 退步中' }}（{{ expectancyPhases.trend >= 0 ? '+' : '' }}{{ expectancyPhases.trend.toFixed(2) }}R）
         </span>
       </div>
@@ -191,7 +255,7 @@
     </section>
 
     <!-- YY9: 權益曲線平滑度 R²（Ed Seykota） -->
-    <section class="card chart-card" v-if="equityCurveR2">
+    <section class="card chart-card" v-if="(activeRiskTab === 'all' || activeRiskTab === 'performance') && equityCurveR2">
       <div class="section-header">
         <div>
           <h2>權益曲線平滑度（R²）</h2>
@@ -216,7 +280,7 @@
     </section>
 
     <!-- ZZ7: Ed Seykota — Tag × Month Performance Heatmap -->
-    <section class="card chart-card zz-tag-month" v-if="tagMonthHeatmap">
+    <section class="card chart-card zz-tag-month" v-if="(activeRiskTab === 'all' || activeRiskTab === 'performance') && tagMonthHeatmap">
       <div class="section-header">
         <div>
           <h2>策略×月份績效熱圖</h2>
@@ -245,7 +309,7 @@
     </section>
 
     <!-- ZZ8: Richard Dennis — Forward Loss Scenario Planning -->
-    <section class="card chart-card zz-forward-loss" v-if="forwardLossScenario">
+    <section class="card chart-card zz-forward-loss" v-if="(activeRiskTab === 'all' || activeRiskTab === 'core') && forwardLossScenario">
       <div class="section-header">
         <div>
           <h2>連虧情境推演</h2>
@@ -266,7 +330,7 @@
     </section>
 
     <!-- ZZ10: Jack Schwager — Composite Wizard Score -->
-    <section class="card chart-card zz-wizard-score" v-if="wizardScore">
+    <section class="card chart-card zz-wizard-score" v-if="(activeRiskTab === 'all' || activeRiskTab === 'diagnostics') && wizardScore">
       <div class="section-header">
         <div>
           <h2>綜合向導分數（Schwager）</h2>
@@ -274,7 +338,7 @@
         </div>
         <div class="rc-stat" style="text-align:right; align-items:flex-end">
           <span class="rc-label">{{ wizardScore.label }}</span>
-          <strong :class="wizardScore.total >= 60 ? 'up' : 'warn'" style="font-size:1.5rem">{{ wizardScore.total }}</strong>
+          <strong :class="wizardScore.total >= 60 ? 'status-ok' : 'status-warn'" style="font-size:1.5rem">{{ wizardScore.total }}</strong>
         </div>
       </div>
       <div class="zz-wizard-bars">
@@ -289,7 +353,7 @@
     </section>
 
     <!-- AAA9: Monroe Trout — Monthly Return Volatility -->
-    <section class="card chart-card aaa-monthly-vol" v-if="monthlyReturnVol">
+    <section class="card chart-card aaa-monthly-vol" v-if="(activeRiskTab === 'all' || activeRiskTab === 'performance') && monthlyReturnVol">
       <div class="section-header">
         <div>
           <h2>月收益波動性（Trout）</h2>
@@ -298,7 +362,7 @@
         <div style="display:flex;gap:1rem;align-items:center">
           <div class="rc-stat" style="text-align:right">
             <span class="rc-label">月 R 標準差</span>
-            <strong :class="monthlyReturnVol.std <= 1 ? 'up' : monthlyReturnVol.std <= 2 ? 'warn' : 'down'" style="font-size:1.4rem">
+            <strong :class="monthlyReturnVol.std <= 1 ? 'status-ok' : monthlyReturnVol.std <= 2 ? 'status-warn' : 'status-danger'" style="font-size:1.4rem">
               {{ monthlyReturnVol.std.toFixed(2) }}R
             </strong>
           </div>
@@ -317,7 +381,7 @@
     </section>
 
     <!-- AAA10: Curtis Faith 海龜 — System Compliance Rate -->
-    <section class="card chart-card aaa-compliance" v-if="turtleCompliance">
+    <section class="card chart-card aaa-compliance" v-if="(activeRiskTab === 'all' || activeRiskTab === 'diagnostics') && turtleCompliance">
       <div class="section-header">
         <div>
           <h2>系統遵守度（Curtis Faith 海龜）</h2>
@@ -325,31 +389,31 @@
         </div>
         <div class="rc-stat" style="text-align:right">
           <span class="rc-label">{{ turtleCompliance.stopRate >= 0.9 ? '✓ 高度紀律' : turtleCompliance.stopRate >= 0.7 ? '△ 部分遵守' : '⚠ 紀律不足' }}</span>
-          <strong :class="turtleCompliance.stopRate >= 0.9 ? 'up' : turtleCompliance.stopRate >= 0.7 ? 'warn' : 'down'" style="font-size:1.5rem">
+          <strong :class="turtleCompliance.stopRate >= 0.9 ? 'status-ok' : turtleCompliance.stopRate >= 0.7 ? 'status-warn' : 'status-danger'" style="font-size:1.5rem">
             {{ (turtleCompliance.stopRate * 100).toFixed(0) }}%
           </strong>
         </div>
       </div>
       <div class="yy-phase-row">
         <div class="yy-phase-col">
-          <strong :class="turtleCompliance.stopRate >= 0.9 ? 'up' : 'warn'" style="font-size:1.1rem">{{ (turtleCompliance.stopRate * 100).toFixed(0) }}%</strong>
+          <strong :class="turtleCompliance.stopRate >= 0.9 ? 'status-ok' : 'status-warn'" style="font-size:1.1rem">{{ (turtleCompliance.stopRate * 100).toFixed(0) }}%</strong>
           <span class="muted" style="font-size:0.72rem">有設停損率</span>
           <span class="muted" style="font-size:0.65rem">{{ turtleCompliance.nStop }}/{{ turtleCompliance.total }}</span>
         </div>
         <div class="yy-phase-col">
-          <strong :class="turtleCompliance.targetRate >= 0.9 ? 'up' : 'warn'" style="font-size:1.1rem">{{ (turtleCompliance.targetRate * 100).toFixed(0) }}%</strong>
+          <strong :class="turtleCompliance.targetRate >= 0.9 ? 'status-ok' : 'status-warn'" style="font-size:1.1rem">{{ (turtleCompliance.targetRate * 100).toFixed(0) }}%</strong>
           <span class="muted" style="font-size:0.72rem">有設目標率</span>
           <span class="muted" style="font-size:0.65rem">{{ turtleCompliance.nTarget }}/{{ turtleCompliance.total }}</span>
         </div>
         <div class="yy-phase-col">
-          <strong :class="turtleCompliance.bothRate >= 0.9 ? 'up' : 'warn'" style="font-size:1.1rem">{{ (turtleCompliance.bothRate * 100).toFixed(0) }}%</strong>
+          <strong :class="turtleCompliance.bothRate >= 0.9 ? 'status-ok' : 'status-warn'" style="font-size:1.1rem">{{ (turtleCompliance.bothRate * 100).toFixed(0) }}%</strong>
           <span class="muted" style="font-size:0.72rem">兩者齊備率</span>
         </div>
       </div>
     </section>
 
     <!-- BBB2: Jim Simons — Statistical Edge Decay Detection -->
-    <section class="card chart-card bbb-edge-decay" v-if="edgeDecay">
+    <section class="card chart-card bbb-edge-decay" v-if="(activeRiskTab === 'all' || activeRiskTab === 'diagnostics') && edgeDecay">
       <div class="section-header">
         <div>
           <h2>統計優勢衰退偵測（Simons）</h2>
@@ -372,14 +436,14 @@
           <span class="muted" style="font-size:0.72rem">趨勢差值 (近-歷史)</span>
         </div>
         <div class="yy-phase-col">
-          <strong :class="edgeDecay.decaying ? 'down' : 'up'" style="font-size:1.1rem">{{ edgeDecay.decaying ? '⚠ 衰退' : '✓ 穩定' }}</strong>
+          <strong :class="edgeDecay.decaying ? 'status-danger' : 'status-ok'" style="font-size:1.1rem">{{ edgeDecay.decaying ? '⚠ 衰退' : '✓ 穩定' }}</strong>
           <span class="muted" style="font-size:0.72rem">優勢狀態</span>
         </div>
       </div>
     </section>
 
     <!-- BBB5: Dennis Gartman — Max Single Loss Control -->
-    <section class="card chart-card bbb-max-loss-control" v-if="maxLossControl">
+    <section class="card chart-card bbb-max-loss-control" v-if="(activeRiskTab === 'all' || activeRiskTab === 'core') && maxLossControl">
       <div class="section-header">
         <div>
           <h2>最大單筆損失控制（Gartman）</h2>
@@ -387,7 +451,7 @@
         </div>
         <div class="rc-stat" style="text-align:right">
           <span class="rc-label">{{ maxLossControl.controlled ? '✓ 尾部受控' : '⚠ 損失失控' }}</span>
-          <strong :class="maxLossControl.controlled ? 'up' : 'down'" style="font-size:1.5rem">{{ maxLossControl.ratio.toFixed(2) }}×</strong>
+          <strong :class="maxLossControl.controlled ? 'status-ok' : 'status-danger'" style="font-size:1.5rem">{{ maxLossControl.ratio.toFixed(2) }}×</strong>
         </div>
       </div>
       <div class="yy-phase-row">
@@ -400,7 +464,7 @@
           <span class="muted" style="font-size:0.72rem">平均贏單 R</span>
         </div>
         <div class="yy-phase-col">
-          <strong :class="maxLossControl.controlled ? 'up' : 'down'">{{ maxLossControl.ratio.toFixed(2) }}×</strong>
+          <strong :class="maxLossControl.controlled ? 'status-ok' : 'status-danger'">{{ maxLossControl.ratio.toFixed(2) }}×</strong>
           <span class="muted" style="font-size:0.72rem">損失/贏單比</span>
           <span class="muted" style="font-size:0.65rem">（≤2× 為受控）</span>
         </div>
@@ -408,7 +472,7 @@
     </section>
 
     <!-- BBB8: Joel Greenblatt — Losing Streak Recovery Speed -->
-    <section class="card chart-card bbb-recovery-speed" v-if="recoverySpeed">
+    <section class="card chart-card bbb-recovery-speed" v-if="(activeRiskTab === 'all' || activeRiskTab === 'diagnostics') && recoverySpeed">
       <div class="section-header">
         <div>
           <h2>最長虧損期回復速度（Greenblatt）</h2>
@@ -425,13 +489,13 @@
           <span class="muted" style="font-size:0.72rem">連虧期損失</span>
         </div>
         <div class="yy-phase-col">
-          <strong :class="recoverySpeed.recovered ? 'up' : 'warn'" style="font-size:1.1rem">
+          <strong :class="recoverySpeed.recovered ? 'status-ok' : 'status-warn'" style="font-size:1.1rem">
             {{ recoverySpeed.recovered ? recoverySpeed.recoveryTrades + '筆' : '未回復' }}
           </strong>
           <span class="muted" style="font-size:0.72rem">回復所需筆數</span>
         </div>
         <div class="yy-phase-col">
-          <strong :class="recoverySpeed.recovered && recoverySpeed.recoveryTrades <= recoverySpeed.maxStreak ? 'up' : 'warn'">
+          <strong :class="recoverySpeed.recovered && recoverySpeed.recoveryTrades <= recoverySpeed.maxStreak ? 'status-ok' : 'status-warn'">
             {{ recoverySpeed.recovered ? (recoverySpeed.recoveryTrades <= recoverySpeed.maxStreak ? '✓ 快速回彈' : '△ 慢速回彈') : '⚠ 仍在回復中' }}
           </strong>
           <span class="muted" style="font-size:0.72rem">韌性評級</span>
@@ -440,7 +504,7 @@
     </section>
 
     <!-- BBB9: Larry Hite — Open Position Worst-Case Loss -->
-    <section class="card chart-card bbb-open-worstcase" v-if="openWorstCase">
+    <section class="card chart-card bbb-open-worstcase" v-if="(activeRiskTab === 'all' || activeRiskTab === 'core') && openWorstCase">
       <div class="section-header">
         <div>
           <h2>開倉最大損失情境（Hite）</h2>
@@ -464,7 +528,7 @@
     </section>
 
     <!-- CCC4: Stan Weinstein — Rolling Win Rate Trajectory -->
-    <section class="card chart-card ccc-rollwinrate" v-if="rollingWinTrend">
+    <section class="card chart-card ccc-rollwinrate" v-if="(activeRiskTab === 'all' || activeRiskTab === 'diagnostics') && rollingWinTrend">
       <div class="section-header">
         <div>
           <h2>勝率趨勢軌跡（Weinstein 階段分析）</h2>
@@ -478,17 +542,17 @@
         </div>
         <div style="font-size:1.5rem;opacity:0.4">→</div>
         <div style="text-align:center">
-          <strong :class="rollingWinTrend.improving ? 'up' : 'down'" style="font-size:1.5rem">{{ (rollingWinTrend.last10WinPct * 100).toFixed(0) }}%</strong>
+          <strong :class="rollingWinTrend.improving ? 'status-ok' : 'status-danger'" style="font-size:1.5rem">{{ (rollingWinTrend.last10WinPct * 100).toFixed(0) }}%</strong>
           <div class="muted" style="font-size:0.72rem">最近10筆勝率</div>
         </div>
-        <div :class="rollingWinTrend.improving ? 'up' : 'down'" style="font-size:0.8rem">
+        <div :class="rollingWinTrend.improving ? 'status-ok' : 'status-danger'" style="font-size:0.8rem">
           {{ rollingWinTrend.improving ? '▲ 勝率上升，系統持續進化' : '▼ 勝率下降，需檢視入場條件是否退化' }}
         </div>
       </div>
     </section>
 
     <!-- CCC5: Ed Seykota — Consecutive Loss Streak Frequency -->
-    <section class="card chart-card ccc-streakfreq" v-if="streakFrequency">
+    <section class="card chart-card ccc-streakfreq" v-if="(activeRiskTab === 'all' || activeRiskTab === 'diagnostics') && streakFrequency">
       <div class="section-header">
         <div>
           <h2>連虧頻率分布（Seykota 損失控制）</h2>
@@ -497,18 +561,18 @@
       </div>
       <div style="display:flex;gap:1rem;flex-wrap:wrap;padding:0.5rem 0;align-items:flex-end">
         <div v-for="b in streakFrequency.buckets" :key="b.label" style="text-align:center;min-width:60px">
-          <strong :class="(b.label === '5+連虧' && b.count > 1) || (b.label === '4連虧' && b.count > 2) ? 'down' : ''" style="font-size:1.2rem">{{ b.count }}</strong>
+          <strong :class="(b.label === '5+連虧' && b.count > 1) || (b.label === '4連虧' && b.count > 2) ? 'status-danger' : ''" style="font-size:1.2rem">{{ b.count }}</strong>
           <div class="muted" style="font-size:0.72rem">{{ b.label }}</div>
         </div>
       </div>
       <div class="muted" style="font-size:0.72rem;margin-top:0.25rem">
         {{ streakFrequency.totalStreaks }}次連虧事件；最長 {{ streakFrequency.maxStreak }} 連虧
-        <span v-if="streakFrequency.buckets[4].count > 1" class="down">　⚠ 5+連虧出現超過1次，入場條件可能在特定市況下失效</span>
+        <span v-if="streakFrequency.buckets[4].count > 1" class="status-danger">　⚠ 5+連虧出現超過1次，入場條件可能在特定市況下失效</span>
       </div>
     </section>
 
     <!-- CCC8: Van Tharp — System Quality Number -->
-    <section class="card chart-card ccc-sqn" v-if="sqn">
+    <section class="card chart-card ccc-sqn" v-if="(activeRiskTab === 'all' || activeRiskTab === 'diagnostics') && sqn">
       <div class="section-header">
         <div>
           <h2>系統品質指數 SQN（Van Tharp）</h2>
@@ -517,11 +581,11 @@
       </div>
       <div style="display:flex;gap:2rem;flex-wrap:wrap;padding:0.5rem 0;align-items:center">
         <div style="text-align:center">
-          <strong :class="sqn.rating === '優秀' || sqn.rating === '良好' ? 'up' : sqn.rating === '可交易' ? '' : 'down'" style="font-size:2rem">{{ sqn.value.toFixed(2) }}</strong>
+          <strong :class="sqn.rating === '優秀' || sqn.rating === '良好' ? 'status-ok' : sqn.rating === '可交易' ? '' : 'status-danger'" style="font-size:2rem">{{ sqn.value.toFixed(2) }}</strong>
           <div class="muted" style="font-size:0.72rem">SQN</div>
         </div>
         <div style="text-align:center">
-          <strong :class="sqn.rating === '優秀' || sqn.rating === '良好' ? 'up' : sqn.rating === '可交易' ? '' : 'down'" style="font-size:1.2rem">{{ sqn.rating }}</strong>
+          <strong :class="sqn.rating === '優秀' || sqn.rating === '良好' ? 'status-ok' : sqn.rating === '可交易' ? '' : 'status-danger'" style="font-size:1.2rem">{{ sqn.rating }}</strong>
           <div class="muted" style="font-size:0.72rem">品質評級</div>
         </div>
         <div style="text-align:center">
@@ -537,7 +601,7 @@
     </section>
 
     <!-- DDD3: Ray Dalio — Monthly R Sharpe Profile -->
-    <section class="card chart-card ddd-dalio-sharpe" v-if="monthlyRSharpe">
+    <section class="card chart-card ddd-dalio-sharpe" v-if="(activeRiskTab === 'all' || activeRiskTab === 'performance') && monthlyRSharpe">
       <div class="section-header">
         <div>
           <h2>月度風險調整報酬 Sharpe（Dalio All Weather）</h2>
@@ -546,7 +610,7 @@
       </div>
       <div style="display:flex;gap:0.75rem;flex-wrap:wrap;padding:0.5rem 0;align-items:flex-end">
         <div v-for="m in monthlyRSharpe.months" :key="m.month" style="text-align:center;min-width:60px">
-          <strong :class="m.sharpe > 0.5 ? 'up' : m.sharpe > 0 ? '' : 'down'" style="font-size:1rem">{{ m.sharpe >= 0 ? '+' : '' }}{{ m.sharpe.toFixed(2) }}</strong>
+          <strong :class="m.sharpe > 0.5 ? 'status-ok' : m.sharpe > 0 ? '' : 'status-danger'" style="font-size:1rem">{{ m.sharpe >= 0 ? '+' : '' }}{{ m.sharpe.toFixed(2) }}</strong>
           <div class="muted" style="font-size:0.65rem">{{ m.month.slice(5) }}</div>
           <div class="muted" style="font-size:0.6rem">{{ m.n }}筆</div>
         </div>
@@ -558,7 +622,7 @@
     </section>
 
     <!-- DDD4: Nassim Taleb — Fat Tail Protection Score -->
-    <section class="card chart-card ddd-taleb-tail" v-if="fatTailProtection">
+    <section class="card chart-card ddd-taleb-tail" v-if="(activeRiskTab === 'all' || activeRiskTab === 'core') && fatTailProtection">
       <div class="section-header">
         <div>
           <h2>尾部風險保護評分（Taleb 黑天鵝）</h2>
@@ -567,21 +631,21 @@
       </div>
       <div style="display:flex;gap:2rem;flex-wrap:wrap;padding:0.5rem 0;align-items:center">
         <div style="text-align:center">
-          <strong :class="fatTailProtection.tailFreq < 5 ? 'up' : fatTailProtection.tailFreq < 15 ? '' : 'down'" style="font-size:1.5rem">{{ fatTailProtection.tailFreq.toFixed(1) }}%</strong>
+          <strong :class="fatTailProtection.tailFreq < 5 ? 'status-ok' : fatTailProtection.tailFreq < 15 ? '' : 'status-danger'" style="font-size:1.5rem">{{ fatTailProtection.tailFreq.toFixed(1) }}%</strong>
           <div class="muted" style="font-size:0.72rem">尾部損失頻率</div>
         </div>
         <div style="text-align:center">
-          <strong :class="fatTailProtection.maxToAvgRatio < 3 ? 'up' : 'down'" style="font-size:1.2rem">{{ fatTailProtection.maxToAvgRatio.toFixed(1) }}×</strong>
+          <strong :class="fatTailProtection.maxToAvgRatio < 3 ? 'status-ok' : 'status-danger'" style="font-size:1.2rem">{{ fatTailProtection.maxToAvgRatio.toFixed(1) }}×</strong>
           <div class="muted" style="font-size:0.72rem">最大虧 / 均虧</div>
         </div>
-        <div :class="fatTailProtection.protected ? 'up' : 'down'" style="font-size:0.8rem">
+        <div :class="fatTailProtection.protected ? 'status-ok' : 'status-danger'" style="font-size:0.8rem">
           {{ fatTailProtection.protected ? '✓ 尾部風險受控，無異常巨虧' : '⚠ 尾部損失過大或過頻，存在黑天鵝曝險' }}
         </div>
       </div>
     </section>
 
     <!-- DDD8: Steve Cohen — Max Daily Loss vs Avg Profit Day -->
-    <section class="card chart-card ddd-cohen-daily" v-if="dailyPnLControl">
+    <section class="card chart-card ddd-cohen-daily" v-if="(activeRiskTab === 'all' || activeRiskTab === 'core') && dailyPnLControl">
       <div class="section-header">
         <div>
           <h2>單日最大損失控制（Cohen SAC Capital 日損上限）</h2>
@@ -598,17 +662,17 @@
           <div class="muted" style="font-size:0.72rem">平均獲利日</div>
         </div>
         <div style="text-align:center">
-          <strong :class="dailyPnLControl.controlled ? 'up' : 'down'" style="font-size:1.2rem">{{ dailyPnLControl.ratio.toFixed(2) }}×</strong>
+          <strong :class="dailyPnLControl.controlled ? 'status-ok' : 'status-danger'" style="font-size:1.2rem">{{ dailyPnLControl.ratio.toFixed(2) }}×</strong>
           <div class="muted" style="font-size:0.72rem">比值</div>
         </div>
-        <div :class="dailyPnLControl.controlled ? 'up' : 'down'" style="font-size:0.8rem">
+        <div :class="dailyPnLControl.controlled ? 'status-ok' : 'status-danger'" style="font-size:0.8rem">
           {{ dailyPnLControl.controlled ? '✓ 單日最大虧損 < 2× 平均獲利日，日損控制良好' : '⚠ 單日最大虧損過大，需設定日損限額' }}
         </div>
       </div>
     </section>
 
     <!-- DDD10: David Swensen — Post-Good-Month Performance -->
-    <section class="card chart-card ddd-swensen-decay" v-if="postGoodMonthEffect">
+    <section class="card chart-card ddd-swensen-decay" v-if="(activeRiskTab === 'all' || activeRiskTab === 'performance') && postGoodMonthEffect">
       <div class="section-header">
         <div>
           <h2>佳月後表現衰退分析（Swensen 再平衡紀律）</h2>
@@ -622,10 +686,10 @@
         </div>
         <div style="font-size:1.2rem;opacity:0.4">→</div>
         <div style="text-align:center">
-          <strong :class="postGoodMonthEffect.decayed ? 'down' : 'up'" style="font-size:1.3rem">{{ postGoodMonthEffect.avgPostGood >= 0 ? '+' : '' }}{{ postGoodMonthEffect.avgPostGood.toFixed(2) }}R</strong>
+          <strong :class="postGoodMonthEffect.decayed ? 'status-danger' : 'status-ok'" style="font-size:1.3rem">{{ postGoodMonthEffect.avgPostGood >= 0 ? '+' : '' }}{{ postGoodMonthEffect.avgPostGood.toFixed(2) }}R</strong>
           <div class="muted" style="font-size:0.72rem">佳月後月均R（{{ postGoodMonthEffect.samples }}個月）</div>
         </div>
-        <div :class="postGoodMonthEffect.decayed ? 'down' : 'up'" style="font-size:0.8rem">
+        <div :class="postGoodMonthEffect.decayed ? 'status-danger' : 'status-ok'" style="font-size:0.8rem">
           {{ postGoodMonthEffect.decayed ? '⚠ 佳月後表現顯著衰退，可能存在過度自信效應' : '✓ 佳月後仍能維持績效，無過度自信衰退' }}
         </div>
       </div>
@@ -662,6 +726,10 @@ import { fetchLivePrices } from '../lib/livePriceCache'
 
 const theme = useChartTheme()
 const loading = ref(false)
+const activeRiskTab = ref('core')
+function setRiskTab(tab) {
+  activeRiskTab.value = tab
+}
 const chartEl = ref(null)
 const histEl = ref(null)
 let chart = null
@@ -1191,10 +1259,10 @@ const statusDescription = computed(() => {
 const themeVersion = ref(0)
 const gaugeColor = computed(() => {
   themeVersion.value // eslint-disable-line no-unused-expressions
-  // 風控紅綠燈語意（對應副標與 MetricScale）：低於警戒=安全綠、警戒=黃、達熔斷=危險紅
-  if (mddPercent.value >= mddPausePct.value) return theme.up
-  if (mddPercent.value >= mddWarnPct.value) return theme.warn
-  return theme.down
+  // 風控紅綠燈語意（使用獨立 --status-* token，與台股漲紅跌綠解耦）：安全綠 / 警戒琥珀 / 危險紅
+  if (mddPercent.value >= mddPausePct.value) return 'var(--status-danger)'
+  if (mddPercent.value >= mddWarnPct.value) return 'var(--status-warn)'
+  return 'var(--status-ok)'
 })
 const gaugeStyle = computed(() => {
   themeVersion.value // eslint-disable-line no-unused-expressions
@@ -1334,6 +1402,17 @@ function formatPercent(unitValue) {
   return `${(unitValue * 100).toFixed(2)}%`
 }
 
+const riskAlerts = computed(() => {
+  const list = []
+  if (volatilityRegime.value?.elevated) list.push({ id: 'vol', label: `高波動 ${volatilityRegime.value.ratio.toFixed(1)}×`, tone: 'status-badge-warn', tab: 'core' })
+  if (edgeDecay.value?.decaying) list.push({ id: 'edge', label: '統計優勢衰退', tone: 'status-badge-danger', tab: 'diagnostics' })
+  if (maxLossControl.value && !maxLossControl.value.controlled) list.push({ id: 'maxloss', label: '單筆損失超限', tone: 'status-badge-danger', tab: 'core' })
+  if (fatTailProtection.value && !fatTailProtection.value.protected) list.push({ id: 'tail', label: '厚尾風險偏高', tone: 'status-badge-danger', tab: 'core' })
+  if (dailyPnLControl.value && !dailyPnLControl.value.controlled) list.push({ id: 'daily', label: '單日損益失衡', tone: 'status-badge-danger', tab: 'core' })
+  if (postGoodMonthEffect.value?.decayed) list.push({ id: 'swensen', label: '佳月後表現衰退', tone: 'status-badge-warn', tab: 'performance' })
+  return list
+})
+
 function statusClass(status) {
   if (status === 'ACTIVE') return 'is-active'
   if (status === 'WARNING') return 'is-warning'
@@ -1447,20 +1526,20 @@ function statusClass(status) {
   font-size: 0.82rem;
 }
 
-/* 風控狀態膠囊：正常=安全綠、警戒=黃、熔斷=危險紅 */
+/* 風控狀態膠囊：採用獨立語意色 token（安全綠 / 警戒琥珀 / 危險紅） */
 .is-active {
-  background: var(--down-soft);
-  color: var(--color-down);
+  background: var(--status-ok-bg);
+  color: var(--status-ok);
 }
 
 .is-warning {
-  background: var(--warn-soft);
-  color: var(--color-warning);
+  background: var(--status-warn-bg);
+  color: var(--status-warn);
 }
 
 .is-paused {
-  background: var(--up-soft);
-  color: var(--color-up);
+  background: var(--status-danger-bg);
+  color: var(--status-danger);
 }
 
 .is-neutral {
@@ -1583,6 +1662,61 @@ function statusClass(status) {
 .chart-host :deep(.axis line) { stroke: var(--border-color); }
 .chart-caption { font-size: 0.72rem; color: var(--text-muted); margin-top: 6px; }
 .chart-empty { color: var(--text-muted); font-style: italic; font-size: 0.85rem; }
+
+.status-ok { color: var(--status-ok); }
+.status-warn { color: var(--status-warn); }
+.status-danger { color: var(--status-danger); }
+.status-badge-ok { background: var(--status-ok-bg); color: var(--status-ok); border-color: color-mix(in srgb, var(--status-ok) 35%, transparent); }
+.status-badge-warn { background: var(--status-warn-bg); color: var(--status-warn); border-color: color-mix(in srgb, var(--status-warn) 35%, transparent); }
+.status-badge-danger { background: var(--status-danger-bg); color: var(--status-danger); border-color: color-mix(in srgb, var(--status-danger) 35%, transparent); }
+
+.risk-alert-strip {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 10px 14px;
+}
+.ras-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--status-danger);
+}
+.ras-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.ras-pill {
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border-color);
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.risk-tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border-color);
+}
+.risk-tab {
+  padding: 7px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.risk-tab.active {
+  background: var(--accent-blue);
+  color: var(--on-accent);
+  border-color: var(--accent-blue);
+}
 
 @media (max-width: 1100px) {
   .top-grid {

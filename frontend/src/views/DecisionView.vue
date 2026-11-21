@@ -25,352 +25,450 @@
       <div class="header-accent"></div>
     </header>
 
-    <!-- UU5: 今日交易計劃便條（Mark Douglas — 開場前設計劃，執行時不靠感覺）-->
-    <section class="daily-plan-card card">
-      <div class="plan-head" @click="planExpanded = !planExpanded">
-        <div class="plan-title-row">
-          <span class="plan-icon">📋</span>
-          <h2 class="plan-title">今日交易計劃</h2>
-          <span class="plan-status" :class="todayPlan.trim() ? 'plan-set' : 'plan-unset'">
-            {{ todayPlan.trim() ? '✓ 已設計劃' : '✗ 未設計劃' }}
+    <!-- T-026: 精簡盤前紀律摘要條（預設首屏一眼掌握紀律狀態，點擊即切換至「開盤紀律」） -->
+    <section class="discipline-strip card" data-testid="decision-discipline-strip">
+      <div class="ds-items">
+        <button type="button" class="ds-pill" :class="todayPlan.trim() ? 'status-badge-ok' : 'status-badge-danger'" @click="setTab('discipline')">
+          <span>📋 計劃</span>
+          <strong>{{ todayPlan.trim() ? '已設定' : '未設定' }}</strong>
+        </button>
+        <button type="button" class="ds-pill" :class="checklistAllDone ? 'status-badge-ok' : 'status-badge-warn'" @click="setTab('discipline')">
+          <span>✅ 清單</span>
+          <strong>{{ checklistDoneCount }}/5</strong>
+        </button>
+        <button type="button" class="ds-pill" :class="dayLossBreached ? 'status-badge-danger' : todayRealizedR < 0 ? 'status-badge-warn' : 'status-badge-ok'" @click="setTab('discipline')">
+          <span>🛑 日內</span>
+          <strong>{{ dayLossBreached ? '已觸停板' : `${todayRealizedR >= 0 ? '+' : ''}${todayRealizedR.toFixed(1)}R` }}</strong>
+        </button>
+        <button
+          v-if="hasOverduePosition"
+          type="button"
+          class="ds-pill status-badge-warn"
+          @click="setTab('discipline')"
+        >
+          <span>⏳ 逾期持倉</span>
+          <strong>需檢視</strong>
+        </button>
+        <button
+          v-if="openTagConcentration?.concentrated"
+          type="button"
+          class="ds-pill status-badge-warn"
+          @click="setTab('discipline')"
+        >
+          <span>🔎 標籤集中</span>
+          <strong>&gt;50%</strong>
+        </button>
+      </div>
+      <button type="button" class="ds-jump-btn" @click="setTab(activeTab === 'discipline' ? 'signals' : 'discipline')">
+        {{ activeTab === 'discipline' ? '← 回到今日訊號' : '展開開盤紀律 →' }}
+      </button>
+    </section>
+
+    <!-- T-026: 決策面板分頁切換（首屏直達今日訊號，不再被 16 張覆盤卡推到畫面外） -->
+    <nav class="view-tabs" role="tablist" aria-label="決策面板檢視模式" data-testid="decision-view-tabs">
+      <button
+        type="button"
+        role="tab"
+        class="view-tab"
+        :class="{ active: activeTab === 'signals' }"
+        :aria-selected="activeTab === 'signals' ? 'true' : 'false'"
+        data-testid="decision-tab-signals"
+        @click="setTab('signals')"
+      >
+        <span>今日訊號</span>
+        <span class="tab-count">{{ enrichedCards.length }}</span>
+      </button>
+      <button
+        type="button"
+        role="tab"
+        class="view-tab"
+        :class="{ active: activeTab === 'discipline' }"
+        :aria-selected="activeTab === 'discipline' ? 'true' : 'false'"
+        data-testid="decision-tab-discipline"
+        @click="setTab('discipline')"
+      >
+        <span>開盤紀律</span>
+        <span class="tab-count" :class="dayLossBreached ? 'tab-count-danger' : checklistAllDone ? 'tab-count-ok' : ''">
+          {{ dayLossBreached ? '停板' : `${checklistDoneCount}/5` }}
+        </span>
+      </button>
+      <button
+        type="button"
+        role="tab"
+        class="view-tab"
+        :class="{ active: activeTab === 'review' }"
+        :aria-selected="activeTab === 'review' ? 'true' : 'false'"
+        data-testid="decision-tab-review"
+        @click="setTab('review')"
+      >
+        <span>行為覆盤</span>
+        <span class="tab-count">{{ reviewCardCount }}</span>
+      </button>
+    </nav>
+
+    <!-- ===== 分頁二：開盤紀律 ===== -->
+    <div v-if="activeTab === 'discipline'" class="tab-panel" data-testid="decision-panel-discipline">
+      <!-- UU5: 今日交易計劃便條（Mark Douglas — 開場前設計劃，執行時不靠感覺）-->
+      <section class="daily-plan-card card">
+        <div class="plan-head" @click="planExpanded = !planExpanded">
+          <div class="plan-title-row">
+            <span class="plan-icon">📋</span>
+            <h2 class="plan-title">今日交易計劃</h2>
+            <span class="plan-status" :class="todayPlan.trim() ? 'plan-set' : 'plan-unset'">
+              {{ todayPlan.trim() ? '✓ 已設計劃' : '✗ 未設計劃' }}
+            </span>
+          </div>
+          <button class="plan-toggle" :aria-label="planExpanded ? '收合' : '展開'">{{ planExpanded ? '▲' : '▼' }}</button>
+        </div>
+        <div v-show="planExpanded" class="plan-body">
+          <p class="plan-hint muted">記下今天的最大損失上限、關注的進場設定、市場偏向。計劃一旦設定，盤中就照計劃執行，不因帳面漲跌臨時改變。</p>
+          <textarea
+            v-model="todayPlan"
+            class="plan-textarea"
+            placeholder="例：最大虧損 2R，今日只做站上 20 日均線且有量的突破；市場偏多但不追高，只等回測支撐進場。"
+            @input="savePlan"
+            rows="4"
+          ></textarea>
+          <p class="plan-date muted">{{ planDateLabel }}</p>
+        </div>
+      </section>
+
+      <!-- WW6: 開盤前五項自我確認清單（Mark Douglas：儀式感創造紀律，不靠感覺靠流程）-->
+      <section class="daily-plan-card card ww-checklist-card">
+        <div class="plan-title-row" style="margin-bottom: 8px">
+          <span class="plan-icon">✅</span>
+          <h2 class="plan-title">開盤前確認清單</h2>
+          <span class="plan-status" :class="checklistAllDone ? 'plan-set' : 'plan-warn'">{{ checklistAllDone ? '✓ 全部確認' : `${checklistDoneCount}/5 項` }}</span>
+        </div>
+        <p class="plan-hint muted">每日自動重置。Mark Douglas：進場前完成儀式，排除情緒干擾。</p>
+        <ul class="ww-checklist">
+          <li v-for="(item, i) in checklistItems" :key="i" class="ww-checklist-item" :class="{ done: checklistState[i] }">
+            <label>
+              <input type="checkbox" :checked="checklistState[i]" @change="toggleChecklist(i)" />
+              {{ item }}
+            </label>
+          </li>
+        </ul>
+      </section>
+
+      <!-- WW10: 今日最大虧損限制（Minervini：日內硬停板，觸及即停止交易）-->
+      <section class="daily-plan-card card ww-dayloss-card">
+        <div class="plan-title-row" style="margin-bottom: 8px">
+          <span class="plan-icon">🛑</span>
+          <h2 class="plan-title">今日最大虧損限制</h2>
+          <span class="plan-status" :class="dayLossBreached ? 'plan-unset' : todayRealizedR < 0 ? 'plan-warn' : 'plan-set'">
+            {{ dayLossBreached ? '⚠ 已觸日內停板' : todayRealizedR < 0 ? `虧 ${Math.abs(todayRealizedR).toFixed(2)}R` : `今日 +${todayRealizedR.toFixed(2)}R` }}
           </span>
         </div>
-        <button class="plan-toggle" :aria-label="planExpanded ? '收合' : '展開'">{{ planExpanded ? '▲' : '▼' }}</button>
-      </div>
-      <div v-show="planExpanded" class="plan-body">
-        <p class="plan-hint muted">記下今天的最大損失上限、關注的進場設定、市場偏向。計劃一旦設定，盤中就照計劃執行，不因帳面漲跌臨時改變。</p>
-        <textarea
-          v-model="todayPlan"
-          class="plan-textarea"
-          placeholder="例：最大虧損 2R，今日只做站上 20 日均線且有量的突破；市場偏多但不追高，只等回測支撐進場。"
-          @input="savePlan"
-          rows="4"
-        ></textarea>
-        <p class="plan-date muted">{{ planDateLabel }}</p>
-      </div>
-    </section>
+        <p class="plan-hint muted">Minervini：每日最大虧損上限達到即停止交易，防止連續當機引發報復性加倉。</p>
+        <div class="ww-dayloss-row">
+          <label class="muted small">日內最大虧損上限（R）</label>
+          <input type="number" class="inp w90" v-model.number="dayLossLimit" min="0.5" step="0.5" @change="saveDayLossLimit" />
+          <strong :class="dayLossBreached ? 'status-danger' : todayRealizedR < 0 ? 'status-warn' : 'status-ok'">
+            今日已實現：{{ todayRealizedR >= 0 ? '+' : '' }}{{ todayRealizedR.toFixed(2) }}R
+          </strong>
+        </div>
+        <p v-if="dayLossBreached" class="status-danger small">⚠ 已達日內停板（-{{ dayLossLimit }}R），Minervini 原則：今日停止開新倉。</p>
+      </section>
 
-    <!-- WW6: 開盤前五項自我確認清單（Mark Douglas：儀式感創造紀律，不靠感覺靠流程）-->
-    <section class="daily-plan-card card ww-checklist-card">
-      <div class="plan-title-row" style="margin-bottom: 8px">
-        <span class="plan-icon">✅</span>
-        <h2 class="plan-title">開盤前確認清單</h2>
-        <span class="plan-status" :class="checklistAllDone ? 'plan-set' : 'plan-unset'">{{ checklistAllDone ? '✓ 全部確認' : `${checklistDoneCount}/5 項` }}</span>
-      </div>
-      <p class="plan-hint muted">每日自動重置。Mark Douglas：進場前完成儀式，排除情緒干擾。</p>
-      <ul class="ww-checklist">
-        <li v-for="(item, i) in checklistItems" :key="i" class="ww-checklist-item" :class="{ done: checklistState[i] }">
-          <label>
-            <input type="checkbox" :checked="checklistState[i]" @change="toggleChecklist(i)" />
-            {{ item }}
-          </label>
-        </li>
-      </ul>
-    </section>
+      <!-- YY10: 開盤前清單完成率（Mark Douglas） -->
+      <section class="daily-plan-card card yy-compliance-card" v-if="checklistCompliance">
+        <div class="plan-title-row" style="margin-bottom: 8px">
+          <span class="plan-icon">📊</span>
+          <h2 class="plan-title">清單完成率（近30天）</h2>
+          <span class="plan-status" :class="checklistCompliance.pct >= 60 ? 'plan-set' : 'plan-warn'">
+            {{ checklistCompliance.pct.toFixed(0) }}%
+          </span>
+        </div>
+        <p class="plan-hint muted">Douglas：一致的開盤前例行程序是穩定心態的基礎。近30天完成 {{ checklistCompliance.done }} 天，上週 {{ checklistCompliance.lastWeekDone }}/7 天。</p>
+      </section>
 
-    <!-- WW10: 今日最大虧損限制（Minervini：日內硬停板，觸及即停止交易）-->
-    <section class="daily-plan-card card ww-dayloss-card">
-      <div class="plan-title-row" style="margin-bottom: 8px">
-        <span class="plan-icon">🛑</span>
-        <h2 class="plan-title">今日最大虧損限制</h2>
-        <span class="plan-status" :class="dayLossBreached ? 'plan-unset' : 'plan-set'">
-          {{ dayLossBreached ? '⚠ 已觸日內停板' : todayRealizedR < 0 ? `虧 ${Math.abs(todayRealizedR).toFixed(2)}R` : `今日 +${todayRealizedR.toFixed(2)}R` }}
-        </span>
-      </div>
-      <p class="plan-hint muted">Minervini：每日最大虧損上限達到即停止交易，防止連續當機引發報復性加倉。</p>
-      <div class="ww-dayloss-row">
-        <label class="muted small">日內最大虧損上限（R）</label>
-        <input type="number" class="inp w90" v-model.number="dayLossLimit" min="0.5" step="0.5" @change="saveDayLossLimit" />
-        <strong :class="dayLossBreached ? 'down' : todayRealizedR < 0 ? 'warn' : 'up'">
-          今日已實現：{{ todayRealizedR >= 0 ? '+' : '' }}{{ todayRealizedR.toFixed(2) }}R
-        </strong>
-      </div>
-      <p v-if="dayLossBreached" class="warn small">⚠ 已達日內停板（-{{ dayLossLimit }}R），Minervini 原則：今日停止開新倉。</p>
-    </section>
+      <!-- XX3: 開倉逾期警示（Nicholas Darvas：箱型理論強調時間紀律，超過均值贏單時間要警覺）-->
+      <section class="daily-plan-card card xx-aging-card" v-if="openPositionAging && openPositionAging.length">
+        <div class="plan-title-row" style="margin-bottom: 8px">
+          <span class="plan-icon">⏳</span>
+          <h2 class="plan-title">開倉逾期警示</h2>
+          <span class="plan-hint muted">Darvas：超過平均贏單持倉時間代表市場未如預期，應重新評估</span>
+        </div>
+        <table class="j-table xx-aging-table">
+          <thead><tr><th>代號</th><th>已持</th><th>均值贏單</th><th>狀態</th></tr></thead>
+          <tbody>
+            <tr v-for="p in openPositionAging" :key="p.symbol">
+              <td>{{ p.symbol }}</td>
+              <td>{{ p.days }}天</td>
+              <td>{{ p.avgWinDays !== null ? p.avgWinDays + '天' : '—' }}</td>
+              <td :class="p.overdue2x ? 'status-danger' : p.overdue ? 'status-warn' : 'status-ok'">
+                {{ p.overdue2x ? '⚠ 嚴重逾期' : p.overdue ? '注意' : '正常' }}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
 
-    <!-- XX3: 開倉逾期警示（Nicholas Darvas：箱型理論強調時間紀律，超過均值贏單時間要警覺）-->
-    <section class="daily-plan-card card xx-aging-card" v-if="openPositionAging && openPositionAging.length">
-      <div class="plan-title-row" style="margin-bottom: 8px">
-        <span class="plan-icon">⏳</span>
-        <h2 class="plan-title">開倉逾期警示</h2>
-        <span class="plan-hint muted">Darvas：超過平均贏單持倉時間代表市場未如預期，應重新評估</span>
-      </div>
-      <table class="j-table xx-aging-table">
-        <thead><tr><th>代號</th><th>已持</th><th>均值贏單</th><th>狀態</th></tr></thead>
-        <tbody>
-          <tr v-for="p in openPositionAging" :key="p.symbol">
-            <td>{{ p.symbol }}</td>
-            <td>{{ p.days }}天</td>
-            <td>{{ p.avgWinDays !== null ? p.avgWinDays + '天' : '—' }}</td>
-            <td :class="p.overdue2x ? 'down' : p.overdue ? 'warn' : 'up'">
-              {{ p.overdue2x ? '⚠ 嚴重逾期' : p.overdue ? '注意' : '正常' }}
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </section>
-
-    <!-- XX4: 開倉標籤集中度（Ray Dalio：真正的分散是不相關資產，同標籤集中 = 假分散）-->
-    <section class="daily-plan-card card xx-tagconc-card" v-if="openTagConcentration">
-      <div class="plan-title-row" style="margin-bottom: 8px">
-        <span class="plan-icon">🔎</span>
-        <h2 class="plan-title">開倉標籤集中度</h2>
-        <span class="plan-status" :class="openTagConcentration.concentrated ? 'plan-unset' : 'plan-set'">
-          {{ openTagConcentration.concentrated ? '⚠ 集中警示' : '分散正常' }}
-        </span>
-      </div>
-      <p class="plan-hint muted">Dalio：相同標籤的開倉佔總張數 > 50% 為假分散警告。</p>
-      <div class="xx-tagconc-bars">
-        <div v-for="g in openTagConcentration.groups" :key="g.tag" class="xx-tagconc-row">
-          <span class="xx-tag-label muted">{{ g.tag || '(無標籤)' }}</span>
-          <div class="xx-tag-bar-bg">
-            <div class="xx-tag-bar-fill" :style="{ width: g.pct + '%' }" :class="g.pct > 50 ? 'warn-fill' : 'ok-fill'"></div>
+      <!-- XX4: 開倉標籤集中度（Ray Dalio：真正的分散是不相關資產，同標籤集中 = 假分散）-->
+      <section class="daily-plan-card card xx-tagconc-card" v-if="openTagConcentration">
+        <div class="plan-title-row" style="margin-bottom: 8px">
+          <span class="plan-icon">🔎</span>
+          <h2 class="plan-title">開倉標籤集中度</h2>
+          <span class="plan-status" :class="openTagConcentration.concentrated ? 'plan-warn' : 'plan-set'">
+            {{ openTagConcentration.concentrated ? '⚠ 集中警示' : '分散正常' }}
+          </span>
+        </div>
+        <p class="plan-hint muted">Dalio：相同標籤的開倉佔總張數 > 50% 為假分散警告。</p>
+        <div class="xx-tagconc-bars">
+          <div v-for="g in openTagConcentration.groups" :key="g.tag" class="xx-tagconc-row">
+            <span class="xx-tag-label muted">{{ g.tag || '(無標籤)' }}</span>
+            <div class="xx-tag-bar-bg">
+              <div class="xx-tag-bar-fill" :style="{ width: g.pct + '%' }" :class="g.pct > 50 ? 'warn-fill' : 'ok-fill'"></div>
+            </div>
+            <span :class="g.pct > 50 ? 'status-warn' : ''" style="min-width:48px;text-align:right">{{ g.pct.toFixed(0) }}%</span>
           </div>
-          <span :class="g.pct > 50 ? 'warn' : ''" style="min-width:48px;text-align:right">{{ g.pct.toFixed(0) }}%</span>
         </div>
-      </div>
-    </section>
+      </section>
+    </div>
 
-    <!-- YY6: 停損距離一致性（Tom Basso） -->
-    <section class="daily-plan-card card yy-stopdist-card" v-if="stopDistCV">
-      <div class="plan-title-row" style="margin-bottom: 8px">
-        <span class="plan-icon">📏</span>
-        <h2 class="plan-title">停損距離一致性</h2>
-        <span class="plan-status" :class="stopDistCV.systematic ? 'plan-set' : 'plan-unset'">
-          {{ stopDistCV.systematic ? '系統化' : '⚠ 不一致' }}
-        </span>
-      </div>
-      <p class="plan-hint muted">Basso：系統化交易者在進場前即設定停損，CV（變異係數）&lt; 30% 代表距離一致，&gt; 50% 代表情緒化調整。</p>
-      <div class="sc-row" style="margin-top: 8px">
-        <div class="sc-val" :class="stopDistCV.systematic ? 'up' : 'warn'">
-          <strong>{{ stopDistCV.cv.toFixed(1) }}%</strong>
-          <small class="muted">CV 變異係數</small>
+    <!-- ===== 分頁三：行為覆盤 ===== -->
+    <div v-if="activeTab === 'review'" class="tab-panel" data-testid="decision-panel-review">
+      <section v-if="reviewCardCount === 0" class="feedback-card empty-state card">
+        <div>
+          <p class="meta-label">尚未累積足夠樣本</p>
+          <h3>行為覆盤需要交易日誌紀錄</h3>
+          <p>請先在「交易日誌」記錄至少 5 筆已平倉交易，系統將自動計算停損一致性、衝動交易率、耐心指數與集中度等行為指標。</p>
         </div>
-        <div class="sc-val">
-          <strong>{{ stopDistCV.mean.toFixed(2) }}%</strong>
-          <small class="muted">平均停損距離</small>
-        </div>
-        <div class="sc-val">
-          <strong>{{ stopDistCV.min.toFixed(2) }}–{{ stopDistCV.max.toFixed(2) }}%</strong>
-          <small class="muted">最小–最大</small>
-        </div>
-      </div>
-    </section>
+        <router-link class="action-button primary" to="/journal" style="text-decoration:none">前往交易日誌 →</router-link>
+      </section>
 
-    <!-- YY7: 計畫 R:R 達成率分布（Van Tharp） -->
-    <section class="daily-plan-card card yy-rrach-card" v-if="plannedRRDist">
-      <div class="plan-title-row" style="margin-bottom: 8px">
-        <span class="plan-icon">🎯</span>
-        <h2 class="plan-title">計畫 R:R 達成率分布</h2>
-        <span class="plan-status plan-set">平均 {{ (plannedRRDist.avg * 100).toFixed(0) }}%</span>
-      </div>
-      <p class="plan-hint muted">Van Tharp：追蹤計畫 vs 實際執行落差，才能找到改善點。&gt; 100% 表示超出計畫目標。</p>
-      <div class="yy-rrach-bars">
-        <div v-for="bar in plannedRRDist.bars" :key="bar.label" class="yy-rrach-col">
-          <div class="yy-rrach-bar-bg">
-            <div class="yy-rrach-bar-fill" :style="{ height: bar.pct + '%' }"
-              :class="bar.label === '>100%' ? 'yy-bar-good' : bar.label === '0-25%' ? 'yy-bar-bad' : 'yy-bar-mid'"></div>
+      <!-- YY6: 停損距離一致性（Tom Basso） -->
+      <section class="daily-plan-card card yy-stopdist-card" v-if="stopDistCV">
+        <div class="plan-title-row" style="margin-bottom: 8px">
+          <span class="plan-icon">📏</span>
+          <h2 class="plan-title">停損距離一致性</h2>
+          <span class="plan-status" :class="stopDistCV.systematic ? 'plan-set' : 'plan-warn'">
+            {{ stopDistCV.systematic ? '系統化' : '⚠ 不一致' }}
+          </span>
+        </div>
+        <p class="plan-hint muted">Basso：系統化交易者在進場前即設定停損，CV（變異係數）&lt; 30% 代表距離一致，&gt; 50% 代表情緒化調整。</p>
+        <div class="sc-row" style="margin-top: 8px">
+          <div class="sc-val" :class="stopDistCV.systematic ? 'status-ok' : 'status-warn'">
+            <strong>{{ stopDistCV.cv.toFixed(1) }}%</strong>
+            <small class="muted">CV 變異係數</small>
           </div>
-          <span class="muted" style="font-size:0.65rem">{{ bar.label }}</span>
-          <span style="font-size:0.75rem">{{ bar.count }}</span>
+          <div class="sc-val">
+            <strong>{{ stopDistCV.mean.toFixed(2) }}%</strong>
+            <small class="muted">平均停損距離</small>
+          </div>
+          <div class="sc-val">
+            <strong>{{ stopDistCV.min.toFixed(2) }}–{{ stopDistCV.max.toFixed(2) }}%</strong>
+            <small class="muted">最小–最大</small>
+          </div>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <!-- YY10: 開盤前清單完成率（Mark Douglas） -->
-    <section class="daily-plan-card card yy-compliance-card" v-if="checklistCompliance">
-      <div class="plan-title-row" style="margin-bottom: 8px">
-        <span class="plan-icon">📊</span>
-        <h2 class="plan-title">清單完成率（近30天）</h2>
-        <span class="plan-status" :class="checklistCompliance.pct >= 60 ? 'plan-set' : 'plan-unset'">
-          {{ checklistCompliance.pct.toFixed(0) }}%
-        </span>
-      </div>
-      <p class="plan-hint muted">Douglas：一致的開盤前例行程序是穩定心態的基礎。近30天完成 {{ checklistCompliance.done }} 天，上週 {{ checklistCompliance.lastWeekDone }}/7 天。</p>
-    </section>
+      <!-- YY7: 計畫 R:R 達成率分布（Van Tharp） -->
+      <section class="daily-plan-card card yy-rrach-card" v-if="plannedRRDist">
+        <div class="plan-title-row" style="margin-bottom: 8px">
+          <span class="plan-icon">🎯</span>
+          <h2 class="plan-title">計畫 R:R 達成率分布</h2>
+          <span class="plan-status plan-set">平均 {{ (plannedRRDist.avg * 100).toFixed(0) }}%</span>
+        </div>
+        <p class="plan-hint muted">Van Tharp：追蹤計畫 vs 實際執行落差，才能找到改善點。&gt; 100% 表示超出計畫目標。</p>
+        <div class="yy-rrach-bars">
+          <div v-for="bar in plannedRRDist.bars" :key="bar.label" class="yy-rrach-col">
+            <div class="yy-rrach-bar-bg">
+              <div class="yy-rrach-bar-fill" :style="{ height: bar.pct + '%' }"
+                :class="bar.label === '>100%' ? 'yy-bar-good' : bar.label === '0-25%' ? 'yy-bar-bad' : 'yy-bar-mid'"></div>
+            </div>
+            <span class="muted" style="font-size:0.65rem">{{ bar.label }}</span>
+            <span style="font-size:0.75rem">{{ bar.count }}</span>
+          </div>
+        </div>
+      </section>
 
-    <!-- ZZ3: William Eckhardt — Breakeven Safety Margin -->
-    <section class="daily-plan-card card zz-breakeven-card" v-if="breakEvenMargin">
-      <div class="plan-title-row" style="margin-bottom: 8px">
-        <span class="plan-icon">⚖️</span>
-        <h2 class="plan-title">損益平衡安全邊際（Eckhardt）</h2>
-        <span class="plan-status" :class="breakEvenMargin.wMargin > 0 ? 'plan-set' : 'plan-unset'">
-          {{ breakEvenMargin.wMargin > 0 ? '正向優勢' : '⚠ 邊際不足' }}
-        </span>
-      </div>
-      <div class="sc-row">
-        <div class="sc-val">
-          <strong>{{ (breakEvenMargin.actualW * 100).toFixed(0) }}%</strong>
-          <small class="muted">實際勝率</small>
+      <!-- ZZ3: William Eckhardt — Breakeven Safety Margin -->
+      <section class="daily-plan-card card zz-breakeven-card" v-if="breakEvenMargin">
+        <div class="plan-title-row" style="margin-bottom: 8px">
+          <span class="plan-icon">⚖️</span>
+          <h2 class="plan-title">損益平衡安全邊際（Eckhardt）</h2>
+          <span class="plan-status" :class="breakEvenMargin.wMargin > 0 ? 'plan-set' : 'plan-unset'">
+            {{ breakEvenMargin.wMargin > 0 ? '正向優勢' : '⚠ 邊際不足' }}
+          </span>
         </div>
-        <div class="sc-val" :class="breakEvenMargin.wMargin > 0 ? 'up' : 'down'">
-          <strong>{{ (breakEvenMargin.requiredW * 100).toFixed(0) }}%</strong>
-          <small class="muted">損平所需勝率</small>
+        <div class="sc-row">
+          <div class="sc-val">
+            <strong>{{ (breakEvenMargin.actualW * 100).toFixed(0) }}%</strong>
+            <small class="muted">實際勝率</small>
+          </div>
+          <div class="sc-val" :class="breakEvenMargin.wMargin > 0 ? 'status-ok' : 'status-danger'">
+            <strong>{{ (breakEvenMargin.requiredW * 100).toFixed(0) }}%</strong>
+            <small class="muted">損平所需勝率</small>
+          </div>
+          <div class="sc-val">
+            <strong>{{ breakEvenMargin.actualRR.toFixed(2) }}</strong>
+            <small class="muted">實際 R:R</small>
+          </div>
+          <div class="sc-val" :class="breakEvenMargin.rrMargin > 0 ? 'status-ok' : 'status-danger'">
+            <strong>{{ breakEvenMargin.requiredRR.toFixed(2) }}</strong>
+            <small class="muted">損平所需 R:R</small>
+          </div>
         </div>
-        <div class="sc-val">
-          <strong>{{ breakEvenMargin.actualRR.toFixed(2) }}</strong>
-          <small class="muted">實際 R:R</small>
-        </div>
-        <div class="sc-val" :class="breakEvenMargin.rrMargin > 0 ? 'up' : 'down'">
-          <strong>{{ breakEvenMargin.requiredRR.toFixed(2) }}</strong>
-          <small class="muted">損平所需 R:R</small>
-        </div>
-      </div>
-      <p class="plan-hint muted">Eckhardt：勝率安全邊際 {{ breakEvenMargin.wMargin >= 0 ? '+' : '' }}{{ (breakEvenMargin.wMargin * 100).toFixed(1) }}%，R:R 安全邊際 {{ breakEvenMargin.rrMargin >= 0 ? '+' : '' }}{{ breakEvenMargin.rrMargin.toFixed(2) }}。兩者均為正才代表系統具備可持續數學優勢。</p>
-    </section>
+        <p class="plan-hint muted">Eckhardt：勝率安全邊際 {{ breakEvenMargin.wMargin >= 0 ? '+' : '' }}{{ (breakEvenMargin.wMargin * 100).toFixed(1) }}%，R:R 安全邊際 {{ breakEvenMargin.rrMargin >= 0 ? '+' : '' }}{{ breakEvenMargin.rrMargin.toFixed(2) }}。兩者均為正才代表系統具備可持續數學優勢。</p>
+      </section>
 
-    <!-- ZZ9: Mark Minervini — Setup Risk% Tier Distribution -->
-    <section class="daily-plan-card card zz-setup-tier" v-if="setupTierDist">
-      <div class="plan-title-row" style="margin-bottom: 8px">
-        <span class="plan-icon">🎯</span>
-        <h2 class="plan-title">進場品質分層（Minervini）</h2>
-      </div>
-      <div class="sc-row">
-        <div v-for="tier in setupTierDist" :key="tier.label" class="sc-val" style="min-width:100px">
-          <strong :class="tier.n > 0 && tier.winRate >= 0.6 ? 'up' : tier.n > 0 ? 'warn' : ''">
-            {{ tier.n > 0 ? (tier.winRate * 100).toFixed(0) + '%' : '–' }}
-          </strong>
-          <small class="muted">{{ tier.label }}</small>
-          <small class="muted" v-if="tier.n > 0">{{ tier.n }}筆 {{ tier.avgR >= 0 ? '+' : '' }}{{ tier.avgR.toFixed(2) }}R</small>
+      <!-- ZZ9: Mark Minervini — Setup Risk% Tier Distribution -->
+      <section class="daily-plan-card card zz-setup-tier" v-if="setupTierDist">
+        <div class="plan-title-row" style="margin-bottom: 8px">
+          <span class="plan-icon">🎯</span>
+          <h2 class="plan-title">進場品質分層（Minervini）</h2>
         </div>
-      </div>
-      <p class="plan-hint muted">Minervini：緊縮停損（&lt;2% 風險）允許用相同資金放更大部位且限制損失。進場品質越好，系統整體每筆 R 越高。</p>
-    </section>
+        <div class="sc-row">
+          <div v-for="tier in setupTierDist" :key="tier.label" class="sc-val" style="min-width:100px">
+            <strong :class="tier.n > 0 && tier.winRate >= 0.6 ? 'status-ok' : tier.n > 0 ? 'status-warn' : ''">
+              {{ tier.n > 0 ? (tier.winRate * 100).toFixed(0) + '%' : '–' }}
+            </strong>
+            <small class="muted">{{ tier.label }}</small>
+            <small class="muted" v-if="tier.n > 0">{{ tier.n }}筆 {{ tier.avgR >= 0 ? '+' : '' }}{{ tier.avgR.toFixed(2) }}R</small>
+          </div>
+        </div>
+        <p class="plan-hint muted">Minervini：緊縮停損（&lt;2% 風險）允許用相同資金放更大部位且限制損失。進場品質越好，系統整體每筆 R 越高。</p>
+      </section>
 
-    <!-- AAA2: Benjamin Graham — Planned R:R Quality Test -->
-    <section class="daily-plan-card card aaa-planned-rr" v-if="plannedRRQuality">
-      <div class="plan-title-row" style="margin-bottom: 8px">
-        <span class="plan-icon">📐</span>
-        <h2 class="plan-title">計畫 R:R 品質分層（Graham）</h2>
-      </div>
-      <div class="sc-row">
-        <div v-for="tier in plannedRRQuality" :key="tier.label" class="sc-val" style="min-width:90px">
-          <strong :class="tier.n > 0 && tier.avgR > 0 ? 'up' : tier.n > 0 ? 'down' : ''">
-            {{ tier.n > 0 ? (tier.avgR >= 0 ? '+' : '') + tier.avgR.toFixed(2) + 'R' : '–' }}
-          </strong>
-          <small class="muted">{{ tier.label }}</small>
-          <small class="muted" v-if="tier.n > 0">{{ tier.n }}筆</small>
+      <!-- AAA2: Benjamin Graham — Planned R:R Quality Test -->
+      <section class="daily-plan-card card aaa-planned-rr" v-if="plannedRRQuality">
+        <div class="plan-title-row" style="margin-bottom: 8px">
+          <span class="plan-icon">📐</span>
+          <h2 class="plan-title">計畫 R:R 品質分層（Graham）</h2>
         </div>
-      </div>
-      <p class="plan-hint muted">Graham：只有在有足夠安全邊際時才出手。計畫 R:R 越高的設定，實際 R 是否也越高？若否，代表你的高 R:R 設定只是樂觀，而非真正的優勢。</p>
-    </section>
+        <div class="sc-row">
+          <div v-for="tier in plannedRRQuality" :key="tier.label" class="sc-val" style="min-width:90px">
+            <strong :class="tier.n > 0 && tier.avgR > 0 ? 'up' : tier.n > 0 ? 'down' : ''">
+              {{ tier.n > 0 ? (tier.avgR >= 0 ? '+' : '') + tier.avgR.toFixed(2) + 'R' : '–' }}
+            </strong>
+            <small class="muted">{{ tier.label }}</small>
+            <small class="muted" v-if="tier.n > 0">{{ tier.n }}筆</small>
+          </div>
+        </div>
+        <p class="plan-hint muted">Graham：只有在有足夠安全邊際時才出手。計畫 R:R 越高的設定，實際 R 是否也越高？若否，代表你的高 R:R 設定只是樂觀，而非真正的優勢。</p>
+      </section>
 
-    <!-- AAA3: Howard Marks — Streak-Triggered Sizing Bias -->
-    <section class="daily-plan-card card aaa-streak-bias" v-if="streakSizingBias">
-      <div class="plan-title-row" style="margin-bottom: 8px">
-        <span class="plan-icon">📊</span>
-        <h2 class="plan-title">連勝/連敗後倉位偏差（Marks）</h2>
-        <span class="plan-status" :class="streakSizingBias.biased ? 'plan-unset' : 'plan-set'">
-          {{ streakSizingBias.biased ? '⚠ 情緒週期偵測' : '✓ 倉位穩定' }}
-        </span>
-      </div>
-      <div class="sc-row">
-        <div class="sc-val">
-          <strong class="up">{{ streakSizingBias.afterWin.toFixed(1) }}</strong>
-          <small class="muted">連勝後平均張數</small>
+      <!-- AAA3: Howard Marks — Streak-Triggered Sizing Bias -->
+      <section class="daily-plan-card card aaa-streak-bias" v-if="streakSizingBias">
+        <div class="plan-title-row" style="margin-bottom: 8px">
+          <span class="plan-icon">📊</span>
+          <h2 class="plan-title">連勝/連敗後倉位偏差（Marks）</h2>
+          <span class="plan-status" :class="streakSizingBias.biased ? 'plan-warn' : 'plan-set'">
+            {{ streakSizingBias.biased ? '⚠ 情緒週期偵測' : '✓ 倉位穩定' }}
+          </span>
         </div>
-        <div class="sc-val">
-          <strong class="down">{{ streakSizingBias.afterLoss.toFixed(1) }}</strong>
-          <small class="muted">連敗後平均張數</small>
+        <div class="sc-row">
+          <div class="sc-val">
+            <strong>{{ streakSizingBias.afterWin.toFixed(1) }}</strong>
+            <small class="muted">連勝後平均張數</small>
+          </div>
+          <div class="sc-val">
+            <strong>{{ streakSizingBias.afterLoss.toFixed(1) }}</strong>
+            <small class="muted">連敗後平均張數</small>
+          </div>
+          <div class="sc-val">
+            <strong :class="streakSizingBias.biased ? 'status-warn' : 'status-ok'">{{ streakSizingBias.ratio.toFixed(2) }}×</strong>
+            <small class="muted">過度樂觀比率</small>
+          </div>
         </div>
-        <div class="sc-val">
-          <strong :class="streakSizingBias.biased ? 'warn' : 'up'">{{ streakSizingBias.ratio.toFixed(2) }}×</strong>
-          <small class="muted">過度樂觀比率</small>
-        </div>
-      </div>
-      <p class="plan-hint muted">Marks：市場處於週期高點時，人們最過度自信；處於低點時，最過度悲觀。若連勝後倉位顯著更大，代表你的規模調整由情緒而非系統驅動。</p>
-    </section>
+        <p class="plan-hint muted">Marks：市場處於週期高點時，人們最過度自信；處於低點時，最過度悲觀。若連勝後倉位顯著更大，代表你的規模調整由情緒而非系統驅動。</p>
+      </section>
 
-    <!-- AAA6: Alexander Elder — Impulse Trade Detector -->
-    <section class="daily-plan-card card aaa-impulse-card" v-if="impulseTradeRate !== null">
-      <div class="plan-title-row" style="margin-bottom: 8px">
-        <span class="plan-icon">⚡</span>
-        <h2 class="plan-title">衝動交易偵測（Elder）</h2>
-        <span class="plan-status" :class="impulseTradeRate > 0.2 ? 'plan-unset' : 'plan-set'">
-          {{ impulseTradeRate > 0.2 ? '⚠ 復仇交易風險' : '✓ 進場時機穩定' }}
-        </span>
-      </div>
-      <div class="sc-row">
-        <div class="sc-val">
-          <strong :class="impulseTradeRate > 0.2 ? 'down' : 'up'" style="font-size:1.4rem">
-            {{ (impulseTradeRate * 100).toFixed(0) }}%
-          </strong>
-          <small class="muted">虧損後 1 天內再進場率</small>
+      <!-- AAA6: Alexander Elder — Impulse Trade Detector -->
+      <section class="daily-plan-card card aaa-impulse-card" v-if="impulseTradeRate !== null">
+        <div class="plan-title-row" style="margin-bottom: 8px">
+          <span class="plan-icon">⚡</span>
+          <h2 class="plan-title">衝動交易偵測（Elder）</h2>
+          <span class="plan-status" :class="impulseTradeRate > 0.2 ? 'plan-unset' : 'plan-set'">
+            {{ impulseTradeRate > 0.2 ? '⚠ 復仇交易風險' : '✓ 進場時機穩定' }}
+          </span>
         </div>
-        <div class="sc-val">
-          <strong>{{ impulseTradeCount }}</strong>
-          <small class="muted">衝動進場次數</small>
+        <div class="sc-row">
+          <div class="sc-val">
+            <strong :class="impulseTradeRate > 0.2 ? 'status-danger' : 'status-ok'" style="font-size:1.4rem">
+              {{ (impulseTradeRate * 100).toFixed(0) }}%
+            </strong>
+            <small class="muted">虧損後 1 天內再進場率</small>
+          </div>
+          <div class="sc-val">
+            <strong>{{ impulseTradeCount }}</strong>
+            <small class="muted">衝動進場次數</small>
+          </div>
         </div>
-      </div>
-      <p class="plan-hint muted">Elder：在前一筆虧損出場後 24 小時內進場，往往是情緒驅動的復仇交易。應強制冷卻期：平倉後至少等 1 個交易日再重新評估。</p>
-    </section>
+        <p class="plan-hint muted">Elder：在前一筆虧損出場後 24 小時內進場，往往是情緒驅動的復仇交易。應強制冷卻期：平倉後至少等 1 個交易日再重新評估。</p>
+      </section>
 
-    <!-- BBB4: Seth Klarman — Patience Index (Low-Frequency Month Quality) -->
-    <section class="daily-plan-card card bbb-patience-index" v-if="patienceIndex">
-      <div class="plan-title-row" style="margin-bottom: 8px">
-        <span class="plan-icon">⏳</span>
-        <h2 class="plan-title">耐心指數（Klarman：只在有足夠安全邊際時出手——交易越少是否品質越高？）</h2>
-      </div>
-      <div class="sc-row">
-        <div v-for="tier in patienceIndex" :key="tier.label" class="sc-val" style="min-width:100px">
-          <strong :class="tier.n > 0 && tier.avgR > 0 ? 'up' : tier.n > 0 ? 'down' : ''">
-            {{ tier.n > 0 ? (tier.avgR >= 0 ? '+' : '') + tier.avgR.toFixed(2) + 'R' : '–' }}
-          </strong>
-          <small class="muted">{{ tier.label }}</small>
-          <small class="muted" v-if="tier.n > 0">{{ tier.n }}個月</small>
+      <!-- BBB4: Seth Klarman — Patience Index (Low-Frequency Month Quality) -->
+      <section class="daily-plan-card card bbb-patience-index" v-if="patienceIndex">
+        <div class="plan-title-row" style="margin-bottom: 8px">
+          <span class="plan-icon">⏳</span>
+          <h2 class="plan-title">耐心指數（Klarman：只在有足夠安全邊際時出手——交易越少是否品質越高？）</h2>
         </div>
-      </div>
-      <p class="plan-hint muted">Klarman：真正的安全邊際投資人寧可空倉等待，也不強迫出手。若低頻月份（≤2筆）的均R高於高頻月份，代表你的系統在有選擇性時更有優勢。</p>
-    </section>
+        <div class="sc-row">
+          <div v-for="tier in patienceIndex" :key="tier.label" class="sc-val" style="min-width:100px">
+            <strong :class="tier.n > 0 && tier.avgR > 0 ? 'up' : tier.n > 0 ? 'down' : ''">
+              {{ tier.n > 0 ? (tier.avgR >= 0 ? '+' : '') + tier.avgR.toFixed(2) + 'R' : '–' }}
+            </strong>
+            <small class="muted">{{ tier.label }}</small>
+            <small class="muted" v-if="tier.n > 0">{{ tier.n }}個月</small>
+          </div>
+        </div>
+        <p class="plan-hint muted">Klarman：真正的安全邊際投資人寧可空倉等待，也不強迫出手。若低頻月份（≤2筆）的均R高於高頻月份，代表你的系統在有選擇性時更有優勢。</p>
+      </section>
 
-    <!-- CCC9: Bruce Kovner — Symbol HHI Diversification Score -->
-    <section class="daily-plan-card card ccc-symbol-hhi" v-if="symbolHHI">
-      <div class="plan-title-row" style="margin-bottom: 8px">
-        <span class="plan-icon">🌐</span>
-        <h2 class="plan-title">標的集中度 HHI（Kovner：跨市場分散降低相關性風險——你是否過度集中在單一標的？）</h2>
-      </div>
-      <div class="sc-row">
-        <div class="sc-val">
-          <strong :class="symbolHHI.hhi > 0.25 ? 'down' : symbolHHI.hhi > 0.18 ? '' : 'up'" style="font-size:1.3rem">{{ symbolHHI.hhi.toFixed(3) }}</strong>
-          <small class="muted">HHI 指數</small>
+      <!-- CCC9: Bruce Kovner — Symbol HHI Diversification Score -->
+      <section class="daily-plan-card card ccc-symbol-hhi" v-if="symbolHHI">
+        <div class="plan-title-row" style="margin-bottom: 8px">
+          <span class="plan-icon">🌐</span>
+          <h2 class="plan-title">標的集中度 HHI（Kovner：跨市場分散降低相關性風險——你是否過度集中在單一標的？）</h2>
         </div>
-        <div class="sc-val">
-          <strong>{{ symbolHHI.uniqueCount }}</strong>
-          <small class="muted">不同標的數</small>
+        <div class="sc-row">
+          <div class="sc-val">
+            <strong :class="symbolHHI.hhi > 0.25 ? 'status-danger' : symbolHHI.hhi > 0.18 ? 'status-warn' : 'status-ok'" style="font-size:1.3rem">{{ symbolHHI.hhi.toFixed(3) }}</strong>
+            <small class="muted">HHI 指數</small>
+          </div>
+          <div class="sc-val">
+            <strong>{{ symbolHHI.uniqueCount }}</strong>
+            <small class="muted">不同標的數</small>
+          </div>
+          <div class="sc-val">
+            <strong :class="symbolHHI.hhi > 0.25 ? 'status-danger' : symbolHHI.hhi > 0.18 ? 'status-warn' : 'status-ok'">{{ symbolHHI.diversityLabel }}</strong>
+            <small class="muted">集中程度</small>
+          </div>
         </div>
-        <div class="sc-val">
-          <strong :class="symbolHHI.hhi > 0.25 ? 'down' : symbolHHI.hhi > 0.18 ? '' : 'up'">{{ symbolHHI.diversityLabel }}</strong>
-          <small class="muted">集中程度</small>
-        </div>
-      </div>
-      <div style="margin-top:0.5rem;font-size:0.72rem;color:var(--ink-muted)">最集中：<strong>{{ symbolHHI.topSymbol }}</strong>（{{ symbolHHI.topPct.toFixed(0) }}% 交易量）；HHI > 0.25 = 高度集中，< 0.18 = 分散</div>
-      <p class="plan-hint muted">Kovner 的 Caxton Associates 策略核心：跨不同市場分散投資以降低組合相關性。HHI（赫芬達爾指數）= ∑(各標的交易佔比²)，越高代表越集中。</p>
-    </section>
+        <div style="margin-top:0.5rem;font-size:0.72rem;color:var(--text-muted)">最集中：<strong>{{ symbolHHI.topSymbol }}</strong>（{{ symbolHHI.topPct.toFixed(0) }}% 交易量）；HHI > 0.25 = 高度集中，< 0.18 = 分散</div>
+        <p class="plan-hint muted">Kovner 的 Caxton Associates 策略核心：跨不同市場分散投資以降低組合相關性。HHI（赫芬達爾指數）= ∑(各標的交易佔比²)，越高代表越集中。</p>
+      </section>
 
-    <!-- DDD7: John Templeton — Tag (Sector/Style) HHI Diversification -->
-    <section class="daily-plan-card card ddd-templeton-hhi" v-if="tagHHI">
-      <div class="plan-title-row" style="margin-bottom: 8px">
-        <span class="plan-icon">🌍</span>
-        <h2 class="plan-title">標籤集中度 HHI（Templeton：在全球尋找最被低估的機會——你的交易風格/板塊是否過度集中？）</h2>
-      </div>
-      <div class="sc-row">
-        <div class="sc-val">
-          <strong :class="tagHHI.hhi > 0.5 ? 'down' : tagHHI.hhi > 0.3 ? '' : 'up'" style="font-size:1.3rem">{{ tagHHI.hhi.toFixed(3) }}</strong>
-          <small class="muted">Tag HHI 指數</small>
+      <!-- DDD7: John Templeton — Tag (Sector/Style) HHI Diversification -->
+      <section class="daily-plan-card card ddd-templeton-hhi" v-if="tagHHI">
+        <div class="plan-title-row" style="margin-bottom: 8px">
+          <span class="plan-icon">🌍</span>
+          <h2 class="plan-title">標籤集中度 HHI（Templeton：在全球尋找最被低估的機會——你的交易風格/板塊是否過度集中？）</h2>
         </div>
-        <div class="sc-val">
-          <strong>{{ tagHHI.uniqueCount }}</strong>
-          <small class="muted">不同標籤數</small>
+        <div class="sc-row">
+          <div class="sc-val">
+            <strong :class="tagHHI.hhi > 0.5 ? 'status-danger' : tagHHI.hhi > 0.3 ? 'status-warn' : 'status-ok'" style="font-size:1.3rem">{{ tagHHI.hhi.toFixed(3) }}</strong>
+            <small class="muted">Tag HHI 指數</small>
+          </div>
+          <div class="sc-val">
+            <strong>{{ tagHHI.uniqueCount }}</strong>
+            <small class="muted">不同標籤數</small>
+          </div>
+          <div class="sc-val">
+            <strong :class="tagHHI.hhi > 0.5 ? 'status-danger' : tagHHI.hhi > 0.3 ? 'status-warn' : 'status-ok'">{{ tagHHI.diversityLabel }}</strong>
+            <small class="muted">分散程度</small>
+          </div>
         </div>
-        <div class="sc-val">
-          <strong :class="tagHHI.hhi > 0.5 ? 'down' : tagHHI.hhi > 0.3 ? '' : 'up'">{{ tagHHI.diversityLabel }}</strong>
-          <small class="muted">分散程度</small>
-        </div>
-      </div>
-      <div style="margin-top:0.5rem;font-size:0.72rem;color:var(--ink-muted)">最集中標籤：<strong>{{ tagHHI.topTag }}</strong>（{{ tagHHI.topPct.toFixed(0) }}% 交易量）；HHI > 0.5 = 高度集中，< 0.3 = 分散</div>
-      <p class="plan-hint muted">Templeton 在全球各市場尋找最被低估的機會；你的交易標籤分布揭示你是否只在熟悉的板塊交易，還是跨風格、跨板塊尋找最優機會。</p>
-    </section>
+        <div style="margin-top:0.5rem;font-size:0.72rem;color:var(--text-muted)">最集中標籤：<strong>{{ tagHHI.topTag }}</strong>（{{ tagHHI.topPct.toFixed(0) }}% 交易量）；HHI > 0.5 = 高度集中，< 0.3 = 分散</div>
+        <p class="plan-hint muted">Templeton 在全球各市場尋找最被低估的機會；你的交易標籤分布揭示你是否只在熟悉的板塊交易，還是跨風格、跨板塊尋找最優機會。</p>
+      </section>
+    </div>
 
+    <!-- ===== 分頁一（預設）：今日訊號 ===== -->
+    <template v-if="activeTab === 'signals'">
     <section class="top-grid">
       <article class="market-pulse card">
         <div class="panel-head">
@@ -633,16 +731,41 @@
         </div>
       </article>
     </section>
+    </template>
   </div>
 </template>
 
 <script setup>
 import PageFocusBanner from '../components/PageFocusBanner.vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { createChart } from 'lightweight-charts'
+import { useChartTheme } from '../composables/useChartTheme'
 import { loadWatchlist as loadSharedWatchlist, addToWatchlist, removeFromWatchlist } from '../lib/watchlist'
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
+const route = useRoute()
+const router = useRouter()
+const chartTheme = useChartTheme()
+
+const VALID_TABS = new Set(['signals', 'discipline', 'review'])
+const activeTab = ref(VALID_TABS.has(String(route.query.tab || '')) ? String(route.query.tab) : 'signals')
+
+function setTab(tab) {
+  if (!VALID_TABS.has(tab)) return
+  activeTab.value = tab
+  if (route.query.tab !== tab) {
+    const query = { ...route.query }
+    if (tab === 'signals') delete query.tab
+    else query.tab = tab
+    router.replace({ query }).catch(() => {})
+  }
+}
+
+watch(() => route.query.tab, (val) => {
+  const next = String(val || 'signals')
+  if (VALID_TABS.has(next) && next !== activeTab.value) activeTab.value = next
+})
 
 // UU5: 今日交易計劃便條——Mark Douglas 開場前儀式
 // 以當日日期為 key，每天自動清空，避免帶著昨日偏見操作今天
@@ -1017,6 +1140,20 @@ const symbolHHI = computed(() => {
   } catch { return null }
 })
 
+const hasOverduePosition = computed(() => (openPositionAging.value || []).some(p => p.overdue || p.overdue2x))
+const reviewCardCount = computed(() => [
+  stopDistCV.value,
+  plannedRRDist.value,
+  breakEvenMargin.value,
+  setupTierDist.value,
+  plannedRRQuality.value,
+  streakSizingBias.value,
+  impulseTradeRate.value !== null,
+  patienceIndex.value,
+  symbolHHI.value,
+  tagHHI.value,
+].filter(Boolean).length)
+
 const filters = [
   { label: '全部', value: 'ALL' },
   { label: '買進', value: 'BUY' },
@@ -1024,10 +1161,12 @@ const filters = [
   { label: '觀望', value: 'HOLD' },
 ]
 const signalRank = { BUY: 0, SELL: 1, HOLD: 2 }
-const chartPalette = {
-  BUY: { line: '#22c55e', top: 'rgba(16, 185, 129, 0.32)', bottom: 'rgba(16, 185, 129, 0.03)' },
-  SELL: { line: '#f87171', top: 'rgba(239, 68, 68, 0.28)', bottom: 'rgba(239, 68, 68, 0.03)' },
-  HOLD: { line: '#94a3b8', top: 'rgba(148, 163, 184, 0.22)', bottom: 'rgba(148, 163, 184, 0.03)' },
+function getChartPalette() {
+  return {
+    BUY: { line: chartTheme.up, top: chartTheme.upSoft, bottom: 'rgba(0, 0, 0, 0)' },
+    SELL: { line: chartTheme.down, top: chartTheme.downSoft, bottom: 'rgba(0, 0, 0, 0)' },
+    HOLD: { line: chartTheme.neutral, top: chartTheme.grid, bottom: 'rgba(0, 0, 0, 0)' },
+  }
 }
 
 const now = ref(new Date())
@@ -1184,9 +1323,23 @@ watch(watchInput, value => {
 })
 
 watch(filteredCards, async () => {
+  if (activeTab.value !== 'signals') return
   await nextTick()
   queueSparklineRender()
 }, { deep: true })
+
+watch(activeTab, async (tab) => {
+  if (tab === 'signals') {
+    await nextTick()
+    queueSparklineRender()
+  } else {
+    destroyAllSparklines()
+  }
+})
+
+function onThemeChange() {
+  if (activeTab.value === 'signals') queueSparklineRender()
+}
 
 onMounted(async () => {
   await loadDashboard()
@@ -1200,6 +1353,7 @@ onMounted(async () => {
   }, 60000)
 
   window.addEventListener('resize', queueSparklineRender)
+  window.addEventListener('finlab:theme-change', onThemeChange)
   // Y1：觀察清單頁（或其他分頁）異動後，同分頁即時反映最新清單
   window.addEventListener('storage', onWatchlistStorageChange)
 })
@@ -1216,6 +1370,7 @@ onBeforeUnmount(() => {
   if (searchTimer) window.clearTimeout(searchTimer)
   if (renderFrame) window.cancelAnimationFrame(renderFrame)
   window.removeEventListener('resize', queueSparklineRender)
+  window.removeEventListener('finlab:theme-change', onThemeChange)
   window.removeEventListener('storage', onWatchlistStorageChange)
   destroyAllSparklines()
 })
@@ -1514,11 +1669,12 @@ function renderSparklines() {
     }
   }
 
+  const paletteMap = getChartPalette()
   for (const card of filteredCards.value) {
     const container = sparklineContainers.get(card.symbol)
     if (!container) continue
 
-    const palette = chartPalette[card.signal] || chartPalette.HOLD
+    const palette = paletteMap[card.signal] || paletteMap.HOLD
     let chartState = sparklineInstances.get(card.symbol)
 
     if (!chartState) {
@@ -1527,7 +1683,7 @@ function renderSparklines() {
         height: 72,
         layout: {
           background: { color: 'transparent' },
-          textColor: '#94a3b8',
+          textColor: chartTheme.muted,
         },
         grid: {
           vertLines: { visible: false },
@@ -1795,23 +1951,23 @@ function toDateParam(value) {
 }
 
 .freshness-pill.fresh {
-  box-shadow: inset 0 0 0 1px rgba(16, 185, 129, 0.12);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--status-ok) 30%, transparent);
 }
 
 .freshness-pill.aging {
-  box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.16);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--status-warn) 34%, transparent);
 }
 
 .freshness-pill.stale {
-  box-shadow: inset 0 0 0 1px rgba(239, 68, 68, 0.18);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--status-danger) 36%, transparent);
 }
 
 .pulse-dot {
   width: 10px;
   height: 10px;
   border-radius: 999px;
-  background: var(--color-up);
-  box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.45);
+  background: var(--status-ok);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--status-ok) 45%, transparent);
   animation: pulse 1.8s infinite;
   flex: 0 0 auto;
 }
@@ -1821,15 +1977,14 @@ function toDateParam(value) {
   height: 8px;
 }
 
-.freshness-pill.stale .pulse-dot,
-.down.pulse-dot {
-  background: var(--color-down);
-  box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
+.freshness-pill.stale .pulse-dot {
+  background: var(--status-danger);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--status-danger) 40%, transparent);
 }
 
 .freshness-pill.aging .pulse-dot {
-  background: var(--color-warning);
-  box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4);
+  background: var(--status-warn);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--status-warn) 40%, transparent);
 }
 
 .header-accent {
@@ -1837,18 +1992,110 @@ function toDateParam(value) {
   height: 3px;
   width: 100%;
   border-radius: 999px;
-  background: linear-gradient(90deg, color-mix(in srgb, var(--blue) 95%, transparent), color-mix(in srgb, var(--cyan) 80%, transparent), color-mix(in srgb, var(--down) 75%, transparent));
-  box-shadow: 0 0 24px rgba(59, 130, 246, 0.22);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--blue) 95%, transparent), color-mix(in srgb, var(--cyan) 80%, transparent), color-mix(in srgb, var(--status-ok) 75%, transparent));
+  box-shadow: 0 0 24px color-mix(in srgb, var(--blue) 22%, transparent);
+}
+
+/* T-026: 盤前紀律精簡摘要條 + 檢視分頁切換 */
+.discipline-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+}
+.ds-items {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.ds-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: transform 0.14s ease, border-color 0.14s ease;
+}
+.ds-pill:hover {
+  transform: translateY(-1px);
+  border-color: currentColor;
+}
+.ds-jump-btn {
+  border: 1px solid var(--border-color);
+  background: var(--bg-well);
+  color: var(--accent-blue);
+  border-radius: 8px;
+  padding: 6px 12px;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.ds-jump-btn:hover { background: var(--bg-hover); }
+
+.view-tabs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 8px;
+}
+.view-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-well);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.view-tab:hover { color: var(--text-primary); background: var(--bg-hover); }
+.view-tab.active {
+  background: color-mix(in srgb, var(--blue) 14%, var(--card));
+  border-color: var(--accent-blue);
+  color: var(--accent-blue);
+  font-weight: 700;
+}
+.tab-count {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+}
+.tab-count-ok { background: var(--status-ok-bg); color: var(--status-ok); }
+.tab-count-danger { background: var(--status-danger-bg); color: var(--status-danger); }
+.tab-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .daily-plan-card { padding: var(--space-4) var(--space-5); }
 .plan-head { display: flex; align-items: center; justify-content: space-between; cursor: pointer; user-select: none; }
-.plan-title-row { display: flex; align-items: center; gap: 10px; }
+.plan-title-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .plan-icon { font-size: 1.1rem; }
 .plan-title { margin: 0; font-size: 1rem; font-weight: 600; }
-.plan-status { font-size: 0.78rem; padding: 2px 8px; border-radius: 20px; font-weight: 600; }
-.plan-set { background: color-mix(in srgb, var(--down) 15%, transparent); color: var(--up, var(--down)); }
-.plan-unset { background: color-mix(in srgb, var(--up) 12%, transparent); color: var(--down, var(--up)); }
+.plan-status { font-size: 0.78rem; padding: 2px 9px; border-radius: 20px; font-weight: 700; }
+.plan-set { background: var(--status-ok-bg); color: var(--status-ok); }
+.plan-warn { background: var(--status-warn-bg); color: var(--status-warn); }
+.plan-unset { background: var(--status-danger-bg); color: var(--status-danger); }
 .plan-toggle { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.85rem; }
 .plan-body { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
 .plan-hint { font-size: 0.8rem; margin: 0; }
@@ -1928,8 +2175,8 @@ function toDateParam(value) {
   letter-spacing: -0.05em;
 }
 
-.count-badge.buy strong { color: var(--down); }
-.count-badge.sell strong { color: var(--up); }
+.count-badge.buy strong { color: var(--color-up); }
+.count-badge.sell strong { color: var(--color-down); }
 .count-badge.hold strong { color: var(--text-secondary); }
 .count-badge.neutral strong { color: var(--blue); }
 
@@ -2214,7 +2461,7 @@ function toDateParam(value) {
 }
 
 .error-state {
-  border-color: color-mix(in srgb, var(--up) 28%, transparent);
+  border-color: color-mix(in srgb, var(--status-danger) 35%, transparent);
 }
 
 .signals-grid {
@@ -2242,11 +2489,11 @@ function toDateParam(value) {
 }
 
 .signal-card-glow.buy {
-  background: linear-gradient(90deg, color-mix(in srgb, var(--down) 15%, transparent), color-mix(in srgb, var(--down) 90%, transparent));
+  background: linear-gradient(90deg, color-mix(in srgb, var(--up) 15%, transparent), color-mix(in srgb, var(--up) 90%, transparent));
 }
 
 .signal-card-glow.sell {
-  background: linear-gradient(90deg, color-mix(in srgb, var(--up) 15%, transparent), color-mix(in srgb, var(--up) 90%, transparent));
+  background: linear-gradient(90deg, color-mix(in srgb, var(--down) 15%, transparent), color-mix(in srgb, var(--down) 90%, transparent));
 }
 
 .signal-card-glow.hold {
@@ -2309,11 +2556,11 @@ function toDateParam(value) {
 }
 
 .signal-badge.buy {
-  background: linear-gradient(135deg, var(--down), var(--color-up), var(--down));
+  background: linear-gradient(135deg, var(--color-up), color-mix(in srgb, var(--color-up) 82%, var(--ink)));
 }
 
 .signal-badge.sell {
-  background: linear-gradient(135deg, var(--up), var(--color-down), var(--up));
+  background: linear-gradient(135deg, var(--color-down), color-mix(in srgb, var(--color-down) 82%, var(--ink)));
 }
 
 .signal-badge.hold {
@@ -2508,8 +2755,8 @@ function toDateParam(value) {
 }
 
 .condition-dot.met {
-  background: var(--color-up);
-  box-shadow: 0 0 0 6px rgba(16, 185, 129, 0.1);
+  background: var(--status-ok);
+  box-shadow: 0 0 0 6px var(--status-ok-bg);
 }
 
 .signal-footer {
@@ -2660,7 +2907,7 @@ function toDateParam(value) {
 .ww-checklist-card { margin-bottom: 12px; }
 .ww-checklist { list-style: none; padding: 0; margin: 8px 0 0; display: flex; flex-direction: column; gap: 8px; }
 .ww-checklist-item label { display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 0.92rem; color: var(--text-primary); }
-.ww-checklist-item input[type=checkbox] { width: 16px; height: 16px; cursor: pointer; accent-color: var(--color-up); }
+.ww-checklist-item input[type=checkbox] { width: 16px; height: 16px; cursor: pointer; accent-color: var(--status-ok); }
 .ww-checklist-item.done label { color: var(--text-muted); text-decoration: line-through; }
 
 /* WW10 day-loss */
@@ -2679,8 +2926,8 @@ function toDateParam(value) {
 .xx-tag-label { min-width: 80px; font-size: 0.82rem; }
 .xx-tag-bar-bg { flex: 1; height: 10px; background: var(--color-border, color-mix(in srgb, var(--ink) 8%, transparent)); border-radius: 4px; overflow: hidden; }
 .xx-tag-bar-fill { height: 100%; border-radius: 4px; transition: width 0.3s; }
-.ok-fill { background: var(--color-accent, var(--blue)); }
-.warn-fill { background: var(--warn); }
+.ok-fill { background: var(--status-ok); }
+.warn-fill { background: var(--status-warn); }
 
 /* YY6 stop dist */
 .sc-row { display: flex; gap: 0.75rem; flex-wrap: wrap; margin: 0.5rem 0; }
@@ -2691,11 +2938,11 @@ function toDateParam(value) {
 /* YY7 R:R achievement bars */
 .yy-rrach-bars { display: flex; gap: 4px; align-items: flex-end; height: 80px; margin: 0.75rem 0; }
 .yy-rrach-col { display: flex; flex-direction: column; align-items: center; flex: 1; height: 100%; gap: 2px; }
-.yy-rrach-bar-bg { flex: 1; width: 100%; background: var(--color-surface); border-radius: 3px; display: flex; align-items: flex-end; }
+.yy-rrach-bar-bg { flex: 1; width: 100%; background: var(--bg-well); border-radius: 3px; display: flex; align-items: flex-end; }
 .yy-rrach-bar-fill { width: 100%; border-radius: 3px; }
-.yy-bar-good { background: var(--color-up, var(--down)); opacity: 0.85; }
-.yy-bar-mid { background: var(--warn, var(--warn)); opacity: 0.85; }
-.yy-bar-bad { background: var(--color-down, var(--up)); opacity: 0.85; }
+.yy-bar-good { background: var(--status-ok); opacity: 0.88; }
+.yy-bar-mid { background: var(--status-warn); opacity: 0.88; }
+.yy-bar-bad { background: var(--status-danger); opacity: 0.88; }
 /* ZZ3 ZZ9 */
 .zz-breakeven-card, .zz-setup-tier { margin-bottom: 1rem; }
 /* AAA2 AAA3 AAA6 */

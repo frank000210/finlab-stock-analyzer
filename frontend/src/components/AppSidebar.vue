@@ -1,14 +1,11 @@
 <template>
-  <button class="sidebar-mobile-toggle" @click="mobileOpen = true" aria-label="開啟選單" aria-haspopup="true">
-    <Menu :size="18" />
-  </button>
-  <div v-if="mobileOpen" class="sidebar-backdrop" @click="mobileOpen = false"></div>
+  <div v-if="mobileOpen" class="sidebar-backdrop" @click="closeMobile"></div>
 
   <aside class="app-sidebar" :class="{ collapsed, 'mobile-open': mobileOpen }">
     <div class="sidebar-header">
-      <router-link to="/" class="sidebar-logo" @click="mobileOpen = false">
+      <router-link to="/" class="sidebar-logo" @click="closeMobile">
         <Diamond :size="18" class="logo-icon" />
-        <span class="logo-text" v-if="!collapsed">FinLab</span>
+        <span class="logo-text" v-if="showFull">FinLab</span>
       </router-link>
       <button class="collapse-btn" @click="toggleCollapsed" :title="collapsed ? '展開選單' : '收合選單'" aria-label="收合/展開選單">
         <ChevronRight v-if="collapsed" :size="14" />
@@ -17,61 +14,162 @@
     </div>
 
     <div class="sidebar-search">
-      <div class="search-box">
-        <Search :size="15" class="search-icon" />
-        <input
-          v-model="query"
-          class="sidebar-search-input"
-          :placeholder="collapsed ? '' : '搜尋股票代號或名稱…'"
-          @input="onInput"
-          @keyup.enter="onEnter"
-          @focus="showResults = true"
-          @blur="onBlur"
-        />
-      </div>
-      <ul v-if="showResults && results.length" class="sidebar-search-dropdown">
-        <li v-for="item in results" :key="item.symbol" @mousedown="selectStock(item)">
-          <span class="r-symbol">{{ item.symbol }}</span>
-          <span class="r-name">{{ item.name_zh }}</span>
-        </li>
-      </ul>
+      <button
+        v-if="!showFull"
+        type="button"
+        class="sidebar-search-collapsed-btn"
+        data-testid="sidebar-collapsed-search"
+        title="搜尋個股／跳頁 (Ctrl+K)"
+        aria-label="搜尋個股或跳頁"
+        @click="openQuickSwitcher"
+      >
+        <Search :size="16" />
+      </button>
+      <template v-else>
+        <div class="search-box">
+          <Search :size="15" class="search-icon" />
+          <input
+            v-model="query"
+            class="sidebar-search-input"
+            placeholder="搜尋股票代號或名稱…"
+            @input="onInput"
+            @keyup.enter="onEnter"
+            @focus="showResults = true"
+            @blur="onBlur"
+          />
+        </div>
+        <ul v-if="showResults && results.length" class="sidebar-search-dropdown">
+          <li v-for="item in results" :key="item.symbol" @mousedown="selectStock(item)">
+            <span class="r-symbol">{{ item.symbol }}</span>
+            <span class="r-name">{{ item.name_zh }}</span>
+          </li>
+        </ul>
+      </template>
     </div>
 
     <router-link
-      v-if="!collapsed"
+      v-if="showFull"
       :to="`/stocks/${stockStore.symbol}`"
       class="sidebar-current"
       :title="`目前個股：${stockStore.symbol} ${stockStore.name}`"
+      @click="closeMobile"
     >
       <span class="cur-label">目前個股</span>
       <span class="cur-value">{{ stockStore.symbol }}<small v-if="stockStore.name"> {{ stockStore.name }}</small></span>
     </router-link>
 
     <nav class="sidebar-nav">
-      <div class="nav-group" v-for="group in navGroups" :key="group.title">
-        <div class="nav-group-title" v-if="!collapsed">{{ group.title }}</div>
-        <router-link
-          v-for="item in group.items"
-          :key="item.key"
-          :to="item.to()"
-          class="nav-item"
-          :class="{ cta: item.cta }"
-          :title="collapsed ? item.label : ''"
-          @click="mobileOpen = false"
+      <!-- T-026: ⭐ 常用釘選區塊（localStorage 持久化） -->
+      <div v-if="pinnedItems.length" class="nav-group pinned-group" data-testid="sidebar-pinned">
+        <div v-if="showFull" class="nav-group-head pinned-head">
+          <span class="nav-group-title">⭐ 常用釘選</span>
+          <button
+            type="button"
+            class="toggle-all-btn"
+            data-testid="sidebar-toggle-all"
+            @click="toggleAllGroups"
+            :title="allGroupsExpanded ? '收合所有分類' : '展開所有分類'"
+          >
+            {{ allGroupsExpanded ? '全部收合' : '全部展開' }}
+          </button>
+        </div>
+        <div v-for="item in pinnedItems" :key="'pin-' + item.key" class="nav-item-row">
+          <router-link
+            :to="item.to()"
+            class="nav-item"
+            :class="{ cta: item.cta }"
+            :title="!showFull ? item.label : ''"
+            @click="closeMobile"
+          >
+            <component :is="item.icon" :size="16" class="nav-icon" />
+            <span class="nav-label" v-if="showFull">{{ item.label }}</span>
+          </router-link>
+          <button
+            v-if="showFull"
+            type="button"
+            class="pin-action-btn pinned"
+            :aria-label="`取消釘選 ${item.label}`"
+            title="取消釘選"
+            @click.prevent.stop="togglePin(item.key)"
+          >
+            <PinOff :size="12" />
+          </button>
+        </div>
+      </div>
+
+      <div v-else-if="showFull" class="nav-utility-row">
+        <button
+          type="button"
+          class="toggle-all-btn"
+          data-testid="sidebar-toggle-all"
+          @click="toggleAllGroups"
         >
-          <component :is="item.icon" :size="16" class="nav-icon" />
-          <span class="nav-label" v-if="!collapsed">{{ item.label }}</span>
-        </router-link>
+          {{ allGroupsExpanded ? '全部收合' : '全部展開' }}
+        </button>
+      </div>
+
+      <!-- 5 大分類手風琴 -->
+      <div
+        class="nav-group"
+        v-for="group in navGroups"
+        :key="group.id"
+        :data-testid="`sidebar-group-${group.id}`"
+      >
+        <button
+          v-if="showFull"
+          type="button"
+          class="nav-group-toggle"
+          :aria-expanded="isGroupExpanded(group.id) ? 'true' : 'false'"
+          @click="toggleGroup(group.id)"
+        >
+          <span class="nav-group-title">{{ group.title }}</span>
+          <span class="nav-group-meta">
+            <span class="nav-group-count">{{ group.items.length }}</span>
+            <ChevronDown v-if="isGroupExpanded(group.id)" :size="13" />
+            <ChevronRight v-else :size="13" />
+          </span>
+        </button>
+
+        <div v-if="showFull ? isGroupExpanded(group.id) : true" class="nav-group-items">
+          <div
+            v-for="item in visibleGroupItems(group)"
+            :key="item.key"
+            class="nav-item-row"
+          >
+            <router-link
+              :to="item.to()"
+              class="nav-item"
+              :class="{ cta: item.cta }"
+              :title="!showFull ? item.label : ''"
+              @click="closeMobile"
+            >
+              <component :is="item.icon" :size="16" class="nav-icon" />
+              <span class="nav-label" v-if="showFull">{{ item.label }}</span>
+            </router-link>
+            <button
+              v-if="showFull"
+              type="button"
+              class="pin-action-btn"
+              :class="{ pinned: isPinned(item.key) }"
+              :data-testid="`pin-btn-${item.key}`"
+              :aria-label="isPinned(item.key) ? `取消釘選 ${item.label}` : `釘選 ${item.label}`"
+              :title="isPinned(item.key) ? '取消釘選' : '釘選到常用'"
+              @click.prevent.stop="togglePin(item.key)"
+            >
+              <Pin :size="12" />
+            </button>
+          </div>
+        </div>
       </div>
     </nav>
 
     <div class="sidebar-footer">
       <template v-if="authStore.isLoggedIn">
         <img v-if="authStore.avatar" :src="authStore.avatar" class="sidebar-avatar" :title="authStore.email" />
-        <span v-else-if="!collapsed" class="sidebar-user">{{ authStore.email }}</span>
+        <span v-else-if="showFull" class="sidebar-user">{{ authStore.email }}</span>
       </template>
-      <button v-else class="sidebar-signin-btn" @click="goAdminLogin" :title="collapsed ? '管理員登入' : ''">
-        <Key v-if="collapsed" :size="16" />
+      <button v-else class="sidebar-signin-btn" @click="goAdminLogin" :title="!showFull ? '管理員登入' : ''">
+        <Key v-if="!showFull" :size="16" />
         <span v-else>管理員登入</span>
       </button>
     </div>
@@ -79,7 +177,7 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useStockStore } from '../stores/stock.js'
 import { useAuthStore } from '../stores/auth.js'
@@ -89,9 +187,15 @@ import {
   MessageCircle, FileText, FlaskConical, Network, RefreshCw, Scale,
   Gauge, ScanSearch, Search, Shield, Flame, AlertTriangle,
   Calculator, BookOpen, Dices, Bell, Rocket, Newspaper, Puzzle,
-  Settings, Wrench, Brain, Lightbulb, Diamond, Menu,
-  ChevronLeft, ChevronRight, Key, GraduationCap, Layers, CalendarClock,
+  Settings, Wrench, Brain, Lightbulb, Diamond,
+  ChevronLeft, ChevronRight, ChevronDown, Key, GraduationCap, Layers, CalendarClock,
+  Pin, PinOff,
 } from 'lucide-vue-next'
+
+const props = defineProps({
+  mobileOpen: { type: Boolean, default: false },
+})
+const emit = defineEmits(['update:mobileOpen'])
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 const router = useRouter()
@@ -100,12 +204,20 @@ const stockStore = useStockStore()
 const authStore = useAuthStore()
 
 const collapsed = ref(localStorage.getItem('finlab_sidebar_collapsed') === '1')
-const mobileOpen = ref(false)
-watch(() => route.path, () => { mobileOpen.value = false })
+const showFull = computed(() => !collapsed.value || props.mobileOpen)
+
+function closeMobile() {
+  if (props.mobileOpen) emit('update:mobileOpen', false)
+}
+watch(() => route.path, () => { closeMobile() })
 
 function toggleCollapsed() {
   collapsed.value = !collapsed.value
   localStorage.setItem('finlab_sidebar_collapsed', collapsed.value ? '1' : '0')
+}
+
+function openQuickSwitcher() {
+  window.dispatchEvent(new CustomEvent('finlab:open-quick-switcher'))
 }
 
 const query = ref('')
@@ -116,26 +228,31 @@ let searchTimer = null
 // WatchlistView.vue 的 searchStocks。
 let searchSeq = 0
 
+async function fetchSearchItems(q) {
+  const seq = ++searchSeq
+  try {
+    const resp = await fetch(`${API_BASE}/api/v1/stocks/search?q=${encodeURIComponent(q)}`)
+    const data = await resp.json()
+    if (seq !== searchSeq) return null
+    return data?.data?.items || []
+  } catch {
+    if (seq === searchSeq) return []
+    return null
+  }
+}
+
 function onInput() {
   clearTimeout(searchTimer)
   const q = query.value.trim()
   if (!q) { results.value = []; return }
   searchTimer = setTimeout(async () => {
-    const seq = ++searchSeq
-    try {
-      const resp = await fetch(`${API_BASE}/api/v1/stocks/search?q=${encodeURIComponent(q)}`)
-      const data = await resp.json()
-      if (seq !== searchSeq) return
-      results.value = data?.data?.items || []
-    } catch {
-      if (seq === searchSeq) results.value = []
-    }
+    const items = await fetchSearchItems(q)
+    if (items !== null) results.value = items
   }, 250)
 }
 
-// 一鍵搜尋切換：更新全站目前個股。若正處於某檔股票的子頁面（分析/回測/
-// 籌碼…），保留該子頁面、只換代號，讓「頁面內容連動顯示股票 A」；否則
-// （在作戰台/日誌等工具頁）維持原頁，該頁自己的 stockStore 監聽器會接手。
+// T-026：修復搜尋換股——任何頁面搜尋個股點選或按 Enter 皆立即導向該股分析頁；
+// 若已身處個股子頁（分析/季節性/籌碼/回測…），則保留同子頁、僅切換股票代號。
 function selectStock(item) {
   showResults.value = false
   query.value = ''
@@ -143,12 +260,24 @@ function selectStock(item) {
   stockStore.setStock(item.symbol, item.name_zh || '')
   if (route.params.symbol) {
     router.push({ name: route.name, params: { ...route.params, symbol: item.symbol } })
+  } else {
+    router.push(`/stocks/${item.symbol}`)
   }
-  mobileOpen.value = false
+  closeMobile()
 }
 
-function onEnter() {
-  if (results.value.length) selectStock(results.value[0])
+async function onEnter() {
+  if (results.value.length) {
+    selectStock(results.value[0])
+    return
+  }
+  const q = query.value.trim()
+  if (!q) return
+  clearTimeout(searchTimer)
+  const items = await fetchSearchItems(q)
+  if (items && items.length) {
+    selectStock(items[0])
+  }
 }
 
 function onBlur() {
@@ -157,7 +286,9 @@ function onBlur() {
 
 const navGroups = [
   {
+    id: 'decision',
     title: '決策 & 掃描',
+    matchPaths: ['/decision', '/watchlist', '/command', '/signals', '/ai-signals', '/trade-approval', '/daily-brief', '/events'],
     items: [
       { key: 'decision', icon: Target, label: '決策面板', cta: true, to: () => '/decision' },
       { key: 'watchlist', icon: Star, label: '觀察清單', to: () => '/watchlist' },
@@ -170,7 +301,9 @@ const navGroups = [
     ],
   },
   {
+    id: 'stock',
     title: '個股分析',
+    matchPaths: ['/overview', '/stocks/', '/etf-compare'],
     items: [
       { key: 'overview', icon: BarChart2, label: '總覽', to: () => `/overview` },
       { key: 'analysis', icon: TrendingUp, label: '分析', to: () => `/stocks/${stockStore.symbol}` },
@@ -185,7 +318,9 @@ const navGroups = [
     ],
   },
   {
+    id: 'rotation',
     title: '關聯 & 輪動',
+    matchPaths: ['/graph', '/rotation', '/compare', '/market-lights', '/news-checker', '/screener'],
     items: [
       { key: 'graph', icon: Network, label: '關聯圖', to: () => '/graph' },
       { key: 'rotation', icon: RefreshCw, label: '類股輪動', to: () => '/rotation' },
@@ -196,7 +331,9 @@ const navGroups = [
     ],
   },
   {
+    id: 'risk',
     title: '風控 & 紀律',
+    matchPaths: ['/risk-sizing', '/portfolio-heat', '/risk-monitor', '/trade-dashboard', '/journal', '/monte-carlo', '/price-alerts'],
     items: [
       { key: 'risk-sizing', icon: Shield, label: '部位風控', to: () => '/risk-sizing' },
       { key: 'portfolio-heat', icon: Flame, label: '投組風險', to: () => '/portfolio-heat' },
@@ -208,7 +345,9 @@ const navGroups = [
     ],
   },
   {
+    id: 'other',
     title: '其他',
+    matchPaths: ['/guide', '/learn', '/data-agent', '/signal-rules', '/settings', '/admin', '/kb-qa', '/feedback'],
     items: [
       { key: 'guide', icon: Rocket, label: '新手上路', to: () => '/guide' },
       { key: 'learn', icon: GraduationCap, label: '學習中心', to: () => '/learn' },
@@ -222,35 +361,116 @@ const navGroups = [
   },
 ]
 
+const itemByKey = Object.fromEntries(navGroups.flatMap(g => g.items.map(it => [it.key, it])))
+
+// T-026：常用釘選（localStorage 持久化）
+const PINS_STORAGE_KEY = 'finlab_sidebar_pins_v1'
+const DEFAULT_PINS = ['decision', 'command', 'overview', 'risk-monitor', 'journal']
+
+function loadPins() {
+  try {
+    const raw = localStorage.getItem(PINS_STORAGE_KEY)
+    if (raw === null) return [...DEFAULT_PINS]
+    const parsed = JSON.parse(raw)
+    if (Array.isArray(parsed)) return parsed.filter(k => Boolean(itemByKey[k]))
+  } catch { /* ignore */ }
+  return [...DEFAULT_PINS]
+}
+const pinnedKeys = ref(loadPins())
+const pinnedSet = computed(() => new Set(pinnedKeys.value))
+const pinnedItems = computed(() => pinnedKeys.value.map(k => itemByKey[k]).filter(Boolean))
+
+function isPinned(key) { return pinnedSet.value.has(key) }
+function togglePin(key) {
+  if (!itemByKey[key]) return
+  if (pinnedSet.value.has(key)) {
+    pinnedKeys.value = pinnedKeys.value.filter(k => k !== key)
+  } else {
+    pinnedKeys.value = [...pinnedKeys.value, key]
+  }
+  try { localStorage.setItem(PINS_STORAGE_KEY, JSON.stringify(pinnedKeys.value)) } catch { /* ignore */ }
+}
+
+// T-026：5 大分類手風琴狀態（預設展開常用組 + 當前路由所屬分組）
+const GROUPS_STORAGE_KEY = 'finlab_sidebar_groups_v1'
+function groupIdForPath(path) {
+  for (const g of navGroups) {
+    if (g.matchPaths.some(p => path === p || path.startsWith(p + '/') || (p.endsWith('/') && path.startsWith(p)))) {
+      return g.id
+    }
+  }
+  return null
+}
+function loadExpandedGroups() {
+  const active = groupIdForPath(route.path)
+  try {
+    const raw = localStorage.getItem(GROUPS_STORAGE_KEY)
+    if (raw) {
+      const parsed = JSON.parse(raw)
+      if (Array.isArray(parsed)) {
+        const s = new Set(parsed.filter(id => navGroups.some(g => g.id === id)))
+        if (active) s.add(active)
+        return s
+      }
+    }
+  } catch { /* ignore */ }
+  const defaults = new Set(['decision'])
+  if (active) defaults.add(active)
+  return defaults
+}
+const expandedGroups = ref(loadExpandedGroups())
+function saveExpandedGroups() {
+  try { localStorage.setItem(GROUPS_STORAGE_KEY, JSON.stringify([...expandedGroups.value])) } catch { /* ignore */ }
+}
+function isGroupExpanded(id) { return expandedGroups.value.has(id) }
+function toggleGroup(id) {
+  const next = new Set(expandedGroups.value)
+  if (next.has(id)) next.delete(id)
+  else next.add(id)
+  expandedGroups.value = next
+  saveExpandedGroups()
+}
+const allGroupsExpanded = computed(() => navGroups.every(g => expandedGroups.value.has(g.id)))
+function toggleAllGroups() {
+  if (allGroupsExpanded.value) {
+    const active = groupIdForPath(route.path)
+    expandedGroups.value = new Set(active ? [active] : [])
+  } else {
+    expandedGroups.value = new Set(navGroups.map(g => g.id))
+  }
+  saveExpandedGroups()
+}
+
+// 切頁時自動展開當前路由所屬分類，確保使用者看得到自己在哪一組
+watch(() => route.path, (path) => {
+  const active = groupIdForPath(path)
+  if (active && !expandedGroups.value.has(active)) {
+    const next = new Set(expandedGroups.value)
+    next.add(active)
+    expandedGroups.value = next
+    saveExpandedGroups()
+  }
+})
+
+// 窄欄收合態只顯示未在釘選區的其餘項目，避免 60px 窄欄重複圖示
+function visibleGroupItems(group) {
+  if (!showFull.value) return group.items.filter(it => !pinnedSet.value.has(it.key))
+  return group.items
+}
+
 function goAdminLogin() {
-  mobileOpen.value = false
+  closeMobile()
   router.push('/admin')
 }
 </script>
 
 <style scoped>
-.sidebar-mobile-toggle {
-  display: none;
-  position: fixed;
-  top: 10px;
-  left: 10px;
-  z-index: 301;
-  width: 38px;
-  height: 38px;
-  border-radius: 10px;
-  border: 1px solid var(--border-color);
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-  font-size: 1.1rem;
-  cursor: pointer;
-}
-
 .sidebar-backdrop {
   display: none;
 }
 
 .app-sidebar {
-  --sidebar-w: 232px;
+  --sidebar-w: 236px;
   --sidebar-w-collapsed: 60px;
   width: var(--sidebar-w);
   flex-shrink: 0;
@@ -299,10 +519,31 @@ function goAdminLogin() {
   color: var(--text-muted);
   cursor: pointer;
   font-size: 0.85rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 .collapse-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
 
 .sidebar-search { position: relative; padding: 10px 10px 6px; flex-shrink: 0; }
+.sidebar-search-collapsed-btn {
+  width: 38px;
+  height: 36px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-well);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.sidebar-search-collapsed-btn:hover {
+  background: var(--bg-hover);
+  color: var(--accent-blue);
+  border-color: var(--accent-blue);
+}
 .search-box { position: relative; }
 .search-icon { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none; }
 .sidebar-search-input {
@@ -314,7 +555,6 @@ function goAdminLogin() {
   padding: 7px 10px 7px 30px;
   font-size: 0.82rem;
 }
-.app-sidebar.collapsed .sidebar-search-input { padding-left: 26px; }
 .sidebar-search-dropdown {
   position: absolute;
   left: 10px;
@@ -361,15 +601,83 @@ function goAdminLogin() {
 .cur-value small { font-weight: 400; color: var(--text-secondary); margin-left: 4px; }
 
 .sidebar-nav { flex: 1; overflow-y: auto; padding: 4px 8px 8px; }
-.nav-group { margin-bottom: 8px; }
-.nav-group-title {
+.nav-group { margin-bottom: 6px; }
+.pinned-group {
+  padding-bottom: 8px;
+  margin-bottom: 8px;
+  border-bottom: 1px dashed var(--border-color);
+}
+.nav-group-head,
+.nav-utility-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 4px 4px 6px;
+}
+.nav-utility-row { justify-content: flex-end; margin-bottom: 4px; }
+.toggle-all-btn {
+  border: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--text-muted);
+  border-radius: 6px;
+  padding: 2px 7px;
+  font-size: 0.68rem;
+  cursor: pointer;
+  font-family: inherit;
+}
+.toggle-all-btn:hover { color: var(--text-primary); background: var(--bg-hover); }
+
+.nav-group-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 6px 6px 5px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+}
+.nav-group-toggle:hover { background: var(--bg-hover); }
+.nav-group-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+}
+.nav-group-count {
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--bg-well);
   font-size: 0.66rem;
+}
+.nav-group-title {
+  font-size: 0.68rem;
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  padding: 6px 6px 4px;
+  padding: 0;
+}
+.nav-group-items {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin-top: 2px;
+}
+
+.nav-item-row {
+  position: relative;
+  display: flex;
+  align-items: center;
 }
 .nav-item {
+  flex: 1 1 auto;
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: 9px;
@@ -380,12 +688,43 @@ function goAdminLogin() {
   font-size: 0.84rem;
   white-space: nowrap;
 }
+.nav-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .nav-item:hover { background: var(--bg-hover); color: var(--text-primary); }
 .nav-item.router-link-active { background: color-mix(in srgb, var(--blue) 14%, transparent); color: var(--accent-blue); font-weight: 600; }
 .nav-item.cta { background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple)); color: var(--on-accent); font-weight: 700; }
 .nav-item.cta.router-link-active { background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple)); color: var(--on-accent); }
 .nav-icon { width: 16px; height: 16px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
 .app-sidebar.collapsed .nav-item { justify-content: center; }
+
+.pin-action-btn {
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.14s ease, color 0.14s ease, background 0.14s ease;
+}
+.nav-item-row:hover .pin-action-btn,
+.nav-item-row:focus-within .pin-action-btn,
+.pin-action-btn.pinned {
+  opacity: 0.72;
+}
+.pin-action-btn:hover {
+  opacity: 1 !important;
+  background: var(--bg-hover);
+  color: var(--accent-blue);
+}
+.pin-action-btn.pinned { color: var(--accent-blue); }
 
 .sidebar-footer {
   padding: 10px;
@@ -410,7 +749,6 @@ function goAdminLogin() {
 .sidebar-signin-btn:hover { background: color-mix(in srgb, var(--purple) 30%, transparent); }
 
 @media (max-width: 1024px) {
-  .sidebar-mobile-toggle { display: flex; align-items: center; justify-content: center; }
   .app-sidebar {
     position: fixed;
     top: 0;
