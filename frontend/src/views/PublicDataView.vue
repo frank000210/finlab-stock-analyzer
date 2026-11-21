@@ -1,5 +1,6 @@
 <template>
   <div class="public-data-page">
+    <StockContextBar :symbol="String(route.params.symbol || stockStore.symbol || '')" />
     <PageFocusBanner text="檢視基本面數據，判斷目前股價相對獲利與成長性是便宜還是昂貴。" />
 
     <header class="page-header">
@@ -79,6 +80,7 @@
 </template>
 
 <script setup>
+import StockContextBar from '../components/StockContextBar.vue'
 import PageFocusBanner from '../components/PageFocusBanner.vue'
 import InfoTooltip from '../components/InfoTooltip.vue'
 import { metricGlossary } from '../lib/metricGlossary'
@@ -86,7 +88,7 @@ import { ref, computed, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useStockStore } from '../stores/stock.js'
 import * as d3 from 'd3'
-import { useChartTheme } from '../composables/useChartTheme'
+import { useChartTheme, themeVersion } from '../composables/useChartTheme'
 import { fetchWithRetry } from '../lib/apiFetch'
 
 const route = useRoute()
@@ -361,7 +363,7 @@ function renderFundamentalCharts() {
   renderRevenueChart()
 }
 
-watch([fundamental, priceHistory], () => nextTick(renderFundamentalCharts))
+watch([fundamental, priceHistory, themeVersion], () => nextTick(renderFundamentalCharts))
 
 let fundamentalResizeHandler = null
 onMounted(() => {

@@ -105,11 +105,13 @@
 
 <script setup>
 import { computed, reactive, ref, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import { loadNotificationPrefs } from '../lib/notificationPrefs'
 import { fetchWithRetry } from '../lib/apiFetch'
 import { useAuthStore } from '../stores/auth'
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
+const route = useRoute()
 const authStore = useAuthStore()
 // RR2: alerts 端點現在需要管理員 token
 function authHeaders() { return { 'X-Admin-Token': authStore.token || '' } }
@@ -263,6 +265,8 @@ async function checkNow() {
 }
 
 onMounted(() => {
+  const qSym = String(route.query.symbol || '').trim().toUpperCase()
+  if (qSym) form.symbol = qSym
   notifPrefs.value = loadNotificationPrefs() // 每次進頁重讀，反映使用者在設定頁的最新偏好
   loadAlerts()
   loadHistory()

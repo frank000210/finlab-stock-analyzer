@@ -1,5 +1,6 @@
 <template>
   <div class="major-page">
+    <StockContextBar :symbol="symbol" />
     <PageFocusBanner text="追蹤主力與大戶籌碼的買賣動向，判斷聰明錢是否正在進場或出場。" />
 
     <header class="page-header">
@@ -155,6 +156,7 @@
 </template>
 
 <script setup>
+import StockContextBar from '../components/StockContextBar.vue'
 import PageFocusBanner from '../components/PageFocusBanner.vue'
 import InfoTooltip from '../components/InfoTooltip.vue'
 import MetricScale from '../components/MetricScale.vue'

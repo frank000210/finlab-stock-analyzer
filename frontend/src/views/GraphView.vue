@@ -106,8 +106,8 @@
           目前區間查無可視化資料，已自動嘗試以單日快照回補。請調整日期區間或降低門檻。
         </div>
         <div class="legend">
-          <span class="lg-item"><i class="dot" style="background:#4f8cff"></i>正向關聯</span>
-          <span class="lg-item"><i class="dot" style="background:#ef4444"></i>負向關聯</span>
+          <span class="lg-item"><i class="dot dot-pos"></i>正向關聯</span>
+          <span class="lg-item"><i class="dot dot-neg"></i>負向關聯</span>
           <span class="lg-hint" v-if="viewMode !== 'matrix'">節點大小＝加權連結；顏色＝產業</span>
           <span class="lg-hint" v-else>參考：D3 gallery 矩陣式關聯視覺化；灰色＝低於目前門檻或無資料，滑鼠移到格子看數值</span>
         </div>
@@ -171,7 +171,7 @@
 import PageFocusBanner from '../components/PageFocusBanner.vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import * as d3 from 'd3'
-import { useChartTheme } from '../composables/useChartTheme'
+import { useChartTheme, themeVersion } from '../composables/useChartTheme'
 import { loadWatchlist as loadSharedWatchlist } from '../lib/watchlist'
 import { fetchWithRetry } from '../lib/apiFetch'
 
@@ -252,7 +252,7 @@ watch(currentSnapshot, (snapshot) => {
   }
 })
 
-watch([currentSnapshot, viewMode, activeLayer], () => {
+watch([currentSnapshot, viewMode, activeLayer, themeVersion], () => {
   nextTick(renderGraph)
 })
 
@@ -312,7 +312,7 @@ function renderMatrix(host) {
     if (!w) return 'var(--bg-tertiary)'
     const t = Math.min(1, Math.abs(w) / maxAbs)
     return w >= 0
-      ? d3.interpolateRgb('rgba(59,130,246,0.15)', theme.blue)(t)
+      ? d3.interpolateRgb(theme.blueSoft, theme.blue)(t)
       : d3.interpolateRgb(theme.negativeSoft, theme.negative)(t)
   }
 
@@ -1047,6 +1047,12 @@ function offsetISO(days) {
   height: 10px;
   border-radius: 50%;
   display: inline-block;
+}
+.lg-item .dot-pos {
+  background: var(--chart-blue, var(--accent-blue));
+}
+.lg-item .dot-neg {
+  background: var(--chart-negative, var(--color-up));
 }
 
 .lg-hint {

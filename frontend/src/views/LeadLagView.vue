@@ -1,5 +1,6 @@
 <template>
   <div class="leadlag-page">
+    <StockContextBar :symbol="symbol" />
     <PageFocusBanner text="找出哪些標的的走勢會領先預告這檔股票的變動，用來提前佈局。" />
 
     <header class="page-header">
@@ -94,6 +95,7 @@
 </template>
 
 <script setup>
+import StockContextBar from '../components/StockContextBar.vue'
 import PageFocusBanner from '../components/PageFocusBanner.vue'
 import InfoTooltip from '../components/InfoTooltip.vue'
 import { metricGlossary } from '../lib/metricGlossary'
@@ -214,7 +216,7 @@ watch(() => route.params.symbol, (sym) => {
 .corr-bar { width: 100%; border-radius: 2px; transition: height 0.3s; }
 .corr-bar.positive { background: color-mix(in srgb, var(--down) 50%, transparent); }
 .corr-bar.negative { background: color-mix(in srgb, var(--up) 50%, transparent); }
-.corr-bar.peak { background: var(--accent-blue) !important; box-shadow: 0 0 8px rgba(59, 130, 246, 0.5); }
+.corr-bar.peak { background: var(--accent-blue) !important; box-shadow: 0 0 8px color-mix(in srgb, var(--blue) 50%, transparent); }
 .corr-label { position: absolute; bottom: -18px; font-size: 0.6rem; color: var(--text-muted); }
 .corr-axis-labels { display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--text-muted); margin-top: 24px; }
 

@@ -1,8 +1,10 @@
 <template>
   <div class="home-page">
     <section class="hero-section">
-      <div class="hero-orb hero-orb-blue"></div>
-      <div class="hero-orb hero-orb-purple"></div>
+      <div class="hero-orbs" aria-hidden="true">
+        <div class="hero-orb hero-orb-blue"></div>
+        <div class="hero-orb hero-orb-purple"></div>
+      </div>
 
       <div class="hero-copy">
         <p class="hero-badge">專為台股投資研究打造的智慧工作台</p>
@@ -13,26 +15,62 @@
       </div>
 
       <form class="hero-search" @submit.prevent="search">
-        <div class="search-field">
-          <span class="search-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none">
-              <path d="M21 21L16.65 16.65M18 10.5C18 14.6421 14.6421 18 10.5 18C6.35786 18 3 14.6421 3 10.5C3 6.35786 6.35786 3 10.5 3C14.6421 3 18 6.35786 18 10.5Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
-            </svg>
-          </span>
-          <input
-            v-model="searchQuery"
-            type="text"
-            class="hero-input"
-            placeholder="輸入股票代碼或名稱，例如 2330 或 台積電"
-            aria-label="搜尋台股"
-          />
+        <div class="search-field-wrap">
+          <div class="search-field">
+            <span class="search-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none">
+                <path d="M21 21L16.65 16.65M18 10.5C18 14.6421 14.6421 18 10.5 18C6.35786 18 3 14.6421 3 10.5C3 6.35786 6.35786 3 10.5 3C14.6421 3 18 6.35786 18 10.5Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </span>
+            <input
+              v-model="searchQuery"
+              type="text"
+              class="hero-input"
+              placeholder="輸入股票代碼或名稱，例如 2330 或 台積電"
+              aria-label="搜尋台股"
+              autocomplete="off"
+              @input="onSearchInput"
+              @focus="onSearchFocus"
+              @blur="onSearchBlur"
+              @keydown.down.prevent="moveHighlight(1)"
+              @keydown.up.prevent="moveHighlight(-1)"
+              @keydown.escape="closeDropdown"
+            />
+          </div>
+
+          <ul
+            v-if="showDropdown && searchResults.length"
+            class="hero-search-dropdown"
+            role="listbox"
+            aria-label="台股搜尋建議"
+            data-testid="hero-search-dropdown"
+          >
+            <li
+              v-for="(item, idx) in searchResults"
+              :key="item.symbol"
+              role="option"
+              :aria-selected="idx === highlightedIdx"
+              :class="{ highlighted: idx === highlightedIdx }"
+              @mousedown.prevent="selectSuggestion(item)"
+            >
+              <span class="hsd-symbol">{{ item.symbol }}</span>
+              <span class="hsd-name">{{ item.name_zh || item.name || '' }}</span>
+            </li>
+          </ul>
         </div>
-        <button type="submit" class="search-submit">立即分析</button>
+        <button type="submit" class="search-submit" :disabled="searching">
+          {{ searching ? '查詢中…' : '立即分析' }}
+        </button>
       </form>
+
+      <p v-if="searchError" class="hero-search-error" role="alert" data-testid="hero-search-error">
+        {{ searchError }}
+      </p>
 
       <div class="hero-actions">
         <RouterLink to="/decision" class="hero-action hero-action-primary">🎯 今日決策</RouterLink>
-        <RouterLink to="/stocks/2330" class="hero-action hero-action-secondary">📊 台積電分析</RouterLink>
+        <RouterLink to="/command" class="hero-action hero-action-secondary">⚡ 作戰儀表板</RouterLink>
+        <RouterLink :to="`/stocks/${stockStore.symbol || '2330'}`" class="hero-action hero-action-secondary">📊 {{ stockStore.symbol || '2330' }} 分析</RouterLink>
       </div>
 
       <div class="hero-pillars" aria-label="核心分析維度">
@@ -42,102 +80,129 @@
       </div>
     </section>
 
-    <section class="section-block" v-reveal>
-      <div class="section-heading">
-        <div>
-          <h2>用一個首頁，快速進入完整研究流程</h2>
-          <p>從搜尋、判讀到策略驗證，為台股投資決策提供機構級分析視角。</p>
+    <div class="home-sections" :class="{ 'is-returning': isReturningUser }">
+      <section class="section-block feature-section" v-reveal>
+        <div class="section-heading">
+          <div>
+            <h2>用一個首頁，快速進入完整研究流程</h2>
+            <p>從搜尋、判讀到策略驗證，為台股投資決策提供機構級分析視角。</p>
+          </div>
         </div>
-      </div>
 
-      <div class="feature-grid">
-        <article
-          v-for="(feature, index) in featureCards"
-          :key="feature.title"
-          v-reveal="{ delay: index * 70 }"
-          class="feature-card"
-          :class="{ 'is-featured': feature.featured }"
-        >
-          <div class="feature-icon" :class="`icon-tone-${feature.tone}`">{{ feature.icon }}</div>
-          <h3>{{ feature.title }}</h3>
-          <p>{{ feature.description }}</p>
-          <ul v-if="feature.points" class="feature-points">
-            <li v-for="point in feature.points" :key="point">{{ point }}</li>
-          </ul>
-        </article>
-      </div>
-    </section>
-
-    <section class="section-block quick-start-panel" v-reveal>
-      <div class="section-heading section-heading-split">
-        <div>
-          <h2>快速開始</h2>
-          <p>從熱門台股代碼切入，立即查看技術、基本與籌碼訊號。</p>
-        </div>
-        <RouterLink to="/decision" class="text-link">前往今日決策</RouterLink>
-      </div>
-
-      <div class="chip-list">
-        <button
-          v-for="symbol in quickStartSymbols"
-          :key="symbol"
-          type="button"
-          class="symbol-chip"
-          @click="goToStock(symbol)"
-        >
-          <span class="chip-symbol">{{ symbol }}</span>
-          <span class="chip-name">{{ stockNames[symbol] || '立即分析' }}</span>
-        </button>
-      </div>
-    </section>
-
-    <section class="section-block recent-panel" v-reveal>
-      <div class="section-heading section-heading-split">
-        <div>
-          <h2>最近瀏覽的股票</h2>
-          <p>延續你上一輪的研究進度，快速回到剛剛關注的標的。</p>
-        </div>
-        <div v-if="recentStocks.length" class="recent-actions">
-          <button type="button" class="text-link text-button" @click="refreshRecentStocks">
-            重新整理
-          </button>
-          <button type="button" class="text-link text-button danger" @click="clearAllRecent">
-            清空
-          </button>
-        </div>
-      </div>
-
-      <div v-if="recentStocks.length" class="recent-grid">
-        <div v-for="stock in recentStocks" :key="stock.symbol" class="recent-card-wrap">
-          <RouterLink :to="`/stocks/${stock.symbol}`" class="recent-card">
-            <div class="recent-topline">
-              <div>
-                <p class="recent-symbol">{{ stock.symbol }}</p>
-                <p class="recent-name">{{ stock.name }}</p>
-              </div>
-              <span class="recent-badge">最近瀏覽</span>
-            </div>
-
-            <div class="recent-price-row">
-              <span class="recent-price">{{ stock.priceText }}</span>
-              <span :class="['recent-change', `trend-${stock.trend}`]">{{ stock.changeText }}</span>
-            </div>
-
-            <p class="recent-note">{{ stock.note }}</p>
+        <div class="feature-grid">
+          <RouterLink
+            v-for="(feature, index) in featureCards"
+            :key="feature.title"
+            :to="feature.to"
+            v-reveal="{ delay: index * 70 }"
+            class="feature-card"
+            :class="{ 'is-featured': feature.featured }"
+          >
+            <div class="feature-icon" :class="`icon-tone-${feature.tone}`">{{ feature.icon }}</div>
+            <h3>{{ feature.title }}</h3>
+            <p>{{ feature.description }}</p>
+            <ul v-if="feature.points" class="feature-points">
+              <li v-for="point in feature.points" :key="point">{{ point }}</li>
+            </ul>
+            <span class="feature-cta">前往使用 →</span>
           </RouterLink>
-          <button
-            type="button"
-            class="recent-remove"
-            :aria-label="`從最近瀏覽移除 ${stock.symbol}`"
-            @click.stop.prevent="removeRecent(stock.symbol)"
-          >✕</button>
         </div>
-      </div>
+      </section>
 
-      <div v-else class="recent-empty">
-        <p>尚無最近瀏覽紀錄，從上方搜尋列或快速開始代碼展開第一輪研究。</p>
-      </div>
-    </section>
+      <section class="section-block quick-start-panel" v-reveal>
+        <div class="section-heading section-heading-split">
+          <div>
+            <h2>快速開始</h2>
+            <p>從熱門台股代碼切入，立即查看技術、基本與籌碼訊號。</p>
+          </div>
+          <RouterLink to="/decision" class="text-link">前往今日決策</RouterLink>
+        </div>
+
+        <div class="chip-list">
+          <button
+            v-for="symbol in quickStartSymbols"
+            :key="symbol"
+            type="button"
+            class="symbol-chip"
+            @click="goToStock(symbol)"
+          >
+            <span class="chip-symbol">{{ symbol }}</span>
+            <span class="chip-name">{{ stockNames[symbol] || '立即分析' }}</span>
+          </button>
+        </div>
+      </section>
+
+      <section class="section-block recent-panel" data-testid="recent-panel" v-reveal>
+        <div class="section-heading section-heading-split">
+          <div>
+            <h2>{{ isReturningUser ? '歡迎回來・快速接續研究' : '最近瀏覽的股票' }}</h2>
+            <p>延續你上一輪的研究進度，快速回到關注標的或直達決策面板與作戰台。</p>
+          </div>
+          <div class="recent-actions">
+            <template v-if="recentStocks.length">
+              <button type="button" class="text-link text-button" @click="refreshRecentStocks">
+                重新整理
+              </button>
+              <button type="button" class="text-link text-button danger" @click="clearAllRecent">
+                清空
+              </button>
+            </template>
+          </div>
+        </div>
+
+        <!-- 回訪交易者快捷入口：決策面板 / 作戰台 / 觀察清單 -->
+        <div v-if="isReturningUser" class="returning-hub" data-testid="returning-shortcuts">
+          <div class="returning-links">
+            <RouterLink to="/decision" class="returning-pill primary">🎯 進入今日決策面板</RouterLink>
+            <RouterLink to="/command" class="returning-pill">⚡ 開啟作戰儀表板</RouterLink>
+            <RouterLink to="/watchlist" class="returning-pill">⭐ 管理觀察清單 ({{ watchlistSymbols.length }})</RouterLink>
+          </div>
+          <div v-if="watchlistSymbols.length" class="returning-watchlist">
+            <span class="rw-label">觀察清單：</span>
+            <RouterLink
+              v-for="sym in watchlistSymbols.slice(0, 8)"
+              :key="sym"
+              :to="`/stocks/${sym}`"
+              class="rw-chip"
+              @click="stockStore.setStock(sym, stockNames[sym] || '')"
+            >
+              {{ sym }}<small v-if="stockNames[sym]"> {{ stockNames[sym] }}</small>
+            </RouterLink>
+          </div>
+        </div>
+
+        <div v-if="recentStocks.length" class="recent-grid">
+          <div v-for="stock in recentStocks" :key="stock.symbol" class="recent-card-wrap">
+            <RouterLink :to="`/stocks/${stock.symbol}`" class="recent-card">
+              <div class="recent-topline">
+                <div>
+                  <p class="recent-symbol">{{ stock.symbol }}</p>
+                  <p class="recent-name">{{ stock.name }}</p>
+                </div>
+                <span class="recent-badge">最近瀏覽</span>
+              </div>
+
+              <div class="recent-price-row">
+                <span class="recent-price">{{ stock.priceText }}</span>
+                <span :class="['recent-change', `trend-${stock.trend}`]">{{ stock.changeText }}</span>
+              </div>
+
+              <p class="recent-note">{{ stock.note }}</p>
+            </RouterLink>
+            <button
+              type="button"
+              class="recent-remove"
+              :aria-label="`從最近瀏覽移除 ${stock.symbol}`"
+              @click.stop.prevent="removeRecent(stock.symbol)"
+            >✕</button>
+          </div>
+        </div>
+
+        <div v-else class="recent-empty">
+          <p>尚無最近瀏覽紀錄，從上方搜尋列或快速開始代碼展開第一輪研究。</p>
+        </div>
+      </section>
+    </div>
 
     <footer class="version-footer" v-if="versionInfo">
       <span class="vf-item">
@@ -176,12 +241,23 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useStockStore } from '../stores/stock.js'
 import { fetchLivePrices, clearLivePriceCache } from '../lib/livePriceCache'
+import { loadWatchlist, WATCHLIST_STORAGE_KEY } from '../lib/watchlist'
 
 const router = useRouter()
 const stockStore = useStockStore()
 const searchQuery = ref('')
+const searchResults = ref([])
+const showDropdown = ref(false)
+const highlightedIdx = ref(-1)
+const searchError = ref('')
+const searching = ref(false)
 const recentStockItems = ref([])
+const watchlistSymbols = ref([])
 const versionInfo = ref(null)
+
+let searchTimer = null
+let blurTimer = null
+let searchSeq = 0
 
 const stockNames = {
   '1101': '台泥',
@@ -196,80 +272,159 @@ const stockNames = {
 
 const quickStartSymbols = ['2330', '2317', '2454', '2303', '2882', '2603']
 
-const featureCards = [
-  {
-    icon: '🎯',
-    title: 'AI 決策信號',
-    description: '整合技術、基本、籌碼三大維度加權評分，即時生成 BUY / HOLD / SELL 建議與信心度。',
-    featured: true,
-    tone: 'blue',
-    points: ['三維加權綜合評分', '即時買賣建議與信心度', '逐檔主力成本 × 籌碼健診徽章']
-  },
-  {
-    icon: '📈',
-    title: '技術指標分析',
-    description: 'K線、MA、RSI、MACD 完整技術圖表',
-    tone: 'cyan',
-  },
-  {
-    icon: '🧪',
-    title: '策略回測',
-    description: '四大策略歷史驗證，績效一目了然',
-    tone: 'purple',
-  },
-  {
-    icon: '🛡️',
-    title: '風控監控',
-    description: 'MDD 追蹤、斷路器保護',
-    tone: 'warn',
-  },
-  {
-    icon: '📰',
-    title: '新聞可信度',
-    description: 'AI 五層新聞分析，辨別市場噪音',
-    tone: 'up',
-  },
-  {
-    icon: '⚡',
-    title: '即時數據',
-    description: '台股價格、法人進出、月營收追蹤',
-    tone: 'blue',
-  }
-]
+const featureCards = computed(() => {
+  const sym = stockStore.symbol || '2330'
+  return [
+    {
+      icon: '🎯',
+      title: 'AI 決策信號',
+      description: '整合技術、基本、籌碼三大維度加權評分，即時生成 BUY / HOLD / SELL 建議與信心度。',
+      featured: true,
+      tone: 'blue',
+      to: '/decision',
+      points: ['三維加權綜合評分', '即時買賣建議與信心度', '逐檔主力成本 × 籌碼健診徽章']
+    },
+    {
+      icon: '📈',
+      title: '技術指標分析',
+      description: 'K線、MA、RSI、MACD 完整技術圖表',
+      tone: 'cyan',
+      to: `/stocks/${sym}`,
+    },
+    {
+      icon: '🧪',
+      title: '策略回測',
+      description: '四大策略歷史驗證，績效一目了然',
+      tone: 'purple',
+      to: `/stocks/${sym}/backtest`,
+    },
+    {
+      icon: '🛡️',
+      title: '風控監控',
+      description: 'MDD 追蹤、斷路器保護',
+      tone: 'warn',
+      to: '/risk-monitor',
+    },
+    {
+      icon: '📰',
+      title: '新聞可信度',
+      description: 'AI 五層新聞分析，辨別市場噪音',
+      tone: 'up',
+      to: '/news-checker',
+    },
+    {
+      icon: '⚡',
+      title: '即時數據',
+      description: '台股價格、法人進出、月營收追蹤',
+      tone: 'blue',
+      to: '/overview',
+    }
+  ]
+})
 
 const recentStocks = computed(() => recentStockItems.value)
+const isReturningUser = computed(() => recentStocks.value.length > 0 || watchlistSymbols.value.length > 0)
 
-function search() {
+function onSearchInput() {
+  searchError.value = ''
+  highlightedIdx.value = -1
+  clearTimeout(searchTimer)
+  const q = searchQuery.value.trim()
+  if (!q) {
+    searchResults.value = []
+    return
+  }
+  searchTimer = setTimeout(() => fetchSuggestions(q), 220)
+}
+
+function onSearchFocus() {
+  clearTimeout(blurTimer)
+  showDropdown.value = true
+}
+
+function onSearchBlur() {
+  blurTimer = setTimeout(() => {
+    showDropdown.value = false
+  }, 150)
+}
+
+function closeDropdown() {
+  showDropdown.value = false
+  highlightedIdx.value = -1
+}
+
+function moveHighlight(delta) {
+  if (!searchResults.value.length) return
+  showDropdown.value = true
+  const len = searchResults.value.length
+  highlightedIdx.value = (highlightedIdx.value + delta + len) % len
+}
+
+async function fetchSuggestions(q) {
+  const seq = ++searchSeq
+  try {
+    const r = await fetch(`/api/v1/stocks/search?q=${encodeURIComponent(q)}`)
+    const res = await r.json().catch(() => ({}))
+    if (seq !== searchSeq) return
+    searchResults.value = (res?.data?.items || res?.items || []).slice(0, 8)
+    showDropdown.value = true
+  } catch {
+    if (seq === searchSeq) searchResults.value = []
+  }
+}
+
+function selectSuggestion(item) {
+  if (!item?.symbol) return
+  searchError.value = ''
+  showDropdown.value = false
+  highlightedIdx.value = -1
+  stockStore.setStock(item.symbol, item.name_zh || item.name || '')
+  router.push(`/stocks/${item.symbol}`)
+}
+
+async function search() {
+  searchError.value = ''
+  if (highlightedIdx.value >= 0 && searchResults.value[highlightedIdx.value]) {
+    selectSuggestion(searchResults.value[highlightedIdx.value])
+    return
+  }
+
   const query = searchQuery.value.trim()
   if (!query) {
     return
   }
 
-  // If input is numeric (stock code), navigate directly
-  if (/^\d{4,6}$/.test(query)) {
-    stockStore.setStock(query, stockNames[query] || '')
-    router.push(`/stocks/${query}`)
+  // 合法 4～6 碼台股代碼（含 ETF 英文字尾如 00940B）直接導頁，維持既有測試相容
+  if (/^\d{4,6}[A-Za-z]?$/.test(query)) {
+    const sym = query.toUpperCase()
+    const hit = searchResults.value.find(i => String(i.symbol).toUpperCase() === sym)
+    stockStore.setStock(sym, hit?.name_zh || hit?.name || stockNames[sym] || '')
+    showDropdown.value = false
+    router.push(`/stocks/${sym}`)
     return
   }
 
-  // If input is text (stock name), resolve via API
-  fetch(`/api/v1/stocks/search?q=${encodeURIComponent(query)}`)
-    .then(r => r.json())
-    .then(res => {
-      const items = res?.data?.items || res?.items || []
-      const match = items.find(i => i.name_zh === query || i.name === query) || items[0]
-      if (match && match.symbol) {
-        stockStore.setStock(match.symbol, match.name_zh || match.name || query)
-        router.push(`/stocks/${match.symbol}`)
-      } else {
-        stockStore.setStock(query, '')
-        router.push(`/stocks/${encodeURIComponent(query)}`)
-      }
-    })
-    .catch(() => {
-      stockStore.setStock(query, '')
-      router.push(`/stocks/${encodeURIComponent(query)}`)
-    })
+  // 名稱或其他文字輸入：走搜尋 API 驗證，找不到則原地提示不盲導壞頁
+  searching.value = true
+  try {
+    const r = await fetch(`/api/v1/stocks/search?q=${encodeURIComponent(query)}`)
+    const res = await r.json().catch(() => ({}))
+    const items = res?.data?.items || res?.items || []
+    const match = items.find(i => i.name_zh === query || i.name === query) || items[0]
+    if (match && match.symbol) {
+      stockStore.setStock(match.symbol, match.name_zh || match.name || query)
+      showDropdown.value = false
+      router.push(`/stocks/${match.symbol}`)
+    } else {
+      searchResults.value = []
+      showDropdown.value = false
+      searchError.value = `找不到符合「${query}」的股票，請確認名稱或改輸入 4～6 碼台股代碼（例如 2330）。`
+    }
+  } catch {
+    searchError.value = `目前無法查詢「${query}」，請稍後再試或改輸入 4～6 碼台股代碼。`
+  } finally {
+    searching.value = false
+  }
 }
 
 function goToStock(symbol) {
@@ -395,6 +550,9 @@ function handleStorageChange(event) {
   if (!event || event.key === 'recentStocks') {
     loadRecentStocks()
   }
+  if (!event || event.key === WATCHLIST_STORAGE_KEY) {
+    watchlistSymbols.value = loadWatchlist()
+  }
 }
 
 function formatBuildTime(iso) {
@@ -430,6 +588,7 @@ async function loadVersionInfo() {
 }
 
 onMounted(() => {
+  watchlistSymbols.value = loadWatchlist()
   loadRecentStocks()
   loadVersionInfo()
   window.addEventListener('storage', handleStorageChange)
@@ -437,6 +596,8 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   window.removeEventListener('storage', handleStorageChange)
+  clearTimeout(searchTimer)
+  clearTimeout(blurTimer)
 })
 </script>
 
@@ -447,6 +608,20 @@ onBeforeUnmount(() => {
   gap: clamp(32px, 6vw, 72px);
   padding-bottom: clamp(24px, 4vw, 48px);
 }
+
+.home-sections {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(32px, 6vw, 72px);
+}
+.home-sections .feature-section { order: 1; }
+.home-sections .quick-start-panel { order: 2; }
+.home-sections .recent-panel { order: 3; }
+
+/* 回訪交易者（已有觀察清單或最近瀏覽）：將最近瀏覽＋決策／作戰快捷區前置至首屏，宣傳區塊下移 */
+.home-sections.is-returning .recent-panel { order: 1; }
+.home-sections.is-returning .quick-start-panel { order: 2; }
+.home-sections.is-returning .feature-section { order: 3; }
 
 .hero-section,
 .section-block {
@@ -459,11 +634,20 @@ onBeforeUnmount(() => {
 }
 
 .hero-section {
+  overflow: visible;
   padding: clamp(40px, 7vw, 88px);
   background:
     radial-gradient(circle at 18% 20%, color-mix(in srgb, var(--blue) 22%, transparent), transparent 34%),
     radial-gradient(circle at 85% 15%, color-mix(in srgb, var(--purple) 20%, transparent), transparent 30%),
     linear-gradient(135deg, var(--bg-primary) 0%, var(--card) 46%, var(--elev) 100%);
+}
+
+.hero-orbs {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
 }
 
 .hero-copy {
@@ -504,7 +688,7 @@ onBeforeUnmount(() => {
 
 .hero-search {
   position: relative;
-  z-index: 1;
+  z-index: 20;
   display: flex;
   gap: 14px;
   align-items: center;
@@ -513,17 +697,82 @@ onBeforeUnmount(() => {
   margin: 36px auto 0;
 }
 
+.search-field-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
 .search-field {
   display: flex;
   align-items: center;
   gap: 14px;
-  flex: 1;
   min-height: 72px;
   padding: 0 22px;
   border-radius: calc(var(--radius-xl) - 2px);
   background: color-mix(in srgb, var(--well) 78%, transparent);
   border: 1px solid color-mix(in srgb, var(--muted) 24%, transparent);
-  box-shadow: 0 20px 60px rgba(11, 17, 33, 0.35);
+  box-shadow: 0 20px 60px rgba(var(--shadow-rgb), 0.25);
+}
+
+.hero-search-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  list-style: none;
+  margin: 0;
+  padding: 6px;
+  border-radius: var(--radius-lg);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-lg);
+  z-index: 30;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.hero-search-dropdown li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+}
+
+.hero-search-dropdown li:hover,
+.hero-search-dropdown li.highlighted {
+  background: var(--bg-hover);
+}
+
+.hsd-symbol {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: var(--accent-blue);
+}
+
+.hsd-name {
+  color: var(--text-secondary);
+}
+
+.hero-search-error {
+  position: relative;
+  z-index: 1;
+  max-width: 860px;
+  margin: 12px auto 0;
+  padding: 10px 16px;
+  border-radius: var(--radius);
+  background: var(--up-soft);
+  border: 1px solid color-mix(in srgb, var(--up) 35%, transparent);
+  color: var(--color-up);
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-align: center;
 }
 
 .search-icon {
@@ -552,7 +801,10 @@ onBeforeUnmount(() => {
 .search-submit,
 .hero-action,
 .symbol-chip,
-.text-button {
+.text-button,
+.feature-card,
+.returning-pill,
+.rw-chip {
   transition:
     transform var(--transition-base),
     border-color var(--transition-base),
@@ -567,11 +819,15 @@ onBeforeUnmount(() => {
   border: 1px solid transparent;
   border-radius: calc(var(--radius-xl) - 2px);
   background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
-  color: var(--text-primary);
+  color: var(--on-accent);
   font-size: 1rem;
   font-weight: 700;
   cursor: pointer;
-  box-shadow: 0 18px 36px rgba(59, 130, 246, 0.28);
+  box-shadow: 0 18px 36px color-mix(in srgb, var(--blue) 28%, transparent);
+}
+.search-submit:disabled {
+  opacity: 0.7;
+  cursor: wait;
 }
 
 .hero-actions {
@@ -692,10 +948,20 @@ onBeforeUnmount(() => {
   min-height: 190px;
   padding: 28px;
   border-radius: var(--radius-lg);
+  text-decoration: none;
+  color: inherit;
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--elev) 92%, transparent), color-mix(in srgb, var(--card) 96%, transparent));
   border: 1px solid color-mix(in srgb, var(--muted) 12%, transparent);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--paper) 6%, transparent);
+}
+
+.feature-cta {
+  margin-top: auto;
+  padding-top: 14px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--accent-blue);
 }
 
 /* Bento：主特色卡放大為 2×2，建立層次而非等大方格 */
@@ -749,7 +1015,7 @@ onBeforeUnmount(() => {
   height: 9px;
   border-radius: 50%;
   background: var(--accent-cyan, var(--blue));
-  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.16);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--blue) 16%, transparent);
 }
 
 .feature-icon {
@@ -765,11 +1031,11 @@ onBeforeUnmount(() => {
 }
 
 /* 色塊圖示:每張特色卡用不同色調的光暈邊框做視覺分群，取代原本統一藍色 */
-.icon-tone-blue { background: color-mix(in srgb, var(--blue) 14%, transparent); box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.3); }
-.icon-tone-cyan { background: color-mix(in srgb, var(--cyan) 14%, transparent); box-shadow: inset 0 0 0 1px rgba(6, 182, 212, 0.3); }
-.icon-tone-purple { background: color-mix(in srgb, var(--purple) 14%, transparent); box-shadow: inset 0 0 0 1px rgba(139, 92, 246, 0.3); }
-.icon-tone-warn { background: var(--warn-soft); box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.3); }
-.icon-tone-up { background: var(--up-soft); box-shadow: inset 0 0 0 1px rgba(16, 185, 129, 0.3); }
+.icon-tone-blue { background: color-mix(in srgb, var(--blue) 14%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--blue) 30%, transparent); }
+.icon-tone-cyan { background: color-mix(in srgb, var(--cyan) 14%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cyan) 30%, transparent); }
+.icon-tone-purple { background: color-mix(in srgb, var(--purple) 14%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--purple) 30%, transparent); }
+.icon-tone-warn { background: var(--warn-soft); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--warn) 30%, transparent); }
+.icon-tone-up { background: var(--up-soft); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--up) 30%, transparent); }
 
 .feature-card h3 {
   margin: 0;
@@ -831,6 +1097,86 @@ onBeforeUnmount(() => {
   background:
     radial-gradient(circle at 100% 0%, color-mix(in srgb, var(--cyan) 8%, transparent), transparent 28%),
     linear-gradient(180deg, color-mix(in srgb, var(--card) 96%, transparent), color-mix(in srgb, var(--well) 98%, transparent));
+}
+
+.returning-hub {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 22px;
+  padding: 16px 18px;
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--elev) 90%, transparent);
+  border: 1px solid color-mix(in srgb, var(--blue) 22%, transparent);
+}
+
+.returning-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.returning-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 16px;
+  border-radius: 999px;
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+}
+
+.returning-pill.primary {
+  background: var(--blue-soft);
+  border-color: color-mix(in srgb, var(--blue) 42%, transparent);
+  color: var(--accent-blue);
+}
+
+.returning-pill:hover {
+  border-color: var(--accent-blue);
+}
+
+.returning-watchlist {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.rw-label {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.rw-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  padding: 4px 11px;
+  border-radius: 999px;
+  text-decoration: none;
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+}
+
+.rw-chip small {
+  font-family: var(--font-sans);
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.rw-chip:hover {
+  border-color: var(--accent-blue);
+  color: var(--accent-blue);
 }
 
 .recent-grid {
@@ -966,20 +1312,20 @@ onBeforeUnmount(() => {
   .recent-card:hover {
     border-color: color-mix(in srgb, var(--purple) 34%, transparent);
     box-shadow:
-      0 18px 48px rgba(11, 17, 33, 0.32),
-      0 0 0 1px rgba(139, 92, 246, 0.16),
-      0 0 24px rgba(59, 130, 246, 0.16);
+      0 18px 48px rgba(var(--shadow-rgb), 0.22),
+      0 0 0 1px color-mix(in srgb, var(--purple) 18%, transparent),
+      0 0 24px color-mix(in srgb, var(--blue) 18%, transparent);
   }
 
   .symbol-chip:hover,
   .hero-action:hover,
   .text-button:hover {
     border-color: color-mix(in srgb, var(--blue) 30%, transparent);
-    box-shadow: 0 14px 30px rgba(11, 17, 33, 0.24);
+    box-shadow: 0 14px 30px rgba(var(--shadow-rgb), 0.18);
   }
 
   .search-submit:hover {
-    box-shadow: 0 24px 44px rgba(59, 130, 246, 0.34);
+    box-shadow: 0 24px 44px color-mix(in srgb, var(--blue) 34%, transparent);
   }
 }
 
@@ -1001,6 +1347,7 @@ onBeforeUnmount(() => {
     flex-direction: column;
   }
 
+  .search-field-wrap,
   .search-field,
   .search-submit {
     width: 100%;
