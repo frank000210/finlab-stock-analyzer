@@ -14,7 +14,9 @@
     'finlab-stock-agent':    { x:  14, y: -11, zone: 'finlab',  buildIdx: 8 },
     'finlab-market-agent':   { x:  19, y: -31, zone: 'finlab',  buildIdx: 9 },
     'finlab-risk-agent':     { x:  28, y: -16, zone: 'finlab',  buildIdx: 10 },
-    'finlab-platform-agent': { x:  24, y:  -1, zone: 'finlab',  buildIdx: 11 }
+    'finlab-platform-agent': { x:  24, y:  -1, zone: 'finlab',  buildIdx: 11 },
+    // Front-Center Observer Plaza: Intern Yo-Yo Water Balloon & Study Booth
+    'intern-agent':          { x:   3, y:  13, zone: 'portal',  buildIdx: 12 }
   };
 
   // Large Leisure Lounge BEHIND Foreman: x in [-40..-12], y in [-40..-12] (28x28cm!)
@@ -28,10 +30,11 @@
     'finlab-platform-agent': { x: -34.2, y: -31.8, activity: 'arcade' },
     'finlab-decision-agent': { x: -28.0, y: -34.5, activity: 'arcade' },
     'finlab-stock-agent':    { x: -28.5, y: -27.5, activity: 'gaming' },
-    // Japanese Tea House & Tatami Table (3 guests)
+    // Japanese Tea House & Tatami Table (4 guests)
     'share-agent':           { x: -20.0, y: -34.0, activity: 'tea' },
     'revival-agent':         { x: -14.8, y: -28.5, activity: 'tea' },
-    'kb-agent':              { x: -18.8, y: -22.8, activity: 'tea' }
+    'kb-agent':              { x: -18.8, y: -22.8, activity: 'tea' },
+    'intern-agent':          { x: -14.5, y: -34.2, activity: 'tea' }
   };
 
   // Foreman Briefing / Reporting Plaza right in front of Foreman (-4, -4)
@@ -44,7 +47,8 @@
     { x: -6.2, y:  5.4 },
     { x:  3.6, y:  2.2 },
     { x: -9.5, y: -1.5 },
-    { x:  0.5, y:  6.4 }
+    { x:  0.5, y:  6.4 },
+    { x:  4.0, y: -1.8 }
   ];
 
   // MongoDB Data Core placed cleanly at front-bottom hub
@@ -673,6 +677,24 @@
       drawSphere(G, xf, [2.35, 0.35, 1.45], 0.25, M.white, { lw: 0.7 });
       drawSphere(G, xf, [2.7, 0.45, 1.45], 0.25, M.white, { lw: 0.7 });
       drawLanterns(-1.5, 5.65);
+    } else if (sk === 'intern') {
+      // 🎈 Yo-Yo Water Balloon Fishing + Study Notebook Stand (釣水球與學習筆記攤)
+      var cyanRim = { light: '#67e8f9', mid: '#06b6d4', dark: '#0e7490' };
+      var waterMat = { light: '#bae6fd', mid: '#38bdf8', dark: '#0284c7' };
+      drawCyl(G, xf, [-0.5, -0.8, 0.75], 'z', 2.35, 1.5, cyanRim, { lw: 1.15, seg: 20 });
+      drawCyl(G, xf, [-0.5, -0.8, 1.45], 'z', 2.05, 0.22, waterMat, { lw: 0.85, seg: 20 });
+      var yoyoCols = ['#f472b6', '#facc15', '#a78bfa', '#4ade80', '#fb923c'];
+      for (var yi = 0; yi < 5; yi++) {
+        var ang = yi * 1.25 + timeSec * (active ? 0.9 : 0.25);
+        var yx = -0.5 + Math.cos(ang) * 1.15;
+        var yy = -0.8 + Math.sin(ang) * 1.05;
+        var yz = 1.85 + Math.sin(timeSec * 3.8 + yi) * 0.14;
+        drawSphere(G, xf, [yx, yy, yz], 0.42, makeMat(yoyoCols[yi]), { lw: 0.8 });
+      }
+      // Side study podium with open notebook for logging team learnings!
+      drawBox(G, xf, [1.85, -1.6, 0], [3.15, -0.2, 2.3], pal.wood, { lw: 1.0 });
+      drawBox(G, xf, [1.95, -1.45, 2.3], [3.05, -0.35, 2.52], M.white, { lw: 0.85 });
+      drawLanterns(-1.8, 4.3);
     }
 
     // Status beacon post on corner of every workshop
@@ -693,6 +715,10 @@
     } else if (spriteKey === 'decision' || spriteKey === 'platform') {
       drawCyl(G, fxf, [hx, hy, hz + 0.7], 'z', 0.96, 0.25, hairMat, { lw: 1.0, seg: 16 });
       drawBox(G, fxf, [hx - 0.82, hy + 0.68, hz - 0.1], [hx + 0.82, hy + 1.02, hz + 0.27], M.term, { lw: 0.9 });
+    } else if (spriteKey === 'intern') {
+      // Student cap + fresh cyan badge!
+      drawSphere(G, fxf, [hx - 0.06, hy - 0.12, hz + 0.48], 0.84, hairMat, { lw: 1.05 });
+      drawBox(G, fxf, [hx - 0.95, hy - 0.95, hz + 0.82], [hx + 0.95, hy + 0.95, hz + 1.02], makeMat('#06b6d4'), { lw: 0.95 });
     } else {
       drawSphere(G, fxf, [hx - 0.08, hy - 0.16, hz + 0.47], 0.82, hairMat, { lw: 1.1 });
     }
@@ -777,6 +803,12 @@
         // ⚾ Pitching white baseball in an arc toward the 9-square board!
         var pFly = (timeSec * 2.0) % 1;
         drawSphere(G, bodyXf, [1.0 - pFly * 0.8, -0.6 - pFly * 2.4, 3.0 + Math.sin(pFly * Math.PI) * 1.1], 0.32, M.white, { lw: 0.85 });
+      } else if (sk === 'intern') {
+        // 🎈 Fishing a bouncy Yo-Yo water balloon + holding study notebook!
+        var yBob = Math.sin(timeSec * 5.2) * 0.42;
+        drawCyl(G, bodyXf, [1.1, -1.0, 2.35 + yBob * 0.3], 'y', 0.06, 1.25, M.white, { lw: 0.65, seg: 8 });
+        drawSphere(G, bodyXf, [1.1, -1.75, 1.9 + yBob * 0.45], 0.36, makeMat('#f472b6'), { lw: 0.8 });
+        drawBox(G, bodyXf, [-1.55, -0.85, 2.2], [-0.92, -0.15, 2.85], M.white, { lw: 0.8 });
       }
     }
 

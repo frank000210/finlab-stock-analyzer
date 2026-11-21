@@ -75,6 +75,12 @@ window.NOTEBOOK_SPRITES = (function () {
       outfit: '#0284C7', glasses: true,
       hairFront: '<path d="M18 23 C19 13 29 10 36 11 C43 12 46 16 46 23 C40 18 24 18 18 23 Z" fill="#334155" stroke="#2B2B33" stroke-width="1.8"/>',
       prop: '<g transform="translate(44,41)"><circle cx="8" cy="8" r="6" fill="#E2E8F0" stroke="#2B2B33" stroke-width="1.8" stroke-dasharray="3 2"/><circle cx="8" cy="8" r="2.4" fill="#FFFDF7" stroke="#2B2B33" stroke-width="1.5"/></g>'
+    }),
+    intern: draw({
+      outfit: '#06B6D4', glasses: true,
+      hairFront: '<path d="M18 24 C20 13 44 13 46 24 C40 18 24 18 18 24 Z" fill="#1E293B" stroke="#2B2B33" stroke-width="1.8"/>',
+      hat: '<polygon points="32,5 49,12 32,18 15,12" fill="#0891B2" stroke="#2B2B33" stroke-width="1.8"/><line x1="47" y1="13" x2="49" y2="21" stroke="#FACC15" stroke-width="2" stroke-linecap="round"/>',
+      prop: '<g transform="translate(43,40) rotate(-6)"><rect x="0" y="0" width="15" height="17" rx="2" fill="#ECFEFF" stroke="#2B2B33" stroke-width="1.7"/><line x1="3" y1="5" x2="12" y2="5" stroke="#0891B2" stroke-width="1.6"/><line x1="3" y1="9" x2="12" y2="9" stroke="#0891B2" stroke-width="1.6"/><line x1="3" y1="13" x2="9" y2="13" stroke="#0891B2" stroke-width="1.6"/></g>'
     })
   };
 

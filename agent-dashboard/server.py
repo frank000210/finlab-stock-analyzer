@@ -112,6 +112,7 @@ async def lifespan(_app: FastAPI):
     global _last_known_revision, _watcher_task
     await asyncio.to_thread(db_store.ensure_indexes)
     await asyncio.to_thread(db_store.seed_from_json, False)
+    await asyncio.to_thread(db_store.sync_default_agents)
     meta = await asyncio.to_thread(db_store.get_meta_brief)
     _last_known_revision = int(meta.get("revision", 0))
     _watcher_task = asyncio.create_task(_watch_mongo_revision())
@@ -393,6 +394,17 @@ async def api_delete_task(task_id: str):
         result = await asyncio.to_thread(db_store.delete_task, task_id, notify=False)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
+    await _broadcast_state(force=True)
+    return result
+
+
+@app.post("/api/agents", dependencies=[Depends(require_write)])
+async def api_upsert_agent(request: Request):
+    body = await request.json()
+    try:
+        result = await asyncio.to_thread(db_store.upsert_agent, body)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
     await _broadcast_state(force=True)
     return result
 
