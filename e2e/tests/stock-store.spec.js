@@ -106,9 +106,10 @@ function attachErrorWatchers(page) {
   page.on('console', (msg) => {
     if (msg.type() !== 'error') return
     const text = msg.text()
-    // 忽略測試容器無外網時的外部字型 DNS 錯誤，以及未登入一般會員時的全站 auth/me 401 探測
+    // 忽略測試容器無外網時的外部字型 DNS 錯誤、全站 auth/me 401 探測，以及連續跑整套 E2E 時的 pageview 429 限流
     if (/ERR_NAME_NOT_RESOLVED/i.test(text)) return
     if (/status of 401 \(Unauthorized\)/i.test(text)) return
+    if (/status of 429 \(Too Many Requests\)/i.test(text)) return
     consoleErrors.push(text)
   })
   return { pageErrors, consoleErrors }
