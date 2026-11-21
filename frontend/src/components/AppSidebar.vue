@@ -88,8 +88,8 @@
             v-if="showFull"
             type="button"
             class="pin-action-btn pinned"
-            aria-label="移除常用捷徑"
-            :title="`移除常用：${item.label}`"
+            aria-label="解除釘選"
+            :title="`解除釘選：${item.label}`"
             @click.prevent.stop="togglePin(item.key)"
           >
             <PinOff :size="12" />
@@ -155,8 +155,8 @@
               class="pin-action-btn"
               :class="{ pinned: isPinned(item.key) }"
               :data-testid="`pin-btn-${item.key}`"
-              :aria-label="isPinned(item.key) ? '移除常用捷徑' : '加入常用捷徑'"
-              :title="isPinned(item.key) ? `移除常用：${item.label}` : `加入常用：${item.label}`"
+              :aria-label="isPinned(item.key) ? '解除釘選' : '星號釘選'"
+              :title="isPinned(item.key) ? `解除釘選：${item.label}` : `釘選至常用：${item.label}`"
               @click.prevent.stop="togglePin(item.key)"
             >
               <Pin :size="12" />
