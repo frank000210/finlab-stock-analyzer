@@ -41,6 +41,12 @@ function startStaticServer(rootDir) {
         return
       }
       const ext = path.extname(filePath).toLowerCase()
+      if (ext === '.html') {
+        const html = fs.readFileSync(filePath, 'utf-8').replaceAll('{{env "BASE_HOST"}}', 'example.test')
+        res.writeHead(200, { 'Content-Type': MIME[ext] })
+        res.end(html)
+        return
+      }
       res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream' })
       fs.createReadStream(filePath).pipe(res)
     })
@@ -122,6 +128,7 @@ async function auditPageContrast(page, keyChecks) {
       while (cur && cur.nodeType === 1) {
         const cs = getComputedStyle(cur)
         if (cs.display === 'none' || cs.visibility === 'hidden' || parseFloat(cs.opacity) === 0) return false
+        if (cur.classList && cur.classList.contains('sr-only')) return false
         if (cur.tagName === 'DETAILS' && !cur.open) {
           if (!el.closest('summary')) return false
         }
@@ -243,6 +250,43 @@ test.describe('知識分享 /share/ 六組主題 WCAG AA 對比度驗證', () =>
       const html = fs.readFileSync(f, 'utf-8')
       expect(html, `${path.relative(PORTAL_DIR, f)} 不應含連續兩個左大括號`).not.toContain('{{')
     }
+    const portalHtml = fs.readFileSync(path.join(PORTAL_DIR, 'index.html'), 'utf-8')
+      .replaceAll('{{env "BASE_HOST"}}', 'example.test')
+    expect(portalHtml, 'index.html 除 {{env "BASE_HOST"}} 外不應含連續兩個左大括號').not.toContain('{{')
+  })
+
+  test('入口頁 / 在 6 組主題下重測按鈕、異常標籤與所有可見文字皆達 WCAG AA ≥ 4.5:1', async ({ page }) => {
+    const pageErrors = []
+    page.on('pageerror', (e) => pageErrors.push(String(e)))
+
+    await page.route(/^https?:\/\/(?!127\.0\.0\.1(?::\d+)?\/|localhost(?::\d+)?\/).*/, (route) => route.abort())
+    await page.route('https://*.example.test/**', (route) => {
+      if (route.request().url().startsWith('https://food.example.test/')) {
+        return route.abort()
+      }
+      return route.fulfill({ status: 200, contentType: 'text/plain; charset=utf-8', body: 'ok' })
+    })
+
+    await page.goto(`${srv.baseUrl}/`)
+    await expect(page.locator('#retest-btn')).toBeVisible()
+    await expect(page.locator('.status-badge:visible')).toHaveCount(1)
+
+    const checks = [
+      { label: '便利貼大字 (.sticky .big)', selector: '.sticky .big' },
+      { label: '便利貼說明 (.sticky small)', selector: '.sticky small' },
+      { label: '便利貼重測按鈕 (.retest-btn)', selector: '.retest-btn' },
+      { label: '異常微標籤 (.status-badge)', selector: '.status-badge' },
+      { label: '卡片標題 (.card .title)', selector: '.card .title' },
+      { label: '卡片描述 (.card .desc)', selector: '.card .desc' },
+      { label: '主題選單按鈕 (.tp-btn)', selector: '.tp-btn' },
+    ]
+
+    for (const theme of THEMES) {
+      await selectTheme(page, theme.id)
+      const res = await auditPageContrast(page, checks)
+      expect(res.failures, `入口頁 / 主題 ${theme.id} 對比度失敗：\n${res.failures.join('\n')}`).toEqual([])
+    }
+    expect(pageErrors).toEqual([])
   })
 
   test('/share/ 目錄頁在 6 組主題下卡片標題與所有文字皆達 WCAG AA ≥ 4.5:1', async ({ page }) => {
@@ -278,8 +322,15 @@ test.describe('知識分享 /share/ 六組主題 WCAG AA 對比度驗證', () =>
 
     await page.goto(`${srv.baseUrl}/share/math-study-method/`)
     await expect(page.locator('h1')).toBeVisible()
-    // 展開所有「課本的寫法」折疊區塊，確保展開後內容對比度也一併驗證
-    await page.evaluate(() => document.querySelectorAll('details').forEach((d) => { d.open = true }))
+    // 展開所有「課本的寫法」折疊區塊，並開啟浮動目錄、顯示「回上一處」按鈕與心智圖滑動提示，確保所有新增元件皆驗證對比度
+    await page.evaluate(() => {
+      document.querySelectorAll('details').forEach((d) => { d.open = true })
+      const backBtn = document.getElementById('read-back')
+      if (backBtn) backBtn.hidden = false
+      document.querySelectorAll('.map-shell').forEach((s) => s.classList.add('is-scrollable'))
+    })
+    await page.locator('#read-toc-btn').click()
+    await expect(page.locator('#read-toc')).toBeVisible()
 
     const checks = [
       { label: '定義條目標籤 (.item.def .tag)', selector: '.item.def .tag' },
@@ -303,10 +354,22 @@ test.describe('知識分享 /share/ 六組主題 WCAG AA 對比度驗證', () =>
       { label: '提示框 (.note)', selector: '.note' },
       { label: '簡式連接詞 (.kw)', selector: '.kw' },
       { label: '結果編號 (.n.r)', selector: '.n.r' },
+      { label: '浮動閱讀按鈕 (.read-btn)', selector: '.read-btn' },
+      { label: '浮動回上一處按鈕 (.read-btn-back)', selector: '.read-btn-back' },
+      { label: '浮動目錄標題 (.read-toc-head strong)', selector: '.read-toc-head strong' },
+      { label: '浮動目錄關閉鈕 (.read-toc-close)', selector: '.read-toc-close' },
+      { label: '浮動目錄連結 (.read-toc-list a)', selector: '.read-toc-list a' },
+      { label: '浮動目錄目前章節 (.read-toc-list a.active)', selector: '.read-toc-list a.active' },
+      { label: '心智圖滑動提示 (.map-hint)', selector: '.map-hint' },
     ]
 
     for (const theme of THEMES) {
       await selectTheme(page, theme.id)
+      // selectTheme 點擊主題按鈕會收起目錄抽屜，這裡重新打開以涵蓋目錄抽屜對比度
+      if (await page.locator('#read-toc').isHidden()) {
+        await page.locator('#read-toc-btn').click()
+        await expect(page.locator('#read-toc')).toBeVisible()
+      }
       const res = await auditPageContrast(page, checks)
       expect(res.svgChecked, `主題 ${theme.id} 應驗證 26 個心智圖節點文字`).toBe(52)
       expect(res.failures, `/share/math-study-method/ 主題 ${theme.id} 對比度失敗：\n${res.failures.join('\n')}`).toEqual([])

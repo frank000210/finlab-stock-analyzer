@@ -185,15 +185,54 @@ test.describe('入口頁與靜態子站煙霧測試', () => {
       await expect(card).toContainText(item.title)
     }
 
-    // 健康檢查攔截回 200 後，全部狀態點變正常、右上便利貼顯示全部服務正常
+    // 健康檢查攔截回 200 後，全部狀態點變正常、移除 aria-hidden 盲點、提供無障礙文字
+    await expect(page.locator('a.card .dot[aria-hidden="true"]')).toHaveCount(0)
     await expect(page.locator('a.card .dot.ok')).toHaveCount(expectedCards.length)
+    await expect(page.locator('a.card .dot .sr-only')).toHaveCount(expectedCards.length)
+    await expect(page.locator('a.card .dot .sr-only').first()).toHaveText('運作正常')
+    await expect(page.locator('a.card .status-badge:visible')).toHaveCount(0)
+    await expect(page.locator('#up-count')).toHaveText(`${expectedCards.length} / ${expectedCards.length}`)
+    await expect(page.locator('#up-label')).toHaveText('全部服務正常')
+
+    // 模擬單一服務異常，點擊便利貼「↻ 重測」驗證三重編碼（菱形＋紅字標籤＋無障礙文字）
+    const retestBtn = page.locator('#retest-btn')
+    await expect(retestBtn).toBeVisible()
+    await expect(retestBtn).toContainText('重測')
+
+    let failFood = true
+    await page.route(`https://food.${BASE_HOST}/**`, (route) => {
+      if (failFood) return route.abort()
+      return route.fulfill({ status: 200, contentType: 'text/plain; charset=utf-8', body: 'ok' })
+    })
+
+    await retestBtn.click()
+    const foodCard = page.locator(`a.card[href="https://food.${BASE_HOST}/"]`)
+    await expect(foodCard.locator('.dot.down')).toBeVisible()
+    await expect(foodCard.locator('.dot .sr-only')).toHaveText('暫時連不上')
+    await expect(foodCard.locator('.status-badge')).toBeVisible()
+    await expect(foodCard.locator('.status-badge')).toHaveText('連不上')
+    await expect(page.locator('#up-count')).toHaveText(`${expectedCards.length - 1} / ${expectedCards.length}`)
+    await expect(page.locator('#up-label')).toHaveText('1 個服務連不上')
+
+    const downShape = await foodCard.locator('.dot.down').evaluate((el) => {
+      const cs = getComputedStyle(el)
+      return { transform: cs.transform, borderRadius: cs.borderRadius }
+    })
+    expect(downShape.transform).not.toBe('none')
+    expect(downShape.borderRadius).not.toBe('50%')
+
+    // 恢復正常後再次重測，所有燈號與摘要應恢復全部正常
+    failFood = false
+    await retestBtn.click()
+    await expect(page.locator('a.card .dot.ok')).toHaveCount(expectedCards.length)
+    await expect(page.locator('a.card .status-badge:visible')).toHaveCount(0)
     await expect(page.locator('#up-count')).toHaveText(`${expectedCards.length} / ${expectedCards.length}`)
     await expect(page.locator('#up-label')).toHaveText('全部服務正常')
 
     expect(errors).toEqual([])
   })
 
-  test('知識分享目錄 /share/：目錄卡片與返回入口連結正常渲染', async ({ page }) => {
+  test('知識分享目錄 /share/：目錄卡片與返回入口連結正常渲染，多行標題不壓住摘要', async ({ page }) => {
     const errors = []
     page.on('pageerror', (e) => errors.push(String(e)))
     await setupOfflineRoutes(page)
@@ -209,10 +248,29 @@ test.describe('入口頁與靜態子站煙霧測試', () => {
     await expect(courseCard).toBeVisible()
     await expect(courseCard).toContainText('讀書方法分享 — 高等數學')
 
+    // 模擬窄螢幕下 3 行長標題，驗證標題底部絕對不重疊下方摘要頂部
+    await page.setViewportSize(MOBILE_VIEWPORT)
+    const overlapCheck = await page.evaluate(() => {
+      const title = document.querySelector('.card .title')
+      const desc = document.querySelector('.card .desc')
+      if (!title || !desc) return null
+      title.textContent = '超長課程標題測試：微積分、高等微積分、線性代數與實數完備性系統化讀書與筆記整理方法完整示範'
+      const tRect = title.getBoundingClientRect()
+      const dRect = desc.getBoundingClientRect()
+      return {
+        titleHeight: tRect.height,
+        titleBottom: tRect.bottom,
+        descTop: dRect.top,
+      }
+    })
+    expect(overlapCheck).not.toBeNull()
+    expect(overlapCheck.titleHeight).toBeGreaterThan(50)
+    expect(overlapCheck.titleBottom).toBeLessThanOrEqual(overlapCheck.descTop)
+
     expect(errors).toEqual([])
   })
 
-  test('數學讀書法課程頁 /share/math-study-method/：目錄、便利貼、條目與關聯圖正常渲染', async ({ page }) => {
+  test('數學讀書法課程頁 /share/math-study-method/：目錄、便利貼、條目、浮動閱讀列與心智圖滑動提示', async ({ page }) => {
     const errors = []
     page.on('pageerror', (e) => errors.push(String(e)))
     await setupOfflineRoutes(page)
@@ -226,6 +284,67 @@ test.describe('入口頁與靜態子站煙霧測試', () => {
     await expect(page.locator('nav.toc a')).toHaveCount(6)
     expect(await page.locator('article.item').count()).toBeGreaterThanOrEqual(10)
     expect(await page.locator('.mapwrap svg').count()).toBeGreaterThanOrEqual(2)
+
+    // 浮動閱讀列：預設顯示「目錄」「回頂部」，隱藏「回上一處」
+    const tocBtn = page.locator('#read-toc-btn')
+    const topBtn = page.locator('#read-top')
+    const backBtn = page.locator('#read-back')
+    const tocPanel = page.locator('#read-toc')
+    await expect(tocBtn).toBeVisible()
+    await expect(topBtn).toBeVisible()
+    await expect(backBtn).toBeHidden()
+    await expect(tocPanel).toBeHidden()
+
+    // 點擊目錄開啟抽屜，驗證自動收集 6 個章節並可跳轉
+    await tocBtn.click()
+    await expect(tocPanel).toBeVisible()
+    await expect(tocBtn).toHaveAttribute('aria-expanded', 'true')
+    await expect(page.locator('#read-toc-list a')).toHaveCount(6)
+    await page.locator('#read-toc-list a[href="#practice"]').click()
+    await expect(tocPanel).toBeHidden()
+    await expect(backBtn).toBeVisible()
+
+    // 模擬閱讀條目 T4 時點擊前置晶片 T3，驗證「↩ 回上一處」捲回原閱讀位置並自動收起
+    await page.locator('#a-t4').scrollIntoViewIfNeeded()
+    await page.waitForTimeout(150)
+    const beforeChipY = await page.evaluate(() => window.scrollY)
+    expect(beforeChipY).toBeGreaterThan(200)
+
+    await page.locator('#a-t4 a.chip[href="#a-t3"]').click()
+    await expect(backBtn).toBeVisible()
+    await backBtn.click()
+    await expect(backBtn).toBeHidden()
+    await expect.poll(async () => Math.abs((await page.evaluate(() => window.scrollY)) - beforeChipY)).toBeLessThan(80)
+
+    // 從心智圖 SVG 節點跳轉去看前置定義，也應浮現「↩ 回上一處」並可返回
+    const firstMapNode = page.locator('svg.map a[href="#a-d1"]').first()
+    await firstMapNode.scrollIntoViewIfNeeded()
+    await page.waitForTimeout(150)
+    const beforeMapY = await page.evaluate(() => window.scrollY)
+    await firstMapNode.click()
+    await expect(backBtn).toBeVisible()
+    await backBtn.click()
+    await expect(backBtn).toBeHidden()
+    await expect.poll(async () => Math.abs((await page.evaluate(() => window.scrollY)) - beforeMapY)).toBeLessThan(80)
+
+    // 點擊「↑ 回頂部」應回到頁面最上方
+    await topBtn.click()
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBeLessThan(20)
+
+    // 手機寬度下驗證心智圖容器顯示水平滑動提示，滑動後淡出
+    await page.setViewportSize(MOBILE_VIEWPORT)
+    const firstShell = page.locator('.map-shell').first()
+    const firstHint = firstShell.locator('.map-hint')
+    await firstShell.scrollIntoViewIfNeeded()
+    await expect(firstShell).toHaveClass(/is-scrollable/)
+    await expect(firstHint).toBeVisible()
+    await expect(firstHint).toContainText('左右滑動')
+
+    await firstShell.locator('.mapwrap').evaluate((el) => {
+      el.scrollLeft = 80
+      el.dispatchEvent(new Event('scroll'))
+    })
+    await expect(firstShell).toHaveClass(/is-scrolled/)
 
     expect(errors).toEqual([])
   })

@@ -53,20 +53,30 @@
     }
   }
 
-  header { position: relative; padding-right: 240px; min-height: 118px; }
+  header { position: relative; padding-right: 240px; min-height: 148px; }
   h1 {
     display: inline-block; margin: 0; padding-bottom: 12px; font-size: 2.4rem; line-height: 1.2; font-weight: 700; letter-spacing: .04em;
     color: var(--teal); background: var(--wave) repeat-x left bottom / 40px 8px;
   }
   header p { margin: 10px 0 0; color: var(--muted); font-size: .95rem; }
   .sticky {
-    position: absolute; right: 0; top: -4px; width: 200px; padding: 14px 14px 12px; text-align: center;
+    position: absolute; right: 0; top: -4px; width: 204px; padding: 14px 14px 12px; text-align: center;
     background: var(--sticky); color: var(--sticky-ink); transform: rotate(3deg);
     box-shadow: 0 2px 3px rgba(0,0,0,.12), 0 10px 18px rgba(0,0,0,.10);
   }
   .sticky::before { content: ""; position: absolute; left: 50%; top: -11px; width: 80px; height: 22px; margin-left: -40px; background: rgba(255,255,255,.55); transform: rotate(-4deg); }
-  .sticky .big { font-family: "Ink Free", "Segoe Print", "Bradley Hand", "DFKai-SB", "標楷體", cursive; font-size: 3rem; line-height: 1; color: #C03936; margin: 2px 0; font-weight: 700; }
+  .sticky .big { font-family: "Ink Free", "Segoe Print", "Bradley Hand", "DFKai-SB", "標楷體", cursive; font-size: 3rem; line-height: 1; color: #8E1F1D; margin: 2px 0; font-weight: 700; }
   .sticky small { display: block; font-size: .85rem; font-weight: 700; }
+  .retest-btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+    margin-top: 8px; padding: 4px 12px; border-radius: 999px;
+    background: transparent; color: var(--sticky-ink); border: 1.5px solid var(--sticky-ink);
+    font: inherit; font-size: .8rem; font-weight: 700; cursor: pointer;
+    transition: transform .15s;
+  }
+  .retest-btn:hover:not(:disabled) { background: var(--sticky-ink); color: var(--sticky); }
+  .retest-btn:focus-visible { outline: 2.5px solid var(--teal); outline-offset: 2px; }
+  .retest-btn:disabled { opacity: .75; cursor: wait; }
   @media (max-width: 760px) {
     header { padding-right: 0; min-height: 0; }
     h1 { font-size: 1.9rem; }
@@ -95,14 +105,43 @@
   .icon { font-size: 1.6rem; line-height: 1; flex: none; margin-top: 2px; }
   .body { min-width: 0; flex: 1; display: block; }
   .desc, .host { display: block; }
-  .title { display: flex; align-items: center; gap: 8px; font-weight: 700; }
+  .title { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; font-weight: 700; }
   .desc { color: var(--muted); font-size: .9rem; margin-top: 2px; }
   .host { color: var(--muted); font-size: .75rem; margin-top: 6px; font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; overflow-wrap: anywhere; }
-  /* 狀態點：實心綠＝正常、實心紅＝連不上、虛線圓圈＝檢查中（title 另有文字說明，不只靠顏色） */
-  .dot { width: 10px; height: 10px; border-radius: 50%; background: transparent; border: 2px dashed var(--muted); flex: none; }
-  .dot.ok { background: var(--ok); border: 2px solid var(--ok); } .dot.down { background: var(--bad); border: 2px solid var(--bad); }
+  .sr-only {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+  }
+  /* 狀態點三重編碼：形狀（空心脈動圓／實心圓／旋轉菱形）＋顏色＋無障礙文字（異常另附可視微標籤） */
+  .dot {
+    display: inline-block; width: 10px; height: 10px; border-radius: 50%;
+    background: transparent; border: 2px dashed var(--muted); flex: none;
+    animation: dot-pulse 1.3s ease-in-out infinite;
+  }
+  .dot.ok {
+    background: var(--ok); border: 2px solid var(--ok);
+    border-radius: 50%; transform: none; animation: none;
+  }
+  .dot.down {
+    background: var(--bad); border: 2px solid var(--bad);
+    border-radius: 2px; transform: rotate(45deg) scale(.92); animation: none;
+  }
+  @keyframes dot-pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: .45; transform: scale(.82); }
+  }
+  .status-badge {
+    margin-left: auto; padding: 1px 7px; border-radius: 999px; flex: none;
+    font-size: .72rem; font-weight: 700; line-height: 1.4;
+    background: var(--paper); color: var(--bad); border: 1.5px solid var(--bad);
+  }
+  .status-badge[hidden] { display: none; }
   footer { margin-top: 36px; color: var(--muted); font-size: .85rem; }
-  @media (prefers-reduced-motion: reduce) { a.card { transition: none; } a.card:hover { transform: none; } }
+  @media (prefers-reduced-motion: reduce) {
+    a.card, .retest-btn { transition: none; }
+    a.card:hover { transform: none; }
+    .dot { animation: none; }
+  }
 </style>
 </head>
 <body>
@@ -114,8 +153,14 @@
 <main>
   <header>
     <h1>服務入口</h1>
-    <p>自架主機上的所有服務，點卡片即可前往。實心綠點表示服務正常、實心紅點表示目前連不上、虛線圓圈表示還在檢查。</p>
-    <div class="sticky" aria-live="polite"><p class="big" id="up-count">…</p><small id="up-label">服務檢查中</small></div>
+    <p>自架主機上的所有服務，點卡片即可前往。實心綠圓表示運作正常、紅色菱形與「連不上」標籤表示異常、虛線脈動圓圈表示偵測中。</p>
+    <div class="sticky">
+      <div class="sticky-status" aria-live="polite">
+        <p class="big" id="up-count">…</p>
+        <small id="up-label">服務檢查中</small>
+      </div>
+      <button type="button" class="retest-btn" id="retest-btn" aria-label="重新偵測全部服務狀態">↻ 重測</button>
+    </div>
   </header>
 
   <section>
@@ -123,13 +168,13 @@
     <div class="grid">
       <a class="card" href="https://finlab.{{env "BASE_HOST"}}/" data-check="https://finlab.{{env "BASE_HOST"}}/api/health">
         <span class="icon" aria-hidden="true">📈</span>
-        <span class="body"><span class="title"><span class="dot" aria-hidden="true"></span>FinLab 選股分析</span>
+        <span class="body"><span class="title"><span class="dot" title="偵測中"><span class="sr-only">偵測中</span></span>FinLab 選股分析<span class="status-badge" hidden aria-hidden="true">連不上</span></span>
           <span class="desc">台股分析、籌碼、AI 信號、學習中心</span>
           <span class="host">finlab.{{env "BASE_HOST"}}</span></span>
       </a>
       <a class="card" href="https://finlab.{{env "BASE_HOST"}}/admin" data-check="https://finlab.{{env "BASE_HOST"}}/api/health">
         <span class="icon" aria-hidden="true">⚙️</span>
-        <span class="body"><span class="title"><span class="dot" aria-hidden="true"></span>FinLab 後台</span>
+        <span class="body"><span class="title"><span class="dot" title="偵測中"><span class="sr-only">偵測中</span></span>FinLab 後台<span class="status-badge" hidden aria-hidden="true">連不上</span></span>
           <span class="desc">管理員密碼登入</span>
           <span class="host">finlab.{{env "BASE_HOST"}}/admin</span></span>
       </a>
@@ -141,13 +186,13 @@
     <div class="grid">
       <a class="card" href="https://finlab.{{env "BASE_HOST"}}/learn" data-check="https://finlab.{{env "BASE_HOST"}}/api/health">
         <span class="icon" aria-hidden="true">🎓</span>
-        <span class="body"><span class="title"><span class="dot" aria-hidden="true"></span>學習中心</span>
+        <span class="body"><span class="title"><span class="dot" title="偵測中"><span class="sr-only">偵測中</span></span>學習中心<span class="status-badge" hidden aria-hidden="true">連不上</span></span>
           <span class="desc">從 AI Agent 原理到 Claude Code 客製化的課程</span>
           <span class="host">finlab.{{env "BASE_HOST"}}/learn</span></span>
       </a>
       <a class="card" href="https://finlab.{{env "BASE_HOST"}}/build-guide" data-check="https://finlab.{{env "BASE_HOST"}}/api/health">
         <span class="icon" aria-hidden="true">🔨</span>
-        <span class="body"><span class="title"><span class="dot" aria-hidden="true"></span>建站教學</span>
+        <span class="body"><span class="title"><span class="dot" title="偵測中"><span class="sr-only">偵測中</span></span>建站教學<span class="status-badge" hidden aria-hidden="true">連不上</span></span>
           <span class="desc">給非 IT 人員：從申請 GitHub、主機到網站上線</span>
           <span class="host">finlab.{{env "BASE_HOST"}}/build-guide</span></span>
       </a>
@@ -159,13 +204,13 @@
     <div class="grid">
       <a class="card" href="/share/" data-check="/share/">
         <span class="icon" aria-hidden="true">📚</span>
-        <span class="body"><span class="title"><span class="dot" aria-hidden="true"></span>知識分享</span>
+        <span class="body"><span class="title"><span class="dot" title="偵測中"><span class="sr-only">偵測中</span></span>知識分享<span class="status-badge" hidden aria-hidden="true">連不上</span></span>
           <span class="desc">教學筆記與讀書方法，主題逐步增加</span>
           <span class="host">{{env "BASE_HOST"}}/share/</span></span>
       </a>
       <a class="card" href="/morning-revival/" data-check="/morning-revival/">
         <span class="icon" aria-hidden="true">🌅</span>
-        <span class="body"><span class="title"><span class="dot" aria-hidden="true"></span>晨興聖言</span>
+        <span class="body"><span class="title"><span class="dot" title="偵測中"><span class="sr-only">偵測中</span></span>晨興聖言<span class="status-badge" hidden aria-hidden="true">連不上</span></span>
           <span class="desc">每週鳥瞰與生活應用，經文取自恢復本</span>
           <span class="host">{{env "BASE_HOST"}}/morning-revival/</span></span>
       </a>
@@ -177,13 +222,13 @@
     <div class="grid">
       <a class="card" href="https://kb.{{env "BASE_HOST"}}/" data-check="https://kb.{{env "BASE_HOST"}}/">
         <span class="icon" aria-hidden="true">🧠</span>
-        <span class="body"><span class="title"><span class="dot" aria-hidden="true"></span>知識庫 kb-web</span>
+        <span class="body"><span class="title"><span class="dot" title="偵測中"><span class="sr-only">偵測中</span></span>知識庫 kb-web<span class="status-badge" hidden aria-hidden="true">連不上</span></span>
           <span class="desc">文件查詢與 AI 問答</span>
           <span class="host">kb.{{env "BASE_HOST"}}</span></span>
       </a>
       <a class="card" href="https://dashboard.{{env "BASE_HOST"}}/" data-check="https://dashboard.{{env "BASE_HOST"}}/api/health">
         <span class="icon" aria-hidden="true">🏮</span>
-        <span class="body"><span class="title"><span class="dot" aria-hidden="true"></span>Agent 工作儀表板</span>
+        <span class="body"><span class="title"><span class="dot" title="偵測中"><span class="sr-only">偵測中</span></span>Agent 工作儀表板<span class="status-badge" hidden aria-hidden="true">連不上</span></span>
           <span class="desc">3D 夜市工作區、休閒大廳、任務看板與即時派工</span>
           <span class="host">dashboard.{{env "BASE_HOST"}}</span></span>
       </a>
@@ -195,13 +240,13 @@
     <div class="grid">
       <a class="card" href="https://food.{{env "BASE_HOST"}}/" data-check="https://food.{{env "BASE_HOST"}}/">
         <span class="icon" aria-hidden="true">🍱</span>
-        <span class="body"><span class="title"><span class="dot" aria-hidden="true"></span>訂餐前台</span>
+        <span class="body"><span class="title"><span class="dot" title="偵測中"><span class="sr-only">偵測中</span></span>訂餐前台<span class="status-badge" hidden aria-hidden="true">連不上</span></span>
           <span class="desc">選商家、點餐</span>
           <span class="host">food.{{env "BASE_HOST"}}</span></span>
       </a>
       <a class="card" href="https://food-admin.{{env "BASE_HOST"}}/admin/" data-check="https://food-admin.{{env "BASE_HOST"}}/admin/">
         <span class="icon" aria-hidden="true">🧾</span>
-        <span class="body"><span class="title"><span class="dot" aria-hidden="true"></span>訂餐後台</span>
+        <span class="body"><span class="title"><span class="dot" title="偵測中"><span class="sr-only">偵測中</span></span>訂餐後台<span class="status-badge" hidden aria-hidden="true">連不上</span></span>
           <span class="desc">商家、菜單、訂單管理</span>
           <span class="host">food-admin.{{env "BASE_HOST"}}/admin/</span></span>
       </a>
@@ -212,26 +257,86 @@
 </main>
 <script>
   // 跨子網域讀不到回應內容（CORS），用 no-cors：連得上就 resolve，連不上才 reject。
-  const cache = new Map();
-  function check(url) {
-    if (!cache.has(url)) {
-      const ctrl = new AbortController();
-      setTimeout(() => ctrl.abort(), 8000);
-      cache.set(url, fetch(url, { mode: 'no-cors', cache: 'no-store', signal: ctrl.signal }).then(() => true, () => false));
-    }
-    return cache.get(url);
-  }
-  const cards = document.querySelectorAll('a.card[data-check]');
-  let done = 0, up = 0;
-  cards.forEach(async (card) => {
+  const cards = Array.from(document.querySelectorAll('a.card[data-check]'));
+  const upCountEl = document.getElementById('up-count');
+  const upLabelEl = document.getElementById('up-label');
+  const retestBtn = document.getElementById('retest-btn');
+  let activeRunId = 0;
+
+  function setCardState(card, state) {
     const dot = card.querySelector('.dot');
-    const ok = await check(card.dataset.check);
-    dot.classList.add(ok ? 'ok' : 'down');
-    dot.title = ok ? '服務正常' : '目前無法連線';
-    done += 1; if (ok) up += 1;
-    document.getElementById('up-count').textContent = up + ' / ' + cards.length;
-    document.getElementById('up-label').textContent = done < cards.length ? '服務檢查中' : (up === cards.length ? '全部服務正常' : (cards.length - up) + ' 個服務連不上');
-  });
+    const sr = dot && dot.querySelector('.sr-only');
+    const badge = card.querySelector('.status-badge');
+    if (!dot) return;
+    dot.classList.remove('ok', 'down');
+    if (state === 'ok') {
+      dot.classList.add('ok');
+      dot.title = '運作正常';
+      if (sr) sr.textContent = '運作正常';
+      if (badge) badge.hidden = true;
+    } else if (state === 'down') {
+      dot.classList.add('down');
+      dot.title = '暫時連不上';
+      if (sr) sr.textContent = '暫時連不上';
+      if (badge) badge.hidden = false;
+    } else {
+      dot.title = '偵測中';
+      if (sr) sr.textContent = '偵測中';
+      if (badge) badge.hidden = true;
+    }
+  }
+
+  function runHealthChecks() {
+    const runId = ++activeRunId;
+    const cache = new Map();
+
+    function check(url) {
+      if (!cache.has(url)) {
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 8000);
+        const req = fetch(url, { mode: 'no-cors', cache: 'no-store', signal: ctrl.signal })
+          .then(() => true, () => false)
+          .finally(() => clearTimeout(timer));
+        cache.set(url, req);
+      }
+      return cache.get(url);
+    }
+
+    cards.forEach((card) => setCardState(card, 'checking'));
+    upCountEl.textContent = '…';
+    upLabelEl.textContent = '服務檢查中';
+    if (retestBtn) {
+      retestBtn.disabled = true;
+      retestBtn.setAttribute('aria-busy', 'true');
+      retestBtn.textContent = '偵測中…';
+    }
+
+    let done = 0;
+    let up = 0;
+    cards.forEach(async (card) => {
+      const ok = await check(card.dataset.check);
+      if (runId !== activeRunId) return;
+      setCardState(card, ok ? 'ok' : 'down');
+      done += 1;
+      if (ok) up += 1;
+      upCountEl.textContent = up + ' / ' + cards.length;
+      if (done < cards.length) {
+        upLabelEl.textContent = '服務檢查中';
+      } else {
+        upLabelEl.textContent = up === cards.length ? '全部服務正常' : (cards.length - up) + ' 個服務連不上';
+        if (retestBtn) {
+          retestBtn.disabled = false;
+          retestBtn.removeAttribute('aria-busy');
+          retestBtn.textContent = '↻ 重測';
+        }
+      }
+    });
+  }
+
+  if (retestBtn) {
+    retestBtn.addEventListener('click', runHealthChecks);
+  }
+  runHealthChecks();
 </script>
 </body>
 </html>
