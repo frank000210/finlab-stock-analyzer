@@ -1,5 +1,6 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import MarkdownIt from 'markdown-it'
 import api from '../api.js'
 
@@ -8,81 +9,159 @@ import api from '../api.js'
 // render arbitrary tags via v-html.
 const md = new MarkdownIt({ html: false, linkify: true, breaks: true })
 
-const domain = ref('')
+const route = useRoute()
+
+const notebooks = ref([])
+const domain = ref(typeof route.query.domain === 'string' ? route.query.domain : '')
 const question = ref('')
 const loading = ref(false)
-const error = ref('')
+const turns = ref([])
+const threadEndRef = ref(null)
 
-// PP7: current answer metadata
-const currentAnswer = ref(null)  // { question, answer, citations, steps, question_id, rating }
+let turnSeq = 0
+let conversationSeq = 0
 
-// PP6: conversation history (previous turns, oldest first)
-const history = ref([])           // [{ role: 'user'|'assistant', content: string }]
+watch(
+  () => route.query.domain,
+  (val) => {
+    domain.value = typeof val === 'string' ? val : ''
+  },
+)
 
-// PP7: search steps panel toggle
-const stepsOpen = ref(false)
+const domainOptions = computed(() => {
+  const list = notebooks.value.map((nb) => ({
+    domain: nb.domain,
+    doc_count: nb.doc_count,
+  }))
+  if (domain.value && !list.some((item) => item.domain === domain.value)) {
+    list.unshift({ domain: domain.value, doc_count: null })
+  }
+  return list
+})
 
-const renderedAnswer = computed(() =>
-  currentAnswer.value ? md.render(currentAnswer.value.answer) : ''
+const completedTurnCount = computed(
+  () => turns.value.filter((t) => t.status === 'done').length,
 )
 
 // PP7: step type labels
 const stepLabel = { rewrite: '查詢改寫', kb: '知識庫', web: '網路搜尋', fetch: '網頁讀取' }
 const stepIcon  = { rewrite: '✏️', kb: '📚', web: '🌐', fetch: '🔗' }
 
-async function ask() {
-  if (!question.value.trim() || loading.value) return
-  error.value = ''
-  loading.value = true
-  stepsOpen.value = false
+function renderMarkdown(text) {
+  return text ? md.render(text) : ''
+}
 
-  // PP6: build history payload from previous turns
-  const historyPayload = history.value.slice(-6)  // at most last 3 Q&A turns (6 messages)
+function isExternalUrl(value) {
+  return typeof value === 'string' && /^https?:\/\//i.test(value.trim())
+}
+
+function getCitationSnippet(c) {
+  return c?.snippet || c?.excerpt || c?.content || ''
+}
+
+function toggleCitation(turn, index) {
+  turn.expandedCitationIndex = turn.expandedCitationIndex === index ? null : index
+}
+
+function getExpandedCitation(turn) {
+  if (turn.expandedCitationIndex === null || turn.expandedCitationIndex === undefined) return null
+  return turn.citations.find((c) => c.index === turn.expandedCitationIndex) || null
+}
+
+function scrollToLatest() {
+  nextTick(() => {
+    threadEndRef.value?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+  })
+}
+
+onMounted(async () => {
+  try {
+    const { data } = await api.get('/notebooks')
+    if (Array.isArray(data)) {
+      notebooks.value = data
+    }
+  } catch {
+    // 領域清單抓取失敗時仍保留「全部領域」與 URL 預選領域
+  }
+})
+
+async function ask() {
+  const trimmedQuestion = question.value.trim()
+  if (!trimmedQuestion || loading.value) return
+
+  const activeConv = conversationSeq
+  const selectedDomain = domain.value.trim()
+
+  // PP6: build history payload from up to last 3 completed Q&A turns (6 messages)
+  const historyPayload = turns.value
+    .filter((t) => t.status === 'done')
+    .flatMap((t) => [
+      { role: 'user', content: t.question },
+      { role: 'assistant', content: t.answer },
+    ])
+    .slice(-6)
+
+  const newTurn = {
+    id: ++turnSeq,
+    question: trimmedQuestion,
+    domain: selectedDomain,
+    status: 'loading',
+    answer: '',
+    citations: [],
+    steps: [],
+    question_id: null,
+    rating: null,
+    errorMessage: '',
+    stepsOpen: false,
+    expandedCitationIndex: null,
+  }
+
+  turns.value.push(newTurn)
+  const reactiveTurn = turns.value[turns.value.length - 1]
+  question.value = ''
+  loading.value = true
+  scrollToLatest()
 
   try {
     const { data } = await api.post('/ask', {
-      question: question.value.trim(),
-      domain: domain.value.trim() || undefined,
-      history: historyPayload,   // PP6
+      question: trimmedQuestion,
+      domain: selectedDomain || undefined,
+      history: historyPayload,
     })
 
-    // PP6: push current Q → history before replacing currentAnswer
-    if (currentAnswer.value) {
-      history.value.push(
-        { role: 'user',      content: currentAnswer.value.question },
-        { role: 'assistant', content: currentAnswer.value.answer },
-      )
-    }
+    // 若使用者在等待回應期間已清除對話，忽略過期回應
+    if (activeConv !== conversationSeq) return
 
-    currentAnswer.value = {
-      question: question.value.trim(),
-      answer: data.answer,
-      citations: data.citations || [],
-      steps: data.steps || [],        // PP7
-      question_id: data.question_id,  // PP7
-      rating: null,
-    }
-    question.value = ''
-    stepsOpen.value = (data.steps || []).length > 1  // auto-open if more than initial KB step
+    reactiveTurn.status = 'done'
+    reactiveTurn.answer = data.answer || ''
+    reactiveTurn.citations = data.citations || []
+    reactiveTurn.steps = data.steps || []
+    reactiveTurn.question_id = data.question_id || null
+    reactiveTurn.stepsOpen = reactiveTurn.steps.length > 1
+    scrollToLatest()
   } catch (e) {
-    error.value = e.response?.data?.detail || '問答失敗，請稍後再試'
+    if (activeConv !== conversationSeq) return
+    reactiveTurn.status = 'error'
+    reactiveTurn.errorMessage = e.response?.data?.detail || '問答失敗，請稍後再試'
   } finally {
-    loading.value = false
+    if (activeConv === conversationSeq) {
+      loading.value = false
+    }
   }
 }
 
 function clearConversation() {
-  history.value = []
-  currentAnswer.value = null
-  error.value = ''
+  conversationSeq += 1
+  turns.value = []
+  loading.value = false
 }
 
 // PP7: 👍/👎 feedback
-async function sendRating(rating) {
-  if (!currentAnswer.value || currentAnswer.value.rating !== null) return
+async function sendRating(turn, rating) {
+  if (!turn || !turn.question_id || turn.rating !== null) return
   try {
-    await api.post(`/ask/feedback?question_id=${currentAnswer.value.question_id}`, { rating })
-    currentAnswer.value.rating = rating
+    await api.post(`/ask/feedback?question_id=${encodeURIComponent(turn.question_id)}`, { rating })
+    turn.rating = rating
   } catch {
     // non-critical; silently ignore
   }
@@ -93,115 +172,255 @@ async function sendRating(rating) {
   <div class="page">
     <div class="page-header">
       <h1>問答</h1>
-      <p>根據知識庫內容回答問題，答案附引用來源。</p>
+      <p>根據知識庫內容回答問題，答案附可展開的引用來源，支援連續追問。</p>
     </div>
 
-    <div class="card ask-card">
-      <div class="ask-top">
-        <div class="field domain-field">
-          <label class="label">限定領域（留空 = 全部）</label>
-          <input v-model="domain" placeholder="例如 patent" />
-        </div>
+    <!-- 對話串（保留所有歷史問答，新提問在底部追加） -->
+    <section v-if="turns.length" class="chat-thread" aria-label="問答對話紀錄" data-testid="chat-thread">
+      <div class="thread-bar">
+        <span class="history-badge">
+          💬 共 {{ turns.length }} 輪對話<template v-if="completedTurnCount">（追問自動帶入近期上下文）</template>
+        </span>
         <button
-          v-if="history.length || currentAnswer"
+          type="button"
           class="btn-ghost"
+          data-testid="clear-chat-btn"
           @click="clearConversation"
           title="清除對話歷史"
         >清除對話</button>
       </div>
-      <!-- PP6: history badge -->
-      <div v-if="history.length" class="history-badge">
-        💬 對話已包含前 {{ history.length / 2 | 0 }} 輪問答
-      </div>
-      <div class="field">
-        <label class="label">問題</label>
-        <textarea
-          v-model="question"
-          placeholder="輸入問題…"
-          rows="3"
-          @keydown.ctrl.enter="ask"
-          @keydown.meta.enter="ask"
-        ></textarea>
-      </div>
-      <button @click="ask" :disabled="!question.trim() || loading">
-        {{ loading ? '思考中…' : '提問' }}
-      </button>
-    </div>
 
-    <p v-if="error" class="error-text">{{ error }}</p>
-
-    <!-- Loading state -->
-    <div v-if="loading" class="card answer-card">
-      <div class="typing"><span></span><span></span><span></span></div>
-    </div>
-
-    <!-- Answer card -->
-    <div v-else-if="currentAnswer" class="card answer-card">
-      <div class="answer-question">
-        <span class="q-label">Q</span>
-        <span>{{ currentAnswer.question }}</span>
-      </div>
-
-      <h3>答案</h3>
-      <div class="answer-text" v-html="renderedAnswer"></div>
-
-      <!-- PP5: citations -->
-      <div v-if="currentAnswer.citations.length" class="citations">
-        <span class="label" style="margin-bottom: 8px; display: block">引用來源</span>
-        <div class="chips">
-          <span
-            v-for="c in currentAnswer.citations"
-            :key="c.index"
-            class="chip"
-            :title="c.source || c.title"
-          >
-            <span class="cite-idx">[{{ c.index }}]</span> {{ c.title }}
-          </span>
-        </div>
-      </div>
-
-      <!-- PP7: search steps (collapsible) -->
-      <div v-if="currentAnswer.steps.length" class="steps-section">
-        <button class="steps-toggle" @click="stepsOpen = !stepsOpen">
-          <span>🔍 搜尋過程（{{ currentAnswer.steps.length }} 步）</span>
-          <span class="chevron" :class="{ open: stepsOpen }">▾</span>
-        </button>
-        <div v-if="stepsOpen" class="steps-list">
-          <div v-for="(s, i) in currentAnswer.steps" :key="i" class="step-item">
-            <span class="step-icon">{{ stepIcon[s.type] || '•' }}</span>
-            <span class="step-label">{{ stepLabel[s.type] || s.type }}</span>
-            <span class="step-query">{{ s.query }}</span>
-            <span v-if="s.hits > 0" class="step-hits">{{ s.hits }} 筆</span>
+      <article v-for="turn in turns" :key="turn.id" class="chat-turn" data-testid="chat-turn">
+        <!-- 使用者問題氣泡 -->
+        <div class="msg-user-row">
+          <div class="msg-user" data-testid="user-bubble">
+            <div class="msg-user-meta">
+              <span class="q-label">Q</span>
+              <span v-if="turn.domain" class="domain-tag">{{ turn.domain }}</span>
+            </div>
+            <p class="msg-user-text">{{ turn.question }}</p>
           </div>
         </div>
+
+        <!-- 助理回答／思考中氣泡 -->
+        <div class="card answer-card msg-assistant" :class="{ 'is-loading': turn.status === 'loading' }">
+          <div v-if="turn.status === 'loading'" class="thinking-row" role="status" aria-live="polite" data-testid="thinking-bubble">
+            <div class="typing" aria-hidden="true"><span></span><span></span><span></span></div>
+            <span class="thinking-text">思考中…</span>
+          </div>
+
+          <p v-else-if="turn.status === 'error'" class="error-text turn-error" role="alert">
+            {{ turn.errorMessage }}
+          </p>
+
+          <template v-else>
+            <h3 class="answer-heading">答案</h3>
+            <div class="answer-text" v-html="renderMarkdown(turn.answer)"></div>
+
+            <!-- PP5: clickable expandable citations -->
+            <div v-if="turn.citations.length" class="citations">
+              <span class="label citations-label">引用來源（點擊展開完整出處）</span>
+              <div class="chips">
+                <button
+                  v-for="c in turn.citations"
+                  :key="c.index"
+                  type="button"
+                  class="chip"
+                  :class="{ active: turn.expandedCitationIndex === c.index }"
+                  :aria-expanded="turn.expandedCitationIndex === c.index ? 'true' : 'false'"
+                  :title="c.source ? `${c.title} — ${c.source}` : c.title"
+                  @click="toggleCitation(turn, c.index)"
+                >
+                  <span class="cite-idx">[{{ c.index }}]</span>
+                  <span class="chip-title">{{ c.title }}</span>
+                </button>
+              </div>
+
+              <div
+                v-if="getExpandedCitation(turn)"
+                class="citation-detail"
+                data-testid="citation-detail"
+              >
+                <div class="citation-detail-head">
+                  <div class="citation-detail-title">
+                    <span class="cite-idx">[{{ getExpandedCitation(turn).index }}]</span>
+                    <strong>{{ getExpandedCitation(turn).title }}</strong>
+                  </div>
+                  <button
+                    type="button"
+                    class="citation-close"
+                    aria-label="收合引用詳情"
+                    @click="turn.expandedCitationIndex = null"
+                  >×</button>
+                </div>
+                <div v-if="getExpandedCitation(turn).source" class="citation-source">
+                  <span class="citation-source-label">出處：</span>
+                  <a
+                    v-if="isExternalUrl(getExpandedCitation(turn).source)"
+                    :href="getExpandedCitation(turn).source"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="citation-link"
+                  >{{ getExpandedCitation(turn).source }}</a>
+                  <code v-else class="citation-path">{{ getExpandedCitation(turn).source }}</code>
+                </div>
+                <p v-if="getCitationSnippet(getExpandedCitation(turn))" class="citation-snippet">
+                  {{ getCitationSnippet(getExpandedCitation(turn)) }}
+                </p>
+                <p
+                  v-else-if="!getExpandedCitation(turn).source"
+                  class="citation-empty-note"
+                >
+                  此引用僅包含文件標題資訊。
+                </p>
+              </div>
+            </div>
+
+            <!-- PP7: search steps (collapsible) -->
+            <div v-if="turn.steps.length" class="steps-section">
+              <button type="button" class="steps-toggle" @click="turn.stepsOpen = !turn.stepsOpen">
+                <span>🔍 搜尋過程（{{ turn.steps.length }} 步）</span>
+                <span class="chevron" :class="{ open: turn.stepsOpen }">▾</span>
+              </button>
+              <div v-if="turn.stepsOpen" class="steps-list">
+                <div v-for="(s, i) in turn.steps" :key="i" class="step-item">
+                  <span class="step-icon">{{ stepIcon[s.type] || '•' }}</span>
+                  <span class="step-label">{{ stepLabel[s.type] || s.type }}</span>
+                  <span class="step-query">{{ s.query }}</span>
+                  <span v-if="s.hits > 0" class="step-hits">{{ s.hits }} 筆</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- PP7: 👍/👎 feedback -->
+            <div v-if="turn.question_id" class="feedback-row">
+              <span class="feedback-label">這個答案是否有幫助？</span>
+              <button
+                type="button"
+                class="thumb-btn"
+                :class="{ active: turn.rating === 1 }"
+                :disabled="turn.rating !== null"
+                @click="sendRating(turn, 1)"
+                title="有幫助"
+              >👍</button>
+              <button
+                type="button"
+                class="thumb-btn"
+                :class="{ active: turn.rating === -1 }"
+                :disabled="turn.rating !== null"
+                @click="sendRating(turn, -1)"
+                title="沒幫助"
+              >👎</button>
+              <span v-if="turn.rating !== null" class="feedback-thanks">
+                {{ turn.rating === 1 ? '謝謝你的回饋！' : '感謝，將持續改善。' }}
+              </span>
+            </div>
+          </template>
+        </div>
+      </article>
+      <div ref="threadEndRef" aria-hidden="true"></div>
+    </section>
+
+    <!-- 提問輸入卡片 -->
+    <div class="card ask-card">
+      <div class="ask-top">
+        <div class="field domain-field">
+          <label class="label" for="ask-domain">限定領域</label>
+          <select id="ask-domain" v-model="domain" data-testid="domain-select">
+            <option value="">全部領域</option>
+            <option v-for="opt in domainOptions" :key="opt.domain" :value="opt.domain">
+              {{ opt.doc_count !== null ? `${opt.domain}（${opt.doc_count} 篇）` : opt.domain }}
+            </option>
+          </select>
+        </div>
       </div>
 
-      <!-- PP7: 👍/👎 feedback -->
-      <div class="feedback-row">
-        <span class="feedback-label">這個答案是否有幫助？</span>
-        <button
-          class="thumb-btn"
-          :class="{ active: currentAnswer.rating === 1 }"
-          :disabled="currentAnswer.rating !== null"
-          @click="sendRating(1)"
-          title="有幫助"
-        >👍</button>
-        <button
-          class="thumb-btn"
-          :class="{ active: currentAnswer.rating === -1 }"
-          :disabled="currentAnswer.rating !== null"
-          @click="sendRating(-1)"
-          title="沒幫助"
-        >👎</button>
-        <span v-if="currentAnswer.rating !== null" class="feedback-thanks">
-          {{ currentAnswer.rating === 1 ? '謝謝你的回饋！' : '感謝，將持續改善。' }}
+      <div class="field question-field">
+        <label class="label" for="ask-question">{{ turns.length ? '繼續追問' : '問題' }}</label>
+        <textarea
+          id="ask-question"
+          v-model="question"
+          :placeholder="turns.length ? '輸入追問內容…' : '輸入問題…'"
+          rows="3"
+          @keydown.ctrl.enter.prevent="ask"
+          @keydown.meta.enter.prevent="ask"
+        ></textarea>
+      </div>
+
+      <div class="ask-actions">
+        <span class="shortcut-hint">
+          按 <kbd>Ctrl</kbd> / <kbd>⌘</kbd> + <kbd>Enter</kbd> 快速送出
         </span>
+        <button type="button" @click="ask" :disabled="!question.trim() || loading">
+          {{ loading ? '思考中…' : '提問' }}
+        </button>
       </div>
     </div>
   </div>
 </template>
 
 <style scoped>
+.chat-thread {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  margin-bottom: 20px;
+}
+
+.thread-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.chat-turn {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.msg-user-row {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.msg-user {
+  max-width: min(86%, 640px);
+  padding: 12px 16px;
+  border-radius: 14px 14px 4px 14px;
+  background: var(--accent-dim);
+  border: 1px solid color-mix(in srgb, var(--accent) 34%, var(--border));
+  color: var(--text);
+  animation: fade-in 0.2s ease;
+}
+
+.msg-user-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.domain-tag {
+  font-size: 11px;
+  font-family: var(--mono);
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+}
+
+.msg-user-text {
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .ask-card {
   margin-bottom: 16px;
 }
@@ -217,8 +436,36 @@ async function sendRating(rating) {
   flex: 1;
 }
 
+.question-field {
+  margin-bottom: 12px;
+}
+
+.ask-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.shortcut-hint {
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+.shortcut-hint kbd {
+  display: inline-block;
+  padding: 1px 5px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-dim);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
 .btn-ghost {
-  background: none;
+  background: transparent;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   color: var(--text-dim);
@@ -230,26 +477,37 @@ async function sendRating(rating) {
 
 .btn-ghost:hover {
   border-color: var(--text-dim);
+  background: var(--surface-2);
   color: var(--text);
 }
 
 .history-badge {
   font-size: 12px;
   color: var(--text-faint);
-  margin-bottom: 8px;
 }
 
 .answer-card {
   animation: fade-in 0.2s ease;
 }
 
-.answer-question {
+.answer-heading {
+  margin-bottom: 8px;
+}
+
+.thinking-row {
   display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  margin-bottom: 16px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid var(--border);
+  align-items: center;
+  gap: 10px;
+  padding: 4px 0;
+}
+
+.thinking-text {
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.turn-error {
+  margin-top: 0;
 }
 
 .q-label {
@@ -260,7 +518,6 @@ async function sendRating(rating) {
   border-radius: 4px;
   padding: 2px 6px;
   flex-shrink: 0;
-  margin-top: 1px;
 }
 
 .answer-text {
@@ -268,6 +525,7 @@ async function sendRating(rating) {
   font-size: 14px;
   line-height: 1.7;
   margin-bottom: 16px;
+  overflow-wrap: anywhere;
 }
 
 .answer-text :deep(h1),
@@ -329,6 +587,8 @@ async function sendRating(rating) {
   width: 100%;
   margin: 0 0 10px;
   font-size: 13px;
+  display: block;
+  overflow-x: auto;
 }
 
 .answer-text :deep(th),
@@ -366,6 +626,10 @@ async function sendRating(rating) {
   margin-bottom: 12px;
 }
 
+.citations-label {
+  margin-bottom: 8px;
+}
+
 .chips {
   display: flex;
   flex-wrap: wrap;
@@ -373,13 +637,40 @@ async function sendRating(rating) {
 }
 
 .chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: 999px;
   padding: 4px 12px;
   font-size: 12px;
+  font-weight: 400;
   color: var(--text-dim);
-  max-width: 280px;
+  max-width: min(280px, 100%);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.chip:hover {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+  color: var(--text);
+}
+
+.chip.active {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+  color: var(--text);
+  font-weight: 500;
+}
+
+.chip:active {
+  transform: none;
+}
+
+.chip-title {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -388,7 +679,94 @@ async function sendRating(rating) {
 .cite-idx {
   color: var(--accent);
   font-weight: 600;
-  margin-right: 3px;
+  flex-shrink: 0;
+}
+
+.citation-detail {
+  margin-top: 10px;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--border));
+  animation: fade-in 0.15s ease;
+}
+
+.citation-detail-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.citation-detail-title {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.citation-close {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  border-radius: var(--radius-sm);
+  padding: 0 7px;
+  font-size: 15px;
+  line-height: 1.4;
+  flex-shrink: 0;
+}
+
+.citation-close:hover {
+  background: var(--surface);
+  color: var(--text);
+}
+
+.citation-source {
+  font-size: 12px;
+  color: var(--text-dim);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.citation-source-label {
+  color: var(--text-faint);
+}
+
+.citation-path {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text);
+  background: var(--surface);
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  word-break: break-all;
+}
+
+.citation-link {
+  color: var(--accent);
+  text-decoration: underline;
+  word-break: break-all;
+}
+
+.citation-snippet {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--border);
+  font-size: 13px;
+  color: var(--text-dim);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.citation-empty-note {
+  font-size: 12px;
+  color: var(--text-faint);
 }
 
 /* PP7: search steps */
@@ -400,7 +778,7 @@ async function sendRating(rating) {
 }
 
 .steps-toggle {
-  background: none;
+  background: transparent;
   border: none;
   cursor: pointer;
   display: flex;
@@ -412,6 +790,7 @@ async function sendRating(rating) {
 }
 
 .steps-toggle:hover {
+  background: transparent;
   color: var(--text);
 }
 
@@ -438,6 +817,7 @@ async function sendRating(rating) {
   gap: 6px;
   font-size: 12px;
   color: var(--text-dim);
+  min-width: 0;
 }
 
 .step-icon {
@@ -456,6 +836,7 @@ async function sendRating(rating) {
   text-overflow: ellipsis;
   white-space: nowrap;
   flex: 1;
+  min-width: 0;
 }
 
 .step-hits {
@@ -468,6 +849,7 @@ async function sendRating(rating) {
 .feedback-row {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
   margin-top: 12px;
   padding-top: 10px;
@@ -481,7 +863,8 @@ async function sendRating(rating) {
 }
 
 .thumb-btn {
-  background: none;
+  background: transparent;
+  color: var(--text);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   padding: 4px 10px;
@@ -492,12 +875,13 @@ async function sendRating(rating) {
 }
 
 .thumb-btn:hover:not(:disabled) {
+  background: var(--surface-2);
   border-color: var(--accent);
 }
 
 .thumb-btn.active {
   border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  background: var(--accent-dim);
 }
 
 .thumb-btn:disabled {
@@ -556,10 +940,28 @@ async function sendRating(rating) {
   }
 }
 
+@media (max-width: 600px) {
+  .msg-user {
+    max-width: 96%;
+  }
+
+  .ask-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .shortcut-hint {
+    text-align: center;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .typing span,
   .answer-card,
-  .chevron {
+  .msg-user,
+  .citation-detail,
+  .chevron,
+  .chip {
     animation: none;
     transition: none;
   }
