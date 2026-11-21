@@ -26,3 +26,11 @@ food.{$BASE_HOST}, food-admin.{$BASE_HOST} {
 	encode gzip
 	reverse_proxy food:8080
 }
+
+# Agent 工作儀表板（3D 夜市工作區 + 雲端 MongoDB + SSE 即時同步）
+dashboard.{$BASE_HOST} {
+	encode gzip
+	reverse_proxy dashboard:8080 {
+		flush_interval -1
+	}
+}

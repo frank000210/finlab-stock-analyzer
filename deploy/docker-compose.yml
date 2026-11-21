@@ -24,7 +24,7 @@ services:
       - ./portal:/srv/portal:ro
       - caddy_data:/data
       - caddy_config:/config
-    depends_on: [finlab, kb-web, food]
+    depends_on: [finlab, kb-web, food, dashboard]
     mem_limit: 128m
 
   mongo:
@@ -77,6 +77,16 @@ services:
       mongo:
         condition: service_healthy
     mem_limit: 256m
+
+  dashboard:
+    build: ../src/finlab/agent-dashboard
+    image: agent-dashboard:prod
+    restart: unless-stopped
+    env_file: ../secrets/dashboard.env
+    depends_on:
+      mongo:
+        condition: service_healthy
+    mem_limit: 192m
 
 volumes:
   caddy_data:

@@ -162,7 +162,7 @@ test.describe('入口頁與靜態子站煙霧測試', () => {
     const html = await page.content()
     expect(html).not.toContain('{{')
 
-    // 驗證全部 9 張服務卡片皆存在且連結已正確替換 BASE_HOST
+    // 驗證全部 10 張服務卡片皆存在且連結已正確替換 BASE_HOST
     const expectedCards = [
       { title: 'FinLab 選股分析', href: `https://finlab.${BASE_HOST}/` },
       { title: 'FinLab 後台', href: `https://finlab.${BASE_HOST}/admin` },
@@ -171,6 +171,7 @@ test.describe('入口頁與靜態子站煙霧測試', () => {
       { title: '知識分享', href: '/share/' },
       { title: '晨興聖言', href: '/morning-revival/' },
       { title: '知識庫 kb-web', href: `https://kb.${BASE_HOST}/` },
+      { title: 'Agent 工作儀表板', href: `https://dashboard.${BASE_HOST}/` },
       { title: '訂餐前台', href: `https://food.${BASE_HOST}/` },
       { title: '訂餐後台', href: `https://food-admin.${BASE_HOST}/admin/` },
     ]

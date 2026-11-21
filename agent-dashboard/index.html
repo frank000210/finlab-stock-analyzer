@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="zh-Hant" data-style="pixel" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Frank 入口網站 — Agent 工作儀表板</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2312706C'/%3E%3Cpath d='M8 18h16v6H8zM11 10h10v8H11z' fill='%23FACC15'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="app-shell">
+    <header class="topbar">
+      <div class="title-wrap">
+        <h1>Frank 入口網站 — Agent 工作儀表板 <a class="portal-back-link" href="https://43-133-44-216.sslip.io/" title="返回 Frank 服務入口頁">← 服務入口</a></h1>
+        <p class="subtitle">1 工頭 ＋ 4 入口各站 ＋ 5 FinLab 側邊欄大類專屬開發團隊 · 點擊任一人偶即可篩選工作</p>
+      </div>
+
+      <div class="controls">
+        <div class="stat-pills">
+          <span class="pill live-pill" id="conn-pill" title="資料庫連線狀態"><span class="live-dot"></span><span id="conn-label">連線中…</span></span>
+          <button class="ctrl-btn lab-btn" id="btn-unlock-write" type="button" style="display:none;" title="輸入管理金鑰解鎖線上新增／派工／核准／刪除權限">🔒 唯讀（解鎖編輯）</button>
+          <span class="pill auth-pill" id="foreman-auth-pill" title="已授權工頭：常規開發、完整 E2E 驗證通過後可由工頭直接核准並部署上線（破壞性操作或個人資料仍須確認）">🛡️ 工頭授權：自動核准</span>
+          <span class="pill queued" id="stat-queued" style="display:none;">🚀 待派工 0</span>
+          <span class="pill blocked" id="stat-blocked" style="display:none;">卡關 0</span>
+          <span class="pill doing" id="stat-doing">進行中 0</span>
+          <span class="pill todo" id="stat-todo">待辦 0</span>
+          <span class="pill done" id="stat-done">已完成 0</span>
+        </div>
+
+        <div class="seg-switch" role="group" aria-label="切換儀表板風格">
+          <button class="seg-btn active" id="btn-style-lab" type="button">🏛️ 3D 實驗室</button>
+          <button class="seg-btn" id="btn-style-pixel" type="button">🕹️ 像素辦公室</button>
+          <button class="seg-btn" id="btn-style-notebook" type="button">📓 手帳插畫</button>
+        </div>
+
+        <button class="ctrl-btn" id="pixel-theme-btn" type="button">☀️ 淺色模式</button>
+
+        <select class="ctrl-select" id="nb-theme-select" aria-label="手帳色彩主題" style="display:none;">
+          <option value="paper">🎨 手帳米白</option>
+          <option value="dark">🌙 夜間深色</option>
+          <option value="solarized">🌅 Solarized</option>
+          <option value="nord">❄️ Nord</option>
+          <option value="dracula">🦇 Dracula</option>
+          <option value="gruvbox">🪵 Gruvbox</option>
+        </select>
+
+        <button class="ctrl-btn" id="notify-btn" type="button" title="切換瀏覽器桌面通知">🔔 桌面通知</button>
+        <button class="ctrl-btn" id="refresh-btn" type="button">🔄 重新整理</button>
+
+        <div class="sticky-badge" aria-live="polite">
+          <div class="big" id="sticky-members">10 位成員</div>
+          <small id="sticky-doing">進行中 1 / 待辦 10</small>
+        </div>
+      </div>
+    </header>
+
+    <!-- Virtual Office / 3D SimuLab Studio Stage -->
+    <section class="office-stage" aria-label="Agent 虛擬辦公室">
+      <div class="lab-stage-wrap" id="lab-stage-wrap">
+        <canvas id="lab-canvas" aria-label="3D 等距 Agent 模擬實驗室"></canvas>
+        <div class="lab-overlay" id="lab-overlay"></div>
+        <div class="lab-hud-top">
+          <span class="lab-badge">🏛️ SimuLab 3D × Anatomy · 本機 MongoDB 即時驅動</span>
+          <div class="lab-hud-btns">
+            <button class="ctrl-btn lab-btn" id="btn-lab-demo" type="button" title="演練：休息區 → 工頭領任務 → 座位工作 → 工頭匯報 → 回休息區">🚶 演練派工流</button>
+            <button class="ctrl-btn lab-btn" id="btn-lab-reset" type="button" title="回到全局等距視角">🌐 全局視角</button>
+            <button class="ctrl-btn lab-btn" id="btn-lab-replay" type="button" title="重播等距工作室組裝動畫">🎬 重播組裝</button>
+            <button class="ctrl-btn lab-btn" id="btn-lab-active" type="button" title="切換只顯示活躍與選取管線">⚡ 全部管線</button>
+          </div>
+        </div>
+        <div class="lab-demo-banner" id="lab-demo-banner" style="display:none;"></div>
+        <div class="lab-hud-hint">🏀🎮🍵 工頭後方大休息區（打籃球・打電動・喝茶）· 🏮 夜市遊戲工作區（撈魚・飛鏢・套圈圈・彈珠台・夾娃娃・打地鼠）</div>
+      </div>
+
+      <div class="classic-stage-wrap" id="classic-stage-wrap">
+        <div class="stage-top-row">
+          <span class="stage-decor left">🏢 Frank Portal Studio</span>
+          <div class="foreman-hub-row">
+            <div id="foreman-slot"></div>
+            <div class="foreman-meet-box" id="foreman-meet-box" style="display:none;">
+              <div class="zone-label">📋 工頭派工／匯報區</div>
+              <div class="foreman-meet-desks" id="foreman-meet-desks"></div>
+            </div>
+          </div>
+          <span class="stage-decor right">🌐 43-133-44-216.sslip.io</span>
+        </div>
+
+        <div class="zones-grid">
+          <div class="zone-box portal">
+            <div class="zone-label">入口各站工作區（作業中）</div>
+            <div class="desks-portal" id="portal-desks"></div>
+          </div>
+          <div class="zone-box finlab">
+            <div class="zone-label">FinLab 主站 5 大類工作區（作業中）</div>
+            <div class="desks-finlab" id="finlab-desks"></div>
+          </div>
+        </div>
+
+        <div class="zone-box lounge" id="lounge-zone-box">
+          <div class="zone-label">☕ 休息區（無指派工作／結案後在這裡喝咖啡待命）</div>
+          <div class="desks-lounge" id="lounge-desks"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Focused Agent Inspector -->
+    <section class="inspector-strip" id="inspector-strip" aria-live="polite"></section>
+
+    <!-- Filter & Search -->
+    <section class="filter-bar">
+      <div class="filter-chips">
+        <button class="chip active" data-filter="all" type="button">全部工作</button>
+        <button class="chip" data-filter="queued" type="button">🚀 待派工</button>
+        <button class="chip" data-filter="doing" type="button">只看進行中</button>
+        <button class="chip" data-filter="blocked" type="button">❗ 卡關／待核准</button>
+        <button class="chip" data-filter="p01" type="button">高優先 (P0 / P1)</button>
+      </div>
+      <div class="filter-right">
+        <input class="search-input" id="search-input" type="search" placeholder="搜尋任務標題、網站、Agent 或標籤…">
+        <button class="ctrl-btn primary-btn" id="btn-add-task" type="button" style="display:none;">＋ 新增工作</button>
+      </div>
+    </section>
+
+    <!-- 3-Column Kanban + Foreman Activity Log -->
+    <section class="lower-grid">
+      <div class="board-col">
+        <div class="col-head"><span>📌 待辦工作</span><span class="col-count" id="cnt-todo">0</span></div>
+        <div id="col-todo"></div>
+      </div>
+      <div class="board-col">
+        <div class="col-head"><span>⚡ 進行中</span><span class="col-count" id="cnt-doing">0</span></div>
+        <div id="col-doing"></div>
+      </div>
+      <div class="board-col">
+        <div class="col-head"><span>✅ 已完成</span><span class="col-count" id="cnt-done">0</span></div>
+        <div id="col-done"></div>
+      </div>
+      <aside class="log-col">
+        <div class="col-head"><span>📋 工頭派工日誌</span></div>
+        <div id="activity-log"></div>
+      </aside>
+    </section>
+
+    <footer class="footer-bar">
+      <span id="meta-updated">最後更新：—</span>
+      <span id="live-mode-note"></span>
+    </footer>
+  </main>
+
+  <!-- Toast Notification Stack -->
+  <div class="toast-stack" id="toast-stack" aria-live="polite"></div>
+
+  <!-- Add Task Modal -->
+  <div class="modal-backdrop" id="task-modal" aria-hidden="true">
+    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <div class="modal-head">
+        <h2 id="modal-title">新增工作（寫入本機 MongoDB）</h2>
+        <button class="ctrl-btn" id="modal-close-btn" type="button" aria-label="關閉">✕</button>
+      </div>
+      <form id="add-task-form" class="modal-form">
+        <label>工作標題 *
+          <input type="text" id="f-title" required maxlength="200" placeholder="例如：補齊入口頁煙霧測試">
+        </label>
+        <div class="form-row">
+          <label>負責 Agent
+            <select id="f-agent"></select>
+          </label>
+          <label>優先級
+            <select id="f-priority">
+              <option value="P0">P0（最優先）</option>
+              <option value="P1" selected>P1（高優先）</option>
+              <option value="P2">P2（一般）</option>
+            </select>
+          </label>
+          <label>初始狀態
+            <select id="f-status">
+              <option value="todo" selected>待辦</option>
+              <option value="in_progress">進行中</option>
+              <option value="blocked">卡關／待核准</option>
+              <option value="done">已完成</option>
+            </select>
+          </label>
+        </div>
+        <div class="form-row">
+          <label>所屬網站／模組
+            <input type="text" id="f-site" value="全局" placeholder="例如：FinLab 主站">
+          </label>
+          <label>標籤（逗號分隔）
+            <input type="text" id="f-tags" placeholder="例如：MongoDB, 測試">
+          </label>
+        </div>
+        <label>詳細說明
+          <textarea id="f-desc" rows="3" placeholder="工作內容、驗收條件或備註…"></textarea>
+        </label>
+        <label class="checkbox-row">
+          <input type="checkbox" id="f-auto-dispatch" checked>
+          <span>🚀 <strong>交給工頭自動派工</strong>（工頭每 5 分鐘自動巡檢本機 MongoDB，掃到即接單開工；若只是先記備忘請取消勾選）</span>
+        </label>
+        <div class="modal-actions">
+          <button class="ctrl-btn" id="modal-cancel-btn" type="button">取消</button>
+          <button class="ctrl-btn primary-btn" type="submit">寫入 MongoDB 並通知</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Report Reader Modal -->
+  <div class="modal-backdrop" id="report-modal" aria-hidden="true">
+    <div class="modal-box report-modal-box" role="dialog" aria-modal="true" aria-labelledby="report-modal-title">
+      <div class="modal-head">
+        <div>
+          <h2 id="report-modal-title">巡檢／完工報告</h2>
+          <div class="report-path" id="report-modal-path"></div>
+        </div>
+        <button class="ctrl-btn" id="report-close-btn" type="button" aria-label="關閉">✕</button>
+      </div>
+      <div class="report-body" id="report-modal-body">載入中…</div>
+    </div>
+  </div>
+
+  <script src="dashboard-data.js"></script>
+  <script src="sprites-pixel.js"></script>
+  <script src="sprites-notebook.js"></script>
+  <script src="simulab-engine.js"></script>
+  <script src="simulab-materials.js"></script>
+  <script src="anatomy-inspector.js"></script>
+  <script src="stage-simulab.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
