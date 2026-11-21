@@ -2,17 +2,26 @@
    視覺是「筆記本」：桌面底色、橫線紙、左側紅邊線與線圈、標楷體標題、便利貼。
    顏色有固定意義，用在條目種類上：藍＝定義、紫＝公設、紅＝定理、橘＝輔助定理、綠＝推論。 */
 :root {
-  --desk: #E7E1D5; --paper: #FFFDF7; --rule: #DDE7F1; --margin: #EFA3A3; --ink: #2B2B33; --muted: #6B6B78;
-  --teal: #17807C; --red: #D2423F; --hl: rgba(255, 112, 166, .38); --sticky: #FFE679; --sticky-ink: #2B2B33;
+  --desk: #E7E1D5; --paper: #FFFDF7; --rule: #DDE7F1; --margin: #EFA3A3; --ink: #2B2B33; --muted: #666674;
+  --teal: #12706C; --red: #C03936; --hl: rgba(255, 112, 166, .38); --sticky: #FFE679; --sticky-ink: #2B2B33;
   --box: #F5F9FF; --box-line: #8FB4E3; --tip: #FFF9DA; --tip-line: #EBCB4F; --ring: #8D9099; --ring-hole: #4C4741;
-  --def: #3F7FD0; --def-bg: #EAF2FC;
+  --def: #2B62B3; --def-bg: #EAF2FC;
   --axm: #7454C2; --axm-bg: #F2EDFC;
-  --thm: #D2423F; --thm-bg: #FDECEB;
-  --lem: #C96A12; --lem-bg: #FFF1E2;
-  --cor: #2F9459; --cor-bg: #E8F6EC;
-  --wave: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='8' viewBox='0 0 40 8'%3E%3Cpath d='M0 4Q10 0 20 4T40 4' fill='none' stroke='%2317807C' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E");
+  --thm: #C03330; --thm-bg: #FDECEB;
+  --lem: #A55106; --lem-bg: #FFF1E2;
+  --cor: #1F7443; --cor-bg: #E8F6EC;
+  --wave: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='8' viewBox='0 0 40 8'%3E%3Cpath d='M0 4Q10 0 20 4T40 4' fill='none' stroke='%2312706C' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E");
   /* 給舊名稱用（入口頁風格的變數名），避免課程頁 inline style 失效 */
   --text: var(--ink); --card: var(--paper); --border: var(--rule); --accent: var(--teal); --soft: var(--box);
+}
+/* 淺色主題微調條目色（宣告於 main 以優先於後載入的 theme.css 祖先變數），
+   維持筆記本溫潤色相，同時讓卡片標題、條目標籤、表格與心智圖在 notebook 與 solarized 皆達 WCAG AA ≥ 4.5:1。 */
+html[data-theme="notebook"] main,
+html[data-theme="solarized"] main {
+  --def: #2B62B3;
+  --thm: #C03330;
+  --lem: #A55106;
+  --cor: #1F7443;
 }
 @media (prefers-color-scheme: dark) {
   :root {
@@ -88,13 +97,13 @@ h1 {
 }
 .sticky::before { content: ""; position: absolute; left: 50%; top: -11px; width: 84px; height: 22px; margin-left: -42px; background: rgba(255,255,255,.55); transform: rotate(-4deg); }
 .sticky p { margin: 0; font-weight: 700; font-size: 1rem; }
-.sticky .big { font-size: 3.6rem; line-height: 1; color: #D2423F; margin: 2px 0; }
+.sticky .big { font-size: 3.6rem; line-height: 1; color: #9B2220; margin: 2px 0; }
 .sticky small { font-size: .9rem; color: #5A4A10; }
 .sum {
   border: 2.5px dashed var(--axm); border-radius: 16px; padding: 12px 18px; margin: 18px 0 16px;
   font-size: 1.15rem; line-height: 1.6; background: var(--axm-bg);
 }
-.sumtag { display: inline-block; font-size: .85rem; font-weight: 700; color: #fff; background: #7454C2; border-radius: 8px; padding: 1px 10px; margin-right: 10px; vertical-align: 2px; }
+.sumtag { display: inline-block; font-size: .85rem; font-weight: 700; color: var(--paper); background: var(--axm); border-radius: 8px; padding: 1px 10px; margin-right: 10px; vertical-align: 2px; }
 .key { color: var(--red); font-weight: 700; }
 .hl { background: linear-gradient(transparent 58%, var(--hl) 58%); padding: 0 2px; }
 @media (max-width: 760px) {
@@ -121,7 +130,7 @@ a.card {
 }
 a.card:hover { transform: translateY(-2px) rotate(-.4deg); }
 a.card:focus-visible { outline: 3px solid var(--teal); outline-offset: 3px; }
-.card .title { position: absolute; top: -17px; left: 16px; max-width: calc(100% - 32px); background: #3F7FD0; color: #fff; font-weight: 700; padding: 3px 14px; border-radius: 10px; }
+.card .title { position: absolute; top: -17px; left: 16px; max-width: calc(100% - 32px); background: var(--def); color: var(--paper); font-weight: 700; padding: 3px 14px; border-radius: 10px; }
 .card .desc { display: block; }
 .card .meta { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; font-size: .8rem; color: var(--muted); }
 .pill { background: var(--paper); border: 1.5px dashed var(--def); border-radius: 999px; padding: 0 10px; }
