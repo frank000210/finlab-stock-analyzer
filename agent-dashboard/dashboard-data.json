@@ -1,7 +1,7 @@
 {
   "meta": {
     "title": "Frank 入口網站 — Agent 工作儀表板",
-    "subtitle": "1 工頭 ＋ 4 入口各站 ＋ 5 FinLab 側邊欄大類專屬開發團隊",
+    "subtitle": "1 工頭 ＋ 9 專屬專員 ＋ 1 實習生（學習記錄與每週總結）",
     "portalUrl": "https://43-133-44-216.sslip.io",
     "repoPath": "F:\\github\\finlab-stock-analyzer",
     "updatedAt": "2026-11-21 18:37",
@@ -177,6 +177,22 @@
       "accentColor": "#0EA5E9",
       "spriteKey": "platform",
       "updatedAt": "2026-11-21 18:37"
+    },
+    {
+      "id": "intern-agent",
+      "name": "實習生",
+      "roleTitle": "全局・學習記錄與每週總結",
+      "zone": "portal",
+      "status": "idle",
+      "statusText": "已報到！旁聽記錄各 Agent 工作並於每週日提交團隊週報 📝",
+      "siteLabel": "全局學習 & 每週總結",
+      "siteUrl": "https://dashboard.43-133-44-216.sslip.io/",
+      "paths": "docs/agent-dashboard/reports/, agent-dashboard/weekly_intern_digest.py",
+      "deployCmd": "每週日 21:00 自動提交團隊工作總結報告",
+      "worktree": "唯讀觀察與週報彙整",
+      "accentColor": "#06B6D4",
+      "spriteKey": "intern",
+      "updatedAt": "2026-11-21 20:50"
     }
   ],
   "tasks": [

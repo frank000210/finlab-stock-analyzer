@@ -70,6 +70,10 @@ window.PIXEL_SPRITES = (function () {
     platform: {
       pal: { K: '#1b1d28', H: '#334155', h: '#64748b', S: '#f5c29b', G: '#e0f2fe', C: '#0284c7', c: '#0369a1', W: '#f8fafc', Y: '#cbd5e1' },
       grid: shortHair.concat(glassFace, ['....KSSSSSSK....'], body('...KCCWYYWCCK...'))
+    },
+    intern: {
+      pal: { K: '#1b1d28', H: '#0f172a', h: '#334155', S: '#fad7b8', G: '#cffafe', C: '#06b6d4', c: '#0891b2', W: '#ffffff', Y: '#facc15' },
+      grid: shortHair.concat(glassFace, ['....KSSSSSSK....'], body('...KCCWYYWCCK...'))
     }
   };
 

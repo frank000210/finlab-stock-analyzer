@@ -237,6 +237,73 @@ def seed_from_json(force: bool = False) -> dict[str, Any]:
     }
 
 
+def sync_default_agents() -> dict[str, Any]:
+    """Ensure any newly added agents in dashboard-data.json exist in MongoDB without overwriting live ones."""
+    if not JSON_CACHE_PATH.exists():
+        return {"added": []}
+    raw = json.loads(JSON_CACHE_PATH.read_text(encoding="utf-8"))
+    agents_src = raw.get("agents") or []
+    meta_src = raw.get("meta") or {}
+    db = get_db()
+    added: list[str] = []
+    for idx, agent in enumerate(agents_src):
+        aid = str(agent.get("id", "")).strip()
+        if not aid:
+            continue
+        if db.agents.find_one({"_id": aid}, {"_id": 1}) is None:
+            doc = dict(agent)
+            doc["_id"] = aid
+            doc["order"] = idx
+            doc.setdefault("updatedAt", now_display())
+            db.agents.insert_one(doc)
+            added.append(aid)
+    if added:
+        subtitle = meta_src.get("subtitle")
+        if subtitle:
+            db.meta.update_one({"_id": "singleton"}, {"$set": {"subtitle": subtitle}})
+        _bump_meta(
+            db,
+            event={
+                "kind": "agent_added",
+                "agentId": added[-1],
+                "title": "🎓 新成員報到",
+                "message": f"團隊新增成員：{', '.join(added)}",
+                "at": now_display(),
+            },
+        )
+    return {"added": added}
+
+
+def upsert_agent(agent: dict[str, Any]) -> dict[str, Any]:
+    """Create or update an agent record in MongoDB."""
+    aid = str(agent.get("id", "")).strip()
+    if not aid:
+        raise ValueError("Agent id is required")
+    db = get_db()
+    existing = db.agents.find_one({"_id": aid})
+    order = existing.get("order") if existing else db.agents.count_documents({})
+    doc = dict(existing or {})
+    doc.update(agent)
+    doc["_id"] = aid
+    doc["id"] = aid
+    doc["order"] = order
+    doc["updatedAt"] = now_display()
+    db.agents.replace_one({"_id": aid}, doc, upsert=True)
+    rev = _bump_meta(
+        db,
+        event={
+            "kind": "agent_upserted",
+            "agentId": aid,
+            "title": f"成員資料更新：{doc.get('name', aid)}",
+            "message": doc.get("roleTitle", ""),
+            "at": now_display(),
+        },
+    )
+    export_local_cache()
+    doc.pop("_id", None)
+    return {"agent": doc, "revision": rev}
+
+
 def get_meta_brief() -> dict[str, Any]:
     db = get_db()
     meta = db.meta.find_one({"_id": "singleton"}, {"_id": 0})

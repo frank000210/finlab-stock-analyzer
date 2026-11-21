@@ -240,8 +240,8 @@
       var place = classicAgentPlace(a);
       if (place === 'foreman_meet') meetAgents.push(a);
       else if (place === 'lounge') loungeAgents.push(a);
-      else if (a.zone === 'portal') portalActive.push(a);
       else if (a.zone === 'finlab') finlabActive.push(a);
+      else portalActive.push(a);
     });
 
     document.getElementById('foreman-slot').innerHTML = foreman ? renderDesk(foreman, true) : '';
