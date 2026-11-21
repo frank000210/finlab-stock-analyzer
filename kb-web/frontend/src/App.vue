@@ -135,4 +135,43 @@ nav a.active {
   display: flex;
   flex-direction: column;
 }
+
+@media (max-width: 720px) {
+  .topnav-inner {
+    height: auto;
+    padding: 10px 14px;
+    flex-wrap: wrap;
+    row-gap: 8px;
+    column-gap: 12px;
+  }
+
+  .brand {
+    order: 1;
+  }
+
+  .nav-right {
+    order: 2;
+    margin-left: auto;
+  }
+
+  nav {
+    order: 3;
+    flex-basis: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  nav a {
+    white-space: nowrap;
+    flex-shrink: 0;
+    padding: 6px 10px;
+    font-size: 13px;
+  }
+}
 </style>
