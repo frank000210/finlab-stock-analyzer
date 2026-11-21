@@ -46,18 +46,30 @@ const MOCK_NOTEBOOKS = [
   },
 ]
 
-const MOCK_ASK_RESPONSE = {
-  answer: '在**公開模式**下，瀏覽知識庫與 AI 問答皆免登入 [1]；匯入 API（`/api/import/*`）仍須 `KB_API_TOKEN` 保護 [2]。',
-  citations: [
-    { index: 1, title: 'dev-note-2026-04-10-公開模式權限設計', source: 'dev_note/public-mode.md' },
-    { index: 2, title: 'kb-web 匯入端點驗證規格', source: 'dev_note/import-auth.md' },
-  ],
-  steps: [
-    { type: 'rewrite', query: '公開模式 權限邊界', hits: 0 },
-    { type: 'kb', query: 'kb-web 公開模式 匯入 token', hits: 2 },
-  ],
-  question_id: 'mock-q-001',
-}
+const MOCK_ASK_RESPONSES = [
+  {
+    answer: '在**公開模式**下，瀏覽知識庫與 AI 問答皆免登入 [1]；匯入 API（`/api/import/*`）仍須 `KB_API_TOKEN` 保護 [2]。',
+    citations: [
+      { index: 1, title: 'dev-note-2026-04-10-公開模式權限設計', source: 'dev_note/public-mode.md' },
+      { index: 2, title: 'kb-web 匯入端點驗證規格', source: 'dev_note/import-auth.md' },
+    ],
+    steps: [
+      { type: 'rewrite', query: '公開模式 權限邊界', hits: 0 },
+      { type: 'kb', query: 'kb-web 公開模式 匯入 token', hits: 2 },
+    ],
+    question_id: 'mock-q-001',
+  },
+  {
+    answer: '補充說明：對話串會自動帶入最近 3 輪上下文，方便連續追問 [1]。',
+    citations: [
+      { index: 1, title: 'PP6 多輪對話設計筆記', source: 'dev_note/chat-history.md' },
+    ],
+    steps: [
+      { type: 'kb', query: '多輪對話 上下文', hits: 1 },
+    ],
+    question_id: 'mock-q-002',
+  },
+]
 
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -157,7 +169,10 @@ function startStaticServer(distDir) {
   })
 }
 
-async function setupKbApiMocks(page, captured = {}) {
+async function setupKbApiMocks(page, captured = {}, options = {}) {
+  captured.askBodies = captured.askBodies || []
+  let askCount = 0
+
   await page.route('**/api/**', async (route) => {
     const req = route.request()
     const url = new URL(req.url())
@@ -180,15 +195,26 @@ async function setupKbApiMocks(page, captured = {}) {
     }
 
     if (pathname === '/api/ask' && req.method() === 'POST') {
+      let body = null
       try {
-        captured.lastAskBody = req.postDataJSON()
+        body = req.postDataJSON()
       } catch {
-        captured.lastAskBody = null
+        body = null
       }
+      captured.lastAskBody = body
+      captured.askBodies.push(body)
+
+      const idx = Math.min(askCount, MOCK_ASK_RESPONSES.length - 1)
+      askCount += 1
+
+      if (options.askDelayMs) {
+        await new Promise((r) => setTimeout(r, options.askDelayMs))
+      }
+
       return route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify(MOCK_ASK_RESPONSE),
+        body: JSON.stringify(MOCK_ASK_RESPONSES[idx]),
       })
     }
 
@@ -227,7 +253,7 @@ test.describe('kb-web 知識庫自動化煙霧測試', () => {
     }
   })
 
-  test('公開模式總覽頁載入正常、顯示知識庫標題與領域卡片、不顯示匯入頁且零錯誤', async ({ page }) => {
+  test('公開模式總覽頁載入正常、寬螢幕置中、回入口導覽、專利下拉選單與卡片直通問答', async ({ page }) => {
     const pageErrors = []
     const consoleErrors = []
     page.on('pageerror', (err) => pageErrors.push(String(err)))
@@ -235,24 +261,87 @@ test.describe('kb-web 知識庫自動化煙霧測試', () => {
       if (msg.type() === 'error') consoleErrors.push(msg.text())
     })
 
+    await page.setViewportSize({ width: 1280, height: 800 })
     await setupKbApiMocks(page)
     await page.goto(`${kbUrl}/`, { waitUntil: 'networkidle' })
 
     await expect(page).toHaveTitle(/知識庫/)
-    await expect(page.locator('.brand')).toContainText('知識庫')
     await expect(page.locator('h1')).toContainText('Notebook 總覽')
 
-    // 公開模式權限邊界：不顯示「資料匯入」與「登出」
+    // 寬螢幕（1280px）下 .page 應水平置中且與 .topnav-inner 對齊
+    const layoutMetrics = await page.evaluate(() => {
+      const pageEl = document.querySelector('.page')
+      const topnavEl = document.querySelector('.topnav-inner')
+      const pRect = pageEl.getBoundingClientRect()
+      const tRect = topnavEl.getBoundingClientRect()
+      return {
+        viewportWidth: window.innerWidth,
+        pageLeft: pRect.left,
+        pageRightGap: window.innerWidth - pRect.right,
+        pageCenter: pRect.left + pRect.width / 2,
+        topnavCenter: tRect.left + tRect.width / 2,
+      }
+    })
+    expect(Math.abs(layoutMetrics.pageLeft - layoutMetrics.pageRightGap)).toBeLessThanOrEqual(4)
+    expect(Math.abs(layoutMetrics.pageCenter - layoutMetrics.topnavCenter)).toBeLessThanOrEqual(4)
+
+    // 「← 入口」與 .brand 回首頁連結
+    const portalLink = page.getByTestId('portal-back-link')
+    await expect(portalLink).toBeVisible()
+    await expect(portalLink).toContainText('← 入口')
+    await expect(portalLink).toHaveAttribute('href', 'https://43-133-44-216.sslip.io/')
+    await expect(portalLink).toHaveAttribute('title', '回到 Frank 入口頁')
+
+    const brandLink = page.locator('a.brand')
+    await expect(brandLink).toBeVisible()
+    await expect(brandLink).toContainText('知識庫')
+    await expect(brandLink).toHaveAttribute('href', '/')
+
+    // 公開模式權限邊界：不顯示「資料匯入」與「登出」，且頁首說明不提「資料匯入」
     await expect(page.locator('header nav a', { hasText: '資料匯入' })).toHaveCount(0)
     await expect(page.locator('.logout-btn')).toHaveCount(0)
     await expect(page.locator('header nav a', { hasText: '問答' })).toBeVisible()
+    await expect(page.locator('.page-header p')).not.toContainText('資料匯入')
 
-    // 驗證模擬領域／文件卡片正確渲染
-    const cards = page.locator('.nb-card')
+    // 專利分析收斂成下拉選單，點擊與鍵盤皆可開關並切換路由
+    const patentBtn = page.getByTestId('patent-menu-btn')
+    await expect(patentBtn).toBeVisible()
+    await expect(patentBtn).toContainText('專利分析')
+    await expect(page.getByTestId('patent-menu')).toHaveCount(0)
+
+    await patentBtn.click()
+    const patentMenu = page.getByTestId('patent-menu')
+    await expect(patentMenu).toBeVisible()
+    await expect(patentMenu.locator('a[role="menuitem"]')).toHaveCount(3)
+    await expect(patentMenu).toContainText('規劃書')
+    await expect(patentMenu).toContainText('示範報告')
+    await expect(patentMenu).toContainText('審查備注')
+
+    await page.keyboard.press('Escape')
+    await expect(patentMenu).toHaveCount(0)
+
+    await patentBtn.click()
+    await patentMenu.locator('a[role="menuitem"]', { hasText: '示範報告' }).click()
+    await expect(page).toHaveURL(/\/patent-report$/)
+    await expect(patentBtn).toHaveClass(/active/)
+
+    // 點擊 .brand 回到首頁
+    await brandLink.click()
+    await expect(page).toHaveURL(/\/$/)
+    await expect(page.locator('h1')).toContainText('Notebook 總覽')
+
+    // 驗證模擬領域／文件卡片正確渲染，並點擊直通 /ask?domain=dev_note
+    const cards = page.locator('a.nb-card')
     await expect(cards).toHaveCount(MOCK_NOTEBOOKS.length)
-    await expect(cards.filter({ hasText: 'dev_note' })).toContainText('18')
+    const devNoteCard = cards.filter({ hasText: 'dev_note' })
+    await expect(devNoteCard).toContainText('18')
+    await expect(devNoteCard).toContainText('點擊直接提問')
     await expect(cards.filter({ hasText: 'morning_revival' })).toContainText('12')
     await expect(cards.filter({ hasText: 'patent' })).toContainText('5')
+
+    await devNoteCard.click()
+    await expect(page).toHaveURL(/\/ask\?domain=dev_note$/)
+    await expect(page.getByTestId('domain-select')).toHaveValue('dev_note')
 
     // 公開模式直接存取 /import 應導回首頁
     await page.goto(`${kbUrl}/import`, { waitUntil: 'networkidle' })
@@ -326,7 +415,7 @@ test.describe('kb-web 知識庫自動化煙霧測試', () => {
     expect(pageErrors).toEqual([])
   })
 
-  test('問答頁載入正常，送出問題後正確渲染回答與引用來源', async ({ page }) => {
+  test('問答頁支援領域下拉選單、保留多輪對話串與可展開引用出處', async ({ page }) => {
     const pageErrors = []
     const consoleErrors = []
     page.on('pageerror', (err) => pageErrors.push(String(err)))
@@ -335,42 +424,82 @@ test.describe('kb-web 知識庫自動化煙霧測試', () => {
     })
 
     const captured = {}
-    await setupKbApiMocks(page, captured)
+    await setupKbApiMocks(page, captured, { askDelayMs: 200 })
     await page.goto(`${kbUrl}/`, { waitUntil: 'networkidle' })
 
     // 透過導覽列進入問答頁
     await page.locator('header nav a', { hasText: '問答' }).click()
     await expect(page.locator('h1')).toContainText('問答')
 
+    // 驗證領域下拉選單包含「全部領域」與模擬領域
+    const domainSelect = page.getByTestId('domain-select')
+    await expect(domainSelect).toBeVisible()
+    await expect(domainSelect.locator('option')).toHaveCount(MOCK_NOTEBOOKS.length + 1)
+    await expect(domainSelect).toHaveValue('')
+    await domainSelect.selectOption('dev_note')
+    await expect(domainSelect).toHaveValue('dev_note')
+
     const textarea = page.locator('textarea')
     const submitBtn = page.getByRole('button', { name: '提問' })
     await expect(textarea).toBeVisible()
     await expect(submitBtn).toBeDisabled()
 
-    await page.locator('input[placeholder*="patent"]').fill('dev_note')
+    // 第 1 題以 Ctrl+Enter 送出
     await textarea.fill('公開模式的權限邊界是什麼？')
     await expect(submitBtn).toBeEnabled()
-    await submitBtn.click()
+    await textarea.press('Control+Enter')
 
-    // 驗證問答回答、引用來源與搜尋過程正確渲染
-    const answerCard = page.locator('.answer-card')
-    await expect(answerCard).toBeVisible()
-    await expect(answerCard.locator('.answer-question')).toContainText('公開模式的權限邊界是什麼？')
-    await expect(answerCard.locator('.answer-text')).toContainText('瀏覽知識庫與 AI 問答皆免登入')
-    await expect(answerCard.locator('.answer-text strong')).toContainText('公開模式')
+    // 驗證第 1 輪問答渲染於對話串
+    const turns = page.getByTestId('chat-turn')
+    await expect(turns).toHaveCount(1)
+    const firstTurn = turns.nth(0)
+    await expect(firstTurn.getByTestId('user-bubble')).toContainText('公開模式的權限邊界是什麼？')
+    await expect(firstTurn.locator('.answer-text')).toContainText('瀏覽知識庫與 AI 問答皆免登入')
+    await expect(firstTurn.locator('.answer-text strong')).toContainText('公開模式')
 
-    const chips = answerCard.locator('.citations .chip')
+    // 引用來源 chip 可點擊展開完整出處預覽卡片，再點一次可收合
+    const chips = firstTurn.locator('.citations .chip')
     await expect(chips).toHaveCount(2)
     await expect(chips.nth(0)).toContainText('[1]')
     await expect(chips.nth(0)).toContainText('dev-note-2026-04-10-公開模式權限設計')
     await expect(chips.nth(1)).toContainText('[2]')
     await expect(chips.nth(1)).toContainText('kb-web 匯入端點驗證規格')
 
-    await expect(answerCard.locator('.steps-toggle')).toContainText('搜尋過程（2 步）')
-    expect(captured.lastAskBody).toMatchObject({
+    await chips.nth(0).click()
+    const detailCard = firstTurn.getByTestId('citation-detail')
+    await expect(detailCard).toBeVisible()
+    await expect(detailCard).toContainText('dev_note/public-mode.md')
+    await chips.nth(0).click()
+    await expect(detailCard).toHaveCount(0)
+
+    await expect(firstTurn.locator('.steps-toggle')).toContainText('搜尋過程（2 步）')
+    expect(captured.askBodies[0]).toMatchObject({
       question: '公開模式的權限邊界是什麼？',
       domain: 'dev_note',
+      history: [],
     })
+
+    // 送出第 2 題：確認載入中第 1 題不會被洗白，且底部出現「思考中…」氣泡
+    await textarea.fill('追問：多輪對話怎麼運作？')
+    await submitBtn.click()
+
+    await expect(turns).toHaveCount(2)
+    await expect(firstTurn.locator('.answer-text')).toContainText('瀏覽知識庫與 AI 問答皆免登入')
+    await expect(turns.nth(1).getByTestId('user-bubble')).toContainText('追問：多輪對話怎麼運作？')
+    await expect(turns.nth(1).getByTestId('thinking-bubble')).toContainText('思考中…')
+
+    // 等待第 2 題完成，確認兩輪問答完整保留且帶入前 1 輪 history
+    await expect(turns.nth(1).locator('.answer-text')).toContainText('自動帶入最近 3 輪上下文')
+    await expect(firstTurn.locator('.answer-text')).toContainText('瀏覽知識庫與 AI 問答皆免登入')
+    expect(captured.askBodies[1].history).toHaveLength(2)
+    expect(captured.askBodies[1].history[0]).toMatchObject({
+      role: 'user',
+      content: '公開模式的權限邊界是什麼？',
+    })
+
+    // 點擊「清除對話」清空對話串
+    await page.getByTestId('clear-chat-btn').click()
+    await expect(page.getByTestId('chat-thread')).toHaveCount(0)
 
     expect(pageErrors).toEqual([])
     expect(consoleErrors).toEqual([])
@@ -399,6 +528,28 @@ test.describe('kb-web 知識庫自動化煙霧測試', () => {
         `${routePath} 在 390×844 下不應超出水平寬度（scrollWidth=${metrics.scrollWidth}, clientWidth=${metrics.clientWidth}）`,
       ).toBeLessThanOrEqual(metrics.clientWidth)
     }
+
+    // 確認手機寬度下展開專利下拉選單仍在視窗內且不撐開水平寬度
+    await page.getByTestId('patent-menu-btn').click()
+    const patentMenuBox = await page.getByTestId('patent-menu').boundingBox()
+    expect(patentMenuBox).not.toBeNull()
+    expect(patentMenuBox.x).toBeGreaterThanOrEqual(0)
+    expect(patentMenuBox.x + patentMenuBox.width).toBeLessThanOrEqual(390)
+    await page.keyboard.press('Escape')
+
+    // 確認手機寬度下問答展開引用詳情卡片也不會撐破寬度
+    await page.locator('textarea').fill('手機測試問題')
+    await page.getByRole('button', { name: '提問' }).click()
+    const firstChip = page.locator('.citations .chip').first()
+    await expect(firstChip).toBeVisible()
+    await firstChip.click()
+    await expect(page.getByTestId('citation-detail')).toBeVisible()
+
+    const askMetrics = await page.evaluate(() => ({
+      scrollWidth: document.documentElement.scrollWidth,
+      clientWidth: document.documentElement.clientWidth,
+    }))
+    expect(askMetrics.scrollWidth).toBeLessThanOrEqual(askMetrics.clientWidth)
 
     // 確認手機寬度下右上角主題選單按鈕與展開選單都在畫面內
     const pickerBtn = page.getByTestId('theme-picker-btn')
