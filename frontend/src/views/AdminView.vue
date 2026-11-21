@@ -62,7 +62,13 @@
 
       <!-- Tabs -->
       <div class="admin-tabs">
-        <button v-for="t in tabs" :key="t.key" :class="['tab-btn', { active: activeTab === t.key }]" @click="activeTab = t.key">
+        <button
+          v-for="t in tabs"
+          :key="t.key"
+          :data-testid="`admin-tab-${t.key}`"
+          :class="['tab-btn', { active: activeTab === t.key }]"
+          @click="activeTab = t.key"
+        >
           {{ t.icon }} {{ t.label }}
         </button>
       </div>
@@ -126,6 +132,279 @@
           </div>
         </div>
         <div v-if="!llmUsage.days?.length" class="empty">尚無資料</div>
+      </div>
+
+      <!-- Tab: 每日資料庫（md_*）白名單與同步管理 + 官方開放資料（od_*）健康概況 -->
+      <div v-if="activeTab === 'store'" class="tab-panel store-tab-panel" data-testid="store-panel">
+        <div v-if="storeError" class="store-feedback is-err" data-testid="store-load-error">
+          {{ storeError }}
+        </div>
+
+        <!-- 區塊一：白名單管理 -->
+        <section class="store-card" data-testid="store-whitelist-section">
+          <div class="panel-header store-card-header">
+            <div class="store-title-group">
+              <h3>每日資料庫（md_*）白名單管理</h3>
+              <span class="store-badge badge-info" data-testid="store-whitelist-count">
+                {{ whitelistDraft.length }} / {{ whitelistMax }}
+              </span>
+              <span class="store-badge badge-muted" data-testid="store-whitelist-source">
+                來源：{{ whitelistSourceLabel }}
+              </span>
+              <span v-if="whitelistDirty" class="store-badge badge-warn" data-testid="store-whitelist-dirty">
+                尚未儲存變更
+              </span>
+            </div>
+            <div class="store-actions">
+              <button
+                type="button"
+                class="btn-secondary-outline"
+                data-testid="store-whitelist-reset-btn"
+                :disabled="!whitelistDirty || whitelistSaving"
+                @click="resetWhitelistDraft"
+              >
+                重設變更
+              </button>
+              <button
+                type="button"
+                class="btn-danger-outline"
+                data-testid="store-whitelist-clear-btn"
+                :disabled="!whitelistDraft.length || whitelistSaving"
+                @click="clearWhitelistDraft"
+              >
+                清空清單
+              </button>
+              <button
+                type="button"
+                class="btn-solid-primary"
+                data-testid="store-whitelist-save-btn"
+                :disabled="whitelistSaving"
+                @click="saveWhitelist"
+              >
+                {{ whitelistSaving ? '儲存中…' : '儲存白名單' }}
+              </button>
+            </div>
+          </div>
+
+          <p class="muted small store-hint">
+            每日排程（台灣時間平日 15:00）會針對白名單股票增量抓取日 K、三大法人、融資融券、本益比／淨值比與月營收並寫入 MongoDB（上限 {{ whitelistMax }} 檔，代號為 4～6 碼英數字）。
+          </p>
+
+          <!-- 白名單 Chip 列表 -->
+          <div v-if="whitelistDraft.length" class="wl-chip-list" data-testid="store-whitelist-tags">
+            <span
+              v-for="sym in whitelistDraft"
+              :key="sym"
+              class="wl-chip"
+              data-testid="store-whitelist-tag"
+              :data-symbol="sym"
+            >
+              <span class="wl-chip-code">{{ sym }}</span>
+              <button
+                type="button"
+                class="wl-chip-remove"
+                data-testid="store-whitelist-remove"
+                :aria-label="`移除 ${sym}`"
+                :title="`移除 ${sym}`"
+                @click="removeWhitelistSymbol(sym)"
+              >
+                ×
+              </button>
+            </span>
+          </div>
+          <div v-else class="store-empty-box" data-testid="store-whitelist-empty">
+            目前白名單為空，排程與手動同步將不會抓取任何股票。請在下方輸入股票代號並點擊「儲存白名單」。
+          </div>
+
+          <!-- 單筆／批次新增 -->
+          <div class="wl-add-box">
+            <label for="store-whitelist-textarea" class="wl-add-label">
+              單筆或批次新增股票代號（支援逗號、空白或換行分隔，自動轉大寫並去重）
+            </label>
+            <div class="wl-add-row">
+              <textarea
+                id="store-whitelist-textarea"
+                v-model="whitelistInput"
+                class="wl-textarea"
+                rows="2"
+                data-testid="store-whitelist-input"
+                placeholder="例如：2330, 0050, 00940B（或每行一檔）"
+                @keydown.ctrl.enter.prevent="addWhitelistSymbols"
+              ></textarea>
+              <button
+                type="button"
+                class="btn-secondary-outline wl-add-btn"
+                data-testid="store-whitelist-add-btn"
+                :disabled="whitelistSaving"
+                @click="addWhitelistSymbols"
+              >
+                + 加入清單
+              </button>
+            </div>
+          </div>
+
+          <div
+            v-if="whitelistFeedback"
+            :class="['store-feedback', whitelistFeedback.ok ? 'is-ok' : 'is-err']"
+            :data-testid="whitelistFeedback.ok ? 'store-whitelist-feedback' : 'store-whitelist-error'"
+          >
+            {{ whitelistFeedback.msg }}
+          </div>
+        </section>
+
+        <!-- 區塊二：每日資料庫同步狀態 -->
+        <section class="store-card" data-testid="store-status-section">
+          <div class="panel-header store-card-header">
+            <div class="store-title-group">
+              <h3>每日資料庫（md_*）同步狀態</h3>
+              <span
+                :class="['store-badge', storeStatus.running ? 'badge-warn' : 'badge-ok']"
+                data-testid="store-running-badge"
+              >
+                {{ storeStatus.running ? '同步執行中…' : '閒置' }}
+              </span>
+            </div>
+            <div class="store-actions">
+              <button
+                type="button"
+                class="btn-secondary-outline"
+                data-testid="store-refresh-btn"
+                :disabled="storeLoading"
+                @click="loadStoreTab()"
+              >
+                {{ storeLoading ? '重新整理中…' : '重新整理狀態' }}
+              </button>
+              <button
+                type="button"
+                class="btn-solid-primary"
+                data-testid="store-run-btn"
+                :disabled="!canTriggerSync"
+                :title="syncDisabledReason || '於背景執行一輪增量同步'"
+                @click="triggerStoreSync"
+              >
+                {{ triggeringSync ? '啟動中…' : '立即手動同步' }}
+              </button>
+            </div>
+          </div>
+
+          <p class="muted small store-hint">
+            FinMind 免費額度為每小時 600 次（每檔股票每次最多約 5 次請求），手動觸發會於背景執行增量更新，若達額度上限將自動中止並保留斷點。
+            <span v-if="syncDisabledReason" class="store-disabled-hint" data-testid="store-run-disabled-reason">
+              （{{ syncDisabledReason }}）
+            </span>
+          </p>
+
+          <div
+            v-if="syncFeedback"
+            :class="['store-feedback', syncFeedback.ok ? 'is-ok' : 'is-err']"
+            data-testid="store-run-feedback"
+          >
+            {{ syncFeedback.msg }}
+          </div>
+
+          <!-- 各資料集已存筆數概況 -->
+          <div class="store-datasets-grid" data-testid="store-datasets-grid">
+            <div
+              v-for="ds in storeDatasetRows"
+              :key="ds.key"
+              class="store-dataset-card"
+              :data-testid="`store-dataset-${ds.key}`"
+            >
+              <div class="store-dataset-label">{{ ds.label }}</div>
+              <div class="store-dataset-count">{{ formatCount(ds.count) }}</div>
+              <div class="store-dataset-coll">{{ ds.coll }}</div>
+            </div>
+          </div>
+
+          <!-- 最近執行紀錄 -->
+          <h4 class="store-sub-title">最近執行紀錄</h4>
+          <div class="log-table-wrap" data-testid="store-recent-runs">
+            <table class="log-table">
+              <thead>
+                <tr>
+                  <th>開始時間</th>
+                  <th>觸發方式</th>
+                  <th>股票數</th>
+                  <th>寫入筆數</th>
+                  <th>錯誤數</th>
+                  <th>備註／狀態</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(run, idx) in storeStatus.recent_runs" :key="idx">
+                  <td>{{ formatTime(run.started_at) }}</td>
+                  <td>
+                    <span :class="['store-badge', run.trigger === 'manual' ? 'badge-info' : 'badge-muted']">
+                      {{ formatTrigger(run.trigger) }}
+                    </span>
+                  </td>
+                  <td class="num-cell">{{ run.symbols ?? 0 }}</td>
+                  <td class="num-cell">{{ formatCount(run.rows ?? 0) }}</td>
+                  <td class="num-cell">
+                    <span :class="run.errors > 0 ? 'text-err' : ''">{{ run.errors ?? 0 }}</span>
+                  </td>
+                  <td>
+                    <span v-if="run.aborted === 'quota'" class="store-badge badge-warn">額度用完提前中止</span>
+                    <span v-else-if="run.aborted" class="store-badge badge-err">中止：{{ run.aborted }}</span>
+                    <span>{{ run.note || (run.aborted ? '' : '完成') }}</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <div v-if="!storeStatus.recent_runs?.length" class="empty">尚無同步執行紀錄</div>
+          </div>
+        </section>
+
+        <!-- 區塊三：官方開放資料倉庫（od_*）健康概況（唯讀輕量卡片） -->
+        <section class="store-card store-card-compact" data-testid="open-data-section">
+          <div class="panel-header store-card-header">
+            <div class="store-title-group">
+              <h3>官方開放資料倉庫（od_*）健康概況</h3>
+              <span class="store-badge badge-muted">唯讀</span>
+              <span
+                v-if="openDataStatus"
+                :class="['store-badge', openDataOverallClass]"
+                data-testid="open-data-overall-badge"
+              >
+                {{ openDataOverallLabel }}
+              </span>
+            </div>
+          </div>
+
+          <div v-if="openDataUnavailable" class="muted small" data-testid="open-data-fallback">
+            目前無法取得官方開放資料倉庫狀態（不影響每日資料庫白名單管理）。
+          </div>
+          <template v-else-if="openDataStatus">
+            <div
+              v-if="openDataStatus.cooling_off || openDataStatus.blocked_reason"
+              class="store-feedback is-err"
+              data-testid="open-data-blocked-banner"
+            >
+              來源冷卻中：{{ openDataStatus.blocked_reason || '來源暫時封鎖，等待自動冷卻結束' }}
+              <span v-if="openDataStatus.blocked_until">（至 {{ formatTime(openDataStatus.blocked_until) }}）</span>
+            </div>
+            <div class="od-datasets-grid" data-testid="open-data-datasets-grid">
+              <div
+                v-for="item in openDataRows"
+                :key="item.key"
+                class="od-dataset-card"
+                :data-testid="`open-data-dataset-${item.key}`"
+              >
+                <div class="od-dataset-top">
+                  <span class="od-dataset-label">{{ item.label }}</span>
+                  <span :class="['store-badge', odStatusClass(item.status)]">
+                    {{ formatOdStatus(item.status) }}
+                  </span>
+                </div>
+                <div class="od-dataset-meta">
+                  <span>最新日期：<strong>{{ item.last_data_date || '—' }}</strong></span>
+                  <span>筆數：<strong>{{ formatCount(item.count) }}</strong></span>
+                </div>
+              </div>
+            </div>
+          </template>
+          <div v-else class="muted small">載入中…</div>
+        </section>
       </div>
 
       <!-- Tab: Settings -->
@@ -210,6 +489,7 @@ const tabs = [
   { key: 'logs', icon: '📋', label: '訪客紀錄' },
   { key: 'pageviews', icon: '📊', label: '瀏覽統計' },
   { key: 'llm', icon: '🤖', label: 'AI 用量' },
+  { key: 'store', icon: '🗄️', label: '每日資料庫' },
   { key: 'settings', icon: '⚙️', label: '系統設定' },
   { key: 'admins', icon: '👤', label: '管理員' },
   { key: 'notify', icon: '🔔', label: '通知設定' },
@@ -489,6 +769,371 @@ async function handleRedirectCallback() {
   return true
 }
 
+// ───────────────────── 每日資料庫（md_*）與官方開放資料（od_*） ─────────────────────
+const SYMBOL_RE = /^[0-9A-Z]{4,6}$/
+const STORE_DATASET_ORDER = ['price', 'institutional', 'margin', 'valuation', 'revenue']
+const STORE_DATASET_FALLBACK_LABELS = {
+  price: '日 K',
+  institutional: '三大法人',
+  margin: '融資融券',
+  valuation: '本益比／淨值比',
+  revenue: '月營收',
+}
+const OD_DATASET_ORDER = ['margin', 'valuation', 'revenue', 'disposal', 'attention', 'tdcc']
+
+const storeLoading = ref(false)
+const storeError = ref('')
+const whitelistSaved = ref([])
+const whitelistDraft = ref([])
+const whitelistSource = ref('none')
+const whitelistMax = ref(100)
+const whitelistInput = ref('')
+const whitelistSaving = ref(false)
+const whitelistFeedback = ref(null)
+const storeStatus = ref({
+  running: false,
+  datasets: { ...STORE_DATASET_FALLBACK_LABELS },
+  stored_counts: {},
+  symbols: {},
+  recent_runs: [],
+  max_symbols: 100,
+})
+const triggeringSync = ref(false)
+const syncFeedback = ref(null)
+const openDataStatus = ref(null)
+const openDataUnavailable = ref(false)
+
+const whitelistDirty = computed(() => {
+  if (whitelistDraft.value.length !== whitelistSaved.value.length) return true
+  return whitelistDraft.value.some((s, i) => s !== whitelistSaved.value[i])
+})
+
+const whitelistSourceLabel = computed(() => {
+  if (whitelistSource.value === 'db') return '資料庫設定'
+  if (whitelistSource.value === 'env') return '環境變數'
+  return '尚未設定'
+})
+
+const storeDatasetRows = computed(() => {
+  const dsMap = storeStatus.value.datasets || STORE_DATASET_FALLBACK_LABELS
+  const counts = storeStatus.value.stored_counts || {}
+  const keys = Object.keys(dsMap).length ? Object.keys(dsMap) : STORE_DATASET_ORDER
+  const ordered = [
+    ...STORE_DATASET_ORDER.filter(k => keys.includes(k)),
+    ...keys.filter(k => !STORE_DATASET_ORDER.includes(k)),
+  ]
+  return ordered.map(key => ({
+    key,
+    label: dsMap[key] || STORE_DATASET_FALLBACK_LABELS[key] || key,
+    coll: `md_${key}`,
+    count: counts[key],
+  }))
+})
+
+const openDataRows = computed(() => {
+  const dsMap = openDataStatus.value?.datasets || {}
+  const counts = openDataStatus.value?.stored_counts || {}
+  const keys = Object.keys(dsMap)
+  const ordered = [
+    ...OD_DATASET_ORDER.filter(k => keys.includes(k)),
+    ...keys.filter(k => !OD_DATASET_ORDER.includes(k)),
+  ]
+  return ordered.map(key => ({
+    key,
+    label: dsMap[key]?.label || key,
+    status: dsMap[key]?.status || 'never',
+    last_data_date: dsMap[key]?.last_data_date || null,
+    count: counts[key],
+  }))
+})
+
+const openDataOverallLabel = computed(() => {
+  if (!openDataStatus.value) return ''
+  if (openDataStatus.value.cooling_off) return '來源冷卻中'
+  if (openDataStatus.value.running) return '同步中'
+  if (openDataStatus.value.ok) return '健康'
+  if (openDataStatus.value.stale?.length) return `過期／異常 (${openDataStatus.value.stale.length})`
+  if (openDataStatus.value.partial?.length) return `部分失敗 (${openDataStatus.value.partial.length})`
+  return '需注意'
+})
+
+const openDataOverallClass = computed(() => {
+  if (!openDataStatus.value) return 'badge-muted'
+  if (openDataStatus.value.cooling_off || openDataStatus.value.stale?.length) return 'badge-err'
+  if (openDataStatus.value.partial?.length || openDataStatus.value.running) return 'badge-warn'
+  if (openDataStatus.value.ok) return 'badge-ok'
+  return 'badge-muted'
+})
+
+const canTriggerSync = computed(() => (
+  !storeStatus.value.running
+  && !triggeringSync.value
+  && whitelistSaved.value.length > 0
+  && !whitelistDirty.value
+))
+
+const syncDisabledReason = computed(() => {
+  if (storeStatus.value.running || triggeringSync.value) return '同步任務執行中，請稍候再試'
+  if (whitelistDirty.value) return '尚有未儲存的白名單變更，請先儲存白名單後再同步'
+  if (whitelistSaved.value.length === 0) return '白名單為空，請先新增並儲存至少 1 檔股票後再同步'
+  return ''
+})
+
+function formatCount(n) {
+  return typeof n === 'number' && Number.isFinite(n) ? n.toLocaleString('zh-TW') : '—'
+}
+
+function formatTrigger(trigger) {
+  if (trigger === 'manual') return '手動'
+  if (trigger === 'schedule') return '排程'
+  return trigger || '-'
+}
+
+function formatOdStatus(st) {
+  const map = { ok: '正常', partial: '部分失敗', stale: '過期', error: '異常', never: '尚未同步' }
+  return map[st] || st || '—'
+}
+
+function odStatusClass(st) {
+  if (st === 'ok') return 'badge-ok'
+  if (st === 'partial' || st === 'stale') return 'badge-warn'
+  if (st === 'error') return 'badge-err'
+  return 'badge-muted'
+}
+
+function parseSymbolInput(raw) {
+  const tokens = String(raw || '')
+    .split(/[,\s]+/)
+    .map(s => s.trim().toUpperCase())
+    .filter(Boolean)
+  const valid = []
+  const invalid = []
+  for (const tok of tokens) {
+    if (!SYMBOL_RE.test(tok)) {
+      if (!invalid.includes(tok)) invalid.push(tok)
+    } else if (!valid.includes(tok)) {
+      valid.push(tok)
+    }
+  }
+  return { valid, invalid }
+}
+
+function addWhitelistSymbols() {
+  const raw = whitelistInput.value.trim()
+  if (!raw) {
+    whitelistFeedback.value = { ok: false, msg: '請先輸入至少一個股票代號' }
+    return false
+  }
+  const { valid, invalid } = parseSymbolInput(raw)
+  if (invalid.length > 0) {
+    whitelistFeedback.value = {
+      ok: false,
+      msg: `代號格式不正確：${invalid.join('、')}（需為 4～6 碼英數字）`,
+    }
+    return false
+  }
+  const existing = new Set(whitelistDraft.value)
+  const added = valid.filter(s => !existing.has(s))
+  if (added.length === 0) {
+    whitelistInput.value = ''
+    whitelistFeedback.value = { ok: true, msg: '輸入的代號皆已在白名單清單中' }
+    return true
+  }
+  if (whitelistDraft.value.length + added.length > whitelistMax.value) {
+    whitelistFeedback.value = {
+      ok: false,
+      msg: `白名單最多 ${whitelistMax.value} 檔，加入後將達 ${whitelistDraft.value.length + added.length} 檔`,
+    }
+    return false
+  }
+  whitelistDraft.value = [...whitelistDraft.value, ...added]
+  whitelistInput.value = ''
+  whitelistFeedback.value = {
+    ok: true,
+    msg: `已加入 ${added.length} 檔（${added.join('、')}），請點擊「儲存白名單」套用變更`,
+  }
+  return true
+}
+
+function removeWhitelistSymbol(sym) {
+  whitelistDraft.value = whitelistDraft.value.filter(s => s !== sym)
+  if (whitelistFeedback.value && !whitelistFeedback.value.ok) {
+    whitelistFeedback.value = null
+  }
+}
+
+function resetWhitelistDraft() {
+  whitelistDraft.value = [...whitelistSaved.value]
+  whitelistInput.value = ''
+  whitelistFeedback.value = null
+}
+
+function clearWhitelistDraft() {
+  whitelistDraft.value = []
+  whitelistFeedback.value = { ok: true, msg: '已清空待儲存清單，請點擊「儲存白名單」確認套用' }
+}
+
+async function loadStoreWhitelist({ preserveDirty = false } = {}) {
+  try {
+    const r = await fetch('/api/v1/store/whitelist', { headers: authHeaders() })
+    if (handleAdminAuthFailure(r.status)) return
+    const payload = await r.json().catch(() => ({}))
+    if (!r.ok) throw new Error(payload?.detail || `HTTP ${r.status}`)
+    const data = payload.data || {}
+    const syms = Array.isArray(data.symbols) ? data.symbols : []
+    const wasDirty = whitelistDirty.value
+    whitelistSaved.value = [...syms]
+    if (!preserveDirty || !wasDirty) {
+      whitelistDraft.value = [...syms]
+    }
+    whitelistSource.value = data.source || 'none'
+    if (typeof data.max_symbols === 'number' && data.max_symbols > 0) {
+      whitelistMax.value = data.max_symbols
+    }
+  } catch (e) {
+    storeError.value = `白名單載入失敗：${e.message || '請稍後再試'}`
+  }
+}
+
+async function loadStoreStatus() {
+  try {
+    const r = await fetch('/api/v1/store/status', { headers: authHeaders() })
+    if (handleAdminAuthFailure(r.status)) return
+    const payload = await r.json().catch(() => ({}))
+    if (!r.ok) throw new Error(payload?.detail || `HTTP ${r.status}`)
+    const data = payload.data || {}
+    storeStatus.value = {
+      running: Boolean(data.running),
+      datasets: data.datasets || { ...STORE_DATASET_FALLBACK_LABELS },
+      stored_counts: data.stored_counts || {},
+      symbols: data.symbols || {},
+      recent_runs: Array.isArray(data.recent_runs) ? data.recent_runs : [],
+      max_symbols: data.max_symbols || whitelistMax.value,
+    }
+  } catch (e) {
+    storeError.value = `同步狀態載入失敗：${e.message || '請稍後再試'}`
+  }
+}
+
+async function loadOpenDataStatus() {
+  try {
+    const r = await fetch('/api/v1/open-data/status', { headers: authHeaders() })
+    if (!r.ok) {
+      openDataStatus.value = null
+      openDataUnavailable.value = true
+      return
+    }
+    const payload = await r.json().catch(() => null)
+    if (!payload?.data) {
+      openDataStatus.value = null
+      openDataUnavailable.value = true
+      return
+    }
+    openDataStatus.value = payload.data
+    openDataUnavailable.value = false
+  } catch {
+    // 唯讀健康卡片靜默降級，不影響白名單與每日資料庫管理
+    openDataStatus.value = null
+    openDataUnavailable.value = true
+  }
+}
+
+async function loadStoreTab({ preserveDirty = true } = {}) {
+  storeLoading.value = true
+  storeError.value = ''
+  try {
+    await Promise.all([
+      loadStoreWhitelist({ preserveDirty }),
+      loadStoreStatus(),
+      loadOpenDataStatus(),
+    ])
+  } finally {
+    storeLoading.value = false
+  }
+}
+
+async function saveWhitelist() {
+  if (whitelistSaving.value) return
+  if (whitelistInput.value.trim()) {
+    const ok = addWhitelistSymbols()
+    if (!ok) return
+  }
+  if (whitelistDraft.value.length > whitelistMax.value) {
+    whitelistFeedback.value = {
+      ok: false,
+      msg: `白名單最多 ${whitelistMax.value} 檔，目前 ${whitelistDraft.value.length} 檔`,
+    }
+    return
+  }
+  whitelistSaving.value = true
+  whitelistFeedback.value = null
+  try {
+    const r = await fetch('/api/v1/store/whitelist', {
+      method: 'PUT',
+      headers: authHeaders(),
+      body: JSON.stringify({ symbols: whitelistDraft.value }),
+    })
+    if (handleAdminAuthFailure(r.status)) return
+    const payload = await r.json().catch(() => ({}))
+    if (!r.ok) {
+      whitelistFeedback.value = { ok: false, msg: payload?.detail || `儲存失敗（HTTP ${r.status}）` }
+      return
+    }
+    const saved = Array.isArray(payload?.data?.symbols) ? payload.data.symbols : [...whitelistDraft.value]
+    whitelistSaved.value = [...saved]
+    whitelistDraft.value = [...saved]
+    whitelistSource.value = payload?.data?.source || 'db'
+    await loadStoreStatus()
+    whitelistFeedback.value = { ok: true, msg: `白名單已儲存（共 ${saved.length} 檔）` }
+  } catch (e) {
+    whitelistFeedback.value = { ok: false, msg: `儲存白名單失敗：${e.message || '網路錯誤'}` }
+  } finally {
+    whitelistSaving.value = false
+  }
+}
+
+async function triggerStoreSync() {
+  if (!canTriggerSync.value) return
+  triggeringSync.value = true
+  syncFeedback.value = null
+  try {
+    const r = await fetch('/api/v1/store/run', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({}),
+    })
+    if (handleAdminAuthFailure(r.status)) return
+    const payload = await r.json().catch(() => ({}))
+    if (!r.ok) {
+      syncFeedback.value = { ok: false, msg: payload?.detail || `觸發同步失敗（HTTP ${r.status}）` }
+      return
+    }
+    const data = payload.data || {}
+    if (data.started) {
+      storeStatus.value = { ...storeStatus.value, running: true }
+      syncFeedback.value = {
+        ok: true,
+        msg: '已啟動背景增量同步，請稍後點擊「重新整理狀態」查看最新執行紀錄。',
+      }
+    } else if (data.reason === 'already_running') {
+      storeStatus.value = { ...storeStatus.value, running: true }
+      syncFeedback.value = { ok: false, msg: '目前已有同步任務正在執行中，請稍候再重新整理狀態。' }
+    } else {
+      syncFeedback.value = { ok: false, msg: '未能啟動同步任務，請稍後再試。' }
+    }
+  } catch (e) {
+    syncFeedback.value = { ok: false, msg: `觸發同步失敗：${e.message || '網路錯誤'}` }
+  } finally {
+    triggeringSync.value = false
+  }
+}
+
+watch(activeTab, (tab) => {
+  if (tab === 'store' && authStore.isAdmin) {
+    loadStoreTab({ preserveDirty: true })
+  }
+})
+
 onMounted(async () => {
   // Handle OAuth redirect callback (#id_token=...) first
   const justLoggedIn = await handleRedirectCallback()
@@ -613,4 +1258,222 @@ onMounted(async () => {
 .empty { text-align: center; color: var(--text-muted, var(--muted)); padding: 24px; font-size: 0.9rem; }
 
 select { background: var(--bg-primary, var(--well)); border: 1px solid var(--border-color, var(--elev)); border-radius: 8px; padding: 6px 10px; color: var(--text-primary, var(--ink)); font-size: 0.85rem; }
+
+/* 每日資料庫（md_*）與官方開放資料（od_*）管理介面：全數採用 CSS 主題變數，支援 6 組主題與 WCAG AA 對比 */
+.store-tab-panel { display: flex; flex-direction: column; gap: 20px; background: transparent; border: none; padding: 0; }
+.store-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 20px;
+}
+.store-card-compact { padding: 16px 20px; }
+.store-card-header { flex-wrap: wrap; gap: 12px; margin-bottom: 10px; }
+.store-title-group { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.store-title-group h3 { margin: 0; font-size: 1.08rem; color: var(--text-primary); }
+.store-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.store-hint { margin: 0 0 14px; line-height: 1.55; }
+.store-disabled-hint { color: var(--color-warning); font-weight: 500; }
+
+.store-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+.badge-info { background: var(--blue-soft); color: var(--accent-blue); border: 1px solid color-mix(in srgb, var(--accent-blue) 30%, transparent); }
+.badge-ok { background: var(--down-soft); color: var(--color-down); border: 1px solid color-mix(in srgb, var(--color-down) 30%, transparent); }
+.badge-warn { background: var(--warn-soft); color: var(--color-warning); border: 1px solid color-mix(in srgb, var(--color-warning) 30%, transparent); }
+.badge-err { background: var(--up-soft); color: var(--color-up); border: 1px solid color-mix(in srgb, var(--color-up) 30%, transparent); }
+.badge-muted { background: var(--bg-elevated); color: var(--text-secondary); border: 1px solid var(--border-color); }
+
+.btn-solid-primary {
+  background: var(--accent-blue);
+  color: var(--on-accent);
+  border: 1px solid var(--accent-blue);
+  border-radius: 8px;
+  padding: 7px 14px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.btn-solid-primary:hover:not(:disabled) { opacity: 0.88; }
+.btn-solid-primary:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.btn-secondary-outline {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 7px 14px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btn-secondary-outline:hover:not(:disabled) { background: var(--bg-hover); }
+.btn-secondary-outline:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.btn-danger-outline {
+  background: var(--up-soft);
+  color: var(--color-up);
+  border: 1px solid color-mix(in srgb, var(--color-up) 32%, transparent);
+  border-radius: 8px;
+  padding: 7px 14px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.btn-danger-outline:hover:not(:disabled) { opacity: 0.85; }
+.btn-danger-outline:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.wl-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 10px;
+  background: var(--bg-well);
+  border: 1px solid var(--border-color);
+  margin-bottom: 14px;
+}
+.wl-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px 4px 10px;
+  border-radius: 999px;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.wl-chip-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+}
+.wl-chip-remove:hover { background: var(--up-soft); color: var(--color-up); }
+
+.store-empty-box {
+  padding: 16px;
+  border-radius: 10px;
+  border: 1px dashed var(--border-color);
+  background: var(--bg-well);
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+  text-align: center;
+  margin-bottom: 14px;
+}
+
+.wl-add-box { display: flex; flex-direction: column; gap: 6px; }
+.wl-add-label { font-size: 0.82rem; color: var(--text-secondary); font-weight: 500; }
+.wl-add-row { display: flex; gap: 10px; align-items: flex-start; flex-wrap: wrap; }
+.wl-textarea {
+  flex: 1;
+  min-width: 220px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-family: var(--font-mono);
+  font-size: 0.86rem;
+  line-height: 1.45;
+  resize: vertical;
+  box-sizing: border-box;
+}
+.wl-textarea::placeholder { color: var(--text-muted); font-family: var(--font-sans); }
+.wl-textarea:focus { outline: 2px solid var(--accent-blue); outline-offset: 1px; }
+.wl-add-btn { white-space: nowrap; }
+
+.store-feedback {
+  margin-top: 12px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 0.86rem;
+  font-weight: 500;
+}
+.store-feedback.is-ok {
+  background: var(--down-soft);
+  color: var(--color-down);
+  border: 1px solid color-mix(in srgb, var(--color-down) 30%, transparent);
+}
+.store-feedback.is-err {
+  background: var(--up-soft);
+  color: var(--color-up);
+  border: 1px solid color-mix(in srgb, var(--color-up) 30%, transparent);
+}
+
+.store-datasets-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  margin-bottom: 18px;
+}
+.store-dataset-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+.store-dataset-label { font-size: 0.82rem; color: var(--text-secondary); font-weight: 600; }
+.store-dataset-count {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  margin: 4px 0 2px;
+}
+.store-dataset-coll { font-size: 0.74rem; color: var(--text-muted); font-family: var(--font-mono); }
+
+.store-sub-title { margin: 0 0 10px; font-size: 0.95rem; color: var(--text-primary); }
+.num-cell { font-family: var(--font-mono); white-space: nowrap; }
+.text-err { color: var(--color-up); font-weight: 700; }
+
+.od-datasets-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+.od-dataset-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.od-dataset-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.od-dataset-label { font-size: 0.84rem; font-weight: 600; color: var(--text-primary); }
+.od-dataset-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+.od-dataset-meta strong { color: var(--text-primary); font-family: var(--font-mono); }
+
+@media (prefers-reduced-motion: reduce) {
+  .btn-solid-primary, .btn-secondary-outline, .btn-danger-outline { transition: none; }
+}
 </style>
