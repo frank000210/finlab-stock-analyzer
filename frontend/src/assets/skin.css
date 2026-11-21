@@ -81,10 +81,37 @@ html[data-rough="off"] .btn::before { filter: none; }
 
 .card { border-radius: var(--sketch-radius); }
 
-/* 英數大數字用手寫體（Ink Free；沒有這個字型的電腦退回楷體），仍維持等寬對齊 */
-.current-price, .signal-score, .metric-card .value {
-  font-family: var(--font-hand);
+/* 金融數字一律維持等寬字型 + 等寬數字對齊，避免手寫體影響掃讀與直欄對齊 */
+.current-price, .signal-score, .metric-card .value,
+.summary-score, .metric-value, .recent-price, .recent-change,
+.score-value, .beta-value, .health-num, .score-num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
   font-weight: 700;
+}
+
+/* ===== 通用骨架屏（降低 CLS，支援 6 組色彩主題與減少動態偏好） ===== */
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-sm, 6px);
+  background: color-mix(in srgb, var(--muted) 16%, transparent);
+}
+.skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--paper) 28%, transparent),
+    transparent
+  );
+  animation: finlab-skeleton-shimmer 1.4s ease-in-out infinite;
+}
+@keyframes finlab-skeleton-shimmer {
+  100% { transform: translateX(100%); }
 }
 
 /* 頁籤：目前選到的用螢光筆畫一下 */
@@ -105,4 +132,5 @@ thead { border-bottom: 1.5px solid var(--ink-2); }
 
 @media (prefers-reduced-motion: reduce) {
   .card, .btn { transition: none; }
+  .skeleton::after { animation: none; }
 }

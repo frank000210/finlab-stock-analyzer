@@ -1,5 +1,6 @@
 <template>
   <div class="overview-page">
+    <StockContextBar />
     <PageFocusBanner text="一眼掌握個股在技術、籌碼、基本面、情緒等維度的綜合健康度，作為深入分析前的第一站。" />
 
     <header class="page-header">
@@ -50,11 +51,11 @@
               x1="200" y1="200" :x2="axisEnd(i).x" :y2="axisEnd(i).y"
               stroke="var(--border-color)" stroke-width="0.5"/>
             <!-- Data polygon -->
-            <polygon :points="dataPoints" fill="rgba(59, 130, 246, 0.2)" stroke="var(--accent-blue)" stroke-width="2"/>
+            <polygon :points="dataPoints" fill="var(--accent-blue)" fill-opacity="0.2" stroke="var(--accent-blue)" stroke-width="2"/>
             <!-- Data dots -->
             <circle v-for="(d, i) in dimensions" :key="'dot'+i"
               :cx="dataPoint(i).x" :cy="dataPoint(i).y" r="5"
-              fill="var(--accent-blue)" stroke="#fff" stroke-width="2"/>
+              fill="var(--accent-blue)" stroke="var(--bg-card)" stroke-width="2"/>
             <!-- Labels -->
             <text v-for="(d, i) in dimensions" :key="'label'+i"
               :x="labelPos(i).x" :y="labelPos(i).y"
@@ -85,7 +86,11 @@
           <p class="summary-text">{{ seasonal.patterns?.[0]?.name || '分析中...' }}</p>
           <div class="summary-detail">{{ seasonal.patterns?.[0]?.description?.slice(0, 60) }}...</div>
         </div>
-        <div v-else class="loading-placeholder">載入中...</div>
+        <div v-else class="card-skeleton" aria-busy="true" aria-label="載入中">
+          <div class="skeleton sk-score"></div>
+          <div class="skeleton sk-line"></div>
+          <div class="skeleton sk-line short"></div>
+        </div>
       </div>
 
       <!-- Lead-Lag -->
@@ -99,7 +104,11 @@
           <p class="summary-text">{{ leadLag.interpretation?.direction }} {{ Math.abs(leadLag.optimal_lag) }} 天</p>
           <div class="summary-detail">β={{ leadLag.beta?.value }} | 相關 {{ leadLag.peak_correlation }}</div>
         </div>
-        <div v-else class="loading-placeholder">載入中...</div>
+        <div v-else class="card-skeleton" aria-busy="true" aria-label="載入中">
+          <div class="skeleton sk-score"></div>
+          <div class="skeleton sk-line"></div>
+          <div class="skeleton sk-line short"></div>
+        </div>
       </div>
 
       <!-- Major Players -->
@@ -113,7 +122,11 @@
           <p class="summary-text verdict-badge" :class="'v-' + majorPlayers.verdict">{{ majorPlayers.verdict }}</p>
           <div class="summary-detail">信心 {{ majorPlayers.confidence }}% | {{ majorPlayers.signals?.length || 0 }} 個信號</div>
         </div>
-        <div v-else class="loading-placeholder">載入中...</div>
+        <div v-else class="card-skeleton" aria-busy="true" aria-label="載入中">
+          <div class="skeleton sk-score"></div>
+          <div class="skeleton sk-line"></div>
+          <div class="skeleton sk-line short"></div>
+        </div>
       </div>
 
       <!-- Social Buzz -->
@@ -127,7 +140,11 @@
           <p class="summary-text">{{ socialBuzz.buzz_level }} — {{ socialBuzz.trend_label }}</p>
           <div class="summary-detail">PTT {{ socialBuzz.ptt?.post_count }}篇 | 新聞 {{ socialBuzz.news?.article_count }}篇</div>
         </div>
-        <div v-else class="loading-placeholder">載入中...</div>
+        <div v-else class="card-skeleton" aria-busy="true" aria-label="載入中">
+          <div class="skeleton sk-score"></div>
+          <div class="skeleton sk-line"></div>
+          <div class="skeleton sk-line short"></div>
+        </div>
       </div>
 
       <!-- Public Data -->
@@ -141,7 +158,11 @@
           <p class="summary-text">公告 {{ publicData.announcements?.length || 0 }} 則</p>
           <div class="summary-detail">配息 {{ publicData.dividends?.[0]?.total || '–' }} 元/股</div>
         </div>
-        <div v-else class="loading-placeholder">載入中...</div>
+        <div v-else class="card-skeleton" aria-busy="true" aria-label="載入中">
+          <div class="skeleton sk-score"></div>
+          <div class="skeleton sk-line"></div>
+          <div class="skeleton sk-line short"></div>
+        </div>
       </div>
 
       <!-- Technical Analysis -->
@@ -155,13 +176,18 @@
           <p class="summary-text">RSI {{ technical.rsi?.toFixed(0) || '–' }}</p>
           <div class="summary-detail">{{ technical.trend || '計算中...' }}</div>
         </div>
-        <div v-else class="loading-placeholder">載入中...</div>
+        <div v-else class="card-skeleton" aria-busy="true" aria-label="載入中">
+          <div class="skeleton sk-score"></div>
+          <div class="skeleton sk-line"></div>
+          <div class="skeleton sk-line short"></div>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
+import StockContextBar from '../components/StockContextBar.vue'
 import PageFocusBanner from '../components/PageFocusBanner.vue'
 import InfoTooltip from '../components/InfoTooltip.vue'
 import { ref, computed, onMounted, watch } from 'vue'
@@ -398,7 +424,7 @@ watch(() => stockStore.symbol, loadAll)
 .summary-card { cursor: pointer; transition: transform 0.15s, box-shadow 0.15s; }
 .summary-card:hover, .summary-card:focus-visible {
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+  box-shadow: 0 8px 24px rgba(var(--shadow-rgb), 0.15);
 }
 .card-head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
 .card-icon { font-size: 1.3rem; }
@@ -408,6 +434,10 @@ watch(() => stockStore.symbol, loadAll)
 .summary-text { font-size: 0.85rem; margin: 8px 0 4px; font-weight: 600; }
 .summary-detail { font-size: 0.75rem; color: var(--text-muted); }
 .loading-placeholder { color: var(--text-muted); font-size: 0.85rem; }
+.card-skeleton { display: flex; flex-direction: column; gap: 10px; min-height: 76px; padding-top: 2px; }
+.sk-score { width: 88px; height: 28px; }
+.sk-line { width: 78%; height: 14px; }
+.sk-line.short { width: 55%; height: 12px; }
 
 .verdict-badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 0.8rem; }
 .v-拉抬 { background: var(--up-soft); color: var(--accent-green); }

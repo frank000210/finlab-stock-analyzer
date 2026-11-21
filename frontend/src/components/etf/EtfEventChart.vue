@@ -71,7 +71,7 @@
 // 後端只給看盤價日線（/api/v1/etf-compare/chart），MA 與 KD 由 lib/indicators.js 用同一份資料算。
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { createChart, CrosshairMode, LineStyle } from 'lightweight-charts'
-import { useChartTheme } from '../../composables/useChartTheme'
+import { useChartTheme, themeVersion } from '../../composables/useChartTheme'
 import { kdj, sma } from '../../lib/indicators'
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
@@ -447,6 +447,9 @@ function handleResize() {
 onMounted(() => {
   load()
   window.addEventListener('resize', handleResize)
+})
+watch(themeVersion, () => {
+  if (bars.value) nextTick(render)
 })
 onBeforeUnmount(() => {
   window.removeEventListener('resize', handleResize)

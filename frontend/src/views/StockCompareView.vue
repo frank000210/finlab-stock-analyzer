@@ -58,16 +58,16 @@
 </template>
 
 <script setup>
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import PageFocusBanner from '../components/PageFocusBanner.vue'
 import { createChart } from 'lightweight-charts'
-import { useChartTheme } from '../composables/useChartTheme'
+import { useChartTheme, themeVersion } from '../composables/useChartTheme'
 import { downloadCsv, timestampedFilename } from '../lib/csvExport'
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 const MAX_SYMBOLS = 4
 const theme = useChartTheme()
-const COLORS = [theme.blue, theme.purple, theme.cyan, theme.warn]
+const getColors = () => [theme.blue, theme.purple, theme.cyan, theme.warn]
 
 const symbols = ref([]) // [{symbol, name}]
 const searchInput = ref('')
@@ -149,10 +149,11 @@ async function loadComparison() {
       return
     }
 
+    const colors = getColors()
     resultSeries.value = withData.map((r, i) => {
       const baseline = r.items[0].close
       const points = r.items.map(it => ({ date: it.date, pct: (it.close / baseline - 1) * 100 }))
-      return { symbol: r.symbol, name: r.name, color: COLORS[i % COLORS.length], points, lastPct: points[points.length - 1].pct }
+      return { symbol: r.symbol, name: r.name, color: colors[i % colors.length], points, lastPct: points[points.length - 1].pct }
     })
     hasResult.value = true
     renderChart()
@@ -192,10 +193,13 @@ function renderChart() {
     layout: { background: { color: 'transparent' }, textColor: theme.textSoft },
     grid: { vertLines: { color: theme.grid }, horzLines: { color: theme.grid } },
   })
-  for (const s of resultSeries.value) {
-    const series = chart.addLineSeries({ color: s.color, lineWidth: 2, title: s.symbol })
+  const colors = getColors()
+  resultSeries.value.forEach((s, i) => {
+    const color = colors[i % colors.length]
+    s.color = color
+    const series = chart.addLineSeries({ color, lineWidth: 2, title: s.symbol })
     series.setData(s.points.map(p => ({ time: p.date, value: Number(p.pct.toFixed(2)) })))
-  }
+  })
   chart.timeScale().fitContent()
   chartInstance = chart
 }
@@ -218,6 +222,9 @@ function exportCsv() {
 }
 
 watch(searchInput, onSearchInput)
+watch(themeVersion, () => {
+  if (resultSeries.value.length) nextTick(renderChart)
+})
 </script>
 
 <style scoped>

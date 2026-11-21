@@ -1,5 +1,6 @@
 <template>
   <div class="backtest-page">
+    <StockContextBar :symbol="form.symbol" />
     <PageFocusBanner text="驗證交易策略的歷史績效與風險，評估是否值得實際採用。" />
 
     <aside class="config-panel card">
@@ -402,6 +403,7 @@
 </template>
 
 <script setup>
+import StockContextBar from '../components/StockContextBar.vue'
 import PageFocusBanner from '../components/PageFocusBanner.vue'
 import InfoTooltip from '../components/InfoTooltip.vue'
 import { metricGlossary } from '../lib/metricGlossary'
@@ -409,7 +411,7 @@ import { ref, computed, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import axios from 'axios'
 import { createChart } from 'lightweight-charts'
-import { useChartTheme } from '../composables/useChartTheme'
+import { useChartTheme, themeVersion } from '../composables/useChartTheme'
 import { useStockStore } from '../stores/stock.js'
 import { downloadCsv, timestampedFilename } from '../lib/csvExport'
 
@@ -944,6 +946,11 @@ function destroyEquityChart() {
 
 onBeforeUnmount(destroyEquityChart)
 
+watch(themeVersion, () => {
+  if (result.value?.equity_curve) nextTick(renderEquityCurve)
+  if (compareResults.value.length) nextTick(renderCompareChart)
+})
+
 function renderEquityCurve() {
   if (!equityChart.value || !result.value?.equity_curve) return
 
@@ -974,12 +981,12 @@ function renderEquityCurve() {
   grid-template-columns: 320px 1fr;
   gap: var(--space-6);
 }
-/* 觀測重點 banner 要橫跨兩欄；先前它佔走第一格，把設定面板擠到右邊、
-   結果區掉到左邊窄欄，造成整頁左右錯置。 */
-.backtest-page > :deep(.page-focus-banner) {
+/* 觀測重點 banner 與共用個股切換條皆橫跨兩欄 */
+.backtest-page > :deep(.page-focus-banner),
+.backtest-page > :deep(.stock-context-bar) {
   grid-column: 1 / -1;
 }
-.config-panel { position: sticky; top: 80px; align-self: start; }
+.config-panel { position: sticky; top: 108px; align-self: start; }
 .form-group { margin-top: var(--space-3); }
 .form-group label { display: block; font-size: 0.8rem; color: var(--text-secondary); margin-bottom: var(--space-1); font-weight: 500; }
 .form-input {

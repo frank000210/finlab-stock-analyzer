@@ -490,7 +490,7 @@ onBeforeUnmount(() => window.removeEventListener('storage', onJournalStorage))
 .cmd-table th:nth-child(2), .cmd-table td:nth-child(2), .cmd-table th:nth-child(5), .cmd-table td:nth-child(5) { text-align: left; }
 .cmd-table th { color: var(--text-muted); font-weight: 500; font-size: 0.74rem; }
 .tr.dim, tr.dim { opacity: 0.55; }
-tr.today-pick { background: color-mix(in srgb, var(--warn) 7%, transparent); box-shadow: inset 3px 0 0 #f59e0b; }
+tr.today-pick { background: color-mix(in srgb, var(--warn) 7%, transparent); box-shadow: inset 3px 0 0 var(--warn); }
 .sym { font-weight: 700; }
 .sym .nm { display: block; font-weight: 400; color: var(--text-muted); font-size: 0.72rem; line-height: 1.2; }
 .pick-badge { margin-left: 4px; font-size: 0.82rem; }

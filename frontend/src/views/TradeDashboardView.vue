@@ -50,7 +50,8 @@
           <div ref="chartEl" class="chart-area"></div>
         </div>
         <div class="x-axis-label" v-if="priceSeries.length">日期</div>
-        <div v-if="!priceSeries.length" class="empty-state">目前沒有價格資料</div>
+        <div v-else-if="loading" class="skeleton skeleton-chart" aria-busy="true" aria-label="載入價格走勢中"></div>
+        <div v-else class="empty-state">目前沒有價格資料</div>
       </article>
 
       <article class="card side-card">
@@ -76,6 +77,9 @@
               </div>
             </div>
           </div>
+        </div>
+        <div v-else-if="loading" class="signal-skeleton-list" aria-busy="true" aria-label="載入 AI 信號中">
+          <div v-for="n in 3" :key="n" class="skeleton skeleton-signal"></div>
         </div>
         <div v-else class="empty-state">目前沒有 AI 信號</div>
       </article>
@@ -113,6 +117,7 @@
         <span class="badge-estimated">示意資料</span>
       </div>
       <div v-if="signals.length" ref="sankeyEl" class="chart-host sankey-host"></div>
+      <div v-else-if="loading" class="skeleton skeleton-sankey" aria-busy="true" aria-label="載入 AI 訊號分流圖中"></div>
       <div v-else class="empty-state">目前沒有 AI 信號</div>
       <p class="chart-caption">
         參考：D3 gallery - Sankey diagram；本圖以 AI 訊號信心度為權重，示意訊號從「買入／賣出／觀望」分流至個股的相對比重，並非真實持倉或資金流向。
@@ -126,7 +131,7 @@ import PageFocusBanner from '../components/PageFocusBanner.vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { createChart } from 'lightweight-charts'
 import * as d3 from 'd3'
-import { useChartTheme } from '../composables/useChartTheme'
+import { useChartTheme, themeVersion } from '../composables/useChartTheme'
 import { useJournalRisk } from '../composables/useJournalRisk'
 import { useStockStore } from '../stores/stock.js'
 import { fetchWithRetry } from '../lib/apiFetch'
@@ -134,7 +139,7 @@ import { fetchWithRetry } from '../lib/apiFetch'
 const theme = useChartTheme()
 const stockStore = useStockStore()
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
-const loading = ref(false)
+const loading = ref(true)
 const errorMessage = ref('')
 const signals = ref([])
 const priceSeries = ref([])
@@ -175,24 +180,23 @@ const mddClass = computed(() => {
   return 'status-safe'
 })
 
-function onThemeChange() {
-  renderChart()
-  renderSankey()
-}
-
 onMounted(async () => {
   window.addEventListener('resize', renderChart)
   window.addEventListener('resize', renderSankey)
-  window.addEventListener('finlab:theme-change', onThemeChange)
   await loadDashboard()
 })
 
 watch(() => stockStore.symbol, loadDashboard)
+watch(themeVersion, () => {
+  nextTick(() => {
+    renderChart()
+    renderSankey()
+  })
+})
 
 onBeforeUnmount(() => {
   window.removeEventListener('resize', renderChart)
   window.removeEventListener('resize', renderSankey)
-  window.removeEventListener('finlab:theme-change', onThemeChange)
   destroyChart()
 })
 
@@ -674,6 +678,32 @@ function statusClass(status) {
 .sankey-host {
   min-height: 280px;
   overflow-x: auto;
+}
+
+.skeleton-chart {
+  width: 100%;
+  height: 320px;
+  margin-top: 16px;
+  border-radius: 12px;
+}
+
+.signal-skeleton-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.skeleton-signal {
+  height: 82px;
+  border-radius: 12px;
+}
+
+.skeleton-sankey {
+  width: 100%;
+  height: 280px;
+  margin-top: 12px;
+  border-radius: 12px;
 }
 
 .chart-caption {

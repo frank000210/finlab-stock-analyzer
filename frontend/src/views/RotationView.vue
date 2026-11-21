@@ -245,7 +245,7 @@ import { metricGlossary } from '../lib/metricGlossary'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import * as d3 from 'd3'
 import { sankey as d3Sankey, sankeyLinkHorizontal } from 'd3-sankey'
-import { useChartTheme } from '../composables/useChartTheme'
+import { useChartTheme, themeVersion } from '../composables/useChartTheme'
 import { loadWatchlist as loadSharedWatchlist } from '../lib/watchlist'
 import { downloadCsv, timestampedFilename } from '../lib/csvExport'
 import { fetchWithRetry } from '../lib/apiFetch'
@@ -406,6 +406,17 @@ onMounted(async () => {
   window.addEventListener('keydown', handleKeydown)
   heatmapResizeHandler = () => renderHeatmap()
   window.addEventListener('resize', heatmapResizeHandler)
+})
+
+watch(themeVersion, () => {
+  nextTick(() => {
+    renderRRG()
+    renderLeadGraph()
+    renderHorizon()
+    renderChord()
+    renderSankey()
+    renderHeatmap()
+  })
 })
 
 onBeforeUnmount(() => {

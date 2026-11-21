@@ -1,5 +1,6 @@
 <template>
   <div class="analysis-view">
+    <StockContextBar :symbol="symbol" :name="stockName" />
     <PageFocusBanner text="檢視價格趨勢、動能與波動，判斷技術面是否支持進出場時機。" />
 
     <section class="hero-card card">
@@ -35,7 +36,19 @@
 
     <p v-if="errorMessage" class="status-message">{{ errorMessage }}</p>
 
-    <section class="top-grid">
+    <!-- 頁內區段快速跳轉錨點 -->
+    <nav class="section-anchors" aria-label="本頁區段快速跳轉" data-testid="analysis-section-anchors">
+      <span class="anchors-label">快速跳至：</span>
+      <a href="#sec-chart" class="anchor-chip" @click.prevent="scrollToSection('sec-chart')">📈 K 線與指標</a>
+      <a v-if="scorecard || scorecardLoading || scorecardError" href="#sec-scorecard" class="anchor-chip" @click.prevent="scrollToSection('sec-scorecard')">📋 評分卡</a>
+      <a href="#sec-heatmap" class="anchor-chip" @click.prevent="scrollToSection('sec-heatmap')">🗓️ 日曆與量價</a>
+      <a href="#sec-advice" class="anchor-chip" @click.prevent="scrollToSection('sec-advice')">🎯 買賣建議</a>
+      <a href="#sec-fundamental" class="anchor-chip" @click.prevent="scrollToSection('sec-fundamental')">💹 基本面</a>
+      <a href="#sec-chip" class="anchor-chip" @click.prevent="scrollToSection('sec-chip')">🧱 籌碼面</a>
+      <a v-if="peerLoading || peerData" href="#sec-peers" class="anchor-chip" @click.prevent="scrollToSection('sec-peers')">⚖️ 同業比較</a>
+    </nav>
+
+    <section id="sec-chart" class="top-grid anchor-target">
       <article class="card chart-card">
         <div class="section-head">
           <div>
@@ -170,7 +183,7 @@
     </section>
 
     <!-- 個股三面向評分卡：台股個股才顯示（美股、載入失敗時整區隱藏，「AI 決策評分」退回原算法） -->
-    <section v-if="scorecard || scorecardLoading || scorecardError" class="card scorecard-section" data-testid="scorecard-section">
+    <section v-if="scorecard || scorecardLoading || scorecardError" id="sec-scorecard" class="card scorecard-section anchor-target" data-testid="scorecard-section">
       <StockScorecard :card="scorecard" :loading="scorecardLoading" :error="scorecardError" @retry="loadScorecard(symbol, requestToken)" />
     </section>
 
@@ -213,7 +226,7 @@
       </div>
     </section>
 
-    <section class="card calendar-section">
+    <section id="sec-heatmap" class="card calendar-section anchor-target">
       <div class="section-head compact">
         <div>
           <h2>每日漲跌日曆熱力圖</h2>
@@ -275,7 +288,7 @@
     </section>
 
     <section class="bottom-grid">
-      <article class="card summary-card">
+      <article id="sec-advice" class="card summary-card anchor-target">
         <div class="section-head compact">
           <div>
             <h2>買賣建議</h2>
@@ -306,7 +319,7 @@
         </div>
       </article>
 
-      <article class="card detail-card">
+      <article id="sec-fundamental" class="card detail-card anchor-target">
         <div class="section-head compact">
           <div>
             <h2>基本面重點</h2>
@@ -354,7 +367,7 @@
         </ul>
       </article>
 
-      <article class="card detail-card">
+      <article id="sec-chip" class="card detail-card anchor-target">
         <div class="section-head compact">
           <div>
             <h2>籌碼面重點</h2>
@@ -455,7 +468,7 @@
     </section>
 
     <!-- U2：同業比較——把單股數字放進參照系（貴是相對誰貴、成長是相對誰快） -->
-    <section class="card peer-section" v-if="peerLoading || peerData">
+    <section id="sec-peers" class="card peer-section anchor-target" v-if="peerLoading || peerData">
       <div class="section-head compact">
         <div>
           <h2>同業比較 <InfoTooltip v-bind="metricGlossary.peerComparison" /></h2>
@@ -566,6 +579,7 @@
 </template>
 
 <script setup>
+import StockContextBar from '../components/StockContextBar.vue'
 import PageFocusBanner from '../components/PageFocusBanner.vue'
 import DataLineage from '../components/DataLineage.vue'
 import TradingViewChart from '../components/TradingViewChart.vue'
@@ -577,7 +591,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { createChart } from 'lightweight-charts'
 import * as d3 from 'd3'
-import { useChartTheme } from '../composables/useChartTheme'
+import { useChartTheme, themeVersion } from '../composables/useChartTheme'
 import { tvChartUrl } from '../lib/tradingview'
 import { fetchSizingData } from '../lib/livePriceCache'
 import { useSparkline } from '../composables/useSparkline'
@@ -1270,6 +1284,22 @@ watch(showVwap, () => {
 watch(selectedRange, async () => {
   await loadAnalysis()
 })
+
+watch(themeVersion, () => {
+  if (!mergedSeries.value.length) return
+  nextTick(() => {
+    renderCharts()
+    renderCalendar()
+    renderVolumeProfile()
+  })
+})
+
+function scrollToSection(id) {
+  const el = document.getElementById(id)
+  if (!el) return
+  const reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  el.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'start' })
+}
 
 onMounted(async () => {
   window.addEventListener('resize', handleResize)
@@ -3090,5 +3120,50 @@ function valueTone(value) {
   .top-grid {
     gap: var(--space-3);
   }
+}
+
+.anchor-target {
+  scroll-margin-top: 120px;
+}
+
+.section-anchors {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 6px 12px;
+  border-radius: var(--radius-lg, 14px);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+}
+.section-anchors::-webkit-scrollbar {
+  display: none;
+}
+.anchors-label {
+  flex: 0 0 auto;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.anchor-chip {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+}
+.anchor-chip:hover {
+  background: var(--bg-hover);
+  color: var(--accent-blue);
+  border-color: var(--accent-blue);
 }
 </style>

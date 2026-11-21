@@ -1,5 +1,6 @@
 <template>
   <div class="buzz-page">
+    <StockContextBar :symbol="symbol" />
     <PageFocusBanner text="觀察社群與新聞討論熱度及情緒，判斷市場是否過度樂觀或悲觀。" />
 
     <header class="page-header">
@@ -237,6 +238,7 @@
 </template>
 
 <script setup>
+import StockContextBar from '../components/StockContextBar.vue'
 import PageFocusBanner from '../components/PageFocusBanner.vue'
 import InfoTooltip from '../components/InfoTooltip.vue'
 import MetricScale from '../components/MetricScale.vue'

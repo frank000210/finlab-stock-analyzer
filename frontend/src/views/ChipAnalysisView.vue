@@ -1,5 +1,6 @@
 <template>
   <div class="chip-page">
+    <StockContextBar :symbol="symbol" />
     <PageFocusBanner text="檢視籌碼分布是否健康、有無異常集中，評估軋空或出貨風險。" />
 
     <header class="page-header">
@@ -529,6 +530,7 @@
 </template>
 
 <script setup>
+import StockContextBar from '../components/StockContextBar.vue'
 import PageFocusBanner from '../components/PageFocusBanner.vue'
 import InfoTooltip from '../components/InfoTooltip.vue'
 import MetricScale from '../components/MetricScale.vue'
@@ -536,6 +538,7 @@ import { metricGlossary } from '../lib/metricGlossary'
 import { ref, computed, watch, onMounted, nextTick, onBeforeUnmount } from 'vue'
 import { useRoute } from 'vue-router'
 import { createChart } from 'lightweight-charts'
+import { useChartTheme, themeVersion } from '../composables/useChartTheme'
 import { useStockStore } from '../stores/stock.js'
 import { formatYyyymmdd as formatDate } from '../lib/dateFormat'
 import { fetchWithRetry } from '../lib/apiFetch'
@@ -547,6 +550,7 @@ const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 
 const route = useRoute()
 const stockStore = useStockStore()
+const theme = useChartTheme()
 const symbol = ref(route.params.symbol || stockStore.symbol)
 const loading = ref(false)
 const error = ref('')
@@ -638,26 +642,26 @@ function renderTrendChart() {
   trendChart = createChart(el, {
     width,
     height: 280,
-    layout: { background: { color: 'transparent' }, textColor: '#94a3b8' },
+    layout: { background: { color: 'transparent' }, textColor: theme.muted },
     grid: {
-      vertLines: { color: 'rgba(51, 65, 85, 0.25)' },
-      horzLines: { color: 'rgba(51, 65, 85, 0.25)' },
+      vertLines: { color: theme.grid },
+      horzLines: { color: theme.grid },
     },
-    rightPriceScale: { borderColor: '#334155' },
-    leftPriceScale: { borderColor: '#334155', visible: true },
-    timeScale: { borderColor: '#334155' },
-    crosshair: { vertLine: { color: '#475569' }, horzLine: { color: '#475569' } },
+    rightPriceScale: { borderColor: theme.border },
+    leftPriceScale: { borderColor: theme.border, visible: true },
+    timeScale: { borderColor: theme.border },
+    crosshair: { vertLine: { color: theme.border }, horzLine: { color: theme.border } },
   })
   // 收盤價（左軸）
   const priceSeries = trendChart.addLineSeries({
-    color: '#38bdf8', lineWidth: 2, priceScaleId: 'left',
+    color: theme.blue, lineWidth: 2, priceScaleId: 'left',
     priceFormat: { type: 'price', precision: 2, minMove: 0.01 },
   })
   priceSeries.setData(td.price)
-  // 法人累積淨買超（右軸）
+  // 法人累積淨買超（右軸，保留台股慣例：淨買超紅、淨賣超綠）
   const lastCum = td.cumNet.length ? td.cumNet[td.cumNet.length - 1].value : 0
   const cumSeries = trendChart.addLineSeries({
-    color: lastCum >= 0 ? '#22c55e' : '#ef4444', lineWidth: 2, priceScaleId: 'right',
+    color: lastCum >= 0 ? theme.up : theme.down, lineWidth: 2, priceScaleId: 'right',
     priceFormat: { type: 'volume' },
   })
   cumSeries.setData(td.cumNet)
@@ -665,7 +669,7 @@ function renderTrendChart() {
   const c = cost.value
   if (c && c.cost !== null && c.cost !== undefined) {
     priceSeries.createPriceLine({
-      price: c.cost, color: '#f59e0b', lineWidth: 1, lineStyle: 2,
+      price: c.cost, color: theme.warn, lineWidth: 1, lineStyle: 2,
       axisLabelVisible: true, title: '主力成本',
     })
   }
@@ -676,7 +680,7 @@ function renderTrendChart() {
   trendRO.observe(el)
 }
 
-watch(trendData, async () => {
+watch([trendData, themeVersion], async () => {
   await nextTick()
   if (hasTrend.value) renderTrendChart()
   else destroyTrendChart()

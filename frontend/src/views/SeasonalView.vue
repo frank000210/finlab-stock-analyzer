@@ -1,5 +1,6 @@
 <template>
   <div class="seasonal-page">
+    <StockContextBar :symbol="symbol" />
     <PageFocusBanner text="找出這檔股票是否存在季節性慣性，作為擇時的輔助參考。" />
 
     <header class="page-header">
@@ -108,12 +109,13 @@
 </template>
 
 <script setup>
+import StockContextBar from '../components/StockContextBar.vue'
 import PageFocusBanner from '../components/PageFocusBanner.vue'
 import { ref, nextTick, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useStockStore } from '../stores/stock.js'
 import * as d3 from 'd3'
-import { useChartTheme } from '../composables/useChartTheme'
+import { useChartTheme, themeVersion } from '../composables/useChartTheme'
 import { fetchWithRetry } from '../lib/apiFetch'
 
 const route = useRoute()
@@ -229,7 +231,7 @@ function renderBoxPlot() {
   })
 }
 
-watch(data, () => nextTick(renderBoxPlot))
+watch([data, themeVersion], () => nextTick(renderBoxPlot))
 
 watch(() => route.params.symbol, (sym) => {
   if (sym && sym !== symbol.value) {

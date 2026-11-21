@@ -428,7 +428,7 @@ import EtfEventChart from '../components/etf/EtfEventChart.vue'
 import EtfDividendHealth from '../components/etf/EtfDividendHealth.vue'
 import EtfDistributionSource from '../components/etf/EtfDistributionSource.vue'
 import { metricGlossary } from '../lib/metricGlossary'
-import { useChartTheme } from '../composables/useChartTheme'
+import { useChartTheme, themeVersion } from '../composables/useChartTheme'
 import { downloadCsv, timestampedFilename } from '../lib/csvExport'
 import { loadWatchlist, saveWatchlist } from '../lib/watchlist'
 
@@ -1115,7 +1115,7 @@ function renderChart() {
   chartInstance = chart
 }
 
-watch([() => result.value, timeframe], async () => {
+watch([() => result.value, timeframe, themeVersion], async () => {
   if (!result.value) { destroyChart(); return }
   await nextTick()
   renderChart()
