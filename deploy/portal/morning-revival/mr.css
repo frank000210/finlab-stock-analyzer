@@ -68,12 +68,43 @@ a { color: var(--teal); }
   background: var(--paper); border: 1px solid var(--rule); border-radius: 12px; padding: 24px 32px 40px; min-width: 0;
 }
 .content:focus { outline: none; }
+.content [id] { scroll-margin-top: var(--mr-toolbar-h, 80px); }
 .week-head { border-bottom: 2px solid var(--teal); padding-bottom: 10px; margin-bottom: 14px; }
 .week-head .training { font-size: 13.5px; color: var(--muted); letter-spacing: 1px; }
 h2.week-title { margin: 2px 0 4px; font-size: 26px; line-height: 1.45; color: var(--teal); }
 .week-head .reading { color: var(--muted); font-size: 14.5px; }
-.jump { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 0; }
-.jump a { font-size: 14px; text-decoration: none; padding: 2px 12px; border: 1px solid var(--box-line); border-radius: 999px; background: var(--box); }
+
+/* 黏性工具列：頁內章節跳轉＋精簡／展開經文開關 */
+.mr-toolbar {
+  position: sticky; top: 8px; z-index: 20;
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  margin: 0 0 16px; padding: 8px 10px;
+  background: var(--paper);
+  background: color-mix(in srgb, var(--paper) 90%, transparent);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--border, var(--rule)); border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, .08);
+}
+.jump { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 0; }
+.mr-toolbar .jump { flex: 1 1 auto; min-width: 0; margin: 0; }
+.jump a {
+  flex: 0 0 auto; white-space: nowrap; font-size: 13.5px; text-decoration: none;
+  padding: 3px 11px; border: 1px solid var(--box-line); border-radius: 999px;
+  background: var(--box); color: var(--teal);
+  transition: background-color .15s, border-color .15s, color .15s;
+}
+.jump a:hover { border-color: var(--teal); }
+.jump a.is-active { background: var(--teal); color: var(--paper); border-color: var(--teal); font-weight: 600; }
+.jump a:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+.verse-toggle {
+  flex: none; white-space: nowrap; font: inherit; font-size: 13.5px; font-weight: 600; line-height: 1.4;
+  padding: 4px 12px; border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--box-line); background: var(--box); color: var(--ink);
+  transition: background-color .15s, border-color .15s, color .15s;
+}
+.verse-toggle:hover { border-color: var(--teal); color: var(--teal); }
+.verse-toggle.is-active { background: var(--teal); border-color: var(--teal); color: var(--paper); }
+.verse-toggle:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
 
 h3.part {
   margin: 28px 0 10px; font-size: 20px; padding: 6px 12px; border-radius: 8px;
@@ -101,15 +132,36 @@ ul.subs { list-style: none; padding-left: .5em; margin: 3px 0; text-indent: 0; }
 ul.subs > li { padding-left: 1.1em; text-indent: -1.1em; margin: 2px 0; }
 ul.subs > li::before { content: "‧ "; color: var(--teal); font-weight: 700; }
 
-/* 經節：data-ref 由 mr.js 填入恢復本全文 */
+/* 經節：data-ref 由 mr.js 填入恢復本全文（含載入佔位、失敗重試與精簡模式） */
 ul.verses { list-style: none; margin: 4px 0; padding: 8px 12px; background: var(--box); border: 1px solid var(--box-line); border-radius: 8px; }
-ul.verses > li { margin: 4px 0; padding-left: 1.1em; text-indent: -1.1em; }
+ul.verses > li { margin: 4px 0; padding-left: 1.1em; text-indent: -1.1em; transition: min-height .18s ease; }
+ul.verses > li.is-loading {
+  border-radius: 6px;
+  background: linear-gradient(90deg, transparent 0%, color-mix(in srgb, var(--rule) 55%, transparent) 50%, transparent 100%);
+}
 ul.verses > li::before { content: "◆ "; color: var(--teal); font-size: 11px; }
 ul.verses .ref { font-weight: 700; color: var(--teal); margin-right: 6px; text-decoration: none; }
 ul.verses .ref:hover { text-decoration: underline; }
 .verse-text { font-size: 16.5px; }
+.verse-text.loaded { animation: mrVerseFade .18s ease-out; }
 .verse-text sup { font-family: "Noto Sans TC", sans-serif; font-size: 10.5px; color: var(--muted); margin: 0 1px; }
 .verse-text.loading, .verse-text.failed { color: var(--muted); font-family: inherit; font-size: 14px; }
+.verse-retry {
+  display: inline-flex; align-items: center; margin-left: 8px; padding: 1px 10px; border-radius: 999px;
+  font: inherit; font-size: 13px; font-weight: 600; line-height: 1.5; cursor: pointer;
+  border: 1px solid var(--teal); background: var(--paper); color: var(--teal);
+  vertical-align: baseline; text-indent: 0;
+  transition: background-color .15s, color .15s;
+}
+.verse-retry:hover { background: var(--teal); color: var(--paper); }
+.verse-retry:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+@keyframes mrVerseFade { from { opacity: .45; } to { opacity: 1; } }
+
+/* 精簡經文模式：只保留可點擊的經節索引，降低高度跳動並方便速讀 */
+.content.verses-compact ul.verses { display: flex; flex-wrap: wrap; gap: 4px 14px; padding: 6px 12px; }
+.content.verses-compact ul.verses > li { margin: 0; padding-left: 0; text-indent: 0; min-height: 0 !important; background: none; }
+.content.verses-compact ul.verses .ref { margin-right: 0; font-size: 14.5px; }
+.content.verses-compact .verse-text { display: none; }
 
 .note {
   font-size: 14px; background: var(--tip); border: 1px dashed var(--tip-line); border-radius: 8px;
@@ -126,7 +178,34 @@ ol.pts .note { text-indent: 0; margin: 6px 0 4px; }  /* 屬靈要點條目底下
 .stages { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 8px 0; }
 .stages div { background: var(--box); border: 1px solid var(--box-line); border-radius: 8px; padding: 6px 10px; font-size: 14px; line-height: 1.5; }
 .stages b { display: block; color: var(--teal); }
-.foot { margin-top: 30px; padding-top: 10px; border-top: 1px dashed var(--rule); font-size: 13px; color: var(--muted); }
+
+/* 文末上下週與回頂部導覽列 */
+.week-nav {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: 10px; align-items: stretch; margin: 28px 0 8px;
+}
+.week-nav-btn {
+  display: flex; flex-direction: column; justify-content: center; gap: 2px; min-width: 0;
+  padding: 10px 14px; border-radius: 10px; border: 1px solid var(--box-line);
+  background: var(--box); color: var(--ink); text-decoration: none; font: inherit; line-height: 1.45;
+  transition: border-color .15s, background-color .15s, color .15s;
+}
+a.week-nav-btn:hover, button.week-nav-btn:hover { border-color: var(--teal); color: var(--teal); }
+a.week-nav-btn:focus-visible, button.week-nav-btn:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+.week-nav-btn.next { text-align: right; }
+.week-nav-btn.top {
+  cursor: pointer; align-items: center; justify-content: center;
+  font-weight: 600; font-size: 14px; color: var(--teal); white-space: nowrap; padding: 10px 16px;
+}
+.week-nav-btn .wn-dir { font-size: 12.5px; font-weight: 700; color: var(--teal); }
+.week-nav-btn .wn-title {
+  font-size: 14px; color: var(--ink);
+  overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+}
+.week-nav-btn.is-disabled { opacity: .55; cursor: default; border-style: dashed; }
+.week-nav-btn.is-disabled .wn-dir, .week-nav-btn.is-disabled .wn-title { color: var(--muted); }
+
+.foot { margin-top: 22px; padding-top: 10px; border-top: 1px dashed var(--rule); font-size: 13px; color: var(--muted); }
 
 /* ===== 風格⑦ 筆記本：紙張、便利貼、一句話、色卡 =====
    顏色有固定意義：藍卡＝經文與要點（內容）、紫卡＝負擔與建議、橘卡＝問題或待補；不要為了好看換色。 */
@@ -228,6 +307,18 @@ figure.sketch .legend svg { width: 40px; height: 12px; overflow: visible; displa
   .menu, .sources { display: none; }
   .side.open .menu, .side.open .sources { display: block; margin-top: 10px; }
   .content { padding: 16px 16px 30px; }
+  .mr-toolbar {
+    top: 0; padding: 7px 8px; gap: 8px; margin: 0 0 12px;
+    border-radius: 0 0 10px 10px;
+  }
+  .mr-toolbar .jump {
+    flex-wrap: nowrap; overflow-x: auto; padding-bottom: 2px;
+    scrollbar-width: none; -webkit-overflow-scrolling: touch;
+  }
+  .mr-toolbar .jump::-webkit-scrollbar { display: none; }
+  .verse-toggle { font-size: 13px; padding: 4px 10px; }
+  .week-nav { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
+  .week-nav .top { grid-column: 1 / -1; order: 3; }
   .pair, .stages, .cards, .groups { grid-template-columns: 1fr; }
   .content.paper { background: var(--paper); padding-left: 16px; }
   .week-head.has-sticky { padding-right: 0; min-height: 0; }
@@ -247,4 +338,8 @@ figure.sketch .legend svg { width: 40px; height: 12px; overflow: visible; displa
   .tree .n.l1, .tree .n.l2, .tree .n.l3, .tree .n.l4 { width: auto; display: inline-block; }
   h2.week-title { font-size: 22px; }
 }
-@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  ul.verses > li { transition: none; }
+  .verse-text.loaded { animation: none; }
+}
