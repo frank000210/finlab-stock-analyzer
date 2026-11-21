@@ -311,6 +311,7 @@ test('查無資料的標的只提示、不影響其他標的；全數失敗顯�
 test('Ctrl+K 與側邊欄都能到 ETF 比較頁', async ({ page }) => {
   await mockApi(page)
   await page.goto('/')
+  await page.getByTestId('sidebar-toggle-all').click()
   await expect(page.locator('aside a[href="/etf-compare"]').first()).toBeVisible()
 
   await page.keyboard.press('Control+k')

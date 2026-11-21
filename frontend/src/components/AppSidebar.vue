@@ -88,8 +88,8 @@
             v-if="showFull"
             type="button"
             class="pin-action-btn pinned"
-            :aria-label="`取消釘選 ${item.label}`"
-            title="取消釘選"
+            aria-label="移除常用捷徑"
+            :title="`移除常用：${item.label}`"
             @click.prevent.stop="togglePin(item.key)"
           >
             <PinOff :size="12" />
@@ -115,12 +115,15 @@
         :key="group.id"
         :data-testid="`sidebar-group-${group.id}`"
       >
-        <button
+        <div
           v-if="showFull"
-          type="button"
+          role="heading"
+          aria-level="3"
+          tabindex="0"
           class="nav-group-toggle"
           :aria-expanded="isGroupExpanded(group.id) ? 'true' : 'false'"
           @click="toggleGroup(group.id)"
+          @keydown.enter.space.prevent="toggleGroup(group.id)"
         >
           <span class="nav-group-title">{{ group.title }}</span>
           <span class="nav-group-meta">
@@ -128,7 +131,7 @@
             <ChevronDown v-if="isGroupExpanded(group.id)" :size="13" />
             <ChevronRight v-else :size="13" />
           </span>
-        </button>
+        </div>
 
         <div v-if="showFull ? isGroupExpanded(group.id) : true" class="nav-group-items">
           <div
@@ -152,8 +155,8 @@
               class="pin-action-btn"
               :class="{ pinned: isPinned(item.key) }"
               :data-testid="`pin-btn-${item.key}`"
-              :aria-label="isPinned(item.key) ? `取消釘選 ${item.label}` : `釘選 ${item.label}`"
-              :title="isPinned(item.key) ? '取消釘選' : '釘選到常用'"
+              :aria-label="isPinned(item.key) ? '移除常用捷徑' : '加入常用捷徑'"
+              :title="isPinned(item.key) ? `移除常用：${item.label}` : `加入常用：${item.label}`"
               @click.prevent.stop="togglePin(item.key)"
             >
               <Pin :size="12" />

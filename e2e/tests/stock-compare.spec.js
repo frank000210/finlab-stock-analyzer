@@ -70,6 +70,7 @@ test('多股比較頁：加入股票、繪製相對表現圖、匯出 CSV (Y6)',
 
 test('多股比較頁：側邊欄有連結、最多 4 檔限制', async ({ page }) => {
   await page.goto('/')
+  await page.getByTestId('sidebar-toggle-all').click()
   await page.getByRole('link', { name: /多股比較/ }).click()
   await expect(page).toHaveURL(/\/compare/)
   await expect(page.getByText(/最多同時比較 4 檔/)).toBeVisible()
