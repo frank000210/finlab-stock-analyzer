@@ -58,6 +58,7 @@ test('XX3 open position aging shows days held vs avg win hold time', async ({ pa
   await page.goto('/decision')
   await page.evaluate((t) => localStorage.setItem('finlab_trade_journal', JSON.stringify(t)), makeXXTrades())
   await page.reload()
+  await page.getByTestId('decision-tab-discipline').click()
 
   await expect(page.getByText('開倉逾期警示')).toBeVisible()
   await expect(page.locator('.xx-aging-table')).toBeVisible()
@@ -73,6 +74,7 @@ test('XX4 open tag concentration shows bar chart and warn when >50%', async ({ p
   await page.goto('/decision')
   await page.evaluate((t) => localStorage.setItem('finlab_trade_journal', JSON.stringify(t)), makeXXTrades())
   await page.reload()
+  await page.getByTestId('decision-tab-discipline').click()
 
   await expect(page.getByText('開倉標籤集中度')).toBeVisible()
   await expect(page.locator('.xx-tagconc-bars')).toBeVisible()

@@ -62,6 +62,7 @@ test('ZZ3 breakeven margin shows actual vs required win rate and RR', async ({ p
   await page.goto('/decision')
   await page.evaluate((t) => localStorage.setItem('finlab_trade_journal', JSON.stringify(t)), makeZZTrades())
   await page.reload()
+  await page.getByTestId('decision-tab-review').click()
 
   await expect(page.locator('.zz-breakeven-card')).toBeVisible()
   await expect(page.locator('.zz-breakeven-card')).toContainText('損益平衡安全邊際')
@@ -111,6 +112,7 @@ test('ZZ7 tag-month heatmap renders table with rows and columns', async ({ page 
   await page.goto('/risk-monitor')
   await page.evaluate((t) => localStorage.setItem('finlab_trade_journal', JSON.stringify(t)), makeZZTrades())
   await page.reload()
+  await page.getByTestId('risk-tab-performance').click()
 
   await expect(page.locator('.zz-tag-month')).toBeVisible({ timeout: 10_000 })
   await expect(page.locator('.zz-heatmap-table')).toBeVisible()
@@ -136,6 +138,7 @@ test('ZZ9 setup tier distribution shows tight/medium/loose tiers', async ({ page
   await page.goto('/decision')
   await page.evaluate((t) => localStorage.setItem('finlab_trade_journal', JSON.stringify(t)), makeZZTrades())
   await page.reload()
+  await page.getByTestId('decision-tab-review').click()
 
   await expect(page.locator('.zz-setup-tier')).toBeVisible()
   await expect(page.locator('.zz-setup-tier')).toContainText('進場品質分層')
@@ -148,6 +151,7 @@ test('ZZ10 composite wizard score shows total and 5 component bars', async ({ pa
   await page.goto('/risk-monitor')
   await page.evaluate((t) => localStorage.setItem('finlab_trade_journal', JSON.stringify(t)), makeZZTrades())
   await page.reload()
+  await page.getByTestId('risk-tab-diagnostics').click()
 
   await expect(page.locator('.zz-wizard-score')).toBeVisible({ timeout: 10_000 })
   expect(await page.locator('.zz-wizard-row').count()).toBe(5)

@@ -95,6 +95,7 @@ test('CCC4 rolling win rate trend shows first-10 vs last-10 improvement', async 
   await page.goto('/risk-monitor')
   await page.evaluate((t) => localStorage.setItem('finlab_trade_journal', JSON.stringify(t)), makeCCCTrades())
   await page.reload()
+  await page.getByTestId('risk-tab-diagnostics').click()
 
   await expect(page.locator('.ccc-rollwinrate')).toBeVisible({ timeout: 10_000 })
   await expect(page.locator('.ccc-rollwinrate')).toContainText('%')
@@ -107,6 +108,7 @@ test('CCC5 streak frequency shows consecutive loss distribution', async ({ page 
   await page.goto('/risk-monitor')
   await page.evaluate((t) => localStorage.setItem('finlab_trade_journal', JSON.stringify(t)), makeCCCTrades())
   await page.reload()
+  await page.getByTestId('risk-tab-diagnostics').click()
 
   await expect(page.locator('.ccc-streakfreq')).toBeVisible({ timeout: 10_000 })
   await expect(page.locator('.ccc-streakfreq')).toContainText('連虧')
@@ -143,6 +145,7 @@ test('CCC8 SQN shows system quality rating and mean/std R', async ({ page }) => 
   await page.goto('/risk-monitor')
   await page.evaluate((t) => localStorage.setItem('finlab_trade_journal', JSON.stringify(t)), makeCCCTrades())
   await page.reload()
+  await page.getByTestId('risk-tab-diagnostics').click()
 
   await expect(page.locator('.ccc-sqn')).toBeVisible({ timeout: 10_000 })
   await expect(page.locator('.ccc-sqn')).toContainText('SQN')
@@ -155,6 +158,7 @@ test('CCC9 symbol HHI shows concentration index and diversity rating', async ({ 
   await page.goto('/decision')
   await page.evaluate((t) => localStorage.setItem('finlab_trade_journal', JSON.stringify(t)), makeCCCTrades())
   await page.reload()
+  await page.getByTestId('decision-tab-review').click()
 
   await expect(page.locator('.ccc-symbol-hhi')).toBeVisible()
   await expect(page.locator('.ccc-symbol-hhi')).toContainText('HHI')

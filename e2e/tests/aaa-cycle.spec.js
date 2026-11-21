@@ -53,6 +53,7 @@ test('AAA2 planned R:R quality shows low/mid/high tier avg realized R', async ({
   await page.goto('/decision')
   await page.evaluate((t) => localStorage.setItem('finlab_trade_journal', JSON.stringify(t)), makeAAATrades())
   await page.reload()
+  await page.getByTestId('decision-tab-review').click()
 
   await expect(page.locator('.aaa-planned-rr')).toBeVisible()
   await expect(page.locator('.aaa-planned-rr')).toContainText('R:R')
@@ -65,6 +66,7 @@ test('AAA3 streak sizing bias shows lots after win vs loss streaks', async ({ pa
   await page.goto('/decision')
   await page.evaluate((t) => localStorage.setItem('finlab_trade_journal', JSON.stringify(t)), makeAAATrades())
   await page.reload()
+  await page.getByTestId('decision-tab-review').click()
 
   await expect(page.locator('.aaa-streak-bias')).toBeVisible()
   await expect(page.locator('.aaa-streak-bias')).toContainText('張')
@@ -101,6 +103,7 @@ test('AAA6 impulse trade rate shows % entries within 1 day of a loss', async ({ 
   await page.goto('/decision')
   await page.evaluate((t) => localStorage.setItem('finlab_trade_journal', JSON.stringify(t)), makeAAATrades())
   await page.reload()
+  await page.getByTestId('decision-tab-review').click()
 
   await expect(page.locator('.aaa-impulse-card')).toBeVisible()
   await expect(page.locator('.aaa-impulse-card')).toContainText('%')
@@ -137,6 +140,7 @@ test('AAA9 monthly return volatility shows std and monthly breakdown', async ({ 
   await page.goto('/risk-monitor')
   await page.evaluate((t) => localStorage.setItem('finlab_trade_journal', JSON.stringify(t)), makeAAATrades())
   await page.reload()
+  await page.getByTestId('risk-tab-performance').click()
 
   await expect(page.locator('.aaa-monthly-vol')).toBeVisible({ timeout: 10_000 })
   await expect(page.locator('.aaa-monthly-vol')).toContainText('R')
@@ -149,6 +153,7 @@ test('AAA10 turtle compliance shows stop-set and target-set rates', async ({ pag
   await page.goto('/risk-monitor')
   await page.evaluate((t) => localStorage.setItem('finlab_trade_journal', JSON.stringify(t)), makeAAATrades())
   await page.reload()
+  await page.getByTestId('risk-tab-diagnostics').click()
 
   await expect(page.locator('.aaa-compliance')).toBeVisible({ timeout: 10_000 })
   await expect(page.locator('.aaa-compliance')).toContainText('%')

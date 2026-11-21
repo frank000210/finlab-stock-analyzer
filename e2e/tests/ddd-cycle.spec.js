@@ -85,6 +85,7 @@ test('DDD3 Dalio monthly Sharpe shows per-month risk-adjusted return', async ({ 
   await page.goto('/risk-monitor')
   await page.evaluate((t) => localStorage.setItem('finlab_trade_journal', JSON.stringify(t)), makeDDDTrades())
   await page.reload()
+  await page.getByTestId('risk-tab-performance').click()
 
   await expect(page.locator('.ddd-dalio-sharpe')).toBeVisible({ timeout: 10_000 })
   await expect(page.locator('.ddd-dalio-sharpe')).toContainText('Sharpe')
@@ -133,6 +134,7 @@ test('DDD7 Templeton tag HHI shows sector/style concentration index', async ({ p
   await page.goto('/decision')
   await page.evaluate((t) => localStorage.setItem('finlab_trade_journal', JSON.stringify(t)), makeDDDTrades())
   await page.reload()
+  await page.getByTestId('decision-tab-review').click()
 
   await expect(page.locator('.ddd-templeton-hhi')).toBeVisible()
   await expect(page.locator('.ddd-templeton-hhi')).toContainText('HHI')
@@ -169,6 +171,7 @@ test('DDD10 Swensen post-good-month shows performance after top-quartile months'
   await page.goto('/risk-monitor')
   await page.evaluate((t) => localStorage.setItem('finlab_trade_journal', JSON.stringify(t)), makeDDDTrades())
   await page.reload()
+  await page.getByTestId('risk-tab-performance').click()
 
   await expect(page.locator('.ddd-swensen-decay')).toBeVisible({ timeout: 10_000 })
   await expect(page.locator('.ddd-swensen-decay')).toContainText('R')

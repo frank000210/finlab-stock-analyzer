@@ -86,6 +86,7 @@ test('WW5 R-per-day efficiency card shows positive value', async ({ page }) => {
 // WW6: Pre-trade checklist in DecisionView (Mark Douglas)
 test('WW6 pre-trade checklist shows 5 items and tracks completion', async ({ page }) => {
   await page.goto('/decision')
+  await page.getByTestId('decision-tab-discipline').click()
 
   await expect(page.getByText('開盤前確認清單')).toBeVisible()
   // 5 checklist items
@@ -146,6 +147,7 @@ test('WW9 monthly return stats show median, std, and positive month pct', async 
 // WW10: Daily max-loss tracker in DecisionView (Minervini)
 test('WW10 daily max-loss tracker renders with R limit input and current R', async ({ page }) => {
   await page.goto('/decision')
+  await page.getByTestId('decision-tab-discipline').click()
 
   await expect(page.getByText('今日最大虧損限制')).toBeVisible()
   await expect(page.locator('.ww-dayloss-card')).toContainText('今日已實現')

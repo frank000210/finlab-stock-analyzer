@@ -73,6 +73,7 @@ test('BBB2 edge decay shows recent vs historical avg R', async ({ page }) => {
   await page.goto('/risk-monitor')
   await page.evaluate((t) => localStorage.setItem('finlab_trade_journal', JSON.stringify(t)), makeBBBTrades())
   await page.reload()
+  await page.getByTestId('risk-tab-diagnostics').click()
 
   await expect(page.locator('.bbb-edge-decay')).toBeVisible({ timeout: 10_000 })
   await expect(page.locator('.bbb-edge-decay')).toContainText('R')
@@ -97,6 +98,7 @@ test('BBB4 patience index shows avg monthly R by trade frequency tier', async ({
   await page.goto('/decision')
   await page.evaluate((t) => localStorage.setItem('finlab_trade_journal', JSON.stringify(t)), makeBBBTrades())
   await page.reload()
+  await page.getByTestId('decision-tab-review').click()
 
   await expect(page.locator('.bbb-patience-index')).toBeVisible()
   await expect(page.locator('.bbb-patience-index')).toContainText('筆')
@@ -145,6 +147,7 @@ test('BBB8 recovery speed shows longest streak and trades to recover', async ({ 
   await page.goto('/risk-monitor')
   await page.evaluate((t) => localStorage.setItem('finlab_trade_journal', JSON.stringify(t)), makeBBBTrades())
   await page.reload()
+  await page.getByTestId('risk-tab-diagnostics').click()
 
   await expect(page.locator('.bbb-recovery-speed')).toBeVisible({ timeout: 10_000 })
   await expect(page.locator('.bbb-recovery-speed')).toContainText('連虧')

@@ -88,6 +88,7 @@ test('UU4 R skewness section visible with sufficient trade data', async ({ page 
 // UU5: Today's trading plan card in Decision view
 test('UU5 daily trading plan card renders and persists input', async ({ page }) => {
   await page.goto('/decision')
+  await page.getByTestId('decision-tab-discipline').click()
   await expect(page.getByText('今日交易計劃')).toBeVisible()
 
   // Initially unset

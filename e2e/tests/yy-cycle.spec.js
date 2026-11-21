@@ -100,6 +100,7 @@ test('YY6 stop distance CV shows systematic label and CV value', async ({ page }
   await page.goto('/decision')
   await page.evaluate((t) => localStorage.setItem('finlab_trade_journal', JSON.stringify(t)), makeYYTrades())
   await page.reload()
+  await page.getByTestId('decision-tab-review').click()
 
   await expect(page.locator('.yy-stopdist-card')).toBeVisible()
   await expect(page.locator('.yy-stopdist-card')).toContainText('CV')
@@ -112,6 +113,7 @@ test('YY7 planned RR achievement shows bar chart', async ({ page }) => {
   await page.goto('/decision')
   await page.evaluate((t) => localStorage.setItem('finlab_trade_journal', JSON.stringify(t)), makeYYTrades())
   await page.reload()
+  await page.getByTestId('decision-tab-review').click()
 
   await expect(page.locator('.yy-rrach-card')).toBeVisible()
   await expect(page.locator('.yy-rrach-bars')).toBeVisible()
@@ -125,6 +127,7 @@ test('YY8 expectancy phases show early/mid/recent columns', async ({ page }) => 
   await page.goto('/risk-monitor')
   await page.evaluate((t) => localStorage.setItem('finlab_trade_journal', JSON.stringify(t)), makeYYTrades())
   await page.reload()
+  await page.getByTestId('risk-tab-performance').click()
 
   await expect(page.getByText('期望值成長軌跡')).toBeVisible({ timeout: 10_000 })
   await expect(page.locator('.yy-phase-row').first()).toBeVisible()
@@ -139,6 +142,7 @@ test('YY9 equity curve R-squared shows smoothness score', async ({ page }) => {
   await page.goto('/risk-monitor')
   await page.evaluate((t) => localStorage.setItem('finlab_trade_journal', JSON.stringify(t)), makeYYTrades())
   await page.reload()
+  await page.getByTestId('risk-tab-performance').click()
 
   await expect(page.locator('.card').filter({ hasText: '權益曲線平滑度' })).toBeVisible({ timeout: 10_000 })
   await expect(page.locator('.card').filter({ hasText: 'R²' }).last()).toContainText('R²')
@@ -159,6 +163,7 @@ test('YY10 checklist compliance shows 30-day completion rate', async ({ page }) 
     }
   })
   await page.reload()
+  await page.getByTestId('decision-tab-discipline').click()
 
   await expect(page.locator('.yy-compliance-card')).toBeVisible()
   await expect(page.locator('.yy-compliance-card')).toContainText('30天')

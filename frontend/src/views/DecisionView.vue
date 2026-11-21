@@ -1416,41 +1416,34 @@ async function loadDashboard(force = false) {
 // 60 秒自動輪詢，之後每次都只是原地回傳同一份舊資料，主力成本／籌碼分數
 // 實質上停在第一次載入當下，不會真的更新。force 為 true 時略過快取直接重抓。
 async function hydrateSymbol(symbol, token, force = false) {
-  const [profileResult, historyResult, costResult, healthResult] = await Promise.allSettled([
-    fetchProfile(symbol),
-    fetchHistory(symbol),
-    fetchMajorCost(symbol, force),
-    fetchChipScore(symbol, force),
+  const tasks = [
+    fetchProfile(symbol).then((val) => {
+      if (token === requestToken && val) {
+        profiles.value = { ...profiles.value, [symbol]: val }
+      }
+    }),
+    fetchHistory(symbol).then((val) => {
+      if (token === requestToken && val) {
+        histories.value = { ...histories.value, [symbol]: val }
+      }
+    }),
+    fetchMajorCost(symbol, force).then((val) => {
+      if (token === requestToken && val) {
+        costs.value = { ...costs.value, [symbol]: val }
+      }
+    }),
+  ]
+  // chip-score（TDCC 外網）採非阻塞漸進更新，避免外部來源逾時卡住主清單與「立即更新」按鈕
+  const chipTask = fetchChipScore(symbol, force).then((val) => {
+    if (token === requestToken && val) {
+      healths.value = { ...healths.value, [symbol]: val }
+    }
+  }).catch(() => {})
+
+  await Promise.allSettled([
+    ...tasks,
+    Promise.race([chipTask, new Promise((resolve) => setTimeout(resolve, 6000))]),
   ])
-  if (token !== requestToken) return
-
-  if (profileResult.status === 'fulfilled' && profileResult.value) {
-    profiles.value = {
-      ...profiles.value,
-      [symbol]: profileResult.value,
-    }
-  }
-
-  if (historyResult.status === 'fulfilled') {
-    histories.value = {
-      ...histories.value,
-      [symbol]: historyResult.value,
-    }
-  }
-
-  if (costResult.status === 'fulfilled' && costResult.value) {
-    costs.value = {
-      ...costs.value,
-      [symbol]: costResult.value,
-    }
-  }
-
-  if (healthResult.status === 'fulfilled' && healthResult.value) {
-    healths.value = {
-      ...healths.value,
-      [symbol]: healthResult.value,
-    }
-  }
 }
 
 async function fetchMajorCost(symbol, force = false) {
