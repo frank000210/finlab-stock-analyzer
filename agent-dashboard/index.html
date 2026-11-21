@@ -204,6 +204,29 @@
     </div>
   </div>
 
+  <!-- Unlock Write Access Modal -->
+  <div class="modal-backdrop" id="unlock-modal" aria-hidden="true">
+    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="unlock-modal-title" style="max-width:440px;">
+      <div class="modal-head">
+        <h2 id="unlock-modal-title">🔑 解鎖儀表板編輯權限</h2>
+        <button class="ctrl-btn" id="unlock-close-btn" type="button" aria-label="關閉">✕</button>
+      </div>
+      <form id="unlock-form" class="modal-form">
+        <p style="margin:0;font-size:0.84rem;color:var(--muted);line-height:1.6;">
+          為防止公開訪客誤改任務，新增／派工／核准／刪除須先驗證管理金鑰（亦支援 FinLab 後台管理密鑰）。驗證一次後將自動記住於您的瀏覽器，不需重複輸入。
+        </p>
+        <label>管理金鑰 *
+          <input type="password" id="f-unlock-token" required autocomplete="current-password" placeholder="貼上管理金鑰後按 Enter 解鎖…">
+        </label>
+        <div id="unlock-err" style="display:none;color:#ef4444;font-size:0.8rem;font-weight:700;"></div>
+        <div class="modal-actions">
+          <button class="ctrl-btn" id="unlock-cancel-btn" type="button">取消</button>
+          <button class="ctrl-btn primary-btn" type="submit">🔓 驗證並解鎖</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- Report Reader Modal -->
   <div class="modal-backdrop" id="report-modal" aria-hidden="true">
     <div class="modal-box report-modal-box" role="dialog" aria-modal="true" aria-labelledby="report-modal-title">

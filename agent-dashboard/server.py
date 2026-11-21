@@ -17,16 +17,24 @@ from pydantic import BaseModel, Field
 import db_store
 
 WRITE_TOKEN = os.environ.get("AGENT_DASHBOARD_WRITE_TOKEN", "").strip()
+ALT_ADMIN_TOKEN = os.environ.get("AGENT_DASHBOARD_ALT_TOKEN", "").strip()
 
 
 def _token_ok(provided: str) -> bool:
-    if not WRITE_TOKEN:
+    if not WRITE_TOKEN and not ALT_ADMIN_TOKEN:
         return True
-    return hmac.compare_digest(provided.strip(), WRITE_TOKEN)
+    val = provided.strip()
+    if not val:
+        return False
+    if WRITE_TOKEN and hmac.compare_digest(val, WRITE_TOKEN):
+        return True
+    if ALT_ADMIN_TOKEN and hmac.compare_digest(val, ALT_ADMIN_TOKEN):
+        return True
+    return False
 
 
 def require_write(request: Request) -> None:
-    if not WRITE_TOKEN:
+    if not WRITE_TOKEN and not ALT_ADMIN_TOKEN:
         return
     provided = request.headers.get("X-Dashboard-Token", "")
     if not _token_ok(provided):

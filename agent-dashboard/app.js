@@ -670,25 +670,70 @@
       .catch(function () {});
   }
 
-  function promptUnlockToken() {
-    var entered = window.prompt('請輸入 Agent 工作儀表板管理金鑰（驗證一次即自動記住於本機瀏覽器）：', '');
-    if (!entered || !entered.trim()) return Promise.resolve(false);
-    var tok = entered.trim();
+  var _unlockResolver = null;
+
+  function openUnlockModal() {
+    var m = document.getElementById('unlock-modal');
+    var inp = document.getElementById('f-unlock-token');
+    var err = document.getElementById('unlock-err');
+    if (!m || !inp) return Promise.resolve(false);
+    if (err) { err.style.display = 'none'; err.textContent = ''; }
+    inp.value = '';
+    m.classList.add('open');
+    m.setAttribute('aria-hidden', 'false');
+    setTimeout(function () { inp.focus(); }, 30);
+    return new Promise(function (resolve) {
+      _unlockResolver = resolve;
+    });
+  }
+
+  function closeUnlockModal(result) {
+    var m = document.getElementById('unlock-modal');
+    if (m) {
+      m.classList.remove('open');
+      m.setAttribute('aria-hidden', 'true');
+    }
+    if (_unlockResolver) {
+      var fn = _unlockResolver;
+      _unlockResolver = null;
+      fn(!!result);
+    }
+  }
+
+  function verifyWriteToken(tok, silentSuccess) {
+    var clean = String(tok || '').trim();
+    if (!clean) return Promise.resolve(false);
     return fetch('/api/auth/verify', {
       method: 'POST',
-      headers: { 'X-Dashboard-Token': tok }
+      headers: { 'X-Dashboard-Token': clean }
     }).then(function (r) {
       if (!r.ok) throw new Error('管理金鑰錯誤，請再確認');
-      state.writeToken = tok;
+      state.writeToken = clean;
       state.writeUnlocked = true;
-      localStorage.setItem(LS_WRITE_TOKEN, tok);
+      localStorage.setItem(LS_WRITE_TOKEN, clean);
       updateUnlockButton();
-      showToast('🔓 已解鎖編輯權限', '可進行新增、派工、核准與更新狀態。', 'done');
+      if (!silentSuccess) {
+        showToast('🔓 已解鎖編輯權限', '可自由進行新增工作、派工、核准與更新狀態。', 'done');
+      }
       return true;
-    }).catch(function (err) {
-      showToast('解鎖失敗', err.message, 'blocked');
-      return false;
     });
+  }
+
+  function tryHashAutoUnlock() {
+    var h = String(location.hash || '');
+    var m = h.match(/^#unlock=(.+)$/);
+    if (!m) return Promise.resolve();
+    var tok = decodeURIComponent(m[1] || '').trim();
+    // Immediately scrub token from URL bar so it never leaks in screenshots or history
+    try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
+    if (!tok) return Promise.resolve();
+    return verifyWriteToken(tok, false).catch(function (err) {
+      showToast('自動解鎖失敗', err.message, 'blocked');
+    });
+  }
+
+  function promptUnlockToken() {
+    return openUnlockModal();
   }
 
   function apiWriteFetch(url, opts) {
@@ -785,14 +830,21 @@
   }
 
   function openModal() {
-    populateAgentSelect();
-    if (state.selectedAgentId) {
-      document.getElementById('f-agent').value = state.selectedAgentId;
+    var show = function () {
+      populateAgentSelect();
+      if (state.selectedAgentId) {
+        document.getElementById('f-agent').value = state.selectedAgentId;
+      }
+      var m = document.getElementById('task-modal');
+      m.classList.add('open');
+      m.setAttribute('aria-hidden', 'false');
+      document.getElementById('f-title').focus();
+    };
+    if (state.writeProtected && !state.writeUnlocked) {
+      openUnlockModal().then(function (ok) { if (ok) show(); });
+      return;
     }
-    var m = document.getElementById('task-modal');
-    m.classList.add('open');
-    m.setAttribute('aria-hidden', 'false');
-    document.getElementById('f-title').focus();
+    show();
   }
 
   function closeModal() {
@@ -1051,10 +1103,33 @@
       });
     }
 
+    var unlockClose = document.getElementById('unlock-close-btn');
+    var unlockCancel = document.getElementById('unlock-cancel-btn');
+    var unlockModal = document.getElementById('unlock-modal');
+    var unlockForm = document.getElementById('unlock-form');
+    if (unlockClose) unlockClose.addEventListener('click', function () { closeUnlockModal(false); });
+    if (unlockCancel) unlockCancel.addEventListener('click', function () { closeUnlockModal(false); });
+    if (unlockModal) unlockModal.addEventListener('click', function (e) { if (e.target === e.currentTarget) closeUnlockModal(false); });
+    if (unlockForm) {
+      unlockForm.addEventListener('submit', function (e) {
+        e.preventDefault();
+        var inp = document.getElementById('f-unlock-token');
+        var err = document.getElementById('unlock-err');
+        if (err) { err.style.display = 'none'; err.textContent = ''; }
+        verifyWriteToken(inp ? inp.value : '', false).then(function () {
+          closeUnlockModal(true);
+        }).catch(function (ex) {
+          if (err) { err.textContent = ex.message || '驗證失敗'; err.style.display = 'block'; }
+        });
+      });
+    }
+
     renderAll();
 
     if (isHttp) {
-      checkAuthStatus().then(function () {
+      tryHashAutoUnlock().then(function () {
+        return checkAuthStatus();
+      }).then(function () {
         return fetchApiState();
       }).then(function (ok) {
         updateUnlockButton();
