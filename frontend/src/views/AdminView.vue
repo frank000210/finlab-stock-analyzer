@@ -484,7 +484,7 @@ const loginError = ref('')
 // 先前都是空的 catch {}，網路/解析失敗時畫面會跟「本來就沒資料」長得一模
 // 一樣（顯示「尚無紀錄」等空狀態），管理員完全看不出東西是不是真的壞了。
 const loadError = ref('')
-const activeTab = ref('logs')
+const ADMIN_TAB_KEY = 'finlab_admin_active_tab'
 const tabs = [
   { key: 'logs', icon: '📋', label: '訪客紀錄' },
   { key: 'pageviews', icon: '📊', label: '瀏覽統計' },
@@ -494,6 +494,14 @@ const tabs = [
   { key: 'admins', icon: '👤', label: '管理員' },
   { key: 'notify', icon: '🔔', label: '通知設定' },
 ]
+function readSavedTab() {
+  try {
+    const saved = sessionStorage.getItem(ADMIN_TAB_KEY)
+    if (saved && tabs.some((t) => t.key === saved)) return saved
+  } catch { /* ignore */ }
+  return 'logs'
+}
+const activeTab = ref(readSavedTab())
 
 const stats = ref({ today_visitors: 0, total_pageviews: 0, unique_visitors: 0 })
 const logs = ref([])
@@ -1129,6 +1137,7 @@ async function triggerStoreSync() {
 }
 
 watch(activeTab, (tab) => {
+  try { sessionStorage.setItem(ADMIN_TAB_KEY, tab) } catch { /* ignore */ }
   if (tab === 'store' && authStore.isAdmin) {
     loadStoreTab({ preserveDirty: true })
   }
@@ -1146,7 +1155,9 @@ onMounted(async () => {
     return
   }
   if (authStore.isAdmin) {
-    await Promise.all([loadStats(), loadLogs(), loadPageviews(), loadLlmUsage(), loadSettings(), loadAdmins()])
+    const tasks = [loadStats(), loadLogs(), loadPageviews(), loadLlmUsage(), loadSettings(), loadAdmins()]
+    if (activeTab.value === 'store') tasks.push(loadStoreTab({ preserveDirty: true }))
+    await Promise.all(tasks)
   } else if (authStore.isLoggedIn) {
     // Logged in but not an authorized admin
     loginError.value = '此帳號未獲授權進入後台'

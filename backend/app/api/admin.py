@@ -88,10 +88,12 @@ async def require_admin(token: Optional[str] = Header(default=None, alias="X-Adm
 
 
 def _serialize_document(doc: dict) -> dict:
-    serialized = jsonable_encoder(doc)
-    if "_id" in doc:
-        serialized["_id"] = str(doc["_id"])
-    return serialized
+    clean = {k: (str(v) if k == "_id" else v) for k, v in doc.items()}
+    try:
+        from bson import ObjectId
+        return jsonable_encoder(clean, custom_encoder={ObjectId: str})
+    except Exception:
+        return jsonable_encoder(clean)
 
 
 async def _ensure_setting_helpers_available() -> None:

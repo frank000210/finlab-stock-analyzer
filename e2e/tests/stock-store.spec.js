@@ -104,7 +104,12 @@ function attachErrorWatchers(page) {
   const consoleErrors = []
   page.on('pageerror', (err) => pageErrors.push(String(err)))
   page.on('console', (msg) => {
-    if (msg.type() === 'error') consoleErrors.push(msg.text())
+    if (msg.type() !== 'error') return
+    const text = msg.text()
+    // 忽略測試容器無外網時的外部字型 DNS 錯誤，以及未登入一般會員時的全站 auth/me 401 探測
+    if (/ERR_NAME_NOT_RESOLVED/i.test(text)) return
+    if (/status of 401 \(Unauthorized\)/i.test(text)) return
+    consoleErrors.push(text)
   })
   return { pageErrors, consoleErrors }
 }
